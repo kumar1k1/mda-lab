@@ -235,9 +235,6 @@ function netChart(items, avg) {
     g.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); pinHandPop(it, v, null, g); } });
     s.append(g);
   });
-  if (avg != null) {
-    s.append(svgEl('line', { x1: P.l, x2: W - P.r, y1: y(avg), y2: y(avg) }, 'stroke:var(--amber);stroke-width:1.2;stroke-dasharray:5 4'));
-  }
   s.append(svgText(P.l - 6, H - P.b + 44, '%', 'end', 'font-size:10px;fill:var(--faint)'));
   const box = el('div', 'net-wrap'); box.append(s);
   const lg = el('div', 'resp-legend row net-lg'); lg.append(el('span', 'net-lg-t', 'цифры под позицией — первый ответ оппонентов за спиной, %:'));
@@ -1065,7 +1062,7 @@ function renderRFISummary(idx, r) {
   const sp1 = el('div'); sp1.append(el('span', 'k', 'без борьбы'), el('b', unc == null ? '' : unc >= 0 ? 'up' : 'down', signed(unc, 2)), el('span', 'n', x.netUnc.n.toLocaleString('ru-RU') + ' раз'));
   const sp2 = el('div'); sp2.append(el('span', 'k', 'когда сыграли'), el('b', con == null ? '' : con >= 0 ? 'up' : 'down', signed(con, 2)), el('span', 'n', x.netCon.n.toLocaleString('ru-RU') + ' раз'));
   split.append(sp1, sp2);
-  const c8 = card(8, 'Результат открытий', '<span class="' + (nb >= 0 ? 'up' : 'down') + '">' + signed(nb == null ? null : nb / 100, 2) + '</span> <small>BB за открытие</small>', 'фактический итог раздачи после вашего открытия по позициям; пунктир — среднее; под позицией — число открытий', netChart((LAST_NET_ITEMS = ['EP', 'MP', 'HJ', 'CO', 'BTN', 'SB'].map(p => ({ p, o: x.openNetPos[p], mx: x.netMx[p], r: x.respPos[p] }))), nb == null ? null : nb / 100));
+  const c8 = card(8, 'Результат открытий', '<span class="' + (nb >= 0 ? 'up' : 'down') + '">' + signed(nb == null ? null : nb / 100, 2) + '</span> <small>BB за открытие</small>', 'фактический итог раздачи после вашего открытия по позициям; под позицией — число открытий', netChart((LAST_NET_ITEMS = ['EP', 'MP', 'HJ', 'CO', 'BTN', 'SB'].map(p => ({ p, o: x.openNetPos[p], mx: x.netMx[p], r: x.respPos[p] }))), nb == null ? null : nb / 100));
   c8.classList.add('wide', 'span3');
   cards.append(c8);
   // #3 — стил + ответ блайндов (CO и BTN вместе), как в #1
