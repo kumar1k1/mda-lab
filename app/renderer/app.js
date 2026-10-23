@@ -593,7 +593,7 @@ let SZ_SIDE = 'both';
 function sizingCard(o) {
   const m = el('div', 'sm sz5 span2');
   const h = el('div', 'sm-h'); h.append(el('span', 'num-tag sm-tag', '#3.5'), el('b', null, 'Сайзинг стила'));
-  m.append(h, el('span', 'sm-s', 'самые частые размеры открытия рейзом (без пушей) и их результат'));
+  m.append(h, el('span', 'sm-s', 'самые частые размеры открытия, когда за спиной остаётся стек (без олл-инов)'));
   const seg = el('div', 'seg sz5-seg'); seg.setAttribute('role', 'group'); seg.setAttribute('aria-label', 'Позиция');
   const body = el('div', 'sz5-body');
   [['both', 'CO + BTN'], ['CO', 'CO'], ['BTN', 'BTN']].forEach(([k, t]) => {

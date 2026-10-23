@@ -149,8 +149,9 @@
         put(o.nr.room[c.room[i]] || (o.nr.room[c.room[i]] = Z()));
         const mz = o.nr.month[c.month[i]] || (o.nr.month[c.month[i]] = { sum: 0, n: 0 }); mz.sum += v; mz.n++;
       }
-      { // точный сайзинг: пуш отдельно, рейзы с точностью до 0.1 BB
-        const key = c.act[i] === 3 ? 'AI' : String(Math.round(c.size[i] / 10) / 10);
+      { // точный сайзинг: пуш отдельно, рейзы с точностью до 0.1 BB; рейз, после которого за спиной меньше 0.5 BB, — тоже пуш (так пишет PokerDom)
+        const behind = c.bb[i] / 10 - c.size[i] / 100;
+        const key = c.act[i] === 3 || behind < 0.5 ? 'AI' : String(Math.round(c.size[i] / 10) / 10);
         const z = o.szx[key] || (o.szx[key] = { n: 0, r: [0, 0, 0], rn: 0, sum: 0, sn: 0, ids: [] });
         z.n++; z.ids.push(i);
         if (has('orsp') && c.orsp[i] >= 0) { z.r[c.orsp[i]]++; z.rn++; }
