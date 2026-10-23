@@ -945,7 +945,7 @@ function isoPanel(d) {
   const card = el('div', 'insight steal-panel pm-card');
   card.append(numTag('5+'));
   const nAll = d.M.flat().reduce((a, z) => a + z.n, 0), sAll = d.M.flat().reduce((a, z) => a + z.sum, 0);
-  card.append(el('b', 'pm-title', 'Изолейт по позициям'), el('span', 'sm-s', 'ваш рейз поверх лимпа: частота, винрейт и фолд на лимп-рейз; в среднем ' + signed(nAll ? sAll / 10 / nAll : null, 2) + ' BB за изолейт, ' + nAll.toLocaleString('ru-RU') + ' изолейтов'));
+  card.append(el('b', 'pm-title', 'Изолейт по позициям'), el('span', 'sm-s', 'ваш рейз поверх лимпа: частота и винрейт; в среднем ' + signed(nAll ? sAll / 10 / nAll : null, 2) + ' BB за изолейт, ' + nAll.toLocaleString('ru-RU') + ' изолейтов'));
   const tb = el('div', 'pmx iso');
   tb.append(el('span', 'pmx-corner', 'лимперов'));
   ISO_POS.forEach(nm => tb.append(el('span', 'pmx-ch', nm)));
@@ -959,7 +959,6 @@ function isoPanel(d) {
       c.style.setProperty('--f', Math.min(1, f / maxF).toFixed(3));
       c.style.background = 'rgba(var(--amber-rgb),calc(.05 + var(--f) * .45))';
       c.append(el('b', null, fmtPct(f) + '%'), el('span', 'pmx-w ' + (w == null ? '' : w >= 0 ? 'up' : 'down'), w == null ? '—' : signed(w, 2)));
-      if (z.fn) c.append(el('span', 'pmx-fv', 'фолд ' + fmtPct(z.f / z.fn) + '%'));
       if (z.o < 20) c.classList.add('low');
       const title = nm + ', vs ' + lab + ' лимпер' + (r ? 'а' : '');
       if (z.mx) {
@@ -975,7 +974,7 @@ function isoPanel(d) {
       tb.append(c);
     });
   });
-  card.append(tb, el('p', 'sz5-note', 'В клетке: частота изолейта (как часто вы рейзите, когда перед вами лимпили), винрейт за изолейт в BB и ваш фолд, когда лимпер ререйзит. В колонке BB — без ситуаций блайнд против блайнда. Чем ярче клетка, тем чаще изолейт; бледные — меньше 20 возможностей. Наведите на клетку — покажутся руки, клик закрепит окно, клик по руке откроет раздачи и реплеер.'));
+  card.append(tb, el('p', 'sz5-note', 'В клетке: частота изолейта (как часто вы рейзите, когда перед вами лимпили), и винрейт за изолейт в BB. В колонке BB — без ситуаций блайнд против блайнда. Чем ярче клетка, тем чаще изолейт; бледные — меньше 20 возможностей. Наведите на клетку — покажутся руки, клик закрепит окно, клик по руке откроет раздачи и реплеер.'));
   return card;
 }
 
