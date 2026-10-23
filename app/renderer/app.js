@@ -656,11 +656,7 @@ function renderStealPanel(idx) {
   const nb = (z) => (z.n ? z.sum / 10 / z.n : null);
   grid.append(stealResultCard(o));
   grid.append(sizingCard(o));
-  grid.append(stealModule('3.7', 'Против стека блайндов', 'стил, когда самый короткий блайнд имеет …, BB', pairBars(o.BLIND, o.CO.blind.map(rateOf), o.BTN.blind.map(rateOf), pct, 'Стил против стека блайндов'), true));
-  const st = el('div', 'sm sm-soon');
-  st.append(el('div', 'sm-h'), el('span', 'sm-s', 'Стил по стадии турнира (баббл, ITM, финальный стол) — нужно научить парсер определять стадию'));
-  st.firstChild.append(el('span', 'num-tag sm-tag', '#3.8'), el('b', null, 'По стадии турнира'));
-  grid.append(st);
+  const m37 = stealModule('3.7', 'Против стека блайндов', 'стил, когда самый короткий блайнд имеет …, BB', pairBars(o.BLIND, o.CO.blind.map(rateOf), o.BTN.blind.map(rateOf), pct, 'Стил против стека блайндов'), true); m37.classList.add('span2'); grid.append(m37);
   return card;
 }
 
