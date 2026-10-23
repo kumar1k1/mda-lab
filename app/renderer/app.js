@@ -826,7 +826,6 @@ function renderShovePanel(idx, stackBars) {
   const card = el('div', 'insight steal-panel');
   card.append(numTag('4+'), el('span', 'k', 'Пуши подробно'));
   const grid = el('div', 'sm-grid');
-  grid.append(stealModule('4.1', 'По вашему стеку', 'какая часть открытий — олл-ин', stackBars));
   const pr = el('div', 'mini-bars');
   const maxP = Math.max(0.01, ...pos.map(z => (z.n ? z.x / z.n : 0)));
   P.forEach((nm, k) => { const z = pos[k], v = z.n ? z.x / z.n : null; const r = el('div', 'mb-row'); r.title = nm + ': ' + z.x + ' пушей из ' + z.n + ' открытий'; const tr = el('div', 'mb-track'); const f = el('div', 'mb-fill'); f.style.width = (v == null ? 0 : v / maxP * 100) + '%'; tr.append(f); r.append(el('span', 'mb-l', nm), tr, el('span', 'mb-v', v == null ? '—' : fmtPct(v) + '%')); pr.append(r); });
