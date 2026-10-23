@@ -477,10 +477,59 @@ function cumLine(co, btn) {
   return s;
 }
 
+// группы рук: пары, бродвеи, тузы, коннекторы, гэпперы — для результата стила
+const HAND_GROUPS = [
+  ['Пары TT–AA'], ['Пары 66–99'], ['Пары 22–55'],
+  ['Бродвеи одномастные'], ['Бродвеи разномастные'],
+  ['A9s–A2s'], ['A9o–A2o'],
+  ['Коннекторы одномастные'], ['Коннекторы разномастные'],
+  ['Гэпперы одномастные'], ['Гэпперы разномастные'],
+  ['Прочие одномастные'], ['Прочие разномастные']
+];
+function handGroup(k) {
+  const i = Math.floor(k / 13), j = k % 13;
+  if (i === j) return i <= 4 ? 0 : i <= 8 ? 1 : 2;
+  const suited = i < j, hi = Math.min(i, j), lo = Math.max(i, j);
+  if (lo <= 4) return suited ? 3 : 4;            // обе карты T и выше (включая AK–AT)
+  if (hi === 0) return suited ? 5 : 6;           // туз с A9–A2
+  const gap = lo - hi - 1;
+  if (gap === 0) return suited ? 7 : 8;          // T9, 98 … 32
+  if (gap === 1) return suited ? 9 : 10;         // T8, 97 … 42
+  return suited ? 11 : 12;
+}
+function handGroupTable(o) {
+  const c = DB.cols;
+  const agg = (ids) => { const g = HAND_GROUPS.map(() => ({ sum: 0, n: 0 })); let skipped = 0; ids.forEach(i => { if (c.hc[i] < 0) { skipped++; return; } const z = g[handGroup(c.hc[i])]; z.sum += c.net[i]; z.n++; }); return { g, skipped }; };
+  const A = agg(o.CO.nr.all.ids), B = agg(o.BTN.nr.all.ids);
+  const vals = A.g.concat(B.g).filter(z => z.n >= 5).map(z => Math.abs(z.sum / 10 / z.n));
+  const max = Math.max(0.5, ...vals);
+  const box = el('div', 'hg');
+  const hd = el('div', 'hg-row hg-head'); hd.append(el('span', null, 'Группа рук'), el('span', null, 'CO'), el('span', null, 'BTN')); box.append(hd);
+  HAND_GROUPS.forEach(([lab], k) => {
+    const r = el('div', 'hg-row'); r.append(el('span', 'hg-l', lab));
+    [[A.g[k], C_CO, 'CO'], [B.g[k], C_BTN, 'BTN']].forEach(([z, col, nm]) => {
+      const cell = el('div', 'hg-c');
+      if (!z.n) { cell.append(el('span', 'hg-na', '—')); r.append(cell); return; }
+      const v = z.sum / 10 / z.n;
+      const tr = el('div', 'hg-track'); const f = el('div', 'hg-fill'); const w = Math.min(50, Math.abs(v) / max * 50);
+      f.style.width = w + '%'; f.style.left = v >= 0 ? '50%' : (50 - w) + '%'; f.style.background = col; if (v < 0) f.style.opacity = '.7';
+      tr.append(el('i', 'hg-zero'), f);
+      const t = el('span', 'hg-v ' + (v >= 0 ? 'up' : 'down'), signed(v, 2)); const n = el('span', 'hg-n', String(z.n));
+      cell.append(tr, t, n); if (z.n < 30) cell.classList.add('low');
+      cell.title = nm + ', ' + lab + ': ' + signed(v, 2) + ' BB за открытие, ' + z.n + ' раз, всего ' + signed(z.sum / 10, 0) + ' BB';
+      r.append(cell);
+    });
+    box.append(r);
+  });
+  const sk = A.skipped + B.skipped;
+  box.append(el('p', 'muted small hg-note', 'Бродвеи — обе карты от T до A. Коннекторы — соседние карты (T9, 98…), гэпперы — через одну (T8, 97…). Бледные строки — меньше 30 раздач.' + (sk ? ' Без карт героя (PokerDom) не учтено: ' + sk + ' раздач.' : '')));
+  return box;
+}
+
 function stealResultCard(o) {
   const m = el('div', 'sm res34');
   const h = el('div', 'sm-h'); h.append(el('span', 'num-tag sm-tag', '#3.4'), el('b', null, 'Результат стила'));
-  m.append(h, el('span', 'sm-s', 'BB за открытие; нажмите на цифру, чтобы открыть раздачи'));
+  m.append(h, el('span', 'sm-s', 'BB за открытие: всего и по группам рук'));
   const lg = el('div', 'resp-legend row sm-lg'); [['CO', C_CO], ['BTN', C_BTN]].forEach(([lab, col]) => { const it = el('span'); const i = el('i'); i.style.background = col; it.append(i, document.createTextNode(lab)); lg.append(it); }); m.append(lg);
   // крупные цифры
   const top = el('div', 'r34-top');
@@ -488,11 +537,10 @@ function stealResultCard(o) {
     const v = z.n ? z.sum / 10 / z.n : null;
     const b = el('div', 'r34-big'); b.style.borderColor = col;
     b.append(el('span', 'nm', nm), el('b', v == null ? '' : v >= 0 ? 'up' : 'down', signed(v, 2)), el('span', 's', 'BB за открытие · ' + z.n.toLocaleString('ru-RU') + ' раз · всего ' + signed(z.sum / 10, 0) + ' BB'));
-    b.classList.add('pick-big'); b.tabIndex = 0; b.setAttribute('role', 'button'); b.setAttribute('aria-label', nm + ': показать все раздачи стила');
-    const go = () => openIdsList(nm + ' · все стилы', z.ids); b.addEventListener('click', go); b.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
     top.append(b);
   });
   m.append(top);
+  m.append(handGroupTable(o));
   const grid = el('div', 'r34-grid');
   const pick = (title, ids) => openIdsList(title, ids);
   const sub = (tag, title, node) => { const d = el('div', 'r34-m'); const hh = el('div', 'sm-h'); hh.append(el('span', 'num-tag sm-tag', '#' + tag), el('b', null, title)); d.append(hh, node); return d; };
