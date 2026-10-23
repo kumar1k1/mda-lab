@@ -892,21 +892,7 @@ function renderRFISummary(idx, r) {
   const shovePanel = renderShovePanel(idx, st);
 
 
-  // #6 — RFI в каждом руме
-  const roomKeys = Object.keys(x.rooms).filter(k => x.rooms[k].n > 0).sort((a, b) => x.rooms[b].x / x.rooms[b].n - x.rooms[a].x / x.rooms[a].n);
-  const rb = el('div', 'mini-bars');
-  const maxR = Math.max(0.01, ...roomKeys.map(k => x.rooms[k].x / x.rooms[k].n));
-  roomKeys.forEach(k => {
-    const z = x.rooms[k], v = z.x / z.n;
-    const r = el('div', 'mb-row'); r.title = DB.rooms[k] + ': ' + z.x + ' из ' + z.n;
-    const tr = el('div', 'mb-track'); const f = el('div', 'mb-fill'); f.style.width = (v / maxR * 100) + '%'; tr.append(f);
-    r.append(el('span', 'mb-l', DB.rooms[k]), tr, el('span', 'mb-v', fmtPct(v) + '%'));
-    rb.append(r);
-  });
-  cards.append(card(6, 'RFI по румам', '<em>' + pctTxt(x.all) + '</em>', roomKeys.length > 1 ? 'общий по Alias, ниже — каждый рум' : 'выберите Alias, чтобы сравнить румы', roomKeys.length > 1 ? rb : null));
-
   const dall2 = dall;
-  cards.append(card(10, 'Фолд на 3-бет', pctTxt(x.f3b), 'после вашего открытия, ' + x.f3b.n.toLocaleString('ru-RU') + ' раз против 3-бета'));
   // раскладка по строкам: карточка слева, её инфографика справа
   const byTag = {}; [...cards.children].forEach(n => { byTag[n.querySelector('.num-tag').textContent] = n; });
   byTag['#3+'] = renderStealPanel(idx); byTag['#4+'] = shovePanel;
@@ -917,7 +903,6 @@ function renderRFISummary(idx, r) {
   // разделы с заголовком и отступом, чтобы блоки не слипались
   const sec = (title, note) => { const d = el('div', 'sec'); const t = el('div', 'sec-t'); t.append(el('h3', null, title)); if (note) t.append(el('span', null, note)); d.append(t, el('div', 'sec-line')); return d; };
   zone.append(row('#1', '#8'), sec('Стил с поздних позиций', 'CO и BTN, когда до вас все сбросили'), stealRow, sec('Пуши', 'олл-ин вместо обычного открытия'), row('#4', '#4+'));
-  const rest = el('div', 'insights'); ['#6', '#10'].forEach(t => byTag[t] && rest.append(byTag[t])); zone.append(sec('Другое', 'румы и ответ на 3-бет'), rest);
 
   // матрица рук
   const b13 = el('section', 'block'); b13.append(numTag(13));
@@ -950,11 +935,6 @@ function renderRFISummary(idx, r) {
   mxBody.append(mxSide);
   b13.append(h13, mxBody); zone.append(b13);
 
-  // календарь
-  const b14 = el('section', 'block'); b14.append(numTag(14));
-  const h14 = el('div', 'block-head'); h14.append(el('h2', null, 'Календарь игры'), el('p', null, 'каждая клетка — день; ярче — больше рук. Наведите, чтобы увидеть руки, RFI и результат дня'));
-  b14.append(h14, calendar(x.cal, x.maxDay));
-  zone.append(b14);
   zone.insertBefore(sec('Диапазон открытия', 'какие руки и как вы открываете'), zone.children[1]);
   zone.insertBefore(b13, zone.children[2]); // матрица рук сразу под строкой #1 / #8
   return zone;
