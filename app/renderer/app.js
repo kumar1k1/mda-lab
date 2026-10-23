@@ -1201,6 +1201,7 @@ function render() {
   const tab = TABS.find(t => t.id === state.tab);
   $('crumbGroup').textContent = tab.group;
   $('crumbTab').textContent = tab.label;
+  if (!DB) { $('selCount').textContent = '—'; CURRENT_IDX = []; $('content').replaceChildren(renderWelcome()); return; }
   const idx = currentIdx();
   $('selCount').textContent = idx.length.toLocaleString('ru-RU') + ' рук в выборке';
   CURRENT_IDX = idx;
@@ -1234,6 +1235,7 @@ const ROOM_CODES = { GGPoker: 'GG', Winamax: 'WNX', PokerStars: 'PS', PokerDom: 
 let ROOM_COUNTS = [];
 const kFmt = (n) => (n >= 1000 ? Math.round(n / 1000) + 'k' : String(n));
 function updatePlayer() {
+  if (!DB) { $('roomBadge').textContent = 'НЕТ БАЗЫ'; $('nick').textContent = '—'; $('handsCount').textContent = ''; $('nick').parentElement.title = ''; return; }
   const alias = state.room == null;
   const roomName = alias ? null : DB.rooms[state.room];
   const nick = alias ? DB.hero : (DB.nicks ? Object.keys(DB.nicks).find(n => DB.nicks[n] === roomName) : null) || DB.hero;
@@ -1248,6 +1250,10 @@ function updatePlayer() {
 
 function setDb(db) {
   DB = db;
+  if (typeof REPLAYS !== 'undefined') REPLAYS = null; // реплеи новой базы загрузятся заново
+  unpin();
+  document.querySelector('.filters').hidden = !db;
+  if (!db) { $('demoTag').hidden = true; updatePlayer(); render(); return; }
   ROOM_COUNTS = db.rooms.map(() => 0);
   db.cols.room.forEach(r => { if (r >= 0) ROOM_COUNTS[r]++; });
   $('demoTag').hidden = !db.demo;
@@ -1259,32 +1265,97 @@ function setDb(db) {
 
 // ---------- загрузка базы ----------
 const fmtBytes = (b) => b > 1e9 ? (b / 1e9).toFixed(1) + ' ГБ' : b > 1e6 ? (b / 1e6).toFixed(1) + ' МБ' : Math.round(b / 1e3) + ' КБ';
+const IMPORT_ROOMS = ['GGPoker', 'PokerStars', 'Winamax', 'WPN', 'PokerDom', 'iPoker', '888poker', 'PartyPoker', 'Другой'];
+let IMPORT_SCAN = null;
+
+// стартовый экран, пока базы нет
+function renderWelcome() {
+  const w = el('div', 'welcome');
+  const ic = el('div', 'welcome-ic'); ic.innerHTML = '<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 11v5M9.5 13.5 12 11l2.5 2.5"/></svg>';
+  const b1 = el('button', 'btn-load', 'Загрузить базу'); b1.type = 'button'; b1.onclick = () => openImportModal();
+  const b2 = el('button', 'btn', 'Посмотреть на демо-данных'); b2.type = 'button'; b2.onclick = async () => setDb(await mda.demoDb());
+  const btns = el('div', 'welcome-btns'); btns.append(b1, b2);
+  w.append(ic, el('h1', null, 'Загрузите свою базу раздач'),
+    el('p', null, 'Укажите папку с историями турнирных раздач. Программа найдёт ваши ники, разберёт раздачи и построит все вкладки по вашей игре.'),
+    btns,
+    el('p', 'muted small', 'Поддерживаются истории в формате PokerStars (в том числе экспорт GGPoker и PokerDom), Winamax и ACR / WPN. База хранится только на этом компьютере и никуда не отправляется.'));
+  return w;
+}
+
 function showImport(r) {
   if (!r || r.canceled) return;
-  $('impResult').hidden = false;
+  IMPORT_SCAN = r;
+  $('impResult').hidden = false; $('impProgress').hidden = true;
   $('impSummary').textContent = 'Найдено ' + r.files.toLocaleString('ru-RU') + ' файлов, ' + fmtBytes(r.bytes) + ', примерно ' + r.estHands.toLocaleString('ru-RU') + ' раздач. Источник: ' + r.source;
   const body = $('impRooms'); body.replaceChildren();
   Object.keys(r.rooms).forEach(room => {
-    const tr = el('tr');
-    tr.append(el('td', null, room), el('td', null, r.rooms[room].files.toLocaleString('ru-RU')), el('td', null, fmtBytes(r.rooms[room].bytes)));
-    const st = el('td', 'wait', 'парсер в разработке'); tr.append(st); body.append(tr);
+    const z = r.rooms[room], tr = el('tr');
+    tr.append(el('td', null, room), el('td', null, z.files.toLocaleString('ru-RU')), el('td', null, fmtBytes(z.bytes)));
+    tr.append(el('td', z.supported === false ? 'wait' : 'ok', z.supported === false ? 'формат пока не поддерживается' : 'будет загружено'));
+    body.append(tr);
   });
   if (r.unknown) { const tr = el('tr'); tr.append(el('td', 'bad', 'Не распознано'), el('td', null, String(r.unknown)), el('td', null, '—'), el('td', 'muted', 'не похоже на историю раздач')); body.append(tr); }
-  $('impNote').textContent = 'Сейчас программа определяет рум и объём. Импорт новых файлов прямо из программы включу в следующей версии. Сейчас открыта ваша база из архива: 122 592 раздачи.';
-  $('doImport').disabled = true;
+  const nicks = r.nicks || [];
+  $('impNicks').hidden = !nicks.length;
+  $('impNote').hidden = !!nicks.length;
+  $('impNote').textContent = nicks.length ? '' : (r.nicks ? 'Не удалось найти ники героя: в файлах нет поддерживаемых историй раздач.' : 'В онлайн-превью загрузка не работает — только в установленной программе.');
+  const list = $('nickList'); list.replaceChildren();
+  nicks.forEach((n, k) => {
+    const row = el('label', 'nick-row');
+    const cb = el('input'); cb.type = 'checkbox'; cb.checked = true; cb.dataset.nick = n.nick;
+    const sel = el('select'); IMPORT_ROOMS.forEach(rm => { const o = el('option', null, rm); o.value = rm; if (rm === n.room) o.selected = true; sel.append(o); });
+    if (!IMPORT_ROOMS.includes(n.room)) { const o = el('option', null, n.room); o.value = n.room; o.selected = true; sel.prepend(o); }
+    sel.setAttribute('aria-label', 'Рум для ника ' + n.nick);
+    row.append(cb, el('b', null, n.nick), sel, el('span', 'muted small', n.hits.toLocaleString('ru-RU') + ' файлов'));
+    cb.onchange = syncImportBtn;
+    list.append(row);
+  });
+  if (!$('aliasName').value && nicks.length) $('aliasName').value = nicks[0].nick;
+  syncImportBtn();
+}
+function syncImportBtn() { $('doImport').disabled = !document.querySelector('#nickList input:checked'); }
+
+async function runImport() {
+  const nicks = {};
+  document.querySelectorAll('#nickList .nick-row').forEach(r => { const cb = r.querySelector('input'); if (cb.checked) nicks[cb.dataset.nick] = r.querySelector('select').value; });
+  if (!Object.keys(nicks).length) return;
+  const alias = $('aliasName').value.trim() || Object.keys(nicks)[0];
+  $('doImport').disabled = true; $('impProgress').hidden = false;
+  $('progFill').style.width = '0%'; $('progText').textContent = 'Начинаю разбор…';
+  mda.onProgress((m) => {
+    $('progFill').style.width = (m.done / m.total * 100).toFixed(1) + '%';
+    $('progText').textContent = 'Разобрано файлов: ' + m.done.toLocaleString('ru-RU') + ' из ' + m.total.toLocaleString('ru-RU') + ' · ваших раздач: ' + m.hands.toLocaleString('ru-RU');
+  });
+  const res = await mda.runImport({ nicks, alias });
+  if (res.type === 'error' || res.error) { $('progText').textContent = 'Ошибка: ' + (res.message || res.error); syncImportBtn(); return; }
+  if (!res.hands) { $('progText').textContent = 'Раздач с выбранными никами не нашлось. Проверьте ники.'; syncImportBtn(); return; }
+  $('progFill').style.width = '100%';
+  $('progText').textContent = 'Готово: ' + res.hands.toLocaleString('ru-RU') + ' раздач' + (res.dup ? ', повторов пропущено: ' + res.dup.toLocaleString('ru-RU') : '') + '.';
+  setDb(await mda.db());
+  setTimeout(closeImportModal, 900);
 }
 
+let openImportModal = () => {}, closeImportModal = () => {};
 function setupImport() {
   const modal = $('importModal');
-  const open = () => { modal.hidden = false; $('pickFolder').focus(); };
-  const close = () => { modal.hidden = true; $('openImport').focus(); };
-  $('openImport').onclick = open;
-  $('closeImport').onclick = close;
-  modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !modal.hidden) close(); });
+  openImportModal = async () => {
+    modal.hidden = false; $('pickFolder').focus();
+    const info = mda.dbInfo ? await mda.dbInfo() : { stored: false };
+    const del = $('deleteDb'); del.hidden = !info.stored; del.textContent = 'Удалить базу с компьютера'; del.dataset.armed = '';
+  };
+  closeImportModal = () => { modal.hidden = true; $('openImport').focus(); };
+  $('openImport').onclick = openImportModal;
+  $('closeImport').onclick = closeImportModal;
+  modal.addEventListener('click', (e) => { if (e.target === modal) closeImportModal(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !modal.hidden) closeImportModal(); });
   $('pickFolder').onclick = async () => showImport(await mda.pick('folder'));
   $('pickFiles').onclick = async () => showImport(await mda.pick('files'));
-  $('useDemo').onclick = async () => { setDb(await mda.demoDb()); close(); };
+  $('doImport').onclick = runImport;
+  $('deleteDb').onclick = async () => {
+    const b = $('deleteDb');
+    if (!b.dataset.armed) { b.dataset.armed = '1'; b.textContent = 'Точно удалить? Нажмите ещё раз'; return; }
+    await mda.deleteDb(); b.hidden = true; setDb(await mda.db()); closeImportModal();
+  };
   const drop = $('drop');
   ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add('over'); }));
   ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove('over'); }));
@@ -1299,7 +1370,9 @@ window.__importDemo = () => { $('importModal').hidden = false; showImport({ sour
 
 document.addEventListener('DOMContentLoaded', async () => {
   setupImport();
-  setDb(await mda.demoDb());
+  const db = await mda.db();
+  setDb(db);
+  if (!db) openImportModal();
 });
 window.__pinNet = (i) => { const g = document.querySelectorAll('.net-bar')[i]; const r = g.getBoundingClientRect(); g.dispatchEvent(new MouseEvent('click', { clientX: r.left + r.width / 2, clientY: r.top + 40 })); };
 window.__hoverNet = (i) => { const g = document.querySelectorAll('.net-bar')[i]; const r = g.getBoundingClientRect(); g.dispatchEvent(new MouseEvent('mouseenter', { clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 })); };

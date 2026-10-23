@@ -4,59 +4,33 @@ const path = require('path');
 const fs = require('fs');
 
 let win = null;
+// для автотестов: отдельная папка данных
+if (process.env.MDALAB_USERDATA) app.setPath('userData', process.env.MDALAB_USERDATA);
 
 // ---------- база ----------
-function loadDemo() {
-  const mine = path.join(__dirname, 'data', 'my-base.json');
-  const file = fs.existsSync(mine) ? mine : path.join(__dirname, 'data', 'demo-hands.json');
-  return JSON.parse(fs.readFileSync(file, 'utf8'));
+// База игрока хранится только на его компьютере, в папке данных программы (не внутри программы),
+// поэтому установщик уходит без чьих-либо раздач.
+const { Worker } = require('worker_threads');
+const { walk, scan } = require('./parser/build.js');
+const baseDir = () => path.join(app.getPath('userData'), 'base');
+const baseFile = (n) => path.join(baseDir(), n);
+// при разработке (не в установленной программе) можно открыть базу из папки проекта
+const devFile = (n) => (!app.isPackaged ? path.join(__dirname, 'data', n) : null);
+function pickFile(name, devName) {
+  const f = baseFile(name); if (fs.existsSync(f)) return f;
+  const d = devFile(devName); return d && fs.existsSync(d) ? d : null;
 }
+const readJson = (f) => JSON.parse(fs.readFileSync(f, 'utf8'));
 
-// ---------- импорт: поиск файлов и определение рума ----------
-const ROOM_SIGNS = [
-  { room: 'GGPoker', re: /^Poker Hand #(TM|HD|RC|SG|MT)/m },
-  { room: 'PokerStars', re: /^PokerStars (Hand|Zoom Hand|Home Game Hand) #/m },
-  { room: 'Winamax', re: /^Winamax Poker - /m },
-  { room: 'iPoker', re: /<session sessioncode=|^GAME #\d+: /m },
-  { room: '888poker', re: /^#Game No : \d+|888poker Hand History/m },
-  { room: 'PartyPoker', re: /^\*{5} Hand History [Ff]or Game \d+/m },
-  { room: 'ACR / WPN', re: /^Game Hand #\d+ - Tournament #/m },
-  { room: 'iPoker (XML)', re: /<\?xml[\s\S]{0,200}<session/m }
-];
+ipcMain.handle('db:get', () => { const f = pickFile('hands.json', 'my-base.json'); return f ? readJson(f) : null; });
+ipcMain.handle('db:replays', () => { const f = pickFile('replays.json', 'my-base-replays.json'); return f ? readJson(f) : {}; });
+ipcMain.handle('db:demo', () => readJson(path.join(__dirname, 'data', 'demo-hands.json')));
+ipcMain.handle('db:delete', () => { try { fs.rmSync(baseDir(), { recursive: true, force: true }); } catch (e) { /* нет базы */ } return true; });
+ipcMain.handle('db:info', () => ({ stored: fs.existsSync(baseFile('hands.json')), folder: baseDir() }));
 
-function walk(dir, out, limit) {
-  let list;
-  try { list = fs.readdirSync(dir, { withFileTypes: true }); } catch (e) { return; }
-  for (const d of list) {
-    if (out.length >= limit) return;
-    const p = path.join(dir, d.name);
-    if (d.isDirectory()) walk(p, out, limit);
-    else if (/\.(txt|xml|log|hh)$/i.test(d.name)) out.push(p);
-  }
-}
-
-function sniff(files) {
-  const rooms = {};
-  let bytes = 0, hands = 0, unknown = 0;
-  for (const f of files) {
-    let st; try { st = fs.statSync(f); } catch (e) { continue; }
-    bytes += st.size;
-    let head = '';
-    try {
-      const fd = fs.openSync(f, 'r'); const buf = Buffer.alloc(4096); const n = fs.readSync(fd, buf, 0, 4096, 0); fs.closeSync(fd);
-      head = buf.slice(0, n).toString('utf8').replace(/^﻿/, '');
-    } catch (e) { continue; }
-    const sign = ROOM_SIGNS.find(s => s.re.test(head));
-    if (!sign) { unknown++; continue; }
-    rooms[sign.room] = rooms[sign.room] || { files: 0, bytes: 0 };
-    rooms[sign.room].files++; rooms[sign.room].bytes += st.size;
-    hands += Math.round(st.size / 1500); // грубая оценка до разбора
-  }
-  return { files: files.length, bytes, rooms, unknown, estHands: hands };
-}
-
-ipcMain.handle('db:demo', () => loadDemo());
-ipcMain.handle('db:replays', () => { const f = path.join(__dirname, 'data', 'my-base-replays.json'); return fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, 'utf8')) : {}; });
+// ---------- импорт ----------
+let lastFiles = [];
+function prepare(files, source) { lastFiles = files; return Object.assign({ source }, scan(files)); }
 ipcMain.handle('import:pick', async (_e, mode) => {
   const r = await dialog.showOpenDialog(win, {
     title: mode === 'folder' ? 'Выберите папку с историями раздач' : 'Выберите файлы историй раздач',
@@ -65,14 +39,27 @@ ipcMain.handle('import:pick', async (_e, mode) => {
   });
   if (r.canceled || !r.filePaths.length) return { canceled: true };
   const files = [];
-  if (mode === 'folder') walk(r.filePaths[0], files, 200000); else files.push(...r.filePaths);
-  return Object.assign({ source: mode === 'folder' ? r.filePaths[0] : (files.length + ' файл(ов)') }, sniff(files));
+  if (mode === 'folder') walk(r.filePaths[0], files, 2e6); else files.push(...r.filePaths);
+  return prepare(files, mode === 'folder' ? r.filePaths[0] : files.length + ' файл(ов)');
 });
 ipcMain.handle('import:paths', (_e, paths) => {
   const files = [];
-  (paths || []).forEach(p => { try { fs.statSync(p).isDirectory() ? walk(p, files, 200000) : files.push(p); } catch (e) { /* пропуск */ } });
-  return Object.assign({ source: files.length + ' файл(ов)' }, sniff(files));
+  (paths || []).forEach(p => { try { fs.statSync(p).isDirectory() ? walk(p, files, 2e6) : files.push(p); } catch (e) { /* пропуск */ } });
+  return prepare(files, files.length + ' файл(ов)');
 });
+// сборка выбранных файлов с указанными никами; новая база заменяет прежнюю только после успешной сборки
+ipcMain.handle('import:run', (e, opts) => new Promise((resolve) => {
+  if (!lastFiles.length) return resolve({ error: 'Сначала выберите файлы' });
+  fs.mkdirSync(baseDir(), { recursive: true });
+  const tmpDb = baseFile('hands.tmp'), tmpRp = baseFile('replays.tmp');
+  const w = new Worker(path.join(__dirname, 'import-worker.js'), { workerData: { files: lastFiles, nicks: opts.nicks, alias: opts.alias, outDb: tmpDb, outRp: tmpRp } });
+  w.on('message', (m) => {
+    if (m.type === 'progress') { if (!e.sender.isDestroyed()) e.sender.send('import:progress', m); return; }
+    if (m.type === 'done' && m.hands) { fs.renameSync(tmpDb, baseFile('hands.json')); fs.renameSync(tmpRp, baseFile('replays.json')); }
+    resolve(m);
+  });
+  w.on('error', (err) => resolve({ type: 'error', message: String(err && err.message || err) }));
+}));
 ipcMain.handle('app:version', () => app.getVersion());
 
 function createWindow() {

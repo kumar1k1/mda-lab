@@ -41,7 +41,12 @@
   }
   let cache = null;
   window.mda = {
-    demoDb: async () => cache || (cache = (document.getElementById('myBase') ? JSON.parse(document.getElementById('myBase').textContent) : generateDemoHands())),
+    db: async () => cache || (cache = (document.getElementById('myBase') ? JSON.parse(document.getElementById('myBase').textContent) : null)),
+    demoDb: async () => generateDemoHands(),
+    dbInfo: async () => ({ stored: false }),
+    deleteDb: async () => true,
+    runImport: async () => ({ error: 'в онлайн-превью загрузка не работает' }),
+    onProgress: () => {},
     pick: (mode) => choose(mode === 'folder'),
     dropped: (files) => sniff(Array.from(files), files.length + ' файл(ов)'),
     replays: async () => { try { const r = await fetch('replays.json'); return r.ok ? await r.json() : {}; } catch (e) { return {}; } },

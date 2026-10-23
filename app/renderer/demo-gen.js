@@ -80,7 +80,7 @@ for (let i = 0; i < N; i++) {
 return {
   format: 'mdalab-hands-v1',
   demo: true,
-  hero: '777molodoy777',
+  hero: 'Демо-игрок',
   rooms: ['GGPoker', 'PokerStars', 'Winamax'],
   types: ['Обычный', 'PKO'],
   periodStart: '2025-01',
