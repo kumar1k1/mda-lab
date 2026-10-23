@@ -647,9 +647,9 @@ const BX_NAMES = ['короткий', 'средний', 'глубокий'];
 const bxSum = (cells) => cells.reduce((t, z) => { for (const k in t) t[k] += z[k]; return t; }, { n: 0, x: 0, rn: 0, fold: 0, rr: 0, sum: 0, sn: 0 });
 const bxCell = (o, side, i, j) => (side === 'both' ? bxSum([o.CO.bx[i][j], o.BTN.bx[i][j]]) : o[side].bx[i][j]);
 const BX_MET = {
-  fold: { t: 'Сбросили', v: (z) => (z.rn ? z.fold / z.rn : null), f: (v) => fmtPct(v) + '%', n: (z) => z.rn },
+  fold: { t: 'Фолд оппонентов', v: (z) => (z.rn ? z.fold / z.rn : null), f: (v) => fmtPct(v) + '%', n: (z) => z.rn },
   bb: { t: 'BB за открытие', v: (z) => (z.sn ? z.sum / 10 / z.sn : null), f: (v) => signed(v, 2), n: (z) => z.sn },
-  freq: { t: 'Частота стила', v: (z) => (z.n ? z.x / z.n : null), f: (v) => fmtPct(v) + '%', n: (z) => z.n },
+  freq: { t: 'Частота открытия', v: (z) => (z.n ? z.x / z.n : null), f: (v) => fmtPct(v) + '%', n: (z) => z.n },
 };
 function segBtns(opts, cur, on) {
   const seg = el('div', 'seg bx-seg');
@@ -670,7 +670,7 @@ function bxHeat(o) {
   const m = bxHead('3.7.1', 'Вариант 1 · Карта стеков блайндов', 'строки — стек SB, колонки — стек BB; ' + BX_STK_TXT);
   const ctl = el('div', 'bx-ctl'), body = el('div');
   ctl.append(segBtns([['CO', 'CO'], ['BTN', 'BTN']], BX1.side, (k) => { BX1.side = k; draw(); }),
-    segBtns([['fold', 'Сбросили'], ['bb', 'Винрейт, BB']], BX1.met, (k) => { BX1.met = k; draw(); }));
+    segBtns([['fold', 'Фолд оппонентов, %'], ['bb', 'Винрейт, BB'], ['freq', 'Частота открытия, %']], BX1.met, (k) => { BX1.met = k; draw(); }));
   m.append(ctl, body);
   function draw() {
     const M = BX_MET[BX1.met], g = el('div', 'bx-grid');
