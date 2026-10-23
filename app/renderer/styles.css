@@ -408,3 +408,28 @@ button.hp-c:hover{outline:2px solid var(--amber);outline-offset:-1px}
 
 .steal-row > .sm.span2{grid-column:span 2}
 @media (max-width: 760px){.steal-row > .sm.span2{grid-column:auto}}
+
+/* #3.4 результат стила подробно */
+.steal-row{grid-auto-rows:auto}
+.steal-row > .sm.tall{grid-row:span 2}
+.r34-top{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.r34-big{display:flex;flex-direction:column;gap:2px;background:var(--bg);border:1px solid var(--line);border-left:4px solid;border-radius:10px;padding:10px 12px}
+.r34-big .nm{font-size:12px;color:var(--muted);font-weight:700}
+.r34-big b{font-family:var(--mono);font-size:26px;line-height:1.15}
+.r34-big .s{font-size:11px;color:var(--soft)}
+.r34-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.r34-m{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:4px;position:relative;min-width:0}
+.r34-m .sm-h b{font-size:13px}
+.r34-m svg{display:block;width:100%;height:auto}
+g.pick{cursor:pointer;outline:none}
+g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
+@media (max-width: 1100px){.r34-grid{grid-template-columns:1fr}}
+/* список раздач по столбику */
+.il-bg{position:fixed;inset:0;z-index:38;background:rgba(4,6,9,.72);display:flex;align-items:center;justify-content:center;padding:20px}
+.il{width:min(860px,100%);max-height:100%;overflow:auto;background:var(--top);border:1px solid var(--line2);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:12px}
+.il-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.il-title{display:flex;flex-direction:column;gap:4px}
+.il-title b{font-family:var(--display);font-size:17px}
+.il-title span{font-size:13px}
+.il-rows{max-height:60vh}
+.il .hp-row{grid-template-columns:34px minmax(0,1fr) auto auto 44px 56px}

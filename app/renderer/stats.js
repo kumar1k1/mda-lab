@@ -122,7 +122,10 @@
   function stealExtra(db, idx) {
     const c = db.cols, has = (k) => Array.isArray(c[k]);
     const R = () => ({ x: 0, n: 0 });
-    const mk = () => ({ all: R(), stk: STEAL_STK.map(R), resp: [0, 0, 0], f3b: R(), net: { sum: 0, n: 0 }, sz: [0, 0, 0, 0], month: {}, blind: BLIND_STK.map(R) });
+    const Z = () => ({ sum: 0, n: 0, ids: [] });
+    const mk = () => ({ all: R(), stk: STEAL_STK.map(R), resp: [0, 0, 0], f3b: R(), net: { sum: 0, n: 0 }, sz: [0, 0, 0, 0], month: {}, blind: BLIND_STK.map(R),
+      // результат стила (BB×10) по разрезам, с номерами раздач для списка
+      nr: { all: Z(), resp: [Z(), Z(), Z()], stk: STEAL_STK.map(Z), kind: [Z(), Z()], type: [Z(), Z()], fight: [Z(), Z()], room: {}, month: {} } });
     const out = { CO: mk(), BTN: mk() };
     for (const i of idx) {
       const p = c.pos[i]; if (c.sit[i] !== 0 || (p !== 3 && p !== 4)) continue;
@@ -134,7 +137,18 @@
       if (!open) continue;
       if (has('orsp') && c.orsp[i] >= 0) o.resp[c.orsp[i]]++;
       if (has('f3b') && c.f3b[i] >= 0) { o.f3b.n++; if (c.f3b[i] === 1) o.f3b.x++; }
-      if (has('net')) { o.net.sum += c.net[i]; o.net.n++; }
+      if (has('net')) {
+        o.net.sum += c.net[i]; o.net.n++;
+        const v = c.net[i], put = (z) => { z.sum += v; z.n++; z.ids.push(i); };
+        put(o.nr.all);
+        if (has('orsp') && c.orsp[i] >= 0) put(o.nr.resp[c.orsp[i]]);
+        if (k >= 0) put(o.nr.stk[k]);
+        put(o.nr.kind[c.act[i] === 3 ? 1 : 0]);
+        put(o.nr.type[c.type[i] === 1 ? 1 : 0]);
+        if (has('sto') && c.sto[i] >= 0) put(o.nr.fight[c.sto[i] === 1 ? 0 : 1]);
+        put(o.nr.room[c.room[i]] || (o.nr.room[c.room[i]] = Z()));
+        const mz = o.nr.month[c.month[i]] || (o.nr.month[c.month[i]] = { sum: 0, n: 0 }); mz.sum += v; mz.n++;
+      }
       if (c.act[i] === 3) o.sz[3]++; else { const z = STEAL_SZ.findIndex(q => c.size[i] >= q[1] && c.size[i] < q[2]); if (z >= 0) o.sz[z]++; }
     }
     out.STK = STEAL_STK.map(z => z[0]); out.SZ = STEAL_SZ.map(z => z[0]).concat(['пуш']); out.BLIND = BLIND_STK.map(z => z[0]);

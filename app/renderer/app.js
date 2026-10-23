@@ -423,6 +423,91 @@ function monthPair(co, btn) {
   return s;
 }
 
+// ---------- #3.4 — результат стила подробно ----------
+// сгруппированные столбики CO/BTN со знаком (BB за открытие), клик по столбику — список раздач
+function pairSigned(labels, a, b, title, onPick) {
+  const W = 300, H = 150, P = { l: 6, r: 6, t: 18, b: 34 };
+  const s = svgRoot(W, H, title);
+  const vals = a.concat(b).filter(z => z && z.n).map(z => z.sum / 10 / z.n);
+  const hi = Math.max(0.5, ...vals) * 1.2, lo = Math.min(0, ...vals) * 1.2;
+  const y = (v) => P.t + (hi - v) / (hi - lo) * (H - P.t - P.b);
+  const gw = (W - P.l - P.r) / labels.length, bw = Math.min(28, gw * 0.32);
+  s.append(svgEl('line', { x1: P.l, x2: W - P.r, y1: y(0), y2: y(0) }, 'stroke:var(--line2);stroke-width:1'));
+  labels.forEach((lab, i) => {
+    const cx = P.l + i * gw + gw / 2;
+    [[a[i], C_CO, -1, 'CO'], [b[i], C_BTN, 1, 'BTN']].forEach(([z, col, side, nm]) => {
+      if (!z || !z.n) return;
+      const v = z.sum / 10 / z.n;
+      const x = cx + side * (bw / 2 + 1) - bw / 2, top = y(Math.max(v, 0)), bot = y(Math.min(v, 0));
+      const g = svgEl('g', { class: 'pick', tabindex: '0', role: 'button', 'aria-label': nm + ', ' + lab + ': ' + signed(v, 2) + ' BB, ' + z.n + ' раздач — показать раздачи' });
+      g.append(svgEl('rect', { x, y: top, width: bw, height: Math.max(1.5, bot - top), rx: 3 }, 'fill:' + col + (v < 0 ? ';opacity:.75' : '')));
+      const t = svgEl('title'); t.textContent = nm + ', ' + lab + ': ' + signed(v, 2) + ' BB за открытие, ' + z.n + ' раздач. Нажмите, чтобы открыть раздачи'; g.append(t);
+      const go = () => onPick(nm + ' · ' + title + ': ' + lab, z.ids);
+      g.addEventListener('click', go); g.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+      s.append(g);
+      s.append(svgText(x + bw / 2, v >= 0 ? top - 4 : bot + 11, signed(v, 1), 'middle', 'font-size:10px;fill:' + (v >= 0 ? 'var(--good)' : 'var(--bad)')));
+    });
+    s.append(svgText(cx, H - 18, lab, 'middle', 'font-size:10px;fill:var(--soft)'));
+    const nA = a[i] && a[i].n || 0, nB = b[i] && b[i].n || 0;
+    s.append(svgText(cx, H - 5, nA + ' / ' + nB, 'middle', 'font-size:9px;fill:var(--faint)'));
+  });
+  return s;
+}
+
+// накопленный результат стила по месяцам
+function cumLine(co, btn) {
+  const W = 300, H = 150, P = { l: 34, r: 8, t: 12, b: 22 };
+  const s = svgRoot(W, H, 'Накопленный результат стила, BB');
+  const months = [...new Set(Object.keys(co).concat(Object.keys(btn)).map(Number))].sort((x, z) => x - z);
+  if (months.length < 2) { s.append(svgText(W / 2, H / 2, 'мало данных')); return s; }
+  const acc = (src) => { let t = 0; return months.map(m => (t += (src[m] ? src[m].sum / 10 : 0))); };
+  const A = acc(co), B = acc(btn), all = A.concat(B, [0]);
+  const lo = Math.min(...all), hi = Math.max(...all), span = hi - lo || 1;
+  const y = (v) => P.t + (hi - v) / span * (H - P.t - P.b);
+  const x = (i) => P.l + i * (W - P.l - P.r) / (months.length - 1);
+  [lo, (lo + hi) / 2, hi].forEach(v => { s.append(svgEl('line', { x1: P.l, x2: W - P.r, y1: y(v), y2: y(v) }, 'stroke:var(--line);stroke-width:1')); s.append(svgText(P.l - 4, y(v) + 3, Math.round(v) + '', 'end', 'font-size:9px')); });
+  [[A, C_CO, 'CO'], [B, C_BTN, 'BTN']].forEach(([arr, col, nm]) => {
+    s.append(svgEl('polyline', { points: arr.map((v, i) => x(i).toFixed(1) + ',' + y(v).toFixed(1)).join(' '), fill: 'none' }, 'stroke:' + col + ';stroke-width:2.2;stroke-linejoin:round'));
+    const last = arr.length - 1;
+    s.append(svgEl('circle', { cx: x(last), cy: y(arr[last]), r: 3.5 }, 'fill:' + col));
+    arr.forEach((v, i) => { const h = svgEl('circle', { cx: x(i), cy: y(v), r: 6 }, 'fill:transparent'); const t = svgEl('title'); t.textContent = nm + ', до ' + monthLabel(months[i]) + ': ' + signed(v, 0) + ' BB'; h.append(t); s.append(h); });
+  });
+  s.append(svgText(x(0), H - 5, monthLabel(months[0]), 'start', 'font-size:9px'));
+  s.append(svgText(x(months.length - 1), H - 5, monthLabel(months[months.length - 1]), 'end', 'font-size:9px'));
+  return s;
+}
+
+function stealResultCard(o) {
+  const m = el('div', 'sm res34');
+  const h = el('div', 'sm-h'); h.append(el('span', 'num-tag sm-tag', '#3.4'), el('b', null, 'Результат стила'));
+  m.append(h, el('span', 'sm-s', 'BB за открытие; под столбиками — число раздач CO / BTN; нажмите на столбик, чтобы открыть раздачи'));
+  const lg = el('div', 'resp-legend row sm-lg'); [['CO', C_CO], ['BTN', C_BTN]].forEach(([lab, col]) => { const it = el('span'); const i = el('i'); i.style.background = col; it.append(i, document.createTextNode(lab)); lg.append(it); }); m.append(lg);
+  // крупные цифры
+  const top = el('div', 'r34-top');
+  [['CO', o.CO.nr.all, C_CO], ['BTN', o.BTN.nr.all, C_BTN]].forEach(([nm, z, col]) => {
+    const v = z.n ? z.sum / 10 / z.n : null;
+    const b = el('div', 'r34-big'); b.style.borderColor = col;
+    b.append(el('span', 'nm', nm), el('b', v == null ? '' : v >= 0 ? 'up' : 'down', signed(v, 2)), el('span', 's', 'BB за открытие · ' + z.n.toLocaleString('ru-RU') + ' раз · всего ' + signed(z.sum / 10, 0) + ' BB'));
+    top.append(b);
+  });
+  m.append(top);
+  const grid = el('div', 'r34-grid');
+  const pick = (title, ids) => openIdsList(title, ids);
+  const sub = (tag, title, node) => { const d = el('div', 'r34-m'); const hh = el('div', 'sm-h'); hh.append(el('span', 'num-tag sm-tag', '#' + tag), el('b', null, title)); d.append(hh, node); return d; };
+  const rooms = [...new Set(Object.keys(o.CO.nr.room).concat(Object.keys(o.BTN.nr.room)))].map(Number).sort((a, b) => a - b);
+  grid.append(
+    sub('3.4.1', 'По ответу блайндов', pairSigned(['все сбросили', 'колл', 'рейз'], o.CO.nr.resp, o.BTN.nr.resp, 'Ответ блайндов', pick)),
+    sub('3.4.2', 'По вашему стеку, BB', pairSigned(o.STK, o.CO.nr.stk, o.BTN.nr.stk, 'Стек', pick)),
+    sub('3.4.3', 'Рейз или пуш', pairSigned(['рейз', 'пуш'], o.CO.nr.kind, o.BTN.nr.kind, 'Способ открытия', pick)),
+    sub('3.4.4', 'По румам', pairSigned(rooms.map(r => ROOM_CODES[DB.rooms[r]] || DB.rooms[r]), rooms.map(r => o.CO.nr.room[r]), rooms.map(r => o.BTN.nr.room[r]), 'Рум', pick)),
+    sub('3.4.5', 'Обычные и PKO', pairSigned(['обычные', 'PKO'], o.CO.nr.type, o.BTN.nr.type, 'Тип турнира', pick)),
+    sub('3.4.6', 'Без борьбы и с борьбой', pairSigned(['без борьбы', 'с борьбой'], o.CO.nr.fight, o.BTN.nr.fight, 'Борьба', pick)),
+    sub('3.4.7', 'Накопленный результат, BB', cumLine(o.CO.nr.month, o.BTN.nr.month))
+  );
+  m.append(grid);
+  return m;
+}
+
 function renderStealPanel(idx) {
   const o = Stats.stealExtra(DB, idx);
   // каждый пункт 3.1–3.8 — отдельное окно; общий контейнер без рамки
@@ -432,9 +517,7 @@ function renderStealPanel(idx) {
   const pct = (v) => (v == null ? '—' : fmtPct(v) + '%');
   const f3 = (z) => (z.n ? z.x / z.n : null);
   const nb = (z) => (z.n ? z.sum / 10 / z.n : null);
-  grid.append(stealModule('3.4', 'Результат стила', 'BB за открытие', pairH([
-    { label: 'CO', v: nb(o.CO.net), text: signed(nb(o.CO.net), 2), cls: nb(o.CO.net) >= 0 ? 'up' : 'down', color: C_CO, title: o.CO.net.n + ' открытий' },
-    { label: 'BTN', v: nb(o.BTN.net), text: signed(nb(o.BTN.net), 2), cls: nb(o.BTN.net) >= 0 ? 'up' : 'down', color: C_BTN, title: o.BTN.net.n + ' открытий' }]), true));
+  grid.append(stealResultCard(o));
   grid.append(stealModule('3.5', 'Сайзинг стила', 'доля открытий каждым размером, BB', pairStack([{ label: 'CO', vals: o.CO.sz }, { label: 'BTN', vals: o.BTN.sz }], o.SZ.map((z, k) => [z, ['var(--amber)', '#E07B39', '#A78BFA', 'var(--bad)'][k]]))));
   grid.append(stealModule('3.7', 'Против стека блайндов', 'стил, когда самый короткий блайнд имеет …, BB', pairBars(o.BLIND, o.CO.blind.map(rateOf), o.BTN.blind.map(rateOf), pct, 'Стил против стека блайндов'), true));
   const st = el('div', 'sm sm-soon');
@@ -814,4 +897,5 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 window.__pinNet = (i) => { const g = document.querySelectorAll('.net-bar')[i]; const r = g.getBoundingClientRect(); g.dispatchEvent(new MouseEvent('click', { clientX: r.left + r.width / 2, clientY: r.top + 40 })); };
 window.__hoverNet = (i) => { const g = document.querySelectorAll('.net-bar')[i]; const r = g.getBoundingClientRect(); g.dispatchEvent(new MouseEvent('mouseenter', { clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 })); };
+window.__pickBar = (k) => { document.querySelectorAll('g.pick')[k].dispatchEvent(new MouseEvent('click')); };
 window.__hoverMx = (k) => { const c = document.querySelectorAll('.mx .mx-c')[k]; c.scrollIntoView({ block: 'center' }); const r = c.getBoundingClientRect(); c.dispatchEvent(new MouseEvent('mouseenter', { clientX: r.left + 10, clientY: r.top + 10 })); };

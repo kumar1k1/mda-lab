@@ -302,6 +302,66 @@ function closeReplayer() {
   RP.stop(); document.removeEventListener('keydown', RP.keys); RP.bg.remove(); RP = null;
 }
 
+// ---------- список раздач по выбранному столбику (#3.4.8) ----------
+let IDS_LIST = null;
+async function openIdsList(title, ids) {
+  closeIdsList();
+  const c = DB.cols;
+  const bg = el('div', 'il-bg'); bg.setAttribute('role', 'dialog'); bg.setAttribute('aria-modal', 'true'); bg.setAttribute('aria-label', title);
+  const box = el('div', 'il');
+  const head = el('div', 'il-head');
+  const ttl = el('div', 'il-title'); const tb = el('b', null, title); const ts = el('span', 'muted'); ttl.append(tb, ts);
+  const x = el('button', 'icon-btn'); x.type = 'button'; x.setAttribute('aria-label', 'Закрыть список');
+  x.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+  x.onclick = closeIdsList;
+  head.append(ttl, x);
+  const f = { room: '', res: '', sort: 'new' };
+  const bar = el('div', 'hl-filters');
+  const sel = (label, key, opts) => { const lab = el('label', 'hl-f'); lab.append(el('span', null, label)); const s = el('select'); opts.forEach(([v, t]) => { const o = el('option', null, t); o.value = v; s.append(o); }); s.onchange = () => { f[key] = s.value; draw(); }; lab.append(s); bar.append(lab); };
+  const roomsHere = [...new Set(ids.map(i => c.room[i]))].sort((a, b) => a - b);
+  sel('Рум', 'room', [['', 'все']].concat(roomsHere.map(r => [String(r), DB.rooms[r]])));
+  sel('Итог', 'res', [['', 'все'], ['win', 'выиграл'], ['lose', 'проиграл']]);
+  sel('Порядок', 'sort', [['new', 'сначала новые'], ['old', 'сначала старые'], ['worst', 'сначала худшие'], ['best', 'сначала лучшие']]);
+  const list = el('div', 'hp-rows il-rows'); list.append(el('p', 'muted small', 'Загружаю раздачи…'));
+  box.append(head, bar, list); bg.append(box); document.body.append(bg);
+  bg.addEventListener('click', (e) => { if (e.target === bg) closeIdsList(); });
+  const keys = (e) => { if (e.key === 'Escape' && !RP) closeIdsList(); };
+  document.addEventListener('keydown', keys);
+  IDS_LIST = { bg, keys };
+  x.focus();
+  const rp = await loadReplays();
+  function draw() {
+    let rows = ids.filter(i => (f.room === '' || String(c.room[i]) === f.room) && (f.res !== 'win' || c.net[i] > 0) && (f.res !== 'lose' || c.net[i] < 0));
+    const by = { new: (a, b) => c.day[b] - c.day[a] || b - a, old: (a, b) => c.day[a] - c.day[b] || a - b, worst: (a, b) => c.net[a] - c.net[b], best: (a, b) => c.net[b] - c.net[a] };
+    rows.sort(by[f.sort]);
+    const total = rows.reduce((s, i) => s + c.net[i], 0) / 10;
+    ts.textContent = rows.length + (rows.length === ids.length ? '' : ' из ' + ids.length) + ' раздач · ' + signed(total, 1) + ' BB всего';
+    list.replaceChildren();
+    if (!rows.length) { list.append(el('p', 'muted small', 'Нет раздач под эти фильтры.')); return; }
+    rows.slice(0, 400).forEach(i => {
+      const r = rp[i];
+      const row = el('div', 'hp-row');
+      const play = el('button', 'hp-play'); play.type = 'button'; play.setAttribute('aria-label', 'Проиграть раздачу');
+      play.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z"/></svg>';
+      play.disabled = !r; if (!r) play.title = 'Нет записи раздачи (PokerDom без карт героя)'; play.onclick = () => openReplayer(i);
+      const net = c.net[i] / 10;
+      const info = el('div', 'hp-info');
+      info.append(el('span', 'd', r ? r.d : '—'), el('span', 't', (DB.rooms[c.room[i]] || '') + (r && r.t ? ' · ' + r.t : '')));
+      const cards = el('div', 'hp-board');
+      if (r && r.hc) r.hc.split(' ').forEach(cd => { const ce = cardEl(cd, true); ce.classList.add('xs'); cards.append(ce); });
+      const board = el('div', 'hp-board');
+      const bd = r ? r.bd : [];
+      if (!bd.length) board.append(el('span', 'hp-nob', 'без флопа'));
+      else bd.forEach((cd, j) => { const ce = cardEl(cd, true); ce.classList.add('xs'); if (j === 3 || j === 4) ce.classList.add('gap'); board.append(ce); });
+      row.append(play, info, cards, board, el('span', 'stk', (c.bb[i] / 10).toFixed(0) + ' BB'), el('span', 'res ' + (net >= 0 ? 'up' : 'down'), signed(net, 1)));
+      list.append(row);
+    });
+    if (rows.length > 400) list.append(el('p', 'muted small', 'Показаны первые 400. Уточните фильтры.'));
+  }
+  draw();
+}
+function closeIdsList() { if (!IDS_LIST) return; document.removeEventListener('keydown', IDS_LIST.keys); IDS_LIST.bg.remove(); IDS_LIST = null; }
+
 // хуки для автопроверки сборки
 window.__testPin = async (i, hand) => { window.__pinNet(i); await new Promise(r => setTimeout(r, 200)); const b = [...document.querySelectorAll('.hand-pop button.hp-c')].find(x => x.querySelector('.h').textContent === hand); if (b) b.click(); await new Promise(r => setTimeout(r, 1200)); return document.querySelectorAll('.hp-row').length; };
 window.__testPlay = async (row) => { document.querySelectorAll('.hp-play')[row || 0].click(); await new Promise(r => setTimeout(r, 600)); if (RP) RP.stop(); return !!RP; };
