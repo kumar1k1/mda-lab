@@ -171,8 +171,8 @@ function block(title, note, tableNode, vizNodes) {
 
 // ---------- вкладка RFI ----------
 // ---------- сводка вкладки RFI (нумерованные элементы — чтобы удобно выбирать, что оставить) ----------
-const uiState = { mxPos: 'TOT', mxStk: 'all', mxCustom: null };
-const MX_STK = [['all', 'Все', null], ['<12', '<12', [0, 12]], ['12–16', '12–16', [12, 16]], ['16–20', '16–20', [16, 20]], ['20–30', '20–30', [20, 30]], ['30–50', '30–50', [30, 50]], ['50+', '50+', [50, 1e9]]];
+const uiState = { mxPos: 'EP', mxStk: '20–30', mxCustom: null };
+const MX_STK = [['<12', '<12', [0, 12]], ['12–16', '12–16', [12, 16]], ['16–20', '16–20', [16, 20]], ['20–30', '20–30', [20, 30]], ['30–50', '30–50', [30, 50]], ['50+', '50+', [50, 1e9]]];
 function getTarget() { try { const v = parseFloat(localStorage.getItem('mdalab.rfiTarget')); return isNaN(v) ? 30 : v; } catch (e) { return 30; } }
 function setTarget(v) { try { localStorage.setItem('mdalab.rfiTarget', String(v)); } catch (e) { /* без сохранения */ } }
 
@@ -923,7 +923,7 @@ function renderRFISummary(idx, r) {
   const b13 = el('section', 'block'); b13.append(numTag(13));
   const h13 = el('div', 'block-head'); h13.append(el('h2', null, 'Какие руки вы открываете'), el('p', null, 'процент открытия каждой руки, когда до вас все сбросили'));
   const seg = el('div', 'seg');
-  ['TOT', 'EP', 'MP', 'HJ', 'CO', 'BTN', 'SB'].forEach(p => { const b = el('button', uiState.mxPos === p ? 'on' : '', p === 'TOT' ? 'Все' : p); b.type = 'button'; b.onclick = () => { uiState.mxPos = p; render(); }; seg.append(b); });
+  ['EP', 'MP', 'HJ', 'CO', 'BTN', 'SB'].forEach(p => { const b = el('button', uiState.mxPos === p ? 'on' : '', p); b.type = 'button'; b.onclick = () => { uiState.mxPos = p; render(); }; seg.append(b); });
   const mxBody = el('div', 'block-body'); mxBody.append(handMatrix(x.mx));
   const mxSide = el('div', 'mx-side');
   const segS = el('div', 'seg');
