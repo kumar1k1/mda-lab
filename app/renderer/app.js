@@ -430,12 +430,7 @@ function renderStealPanel(idx) {
   card.append(el('span', 'num-tag', '#3+')); // служебная метка для раскладки, скрыта стилями
   const grid = card;
   const pct = (v) => (v == null ? '—' : fmtPct(v) + '%');
-  grid.append(stealModule('3.1', 'По вашему стеку', 'как часто открываетесь, BB', pairBars(o.STK, o.CO.stk.map(rateOf), o.BTN.stk.map(rateOf), pct, 'Стил по стеку'), true));
-  grid.append(stealModule('3.2', 'Ответ блайндов', 'фолд / колл / рейз, %', pairStack([{ label: 'CO', vals: o.CO.resp }, { label: 'BTN', vals: o.BTN.resp }], [['фолд', 'var(--good)'], ['колл', 'var(--ice)'], ['рейз', 'var(--bad)']])));
   const f3 = (z) => (z.n ? z.x / z.n : null);
-  grid.append(stealModule('3.3', 'Фолд на 3-бет', 'после вашего стила', pairH([
-    { label: 'CO', v: f3(o.CO.f3b), text: pct(f3(o.CO.f3b)), color: C_CO, title: o.CO.f3b.x + ' из ' + o.CO.f3b.n },
-    { label: 'BTN', v: f3(o.BTN.f3b), text: pct(f3(o.BTN.f3b)), color: C_BTN, title: o.BTN.f3b.x + ' из ' + o.BTN.f3b.n }]), true));
   const nb = (z) => (z.n ? z.sum / 10 / z.n : null);
   grid.append(stealModule('3.4', 'Результат стила', 'BB за открытие', pairH([
     { label: 'CO', v: nb(o.CO.net), text: signed(nb(o.CO.net), 2), cls: nb(o.CO.net) >= 0 ? 'up' : 'down', color: C_CO, title: o.CO.net.n + ' открытий' },
