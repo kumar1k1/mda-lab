@@ -807,6 +807,38 @@ function respTiles(resp, title, labels) {
   return rs;
 }
 
+// всплывающее окно над клеткой 4.1: диапазон пуша — какие руки и как часто вы пушили
+let pushTip = null;
+function showPushTip(lab, z, f, w, e) {
+  if (!pushTip) { pushTip = el('div', 'gt'); pushTip.setAttribute('role', 'tooltip'); document.body.append(pushTip); }
+  pushTip.replaceChildren();
+  const h = el('div', 'gt-h'); h.append(el('b', null, lab));
+  h.append(el('span', null, 'пуш ' + fmtPct(f) + '% · ' + z.x + ' из ' + z.o + (w == null ? '' : ' · ' + signed(w, 2) + ' BB за пуш')));
+  pushTip.append(h);
+  const R = 'AKQJT98765432', grid = el('div', 'gt-grid');
+  let any = 0;
+  for (let i = 0; i < 13; i++) for (let j = 0; j < 13; j++) {
+    const q = i * 13 + j, cell = el('div', 'gt-c');
+    cell.append(el('span', 'h', i === j ? R[i] + R[j] : i < j ? R[i] + R[j] + 's' : R[j] + R[i] + 'o'));
+    const o = z.ho ? z.ho[q] : 0, x = z.hx ? z.hx[q] : 0;
+    if (!o) cell.classList.add('out');
+    else if (!x) cell.classList.add('px0');
+    else { any++; const v = x / o; cell.style.background = 'linear-gradient(to right, var(--mx-push) ' + (v * 100).toFixed(0) + '%, var(--card) ' + (v * 100).toFixed(0) + '%)'; cell.classList.add('px'); if (o < 3) cell.classList.add('low'); }
+    grid.append(cell);
+  }
+  pushTip.append(grid, el('div', 'gt-f', any ? 'Синяя заливка — доля пушей этой рукой, когда она приходила. Тёмные — руки, которыми не пушили; пустые — не приходили. Без PokerDom: там нет карт героя.' : 'Нет пушей с известными картами в этой клетке.'));
+  pushTip.hidden = false; movePushTip(e);
+}
+function movePushTip(e) {
+  if (!pushTip || pushTip.hidden) return;
+  const w = pushTip.offsetWidth, h = pushTip.offsetHeight;
+  let x = e.clientX + 16, y = e.clientY - h / 2;
+  if (x + w > window.innerWidth - 8) x = e.clientX - w - 16;
+  y = Math.max(8, Math.min(y, window.innerHeight - h - 8));
+  pushTip.style.left = x + 'px'; pushTip.style.top = y + 'px';
+}
+function hidePushTip() { if (pushTip) pushTip.hidden = true; }
+
 // ---------- #4+ — пуши подробно ----------
 function renderShovePanel(idx, stackBars) {
   const c = DB.cols, P = ['EP', 'MP', 'HJ', 'CO', 'BTN', 'SB'];
@@ -827,19 +859,21 @@ function renderShovePanel(idx, stackBars) {
   card.append(numTag('4+'), el('span', 'k', 'Пуши подробно'));
   const m = el('div', 'sm pm');
   const h = el('div', 'sm-h'); h.append(el('span', 'num-tag sm-tag', '#4.1'), el('b', null, 'Где и как вы пушите'));
-  m.append(h, el('span', 'sm-s', 'частота пуша и винрейт за пуш по каждой позиции и стеку; в среднем ' + signed(net.n ? net.sum / 10 / net.n : null, 2) + ' BB за пуш, ' + net.n.toLocaleString('ru-RU') + ' пушей'));
+  m.append(h, el('span', 'sm-s', 'first-in пуш (до вас все сбросили): частота и винрейт по каждой позиции и стеку; в среднем ' + signed(net.n ? net.sum / 10 / net.n : null, 2) + ' BB за пуш, ' + net.n.toLocaleString('ru-RU') + ' пушей'));
   // матрица: строки — стек, колонки — позиции; в клетке частота пуша и винрейт за пуш
-  const cell = () => ({ o: 0, x: 0, sum: 0, n: 0 });
+  const cell = () => ({ o: 0, x: 0, sum: 0, n: 0, ho: null, hx: null });
   const M = SB.map(() => P.map(cell)), rowT = SB.map(cell), colT = P.map(cell), allT = cell();
   for (const i of idx) {
     const p = c.pos[i]; if (c.sit[i] !== 0 || p > 5) continue;
     const bb = c.bb[i] / 10, k = SB.findIndex(z => bb >= z[1] && bb < z[2]); if (k < 0) continue;
     const push = c.act[i] === 3;
     [M[k][p], rowT[k], colT[p], allT].forEach(z => { z.o++; if (push) { z.x++; if (c.net) { z.sum += c.net[i]; z.n++; } } });
+    const hc = c.hc ? c.hc[i] : -1;
+    if (hc >= 0) { const z = M[k][p]; if (!z.ho) { z.ho = new Uint32Array(169); z.hx = new Uint32Array(169); } z.ho[hc]++; if (push) z.hx[hc]++; }
   }
   const tb = el('div', 'pmx');
   const corner = el('span', 'pmx-corner', 'стек, BB'); tb.append(corner);
-  P.concat(['Все']).forEach(nm => tb.append(el('span', 'pmx-ch' + (nm === 'Все' ? ' tot' : ''), nm)));
+  P.forEach(nm => tb.append(el('span', 'pmx-ch', nm)));
   const maxF = Math.max(0.01, ...M.flat().filter(z => z.x >= 5).map(z => z.x / z.o));
   const put = (z, lab, tot) => {
     const d = el('div', 'pmx-c' + (tot ? ' tot' : ''));
@@ -848,18 +882,14 @@ function renderShovePanel(idx, stackBars) {
     d.style.setProperty('--f', Math.min(1, f / maxF).toFixed(3));
     d.append(el('b', null, fmtPct(f) + '%'), el('span', 'pmx-w ' + (w == null ? '' : w >= 0 ? 'up' : 'down'), w == null ? '—' : signed(w, 2)));
     if (z.n < 10) d.classList.add('low');
-    d.title = lab + ': пуш ' + z.x + ' раз из ' + z.o + ' возможностей открыться (' + fmtPct(f) + '%)' + (w == null ? '' : '; винрейт ' + signed(w, 2) + ' BB за пуш');
+    d.addEventListener('mouseenter', (e) => showPushTip(lab, z, f, w, e)); d.addEventListener('mousemove', movePushTip); d.addEventListener('mouseleave', hidePushTip);
     return d;
   };
   SB.forEach((z0, k) => {
     tb.append(el('span', 'pmx-rh', z0[0]));
     P.forEach((nm, p) => tb.append(put(M[k][p], nm + ', ' + z0[0] + ' BB')));
-    tb.append(put(rowT[k], 'Все позиции, ' + z0[0] + ' BB', true));
   });
-  tb.append(el('span', 'pmx-rh tot', 'все'));
-  P.forEach((nm, p) => tb.append(put(colT[p], nm + ', все стеки', true)));
-  tb.append(put(allT, 'Все позиции и стеки', true));
-  m.append(tb, el('p', 'sz5-note', 'В клетке: сверху — частота пуша (как часто вы идёте олл-ин от всех возможностей открыться), снизу — винрейт за пуш в BB. Чем ярче клетка, тем чаще пуш. Бледные клетки — меньше 10 пушей; наведите, чтобы увидеть количество.'));
+  m.append(tb, el('p', 'sz5-note', 'В клетке: сверху — частота пуша (как часто вы идёте олл-ин от всех возможностей открыться), снизу — винрейт за пуш в BB. Чем ярче клетка, тем чаще пуш. Бледные клетки — меньше 10 пушей. Наведите на клетку — покажется диапазон пуша.'));
   card.append(m);
   return card;
 }
@@ -1020,7 +1050,7 @@ function currentIdx() {
 }
 
 function render() {
-  hideHandPop(); hideMxTip(); hideGroupTip();
+  hideHandPop(); hideMxTip(); hideGroupTip(); hidePushTip();
   const rail = $('rail'); rail.replaceChildren();
   GROUPS.forEach(g => {
     const box = el('div', 'rgroup');
@@ -1151,5 +1181,6 @@ window.__pickBar = (k) => { document.querySelectorAll('g.pick')[k].dispatchEvent
 window.__pinGroup = (n) => document.querySelectorAll('.hg-c')[n].click();
 window.__sz = (k) => { SZ_SIDE = k; };
 window.__bx = (k, v) => { if (k === 1) BX1.met = v; else BX2 = v; };
+window.__hoverPush = (n) => { const c = document.querySelectorAll('.pmx-c')[n]; const r = c.getBoundingClientRect(); c.dispatchEvent(new MouseEvent('mouseenter', { clientX: r.left + 20, clientY: r.top + 5 })); };
 window.__hoverGroup = (n) => { const c = document.querySelectorAll('.hg-c')[n]; const r = c.getBoundingClientRect(); c.dispatchEvent(new MouseEvent('mouseenter', { clientX: r.left + 20, clientY: r.top + 5 })); };
 window.__hoverMx = (k) => { const c = document.querySelectorAll('.mx .mx-c')[k]; c.scrollIntoView({ block: 'center' }); const r = c.getBoundingClientRect(); c.dispatchEvent(new MouseEvent('mouseenter', { clientX: r.left + 10, clientY: r.top + 10 })); };
