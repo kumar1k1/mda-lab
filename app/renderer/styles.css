@@ -573,3 +573,11 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .pmx-c.click{cursor:pointer}
 .pmx.iso .pmx-c{min-height:62px}
 .pmx-fv{font-family:var(--mono);font-size:10px;color:var(--ice)}
+
+.iso-box{display:flex;flex-direction:column;flex:1 1 auto;gap:14px}
+.iso-box > .resp{margin-top:auto}
+.iso-sub{display:flex;flex-direction:column;gap:4px;margin-top:2px}
+.iso-sr{display:grid;grid-template-columns:auto 1fr auto;align-items:baseline;gap:10px;padding:6px 10px;background:var(--bg);border:1px solid var(--line);border-left:3px solid var(--amber);border-radius:8px}
+.iso-sr span{font-size:12.5px;color:var(--soft)}
+.iso-sr b{font-family:var(--mono);font-size:15px;color:var(--amber);text-align:right}
+.iso-sr small{font-family:var(--mono);font-size:10.5px;color:var(--faint)}

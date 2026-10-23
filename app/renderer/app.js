@@ -932,8 +932,13 @@ function isoData(idx) {
 
 function isoCard(d) {
   const all = { x: d.tot[0].x + d.tot[1].x, n: d.tot[0].o + d.tot[1].o };
-  return card(5, 'Изолейт лимперов', '<em>' + pctTxt(all) + '</em>', 'vs 1 лимпер ' + pctTxt({ x: d.tot[0].x, n: d.tot[0].o }) + ' · vs 2+ ' + pctTxt({ x: d.tot[1].x, n: d.tot[1].o }),
-    respTiles(d.resp, 'Ответ оппонентов на ваш изолейт'));
+  const box = el('div', 'iso-box'), sub = el('div', 'iso-sub');
+  [['vs 1 лимпер', d.tot[0]], ['vs 2+ лимпера', d.tot[1]]].forEach(([lab, t]) => {
+    const r = el('div', 'iso-sr'); r.append(el('span', null, lab), el('b', null, pctTxt({ x: t.x, n: t.o })), el('small', null, t.x.toLocaleString('ru-RU') + ' из ' + t.o.toLocaleString('ru-RU')));
+    sub.append(r);
+  });
+  box.append(sub, respTiles(d.resp, 'Ответ оппонентов на ваш изолейт'));
+  return card(5, 'Изолейт лимперов', '<em>' + pctTxt(all) + '</em>', null, box);
 }
 
 function isoPanel(d) {
