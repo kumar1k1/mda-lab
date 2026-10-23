@@ -18,7 +18,8 @@
 
 ## Ники героя (Alias 777molodoy777)
 
-77molodoy77 — Winamax, dzmitry pranko — GGPoker, easyWin777 — WPN, Kumar1k — PokerStars, molodoy_777 — PokerDom.
+77molodoy77 — Winamax, dzmitry pranko — GGPoker, easyWin777 — WPN, Kumar1k — PokerStars.
+PokerDom (molodoy_777) по просьбе исключён из базы и статистики.
 
 ## Как продолжить в новом чате с Claude
 

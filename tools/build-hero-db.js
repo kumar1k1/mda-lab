@@ -4,8 +4,8 @@ const fs = require('fs');
 const path = require('path');
 const { parseText } = require('../app/parser/parse.js');
 
-const NICKS = { '77molodoy77': 'Winamax', 'dzmitry pranko': 'GGPoker', 'easyWin777': 'WPN', 'Kumar1k': 'PokerStars', 'molodoy_777': 'PokerDom' };
-const ROOMS = ['GGPoker', 'Winamax', 'PokerStars', 'PokerDom', 'WPN'];
+const NICKS = { '77molodoy77': 'Winamax', 'dzmitry pranko': 'GGPoker', 'easyWin777': 'WPN', 'Kumar1k': 'PokerStars' }; // PokerDom (molodoy_777) исключён из базы
+const ROOMS = ['GGPoker', 'Winamax', 'PokerStars', 'WPN'];
 const heroes = new Set(Object.keys(NICKS));
 const [dir, out] = process.argv.slice(2);
 
