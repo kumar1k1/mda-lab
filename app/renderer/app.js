@@ -648,8 +648,10 @@ function renderRFISummary(idx, r) {
   // строка #3: карточка #3 и окна 3.4–3.8 одного размера в общей сетке
   const stealRow = el('div', 'steal-row'); stealRow.append(byTag['#3']);
   [...byTag['#3+'].querySelectorAll(':scope > .sm')].forEach(m => { if (m.querySelector('.sm-tag').textContent === '#3.4') m.classList.add('span2'); stealRow.append(m); });
-  zone.append(row('#1', '#8'), stealRow, row('#4', '#4+'));
-  const rest = el('div', 'insights'); ['#6', '#10'].forEach(t => byTag[t] && rest.append(byTag[t])); zone.append(rest);
+  // разделы с заголовком и отступом, чтобы блоки не слипались
+  const sec = (title, note) => { const d = el('div', 'sec'); const t = el('div', 'sec-t'); t.append(el('h3', null, title)); if (note) t.append(el('span', null, note)); d.append(t, el('div', 'sec-line')); return d; };
+  zone.append(row('#1', '#8'), sec('Стил с поздних позиций', 'CO и BTN, когда до вас все сбросили'), stealRow, sec('Пуши', 'олл-ин вместо обычного открытия'), row('#4', '#4+'));
+  const rest = el('div', 'insights'); ['#6', '#10'].forEach(t => byTag[t] && rest.append(byTag[t])); zone.append(sec('Другое', 'румы и ответ на 3-бет'), rest);
 
   // матрица рук
   const b13 = el('section', 'block'); b13.append(numTag(13));
@@ -687,7 +689,8 @@ function renderRFISummary(idx, r) {
   const h14 = el('div', 'block-head'); h14.append(el('h2', null, 'Календарь игры'), el('p', null, 'каждая клетка — день; ярче — больше рук. Наведите, чтобы увидеть руки, RFI и результат дня'));
   b14.append(h14, calendar(x.cal, x.maxDay));
   zone.append(b14);
-  zone.insertBefore(b13, zone.children[1]); // матрица рук сразу под строкой #1 / #8
+  zone.insertBefore(sec('Диапазон открытия', 'какие руки и как вы открываете'), zone.children[1]);
+  zone.insertBefore(b13, zone.children[2]); // матрица рук сразу под строкой #1 / #8
   return zone;
 }
 
