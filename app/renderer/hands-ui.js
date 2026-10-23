@@ -280,11 +280,12 @@ async function openReplayer(i) {
       s.cards.replaceChildren(...(f.folded[j] && j !== rp.h ? [] : show ? show.map(c => cardEl(c, true)) : [cardEl(null, true), cardEl(null, true)]));
       // на месте фишек ставки — действие игрока на этой улице: чек, колл, бет, рейз, олл-ин, фолд, выигрыш
       const a = f.act[j];
-      if (a) {
+      if (a && a.t === 'f' && f.actor !== j) { s.bet.hidden = true; s.bet.className = 'rp-bet'; } // фолд виден только в момент хода
+      else if (a) {
         const ai = a.ai && a.t !== 'w' && a.t !== 'f';
         const T = { f: 'Фолд', x: 'Чек', c: 'Колл ' + a.v, b: 'Бет ' + a.v, r: 'Рейз ' + a.v, w: '+' + a.v + ' BB' }[a.t];
         s.bet.textContent = ai ? 'Олл-ин ' + a.v : T;
-        s.bet.className = 'rp-bet a-' + (ai ? 'ai' : a.t) + (f.actor === j ? ' now' : '');
+        s.bet.className = 'rp-bet a-' + (ai ? 'ai' : a.t) + (f.actor === j ? (a.t === 'f' ? ' fade' : ' now') : '');
         s.bet.hidden = false;
       } else {
         s.bet.textContent = f.bets[j] > 0 ? f.bets[j] + ' BB' : '';

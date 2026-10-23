@@ -628,3 +628,5 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .rp-bet.now{animation:rpPop .35s ease-out}
 @keyframes rpPop{from{transform:translate(-50%,-50%) scale(.6);opacity:.2}to{transform:translate(-50%,-50%) scale(1);opacity:1}}
 @media (prefers-reduced-motion: reduce){.rp-bet.now{animation:none}}
+.rp-bet.fade{animation:rpFold 1.2s ease-in forwards}
+@keyframes rpFold{0%{opacity:1}65%{opacity:1}100%{opacity:0;visibility:hidden}}
