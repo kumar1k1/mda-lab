@@ -952,7 +952,10 @@ function renderRFISummary(idx, r) {
     r.append(el('span', 'mb-l', lab + ' BB'), tr, el('span', 'mb-v', v == null ? '—' : fmtPct(v) + '%'));
     st.append(r);
   });
-  cards.append(card(4, 'Доля пушей среди открытий', pctTxt(x.shove), x.shove.x.toLocaleString('ru-RU') + ' пушей из ' + x.shove.n.toLocaleString('ru-RU') + ' открытий'));
+  const presp = [0, 0];
+  { const c = DB.cols; if (c.orsp) for (const i of idx) if (c.sit[i] === 0 && c.pos[i] <= 5 && c.act[i] === 3 && c.orsp[i] >= 0) presp[c.orsp[i] === 0 ? 0 : 1]++; }
+  cards.append(card(4, 'Доля пушей среди открытий', '<em>' + pctTxt(x.shove) + '</em>', x.shove.x.toLocaleString('ru-RU') + ' пушей из ' + x.shove.n.toLocaleString('ru-RU') + ' открытий',
+    respTiles(presp, 'Ответ оппонентов на ваш пуш', [['все сбросили', 'var(--good)'], ['колл', 'var(--ice)']])));
   const shovePanel = renderShovePanel(idx, st);
 
 
