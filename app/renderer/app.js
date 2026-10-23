@@ -642,6 +642,124 @@ function sizingCard(o) {
   return m;
 }
 
+// ---------- 3.7: стил против разных стеков SB и BB — три варианта показа ----------
+const BX_NAMES = ['короткий', 'средний', 'глубокий'];
+const bxSum = (cells) => cells.reduce((t, z) => { for (const k in t) t[k] += z[k]; return t; }, { n: 0, x: 0, rn: 0, fold: 0, rr: 0, sum: 0, sn: 0 });
+const bxCell = (o, side, i, j) => (side === 'both' ? bxSum([o.CO.bx[i][j], o.BTN.bx[i][j]]) : o[side].bx[i][j]);
+const BX_MET = {
+  fold: { t: 'Сбросили', v: (z) => (z.rn ? z.fold / z.rn : null), f: (v) => fmtPct(v) + '%', n: (z) => z.rn },
+  bb: { t: 'BB за открытие', v: (z) => (z.sn ? z.sum / 10 / z.sn : null), f: (v) => signed(v, 2), n: (z) => z.sn },
+  freq: { t: 'Частота стила', v: (z) => (z.n ? z.x / z.n : null), f: (v) => fmtPct(v) + '%', n: (z) => z.n },
+};
+function segBtns(opts, cur, on) {
+  const seg = el('div', 'seg bx-seg');
+  opts.forEach(([k, t]) => { const b = el('button', null, t); b.type = 'button'; b.classList.toggle('on', k === cur); b.setAttribute('aria-pressed', String(k === cur)); b.onclick = () => { seg.querySelectorAll('button').forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-pressed', String(x === b)); }); on(k); }; seg.append(b); });
+  return seg;
+}
+function bxHead(tag, title, sub) {
+  const m = el('div', 'sm bx');
+  const h = el('div', 'sm-h'); h.append(el('span', 'num-tag sm-tag', '#' + tag), el('b', null, title));
+  m.append(h, el('span', 'sm-s', sub));
+  return m;
+}
+const BX_STK_TXT = 'короткий <15 BB, средний 15–35, глубокий 35+';
+
+// 3.7.1 — тепловая карта 3×3: строки — стек SB, колонки — стек BB
+let BX1 = { side: 'both', met: 'fold' };
+function bxHeat(o) {
+  const m = bxHead('3.7.1', 'Вариант 1 · Карта стеков блайндов', 'строки — стек SB, колонки — стек BB; ' + BX_STK_TXT);
+  const ctl = el('div', 'bx-ctl'), body = el('div');
+  ctl.append(segBtns([['both', 'CO + BTN'], ['CO', 'CO'], ['BTN', 'BTN']], BX1.side, (k) => { BX1.side = k; draw(); }),
+    segBtns([['fold', 'Сбросили'], ['bb', 'BB'], ['freq', 'Частота']], BX1.met, (k) => { BX1.met = k; draw(); }));
+  m.append(ctl, body);
+  function draw() {
+    const M = BX_MET[BX1.met], g = el('div', 'bx-grid');
+    g.append(el('span', 'bx-corner', 'SB ↓ · BB →'));
+    BX_NAMES.forEach((n, j) => g.append(el('span', 'bx-ch', n + '\n' + o.BX[j])));
+    const all = [];
+    for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) { const v = M.v(bxCell(o, BX1.side, i, j)); if (v != null) all.push(v); }
+    const lo = Math.min(...all), hi = Math.max(...all);
+    for (let i = 0; i < 3; i++) {
+      g.append(el('span', 'bx-rh', BX_NAMES[i] + '\n' + o.BX[i]));
+      for (let j = 0; j < 3; j++) {
+        const z = bxCell(o, BX1.side, i, j), v = M.v(z), n = M.n(z), c = el('div', 'bx-c');
+        if (v == null) { c.classList.add('na'); c.append(el('b', null, '—')); }
+        else {
+          let bg;
+          if (BX1.met === 'bb') { const t = Math.min(1, Math.abs(v) / Math.max(0.5, Math.abs(lo), Math.abs(hi))); bg = 'rgba(' + (v >= 0 ? 'var(--good-rgb)' : 'var(--bad-rgb)') + ',' + (0.15 + 0.6 * t).toFixed(2) + ')'; }
+          else { const t = hi > lo ? (v - lo) / (hi - lo) : 0.5; bg = 'rgba(242,181,68,' + (0.1 + 0.55 * t).toFixed(2) + ')'; }
+          c.style.background = bg; c.append(el('b', null, M.f(v)), el('small', null, n.toLocaleString('ru-RU') + ' раз'));
+          if (n < 30) c.classList.add('low');
+          c.title = 'SB ' + BX_NAMES[i] + ', BB ' + BX_NAMES[j] + ': ' + M.t.toLowerCase() + ' ' + M.f(v) + ', ' + n + ' раз';
+        }
+        g.append(c);
+      }
+    }
+    body.replaceChildren(g);
+  }
+  draw();
+  return m;
+}
+
+// 3.7.2 — все 9 сочетаний, отсортированные по результату
+let BX2 = 'bb';
+function bxList(o) {
+  const m = bxHead('3.7.2', 'Вариант 2 · Рейтинг сочетаний', 'все 9 сочетаний стеков SB и BB, от лучшего к худшему; ' + BX_STK_TXT);
+  const body = el('div');
+  m.append(segBtns([['bb', 'BB за открытие'], ['fold', 'Сбросили']], BX2, (k) => { BX2 = k; draw(); }), body);
+  function draw() {
+    const M = BX_MET[BX2], rows = [];
+    for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) rows.push({ i, j, a: o.CO.bx[i][j], b: o.BTN.bx[i][j], t: M.v(bxSum([o.CO.bx[i][j], o.BTN.bx[i][j]])) });
+    rows.sort((x, y) => (y.t ?? -1e9) - (x.t ?? -1e9));
+    const max = Math.max(0.01, ...rows.flatMap(r => [M.v(r.a), M.v(r.b)]).filter(v => v != null).map(Math.abs));
+    const t = el('div', 'bx-list');
+    const hd = el('div', 'bx-lr bx-lh'); hd.append(el('span', null, 'SB · BB'), el('span', null, 'CO'), el('span', null, 'BTN')); t.append(hd);
+    rows.forEach(r => {
+      const row = el('div', 'bx-lr');
+      row.append(el('span', 'bx-ll', 'SB ' + BX_NAMES[r.i] + ' · BB ' + BX_NAMES[r.j]));
+      [[r.a, C_CO], [r.b, C_BTN]].forEach(([z, col]) => {
+        const v = M.v(z), n = M.n(z), cell = el('div', 'hg-c');
+        const tr = el('div', 'hg-track'), f = el('div', 'hg-fill');
+        if (BX2 === 'bb') { tr.append(el('div', 'hg-zero')); const w = v == null ? 0 : Math.abs(v) / max * 50; f.style.width = w + '%'; f.style.left = v >= 0 ? '50%' : (50 - w) + '%'; }
+        else { f.style.left = '0'; f.style.width = (v == null ? 0 : v / max * 100) + '%'; }
+        f.style.background = col; tr.append(f);
+        cell.append(tr, el('span', 'hg-v ' + (BX2 === 'bb' && v != null ? (v >= 0 ? 'up' : 'down') : ''), v == null ? '—' : M.f(v)), el('span', 'hg-n', n ? String(n) : ''));
+        if (n < 30) cell.classList.add('low');
+        row.append(cell);
+      });
+      t.append(row);
+    });
+    body.replaceChildren(t);
+  }
+  draw();
+  return m;
+}
+
+// 3.7.3 — пять ситуаций: оба короткие / средние / глубокие, SB глубже BB, BB глубже SB
+function bxRel(o) {
+  const m = bxHead('3.7.3', 'Вариант 3 · Ситуации у блайндов', 'как стеки SB и BB соотносятся между собой; ' + BX_STK_TXT);
+  const groups = [['Оба короткие', [[0, 0]]], ['Оба средние', [[1, 1]]], ['Оба глубокие', [[2, 2]]],
+    ['SB глубже BB', [[1, 0], [2, 0], [2, 1]]], ['BB глубже SB', [[0, 1], [0, 2], [1, 2]]]];
+  const t = el('div', 'bx-rel');
+  const hd = el('div', 'bx-rr bx-lh'); ['', 'Сбросили', '', 'BB'].forEach(x => hd.append(el('span', null, x))); t.append(hd);
+  groups.forEach(([lab, cells]) => {
+    const g = el('div', 'bx-rg'); g.append(el('b', 'bx-rl', lab));
+    [['CO', C_CO], ['BTN', C_BTN]].forEach(([side, col]) => {
+      const z = bxSum(cells.map(([i, j]) => o[side].bx[i][j]));
+      const fold = BX_MET.fold.v(z), bb = BX_MET.bb.v(z);
+      const r = el('div', 'bx-rr'); if (z.sn < 30) r.classList.add('low');
+      const tag = el('span', 'bx-tag', side); tag.style.color = col;
+      const bar = el('div', 'mb-track'); const f = el('div', 'mb-fill'); f.style.width = (fold == null ? 0 : fold * 100) + '%'; f.style.background = col; bar.append(f);
+      r.append(tag, bar, el('span', 'sz5-v', fold == null ? '—' : fmtPct(fold) + '%'), el('span', 'sz5-v ' + (bb == null ? '' : bb >= 0 ? 'up' : 'down'), bb == null ? '—' : signed(bb, 2)));
+      r.title = side + ', ' + lab + ': ' + z.sn + ' открытий';
+      g.append(r);
+    });
+    t.append(g);
+  });
+  m.append(t, el('p', 'sz5-note', 'Сбросили — оба блайнда сфолдили на ваш стил. BB — средний итог открытия. Бледные строки — меньше 30 раздач.'));
+  return m;
+}
+
 function renderStealPanel(idx) {
   const o = Stats.stealExtra(DB, idx);
   // каждый пункт 3.1–3.8 — отдельное окно; общий контейнер без рамки
@@ -653,7 +771,8 @@ function renderStealPanel(idx) {
   const nb = (z) => (z.n ? z.sum / 10 / z.n : null);
   grid.append(stealResultCard(o));
   grid.append(sizingCard(o));
-  const m37 = stealModule('3.7', 'Против стека блайндов', 'стил, когда самый короткий блайнд имеет …, BB', pairBars(o.BLIND, o.CO.blind.map(rateOf), o.BTN.blind.map(rateOf), pct, 'Стил против стека блайндов'), true); grid.append(m37);
+  const l2 = bxList(o); l2.classList.add('span2');
+  grid.append(bxHeat(o), l2, bxRel(o));
   return card;
 }
 
@@ -1033,5 +1152,6 @@ window.__hoverNet = (i) => { const g = document.querySelectorAll('.net-bar')[i];
 window.__pickBar = (k) => { document.querySelectorAll('g.pick')[k].dispatchEvent(new MouseEvent('click')); };
 window.__pinGroup = (n) => document.querySelectorAll('.hg-c')[n].click();
 window.__sz = (k) => { SZ_SIDE = k; };
+window.__bx = (k, v) => { if (k === 1) BX1.met = v; else BX2 = v; };
 window.__hoverGroup = (n) => { const c = document.querySelectorAll('.hg-c')[n]; const r = c.getBoundingClientRect(); c.dispatchEvent(new MouseEvent('mouseenter', { clientX: r.left + 20, clientY: r.top + 5 })); };
 window.__hoverMx = (k) => { const c = document.querySelectorAll('.mx .mx-c')[k]; c.scrollIntoView({ block: 'center' }); const r = c.getBoundingClientRect(); c.dispatchEvent(new MouseEvent('mouseenter', { clientX: r.left + 10, clientY: r.top + 10 })); };

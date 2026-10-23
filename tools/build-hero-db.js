@@ -26,7 +26,7 @@ for (const f of files) {
 recs.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 const start = recs[0].date.slice(0, 7);
 const [sy, sm] = start.split('-').map(Number);
-const cols = { room: [], type: [], month: [], tbl: [], pos: [], bb: [], sit: [], lim: [], act: [], size: [], fti: [], bvb: [], fvr: [], day: [], hc: [], net: [], sto: [], f3b: [], orsp: [], bmin: [] };
+const cols = { room: [], type: [], month: [], tbl: [], pos: [], bb: [], sit: [], lim: [], act: [], size: [], fti: [], bvb: [], fvr: [], day: [], hc: [], net: [], sto: [], f3b: [], orsp: [], bmin: [], sbs: [], bbs: [] };
 const rp = {};
 for (const h of recs) {
   const [y, m] = h.date.split('-').map(Number);
@@ -34,7 +34,7 @@ for (const h of recs) {
   cols.tbl.push(h.tblMax && h.tblMax <= 6 ? 6 : 9); cols.pos.push(h.pos); cols.bb.push(h.bb);
   cols.sit.push(h.sit); cols.lim.push(h.lim); cols.act.push(h.act); cols.size.push(h.size); cols.fti.push(h.fti); cols.bvb.push(h.bvb); cols.fvr.push(h.fvr);
   if (h.rp && h.hc >= 0) rp[cols.room.length - 1] = h.rp;
-  cols.day.push(Math.round((Date.UTC(y, m - 1, +h.date.slice(8, 10)) - Date.UTC(sy, sm - 1, 1)) / 864e5)); cols.hc.push(h.hc); cols.net.push(h.net); cols.sto.push(h.sto); cols.f3b.push(h.f3b); cols.orsp.push(h.orsp); cols.bmin.push(h.bmin);
+  cols.day.push(Math.round((Date.UTC(y, m - 1, +h.date.slice(8, 10)) - Date.UTC(sy, sm - 1, 1)) / 864e5)); cols.hc.push(h.hc); cols.net.push(h.net); cols.sto.push(h.sto); cols.f3b.push(h.f3b); cols.orsp.push(h.orsp); cols.bmin.push(h.bmin); cols.sbs.push(h.sbs); cols.bbs.push(h.bbs);
 }
 const db = { format: 'mdalab-hands-v1', demo: false, hero: '777molodoy777', nicks: NICKS, rooms: ROOMS, types: ['Обычный', 'PKO'], periodStart: start, count: recs.length, cols };
 fs.writeFileSync(out, JSON.stringify(db));

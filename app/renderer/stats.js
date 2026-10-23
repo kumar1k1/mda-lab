@@ -119,11 +119,12 @@
   const STEAL_STK = [['<12', 0, 12], ['12–20', 12, 20], ['20–30', 20, 30], ['30+', 30, 1e9]];
   const STEAL_SZ = [['2–2.25', 0, 225], ['2.25–2.6', 225, 260], ['2.6+', 260, 1e9]];
   const BLIND_STK = [['≤10', 0, 10], ['10–20', 10, 20], ['20+', 20, 1e9]];
+  const BX_STK = [['<15', 0, 15], ['15–35', 15, 35], ['35+', 35, 1e9]]; // стек SB и BB по отдельности, BB
   function stealExtra(db, idx) {
     const c = db.cols, has = (k) => Array.isArray(c[k]);
     const R = () => ({ x: 0, n: 0 });
     const Z = () => ({ sum: 0, n: 0, ids: [] });
-    const mk = () => ({ all: R(), stk: STEAL_STK.map(R), resp: [0, 0, 0], f3b: R(), net: { sum: 0, n: 0 }, sz: [0, 0, 0, 0], szx: {}, month: {}, blind: BLIND_STK.map(R),
+    const mk = () => ({ all: R(), stk: STEAL_STK.map(R), resp: [0, 0, 0], f3b: R(), net: { sum: 0, n: 0 }, sz: [0, 0, 0, 0], szx: {}, bx: BX_STK.map(() => BX_STK.map(() => ({ n: 0, x: 0, rn: 0, fold: 0, rr: 0, sum: 0, sn: 0 }))), month: {}, blind: BLIND_STK.map(R),
       // результат стила (BB×10) по разрезам, с номерами раздач для списка
       nr: { all: Z(), resp: [Z(), Z(), Z()], stk: STEAL_STK.map(Z), kind: [Z(), Z()], type: [Z(), Z()], fight: [Z(), Z()], room: {}, month: {} } });
     const out = { CO: mk(), BTN: mk() };
@@ -134,7 +135,16 @@
       const sb = c.bb[i] / 10; const k = STEAL_STK.findIndex(z => sb >= z[1] && sb < z[2]); if (k >= 0) { o.stk[k].n++; if (open) o.stk[k].x++; }
       const mo = o.month[c.month[i]] || (o.month[c.month[i]] = R()); mo.n++; if (open) mo.x++;
       if (has('bmin') && c.bmin[i] >= 0) { const bk = BLIND_STK.findIndex(z => c.bmin[i] / 10 >= z[1] && c.bmin[i] / 10 < z[2]); if (bk >= 0) { o.blind[bk].n++; if (open) o.blind[bk].x++; } }
+      let bxc = null;
+      if (has('sbs') && c.sbs[i] >= 0 && c.bbs[i] >= 0) {
+        const f = (v) => BX_STK.findIndex(z => v / 10 >= z[1] && v / 10 < z[2]);
+        bxc = o.bx[f(c.sbs[i])][f(c.bbs[i])]; bxc.n++; if (open) bxc.x++;
+      }
       if (!open) continue;
+      if (bxc) {
+        if (has('orsp') && c.orsp[i] >= 0) { bxc.rn++; if (c.orsp[i] === 0) bxc.fold++; if (c.orsp[i] === 2) bxc.rr++; }
+        if (has('net')) { bxc.sum += c.net[i]; bxc.sn++; }
+      }
       if (has('orsp') && c.orsp[i] >= 0) o.resp[c.orsp[i]]++;
       if (has('f3b') && c.f3b[i] >= 0) { o.f3b.n++; if (c.f3b[i] === 1) o.f3b.x++; }
       if (has('net')) {
@@ -159,7 +169,7 @@
       }
       if (c.act[i] === 3) o.sz[3]++; else { const z = STEAL_SZ.findIndex(q => c.size[i] >= q[1] && c.size[i] < q[2]); if (z >= 0) o.sz[z]++; }
     }
-    out.STK = STEAL_STK.map(z => z[0]); out.SZ = STEAL_SZ.map(z => z[0]).concat(['пуш']); out.BLIND = BLIND_STK.map(z => z[0]);
+    out.STK = STEAL_STK.map(z => z[0]); out.SZ = STEAL_SZ.map(z => z[0]).concat(['пуш']); out.BLIND = BLIND_STK.map(z => z[0]); out.BX = BX_STK.map(z => z[0]);
     return out;
   }
 

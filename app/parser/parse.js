@@ -206,6 +206,9 @@ function parseHand(text, fmt, heroes) {
   // самый короткий стек среди блайндов (кроме героя), BB×10 — для стила против коротких/глубоких блайндов
   const bl = [sbSeat, bbSeat].filter(sn => sn != null && sn !== heroSeat && seats[sn]).map(sn => seats[sn].stack);
   rec.bmin = bl.length ? Math.round(Math.min(...bl) / bb * 10) : -1;
+  // стеки малого и большого блайнда по отдельности, BB×10 (-1 — нет блайнда или это герой)
+  const st = (sn) => (sn != null && sn !== heroSeat && seats[sn] ? Math.round(seats[sn].stack / bb * 10) : -1);
+  rec.sbs = st(sbSeat); rec.bbs = st(bbSeat);
   if (hi < 0) return rec; // герой не действовал префлоп (все сбросили до BB)
   const before = acts.slice(0, hi);
   const raises = before.filter(x => x.a === 'raises' || x.a === 'bets').length;
