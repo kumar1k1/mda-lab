@@ -912,7 +912,7 @@ function renderShovePanel(idx, stackBars) {
 const ISO_POS = ['MP', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
 function isoData(idx) {
   const c = DB.cols, cell = () => ({ o: 0, x: 0, sum: 0, n: 0, f: 0, fn: 0, ids: [], mx: null });
-  const M = [ISO_POS.map(cell), ISO_POS.map(cell)], tot = [cell(), cell()], resp = [0, 0, 0];
+  const M = [ISO_POS.map(cell), ISO_POS.map(cell)], tot = [cell(), cell()], resp = [0, 0, 0], respL = [[0, 0, 0], [0, 0, 0]];
   for (const i of idx) {
     const p = c.pos[i]; if (c.sit[i] !== 1 || p < 1) continue;
     const r = c.lim[i] === 1 ? 0 : 1, z = M[r][p - 1], t = tot[r];
@@ -920,14 +920,14 @@ function isoData(idx) {
     t.o++; if (raised) t.x++;
     if (!bvb) { z.o++; if (raised) z.x++; } // в колонке BB — без блайнда против блайнда, как в HUD
     if (!raised) continue;
-    if (c.orsp && c.orsp[i] >= 0) resp[c.orsp[i]]++;
+    if (c.orsp && c.orsp[i] >= 0) { resp[c.orsp[i]]++; respL[r][c.orsp[i]]++; }
     if (c.fvr && c.fvr[i] >= 0) { z.fn++; if (c.fvr[i] === 1) z.f++; }
     if (c.net) { z.sum += c.net[i]; z.n++; }
     z.ids.push(i);
     const hc = c.hc ? c.hc[i] : -1;
     if (hc >= 0) { if (!z.mx) z.mx = Array.from({ length: 169 }, () => ({ n: 0, sum: 0 })); z.mx[hc].n++; if (c.net) z.mx[hc].sum += c.net[i]; }
   }
-  return { M, tot, resp };
+  return { M, tot, resp, respL };
 }
 
 function isoCard(d) {
@@ -937,7 +937,22 @@ function isoCard(d) {
     const r = el('div', 'iso-sr'); r.append(el('span', null, lab), el('b', null, pctTxt({ x: t.x, n: t.o })), el('small', null, t.x.toLocaleString('ru-RU') + ' из ' + t.o.toLocaleString('ru-RU')));
     sub.append(r);
   });
-  box.append(sub, respTiles(d.resp, 'Ответ оппонентов на ваш изолейт'));
+  // ответ оппонентов: против 1 лимпера, против 2+ и всего
+  const rt = el('div', 'iso-rt');
+  rt.append(el('span', 'resp-t', 'Ответ оппонентов на ваш изолейт (фолд — все сбросили)'));
+  const g = el('div', 'iso-rg');
+  g.append(el('span'));
+  [['фолд', 'var(--good)'], ['колл', 'var(--ice)'], ['рейз', 'var(--bad)']].forEach(([l, col]) => { const hh = el('span', 'iso-rh'); const i = el('i'); i.style.background = col; hh.append(i, document.createTextNode(l)); g.append(hh); });
+  [['vs 1 лимпер', d.respL[0], ''], ['vs 2+', d.respL[1], ''], ['Всего', d.resp, 'tot']].forEach(([lab, a, cls]) => {
+    const n = a[0] + a[1] + a[2];
+    g.append(el('span', 'iso-rl ' + cls, lab));
+    ['var(--good)', 'var(--ice)', 'var(--bad)'].forEach((col, k) => {
+      const v = el('b', 'iso-rv ' + cls, n ? fmtPct(a[k] / n) + '%' : '—'); v.style.color = col;
+      v.title = lab + ': ' + a[k] + ' из ' + n; g.append(v);
+    });
+  });
+  rt.append(g);
+  box.append(sub, rt);
   return card(5, 'Изолейт лимперов', '<em>' + pctTxt(all) + '</em>', null, box);
 }
 
