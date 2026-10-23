@@ -591,7 +591,7 @@ function stealResultCard(o) {
 // 3.5 — самые частые сайзинги открытия и как они работают
 let SZ_SIDE = 'both';
 function sizingCard(o) {
-  const m = el('div', 'sm sz5 span2');
+  const m = el('div', 'sm sz5');
   const h = el('div', 'sm-h'); h.append(el('span', 'num-tag sm-tag', '#3.5'), el('b', null, 'Сайзинг стила'));
   m.append(h, el('span', 'sm-s', 'самые частые размеры открытия, когда за спиной остаётся стек (без олл-инов)'));
   const seg = el('div', 'seg sz5-seg'); seg.setAttribute('role', 'group'); seg.setAttribute('aria-label', 'Позиция');
@@ -704,7 +704,7 @@ function bxHeat(o) {
 // 3.7.2 — все 9 сочетаний, отсортированные по результату
 let BX2 = 'bb';
 function bxList(o) {
-  const m = bxHead('3.7.2', 'Вариант 2 · Рейтинг сочетаний', 'все 9 сочетаний стеков SB и BB, от лучшего к худшему; ' + BX_STK_TXT);
+  const m = bxHead('3.7', 'Стил против стеков блайндов', 'результат стила с CO и BTN при разных стеках SB и BB, от лучшего сочетания к худшему; ' + BX_STK_TXT);
   const body = el('div');
   m.append(segBtns([['bb', 'BB за открытие'], ['fold', 'Фолд обоих блайндов, %']], BX2, (k) => { BX2 = k; draw(); }), body);
   function draw() {
@@ -772,7 +772,7 @@ function renderStealPanel(idx) {
   grid.append(stealResultCard(o));
   grid.append(sizingCard(o));
   const l2 = bxList(o); l2.classList.add('span2');
-  grid.append(bxHeat(o), l2, bxRel(o));
+  grid.append(l2);
   return card;
 }
 
