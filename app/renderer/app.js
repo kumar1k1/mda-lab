@@ -723,7 +723,7 @@ let BX2 = 'bb';
 function bxList(o) {
   const m = bxHead('3.7', 'Стил против стеков блайндов', 'результат стила с CO и BTN при разных стеках SB и BB, от лучшего сочетания к худшему; ' + BX_STK_TXT);
   const body = el('div');
-  m.append(segBtns([['bb', 'BB за открытие'], ['fold', 'Фолд обоих блайндов, %']], BX2, (k) => { BX2 = k; draw(); }), body);
+  m.append(segBtns([['bb', 'Винрейт за открытие, BB'], ['fold', 'Фолд обоих блайндов, %']], BX2, (k) => { BX2 = k; draw(); }), body);
   function draw() {
     const M = BX_MET[BX2], rows = [];
     for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) rows.push({ i, j, a: o.CO.bx[i][j], b: o.BTN.bx[i][j], t: M.v(bxSum([o.CO.bx[i][j], o.BTN.bx[i][j]])) });
