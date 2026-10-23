@@ -1,0 +1,15 @@
+/* Дополнения только для онлайн-превью: тёмная тема и узкие экраны */
+:root{color-scheme:dark}
+html,body{background:var(--bg);color:var(--text)}
+body{padding-left:max(0px, env(safe-area-inset-left, 0px));padding-right:max(0px, env(safe-area-inset-right, 0px))}
+@media (max-width: 760px){
+  .top{padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
+  .body{flex-direction:column}
+  .rail{width:auto;flex:0 0 auto;display:flex;overflow-x:auto;overflow-y:hidden;padding:0;border-right:none;border-bottom:1px solid var(--line)}
+  .tab{width:auto;flex:0 0 auto;padding:0 14px;border-left:none;border-bottom:3px solid transparent}
+  .tab.active{border-left-color:transparent;border-bottom-color:var(--yellow)}
+  .sep{width:1px;height:auto;margin:8px 4px}
+  .content{padding:12px max(16px, env(safe-area-inset-left, 0px))}
+  .sheet{padding:14px}
+  .filters{flex-basis:100%}
+}
