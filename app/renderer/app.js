@@ -1036,120 +1036,6 @@ function isoPanel(d) {
   return card;
 }
 
-// ---------- #7 / #7+ — стеки за спиной: кто ходит после вас и может пойти олл-ин ----------
-const BH_POS = ['EP', 'MP', 'HJ', 'CO', 'BTN', 'SB'];
-// состав стеков за спиной: d — глубокие 25+, m — средние 12–25, s — короткие <12
-const BH_ROWS = [
-  { lab: 'Только глубокие', note: 'все за спиной 25+ BB', icon: 'ddd' },
-  { lab: 'Есть средние', note: '12–25 BB, коротких нет', icon: 'mdd' },
-  { lab: 'Один короткий', note: 'один стек < 12 BB', icon: 'sdd' },
-  { lab: '2+ коротких', note: 'два и больше стеков < 12 BB', icon: 'ssd' }
-];
-const BH_COL = { d: 'var(--ice)', m: 'var(--amber)', s: 'var(--bad)' };
-const bhRow = (c, i) => (c.bsh[i] >= 2 ? 3 : c.bsh[i] === 1 ? 2 : c.bmd[i] > 0 ? 1 : 0);
-function bhIcon(code) {
-  const w = el('span', 'bh-ic'); w.setAttribute('aria-hidden', 'true');
-  [...code].forEach(ch => { const i = el('i'); i.style.background = BH_COL[ch]; w.append(i); });
-  return w;
-}
-function behindData(idx, cov) {
-  const c = DB.cols;
-  const cell = () => ({ o: 0, x: 0, sum: 0, n: 0, r: [0, 0, 0], ids: [], mx: null });
-  const M = BH_ROWS.map(() => BH_POS.map(cell)), R = BH_ROWS.map(cell);
-  if (!c.bsh) return { M, R };
-  for (const i of idx) {
-    const p = c.pos[i]; if (c.sit[i] !== 0 || p > 5 || c.bh[i] < 0) continue;
-    if (cov === 'cov' && c.cov[i] !== 1) continue;
-    if (cov === 'not' && c.cov[i] !== 0) continue;
-    const k = bhRow(c, i), open = c.act[i] >= 2;
-    [M[k][p], R[k]].forEach(z => {
-      z.o++; if (!open) return;
-      z.x++; if (c.net) { z.sum += c.net[i]; z.n++; }
-      if (c.orsp && c.orsp[i] >= 0) z.r[c.orsp[i]]++;
-    });
-    if (!open) continue;
-    const z = M[k][p]; z.ids.push(i);
-    const hc = c.hc ? c.hc[i] : -1;
-    if (hc >= 0) { if (!z.mx) z.mx = Array.from({ length: 169 }, () => ({ n: 0, sum: 0 })); z.mx[hc].n++; if (c.net) z.mx[hc].sum += c.net[i]; }
-  }
-  return { M, R };
-}
-
-function behindCard(idx) {
-  const d = behindData(idx, 'all');
-  const box = el('div', 'iso-box');
-  // частота открытия и винрейт по составу стеков за спиной
-  const sub = el('div', 'iso-sub');
-  BH_ROWS.forEach((row, k) => {
-    const z = d.R[k], r = el('div', 'iso-sr bh-sr');
-    const nm = el('span'); nm.append(bhIcon(row.icon), document.createTextNode(row.lab));
-    const wr = z.n ? z.sum / 10 / z.n : null;
-    r.append(nm, el('b', null, z.o ? fmtPct(z.x / z.o) + '%' : '—'), el('em', wr == null ? '' : wr >= 0 ? 'up' : 'down', wr == null ? '—' : signed(wr, 2)));
-    r.title = row.note + ': открытие ' + z.x + ' из ' + z.o + (wr == null ? '' : ', винрейт ' + signed(wr, 2) + ' BB');
-    sub.append(r);
-  });
-  // ответ оппонентов в тех же цветах, что в пунктах 1 и 3
-  const rt = el('div', 'iso-rt');
-  rt.append(el('span', 'resp-t', 'Ответ оппонентов на ваше открытие'));
-  const g = el('div', 'iso-rg');
-  g.append(el('span'));
-  [['фолд', 'var(--good)'], ['колл', 'var(--ice)'], ['рейз', 'var(--bad)']].forEach(([l, col]) => { const hh = el('span', 'iso-rh'); const i = el('i'); i.style.background = col; hh.append(i, document.createTextNode(l)); g.append(hh); });
-  BH_ROWS.forEach((row, k) => {
-    const a = d.R[k].r, n = a[0] + a[1] + a[2];
-    const lab = el('span', 'iso-rl'); lab.append(bhIcon(row.icon)); g.append(lab);
-    ['var(--good)', 'var(--ice)', 'var(--bad)'].forEach((col, j) => { const v = el('b', 'iso-rv bh-rv', n ? fmtPct(a[j] / n) + '%' : '—'); v.style.color = col; v.title = row.lab + ': ' + a[j] + ' из ' + n; g.append(v); });
-  });
-  rt.append(g);
-  box.append(el('span', 'bh-cap', 'Частота открытия · винрейт, BB'), sub, rt);
-  const all = d.R.reduce((t, z) => ({ x: t.x + z.x, n: t.n + z.o }), { x: 0, n: 0 });
-  return card(7, 'Стеки за спиной', '<em>' + pctTxt(all) + '</em>', 'открытие с учётом того, кто ходит после вас', box);
-}
-
-let BH_COV = 'all';
-function behindPanel(idx) {
-  const card = el('div', 'insight steal-panel pm-card');
-  card.append(numTag('7+'), el('b', 'pm-title', 'Открытие по стекам за спиной'), el('span', 'sm-s', 'строки — состав стеков игроков, которые ходят после вас; колонки — ваша позиция'));
-  const ctl = el('div', 'bx-ctl');
-  const body = el('div');
-  ctl.append(segBtns([['all', 'Все'], ['cov', 'Вы покрываете всех'], ['not', 'Кто-то глубже вас']], BH_COV, (k) => { BH_COV = k; draw(); }));
-  const lg = el('div', 'resp-legend row net-lg');
-  [['глубокий 25+ BB', BH_COL.d], ['средний 12–25', BH_COL.m], ['короткий < 12', BH_COL.s]].forEach(([l, col]) => { const it = el('span'); const i = el('i'); i.style.background = col; it.append(i, document.createTextNode(l)); lg.append(it); });
-  card.append(ctl, lg, body, el('p', 'sz5-note', 'В клетке: частота открытия (когда до вас все сбросили) и винрейт за открытие в BB. Чем ярче клетка, тем чаще открытие; бледные — меньше 30 возможностей. Наведите на клетку — покажутся руки, которыми вы открывались; клик закрепит окно, клик по руке откроет раздачи и реплеер.'));
-  function draw() {
-    const d = behindData(idx, BH_COV);
-    const tb = el('div', 'pmx bh');
-    tb.append(el('span', 'pmx-corner', 'за спиной'));
-    BH_POS.forEach(nm => tb.append(el('span', 'pmx-ch', nm)));
-    const maxF = Math.max(0.01, ...d.M.flat().filter(z => z.o >= 30).map(z => z.x / z.o));
-    BH_ROWS.forEach((row, k) => {
-      const rh = el('span', 'pmx-rh bh-rh'); rh.append(bhIcon(row.icon), el('span', null, row.lab), el('small', null, row.note)); tb.append(rh);
-      BH_POS.forEach((nm, p) => {
-        const z = d.M[k][p], c = el('div', 'pmx-c');
-        if (!z.o) { c.classList.add('na'); c.append(el('b', null, '—')); tb.append(c); return; }
-        const f = z.x / z.o, w = z.n ? z.sum / 10 / z.n : null;
-        c.style.setProperty('--f', Math.min(1, f / maxF).toFixed(3));
-        c.style.background = 'rgba(var(--amber-rgb),calc(.05 + var(--f) * .45))';
-        c.append(el('b', null, fmtPct(f) + '%'), el('span', 'pmx-w ' + (w == null ? '' : w >= 0 ? 'up' : 'down'), w == null ? '—' : signed(w, 2)));
-        if (z.o < 30) c.classList.add('low');
-        if (z.mx) {
-          const n = z.mx.reduce((a, q) => a + q.n, 0), s = z.mx.reduce((a, q) => a + q.sum, 0);
-          const it = { p: nm, key: 'bh ' + BH_COV + k + nm, title: nm + ' · ' + row.lab.toLowerCase() + ' · открытие ' + fmtPct(f) + '%', o: { n, sum: s }, mx: z.mx, ids: z.ids };
-          const v = n ? s / 10 / n : 0;
-          c.tabIndex = 0; c.setAttribute('role', 'button'); c.setAttribute('aria-label', nm + ', ' + row.lab + ': показать руки и раздачи'); c.classList.add('click');
-          const show = (ev) => showHandPop(it, v, ev, c);
-          c.addEventListener('mouseenter', show); c.addEventListener('mousemove', show); c.addEventListener('mouseleave', hideHandPop);
-          c.addEventListener('click', (ev) => pinHandPop(it, v, ev, c));
-          c.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); pinHandPop(it, v, null, c); } });
-        }
-        tb.append(c);
-      });
-    });
-    body.replaceChildren(tb);
-  }
-  draw();
-  return card;
-}
-
 function renderRFISummary(idx, r) {
   const x = Stats.rfiExtra(DB, idx, { mxPos: uiState.mxPos, mxStk: uiState.mxStk === 'custom' && uiState.mxCustom ? uiState.mxCustom : (MX_STK.find(z => z[0] === uiState.mxStk) || MX_STK[0])[2] });
   const zone = el('div', 'summary');
@@ -1206,14 +1092,13 @@ function renderRFISummary(idx, r) {
   const byTag = {}; [...cards.children].forEach(n => { byTag[n.querySelector('.num-tag').textContent] = n; });
   byTag['#3+'] = renderStealPanel(idx); byTag['#4+'] = shovePanel;
   const isoD = isoData(idx); byTag['#5'] = isoCard(isoD); byTag['#5+'] = isoPanel(isoD);
-  byTag['#7'] = behindCard(idx); byTag['#7+'] = behindPanel(idx);
   const row = (l, r) => { const d = el('div', 'sum-pair'); d.append(byTag[l], byTag[r]); return d; };
   // строка #3: карточка #3 и окна 3.4–3.8 одного размера в общей сетке
   const stealRow = el('div', 'steal-row'); stealRow.append(byTag['#3']);
   [...byTag['#3+'].querySelectorAll(':scope > .sm')].forEach(m => { if (m.querySelector('.sm-tag').textContent === '#3.4') m.classList.add('span2'); stealRow.append(m); });
   // разделы с заголовком и отступом, чтобы блоки не слипались
   const sec = (title, note) => { const d = el('div', 'sec'); const t = el('div', 'sec-t'); t.append(el('h3', null, title)); if (note) t.append(el('span', null, note)); d.append(t, el('div', 'sec-line')); return d; };
-  zone.append(row('#1', '#8'), sec('Стил с поздних позиций', 'CO и BTN, когда до вас все сбросили'), stealRow, sec('Пуши', 'олл-ин вместо обычного открытия'), row('#4', '#4+'), sec('Изоляция лимперов', 'ваш рейз поверх лимпа'), row('#5', '#5+'), sec('Стеки за спиной', 'кто ходит после вас и может пойти олл-ин'), row('#7', '#7+'));
+  zone.append(row('#1', '#8'), sec('Стил с поздних позиций', 'CO и BTN, когда до вас все сбросили'), stealRow, sec('Пуши', 'олл-ин вместо обычного открытия'), row('#4', '#4+'), sec('Изоляция лимперов', 'ваш рейз поверх лимпа'), row('#5', '#5+'));
 
   // матрица рук
   const b13 = el('section', 'block'); b13.append(numTag(13));
