@@ -480,12 +480,12 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 
 .sz5-seg{align-self:flex-start}
 .sz5-t{display:flex;flex-direction:column;gap:3px}
-.sz5-r{display:grid;grid-template-columns:62px minmax(0,1fr) 54px 44px 50px;grid-template-rows:auto auto;column-gap:8px;align-items:center;padding:6px 8px;border-radius:8px;background:var(--bg);border:1px solid var(--line);color:var(--text);font:inherit;text-align:left;cursor:pointer}
+.sz5-r{display:grid;grid-template-columns:58px minmax(36px,1fr) 70px 46px 52px;grid-template-rows:auto auto;column-gap:8px;align-items:center;padding:6px 8px;border-radius:8px;background:var(--bg);border:1px solid var(--line);color:var(--text);font:inherit;text-align:left;cursor:pointer}
 .sz5-r:hover{border-color:var(--line2);background:var(--card)}
 .sz5-r:focus-visible{outline:2px solid var(--amber);outline-offset:1px}
 .sz5-r b{font-family:var(--mono);font-size:13px}
 .sz5-r small{grid-column:1;font-size:10px;color:var(--faint);font-family:var(--mono)}
-.sz5-h{background:none;border:none;cursor:default;padding:0 8px 2px;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint)}
+.sz5-h{background:none;border-color:transparent;cursor:default;padding:0 8px 2px;font-size:10px;letter-spacing:.02em;white-space:nowrap;text-transform:uppercase;color:var(--faint)}
 .sz5-h:hover{background:none}
 .sz5-h span:nth-child(n+3){text-align:right}
 .sz5-sh{font-family:var(--mono);font-size:12.5px;color:var(--soft)}
