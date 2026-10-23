@@ -591,7 +591,7 @@ function stealResultCard(o) {
 // 3.5 — самые частые сайзинги открытия и как они работают
 let SZ_SIDE = 'both';
 function sizingCard(o) {
-  const m = el('div', 'sm sz5');
+  const m = el('div', 'sm sz5 span2');
   const h = el('div', 'sm-h'); h.append(el('span', 'num-tag sm-tag', '#3.5'), el('b', null, 'Сайзинг стила'));
   m.append(h, el('span', 'sm-s', 'самые частые размеры открытия и их результат'));
   const seg = el('div', 'seg sz5-seg'); seg.setAttribute('role', 'group'); seg.setAttribute('aria-label', 'Позиция');
@@ -656,7 +656,7 @@ function renderStealPanel(idx) {
   const nb = (z) => (z.n ? z.sum / 10 / z.n : null);
   grid.append(stealResultCard(o));
   grid.append(sizingCard(o));
-  const m37 = stealModule('3.7', 'Против стека блайндов', 'стил, когда самый короткий блайнд имеет …, BB', pairBars(o.BLIND, o.CO.blind.map(rateOf), o.BTN.blind.map(rateOf), pct, 'Стил против стека блайндов'), true); m37.classList.add('span2'); grid.append(m37);
+  const m37 = stealModule('3.7', 'Против стека блайндов', 'стил, когда самый короткий блайнд имеет …, BB', pairBars(o.BLIND, o.CO.blind.map(rateOf), o.BTN.blind.map(rateOf), pct, 'Стил против стека блайндов'), true); grid.append(m37);
   return card;
 }
 

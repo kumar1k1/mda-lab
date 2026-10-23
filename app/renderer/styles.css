@@ -479,8 +479,8 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .hp-c.out{background:transparent!important;opacity:.28}
 
 .sz5-seg{align-self:flex-start}
-.sz5-t{display:flex;flex-direction:column;gap:3px}
-.sz5-r{display:grid;grid-template-columns:58px minmax(36px,1fr) 70px 46px 52px;grid-template-rows:auto auto;column-gap:8px;align-items:center;padding:6px 8px;border-radius:8px;background:var(--bg);border:1px solid var(--line);color:var(--text);font:inherit;text-align:left;cursor:pointer}
+.sz5-t{display:grid;grid-template-columns:auto minmax(48px,1fr) auto auto auto;row-gap:3px;column-gap:14px}
+.sz5-r{display:grid;grid-column:1/-1;grid-template-columns:subgrid;grid-template-rows:auto auto;align-items:center;padding:6px 8px;border-radius:8px;background:var(--bg);border:1px solid var(--line);color:var(--text);font:inherit;text-align:left;cursor:pointer}
 .sz5-r:hover{border-color:var(--line2);background:var(--card)}
 .sz5-r:focus-visible{outline:2px solid var(--amber);outline-offset:1px}
 .sz5-r b{font-family:var(--mono);font-size:13px}
