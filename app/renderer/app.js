@@ -908,6 +908,72 @@ function renderShovePanel(idx, stackBars) {
   return card;
 }
 
+// ---------- #5 / #5+ — изоляция лимперов ----------
+const ISO_POS = ['MP', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
+function isoData(idx) {
+  const c = DB.cols, cell = () => ({ o: 0, x: 0, sum: 0, n: 0, f: 0, fn: 0, ids: [], mx: null });
+  const M = [ISO_POS.map(cell), ISO_POS.map(cell)], tot = [cell(), cell()], resp = [0, 0, 0];
+  for (const i of idx) {
+    const p = c.pos[i]; if (c.sit[i] !== 1 || p < 1) continue;
+    const r = c.lim[i] === 1 ? 0 : 1, z = M[r][p - 1], t = tot[r];
+    const bvb = c.bvb ? c.bvb[i] === 1 : false, raised = c.act[i] >= 2;
+    t.o++; if (raised) t.x++;
+    if (!bvb) { z.o++; if (raised) z.x++; } // в колонке BB — без блайнда против блайнда, как в HUD
+    if (!raised) continue;
+    if (c.orsp && c.orsp[i] >= 0) resp[c.orsp[i]]++;
+    if (c.fvr && c.fvr[i] >= 0) { z.fn++; if (c.fvr[i] === 1) z.f++; }
+    if (c.net) { z.sum += c.net[i]; z.n++; }
+    z.ids.push(i);
+    const hc = c.hc ? c.hc[i] : -1;
+    if (hc >= 0) { if (!z.mx) z.mx = Array.from({ length: 169 }, () => ({ n: 0, sum: 0 })); z.mx[hc].n++; if (c.net) z.mx[hc].sum += c.net[i]; }
+  }
+  return { M, tot, resp };
+}
+
+function isoCard(d) {
+  const all = { x: d.tot[0].x + d.tot[1].x, n: d.tot[0].o + d.tot[1].o };
+  return card(5, 'Изолейт лимперов', '<em>' + pctTxt(all) + '</em>', 'vs 1 лимпер ' + pctTxt({ x: d.tot[0].x, n: d.tot[0].o }) + ' · vs 2+ ' + pctTxt({ x: d.tot[1].x, n: d.tot[1].o }),
+    respTiles(d.resp, 'Ответ оппонентов на ваш изолейт'));
+}
+
+function isoPanel(d) {
+  const card = el('div', 'insight steal-panel pm-card');
+  card.append(numTag('5+'));
+  const nAll = d.M.flat().reduce((a, z) => a + z.n, 0), sAll = d.M.flat().reduce((a, z) => a + z.sum, 0);
+  card.append(el('b', 'pm-title', 'Изолейт по позициям'), el('span', 'sm-s', 'ваш рейз поверх лимпа: частота, винрейт и фолд на лимп-рейз; в среднем ' + signed(nAll ? sAll / 10 / nAll : null, 2) + ' BB за изолейт, ' + nAll.toLocaleString('ru-RU') + ' изолейтов'));
+  const tb = el('div', 'pmx iso');
+  tb.append(el('span', 'pmx-corner', 'лимперов'));
+  ISO_POS.forEach(nm => tb.append(el('span', 'pmx-ch', nm)));
+  const maxF = Math.max(0.01, ...d.M.flat().filter(z => z.o >= 20).map(z => z.x / z.o));
+  [['1', 0], ['2+', 1]].forEach(([lab, r]) => {
+    tb.append(el('span', 'pmx-rh', lab));
+    ISO_POS.forEach((nm, p) => {
+      const z = d.M[r][p], c = el('div', 'pmx-c');
+      if (!z.o) { c.classList.add('na'); c.append(el('b', null, '—')); tb.append(c); return; }
+      const f = z.x / z.o, w = z.n ? z.sum / 10 / z.n : null;
+      c.style.setProperty('--f', Math.min(1, f / maxF).toFixed(3));
+      c.style.background = 'rgba(var(--amber-rgb),calc(.05 + var(--f) * .45))';
+      c.append(el('b', null, fmtPct(f) + '%'), el('span', 'pmx-w ' + (w == null ? '' : w >= 0 ? 'up' : 'down'), w == null ? '—' : signed(w, 2)));
+      if (z.fn) c.append(el('span', 'pmx-fv', 'фолд ' + fmtPct(z.f / z.fn) + '%'));
+      if (z.o < 20) c.classList.add('low');
+      const title = nm + ', vs ' + lab + ' лимпер' + (r ? 'а' : '');
+      if (z.mx) {
+        const n = z.mx.reduce((a, q) => a + q.n, 0), s = z.mx.reduce((a, q) => a + q.sum, 0);
+        const it = { p: nm, key: 'iso ' + title, title: title + ' · изолейт ' + fmtPct(f) + '%', o: { n, sum: s }, mx: z.mx, ids: z.ids, sit: 1, vlab: ' BB за изолейт', nlab: ' изолейтов с картами' };
+        const v = n ? s / 10 / n : 0;
+        c.tabIndex = 0; c.setAttribute('role', 'button'); c.setAttribute('aria-label', title + ': показать руки и раздачи'); c.classList.add('click');
+        const show = (ev) => showHandPop(it, v, ev, c);
+        c.addEventListener('mouseenter', show); c.addEventListener('mousemove', show); c.addEventListener('mouseleave', hideHandPop);
+        c.addEventListener('click', (ev) => pinHandPop(it, v, ev, c));
+        c.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); pinHandPop(it, v, null, c); } });
+      }
+      tb.append(c);
+    });
+  });
+  card.append(tb, el('p', 'sz5-note', 'В клетке: частота изолейта (как часто вы рейзите, когда перед вами лимпили), винрейт за изолейт в BB и ваш фолд, когда лимпер ререйзит. В колонке BB — без ситуаций блайнд против блайнда. Чем ярче клетка, тем чаще изолейт; бледные — меньше 20 возможностей. Наведите на клетку — покажутся руки, клик закрепит окно, клик по руке откроет раздачи и реплеер.'));
+  return card;
+}
+
 function renderRFISummary(idx, r) {
   const x = Stats.rfiExtra(DB, idx, { mxPos: uiState.mxPos, mxStk: uiState.mxStk === 'custom' && uiState.mxCustom ? uiState.mxCustom : (MX_STK.find(z => z[0] === uiState.mxStk) || MX_STK[0])[2] });
   const zone = el('div', 'summary');
@@ -963,13 +1029,14 @@ function renderRFISummary(idx, r) {
   // раскладка по строкам: карточка слева, её инфографика справа
   const byTag = {}; [...cards.children].forEach(n => { byTag[n.querySelector('.num-tag').textContent] = n; });
   byTag['#3+'] = renderStealPanel(idx); byTag['#4+'] = shovePanel;
+  const isoD = isoData(idx); byTag['#5'] = isoCard(isoD); byTag['#5+'] = isoPanel(isoD);
   const row = (l, r) => { const d = el('div', 'sum-pair'); d.append(byTag[l], byTag[r]); return d; };
   // строка #3: карточка #3 и окна 3.4–3.8 одного размера в общей сетке
   const stealRow = el('div', 'steal-row'); stealRow.append(byTag['#3']);
   [...byTag['#3+'].querySelectorAll(':scope > .sm')].forEach(m => { if (m.querySelector('.sm-tag').textContent === '#3.4') m.classList.add('span2'); stealRow.append(m); });
   // разделы с заголовком и отступом, чтобы блоки не слипались
   const sec = (title, note) => { const d = el('div', 'sec'); const t = el('div', 'sec-t'); t.append(el('h3', null, title)); if (note) t.append(el('span', null, note)); d.append(t, el('div', 'sec-line')); return d; };
-  zone.append(row('#1', '#8'), sec('Стил с поздних позиций', 'CO и BTN, когда до вас все сбросили'), stealRow, sec('Пуши', 'олл-ин вместо обычного открытия'), row('#4', '#4+'));
+  zone.append(row('#1', '#8'), sec('Стил с поздних позиций', 'CO и BTN, когда до вас все сбросили'), stealRow, sec('Пуши', 'олл-ин вместо обычного открытия'), row('#4', '#4+'), sec('Изоляция лимперов', 'ваш рейз поверх лимпа'), row('#5', '#5+'));
 
   // матрица рук
   const b13 = el('section', 'block'); b13.append(numTag(13));
@@ -1028,30 +1095,7 @@ function renderRFI(idx) {
   const deep = rate(r.stk[r.STACKS[0]].TOT), short = rate(r.stk[r.STACKS[r.STACKS.length - 1]].TOT);
   page.append(renderRFISummary(idx, r));
 
-  // 4. изоляция
-  const ISOP = r.ISO_COLS.slice(1);
-  page.append(block('Изоляция лимперов', 'ISO — ваш рейз поверх лимпа; ниже — как часто вы сбрасываете, когда лимпер ререйзит ваш изолейт',
-    heatTable({
-      cols: r.ISO_COLS, groupGapBefore: 5,
-      rows: [
-        { label: 'ISO vs 1 лимпер', data: r.iso.vs1 },
-        { label: 'фолд на лимп-рейз', sub: true, data: r.iso.vs1f, tone: 'ice' },
-        { label: 'ISO vs 2+ лимпера', data: r.iso.vs2, split: true },
-        { label: 'фолд на лимп-рейз', sub: true, data: r.iso.vs2f, tone: 'ice' }
-      ]
-    }),
-    [linesChart(ISOP, [
-      { color: 'var(--amber)', values: ISOP.map(p => rate(r.iso.vs1[p])) },
-      { color: 'var(--ice)', values: ISOP.map(p => rate(r.iso.vs1f[p])) }
-    ], 'Изоляция и фолд на лимп-рейз по позициям'),
-    legend([{ label: 'ISO vs 1 лимпер', color: 'var(--amber)' }, { label: 'ваш фолд на лимп-рейз', color: 'var(--ice)' }])]));
 
-  page.append(legend([
-    { label: 'ваша агрессия: чем ярче, тем чаще', color: 'rgba(var(--amber-rgb),.6)' },
-    { label: 'ваши фолды против агрессии', color: 'rgba(var(--ice-rgb),.6)' },
-    { label: 'выборка меньше ' + SMALL + ' раздач', cls: 'hatch' },
-    { label: 'наведите на ячейку — увидите «x из n»', color: 'transparent' }
-  ]));
   return page;
 }
 

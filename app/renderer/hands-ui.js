@@ -128,7 +128,7 @@ async function showHandList(it, k, cellBtn) {
   const pop = handPop; const list = pop.querySelector('.hp-list');
   pop.querySelectorAll('.hp-c.sel').forEach(c => c.classList.remove('sel')); cellBtn.classList.add('sel');
   const p = POS_NAMES.indexOf(it.p), c = DB.cols;
-  const all = (it.ids || CURRENT_IDX).filter(i => c.sit[i] === 0 && c.act[i] >= 2 && c.pos[i] === p && c.hc[i] === k);
+  const all = (it.ids || CURRENT_IDX).filter(i => c.sit[i] === (it.sit || 0) && c.act[i] >= 2 && c.pos[i] === p && c.hc[i] === k);
   list.hidden = false; pop.classList.add('with-list'); list.replaceChildren(el('div', 'hp-list-head', 'Загружаю раздачи…'));
   const rp = await loadReplays();
   const reach = (i) => { const r = rp[i]; if (!r) return 0; if (r.sh && Object.keys(r.sh).length) return 4; return r.bd.length === 5 ? 3 : r.bd.length === 4 ? 2 : r.bd.length === 3 ? 1 : 0; };

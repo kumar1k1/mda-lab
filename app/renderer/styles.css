@@ -571,3 +571,5 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .pm-card{display:flex;flex-direction:column;gap:6px}
 .pm-title{font-size:15px;font-family:var(--display)}
 .pmx-c.click{cursor:pointer}
+.pmx.iso .pmx-c{min-height:62px}
+.pmx-fv{font-family:var(--mono);font-size:10px;color:var(--ice)}

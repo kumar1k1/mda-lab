@@ -253,6 +253,10 @@ function parseHand(text, fmt, heroes) {
       limpers.delete(x.name);
     }
     rec.fti = seen ? (allFold ? 1 : 0) : -1;
+    // ответ оппонентов на изолейт по первому действию (как для открытий) и ход раздачи для реплеера
+    const first = acts.slice(hi + 1).find(x => x.name !== heroName && x.a !== 'folds');
+    rec.orsp = !first ? 0 : first.a === 'calls' ? 1 : 2;
+    rec.rp = buildReplay(lines, { seatNums, seats, pos, heroName, bb, who, fmt, header, sbAmt });
   }
   return rec;
 }
