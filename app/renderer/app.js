@@ -827,43 +827,39 @@ function renderShovePanel(idx, stackBars) {
   card.append(numTag('4+'), el('span', 'k', 'Пуши подробно'));
   const m = el('div', 'sm pm');
   const h = el('div', 'sm-h'); h.append(el('span', 'num-tag sm-tag', '#4.1'), el('b', null, 'Где и как вы пушите'));
-  m.append(h, el('span', 'sm-s', 'частота пуша и его результат по стеку и по позиции; в среднем ' + signed(net.n ? net.sum / 10 / net.n : null, 2) + ' BB за пуш, ' + net.n.toLocaleString('ru-RU') + ' пушей'));
-  const body = el('div', 'pm-body');
-  // левая часть — лестница стеков: частота пуша и винрейт рядом
-  const st = el('div', 'pm-stk');
-  const hd = el('div', 'pm-r pm-h'); ['Стек, BB', 'Частота пуша', 'Винрейт за пуш, BB', 'пушей'].forEach(t => hd.append(el('span', null, t))); st.append(hd);
-  const maxO = Math.max(0.01, ...opp.map(z => (z.n ? z.x / z.n : 0)));
-  const maxN = Math.max(0.5, ...netStk.map(z => (z.n ? Math.abs(z.sum / 10 / z.n) : 0)));
+  m.append(h, el('span', 'sm-s', 'частота пуша и винрейт за пуш по каждой позиции и стеку; в среднем ' + signed(net.n ? net.sum / 10 / net.n : null, 2) + ' BB за пуш, ' + net.n.toLocaleString('ru-RU') + ' пушей'));
+  // матрица: строки — стек, колонки — позиции; в клетке частота пуша и винрейт за пуш
+  const cell = () => ({ o: 0, x: 0, sum: 0, n: 0 });
+  const M = SB.map(() => P.map(cell)), rowT = SB.map(cell), colT = P.map(cell), allT = cell();
+  for (const i of idx) {
+    const p = c.pos[i]; if (c.sit[i] !== 0 || p > 5) continue;
+    const bb = c.bb[i] / 10, k = SB.findIndex(z => bb >= z[1] && bb < z[2]); if (k < 0) continue;
+    const push = c.act[i] === 3;
+    [M[k][p], rowT[k], colT[p], allT].forEach(z => { z.o++; if (push) { z.x++; if (c.net) { z.sum += c.net[i]; z.n++; } } });
+  }
+  const tb = el('div', 'pmx');
+  const corner = el('span', 'pmx-corner', 'стек, BB'); tb.append(corner);
+  P.concat(['Все']).forEach(nm => tb.append(el('span', 'pmx-ch' + (nm === 'Все' ? ' tot' : ''), nm)));
+  const maxF = Math.max(0.01, ...M.flat().filter(z => z.x >= 5).map(z => z.x / z.o));
+  const put = (z, lab, tot) => {
+    const d = el('div', 'pmx-c' + (tot ? ' tot' : ''));
+    if (!z.o) { d.classList.add('na'); d.append(el('b', null, '—')); return d; }
+    const f = z.x / z.o, w = z.n ? z.sum / 10 / z.n : null;
+    d.style.setProperty('--f', Math.min(1, f / maxF).toFixed(3));
+    d.append(el('b', null, fmtPct(f) + '%'), el('span', 'pmx-w ' + (w == null ? '' : w >= 0 ? 'up' : 'down'), w == null ? '—' : signed(w, 2)));
+    if (z.n < 10) d.classList.add('low');
+    d.title = lab + ': пуш ' + z.x + ' раз из ' + z.o + ' возможностей открыться (' + fmtPct(f) + '%)' + (w == null ? '' : '; винрейт ' + signed(w, 2) + ' BB за пуш');
+    return d;
+  };
   SB.forEach((z0, k) => {
-    const o = opp[k], fq = o.n ? o.x / o.n : null, z = netStk[k], wr = z.n ? z.sum / 10 / z.n : null;
-    const r = el('div', 'pm-r'); if (z.n < 30) r.classList.add('low');
-    const f1 = el('div', 'pm-bar'); const t1 = el('div', 'mb-track'); const b1 = el('div', 'mb-fill'); b1.style.width = (fq == null ? 0 : fq / maxO * 100) + '%'; b1.style.background = 'var(--ice)'; t1.append(b1); f1.append(t1, el('b', null, fq == null ? '—' : fmtPct(fq) + '%'));
-    f1.title = z0[0] + ' BB: пуш ' + o.x + ' раз из ' + o.n + ' возможностей открыться';
-    const f2 = el('div', 'pm-bar'); const t2 = el('div', 'hg-track'); t2.append(el('div', 'hg-zero')); const b2 = el('div', 'hg-fill');
-    const w = wr == null ? 0 : Math.abs(wr) / maxN * 50; b2.style.width = w + '%'; b2.style.left = wr >= 0 ? '50%' : (50 - w) + '%'; b2.style.background = wr != null && wr < 0 ? 'var(--bad)' : 'var(--good)'; t2.append(b2);
-    f2.append(t2, el('b', wr == null ? '' : wr >= 0 ? 'up' : 'down', wr == null ? '—' : signed(wr, 2)));
-    r.append(el('span', 'pm-l', z0[0]), f1, f2, el('span', 'pm-n', z.n ? z.n.toLocaleString('ru-RU') : '—'));
-    st.append(r);
+    tb.append(el('span', 'pmx-rh', z0[0]));
+    P.forEach((nm, p) => tb.append(put(M[k][p], nm + ', ' + z0[0] + ' BB')));
+    tb.append(put(rowT[k], 'Все позиции, ' + z0[0] + ' BB', true));
   });
-  // правая часть — плитки позиций: доля пушей среди открытий и винрейт
-  const pt = el('div', 'pm-pos');
-  pt.append(el('span', 'pm-cap', 'По позициям — доля пушей среди открытий'));
-  const tiles = el('div', 'pm-tiles');
-  const maxP = Math.max(0.01, ...pos.map(z => (z.n ? z.x / z.n : 0)));
-  P.forEach((nm, k) => {
-    const z = pos[k], v = z.n ? z.x / z.n : null, nz = netPos[k], wr = nz.n ? nz.sum / 10 / nz.n : null;
-    const t = el('div', 'pm-tile');
-    const meter = el('div', 'pm-meter'); const fill = el('i'); fill.style.height = (v == null ? 0 : Math.max(4, v / maxP * 100)) + '%'; meter.append(fill);
-    const txt = el('div', 'pm-tt');
-    txt.append(el('span', 'pm-p', nm), el('b', null, v == null ? '—' : fmtPct(v) + '%'), el('span', 'pm-w ' + (wr == null ? '' : wr >= 0 ? 'up' : 'down'), wr == null ? '—' : signed(wr, 2) + ' BB'), el('span', 'pm-n', nz.n + ' пушей'));
-    t.append(meter, txt);
-    t.title = nm + ': ' + z.x + ' пушей из ' + z.n + ' открытий; винрейт ' + (wr == null ? '—' : signed(wr, 2) + ' BB за пуш');
-    if (nz.n < 30) t.classList.add('low');
-    tiles.append(t);
-  });
-  pt.append(tiles);
-  body.append(st, pt);
-  m.append(body, el('p', 'sz5-note', 'Частота пуша — как часто вы идёте олл-ин от всех возможностей открыться с этим стеком. Винрейт — средний итог раздачи после пуша. Бледные строки и плитки — меньше 30 пушей.'));
+  tb.append(el('span', 'pmx-rh tot', 'все'));
+  P.forEach((nm, p) => tb.append(put(colT[p], nm + ', все стеки', true)));
+  tb.append(put(allT, 'Все позиции и стеки', true));
+  m.append(tb, el('p', 'sz5-note', 'В клетке: сверху — частота пуша (как часто вы идёте олл-ин от всех возможностей открыться), снизу — винрейт за пуш в BB. Чем ярче клетка, тем чаще пуш. Бледные клетки — меньше 10 пушей; наведите, чтобы увидеть количество.'));
   card.append(m);
   return card;
 }
