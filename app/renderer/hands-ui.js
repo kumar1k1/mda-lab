@@ -29,7 +29,7 @@ function buildPop(it, v, isPinned) {
   pop.replaceChildren();
   const head = el('div', 'hp-head');
   if (isPinned) { const grip = el('span', 'hp-grip', '⠿'); grip.setAttribute('aria-hidden', 'true'); head.append(grip); }
-  head.append(el('b', null, it.p), el('span', v >= 0 ? 'up' : 'down', signed(v, 2) + ' BB за открытие'), el('span', 'muted', it.o.n.toLocaleString('ru-RU') + ' открытий'));
+  head.append(el('b', null, it.title || it.p), el('span', v >= 0 ? 'up' : 'down', signed(v, 2) + ' BB за открытие'), el('span', 'muted', it.o.n.toLocaleString('ru-RU') + ' открытий'));
   if (isPinned) {
     const x = el('button', 'hp-close'); x.type = 'button'; x.setAttribute('aria-label', 'Закрыть окно');
     x.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
@@ -37,11 +37,13 @@ function buildPop(it, v, isPinned) {
     head.append(x);
     enableDrag(pop, head);
   } else head.append(el('span', 'hp-hint', 'клик по столбику — закрепить'));
-  const vals = it.mx.filter(m => m.n >= 3).map(m => Math.abs(m.sum / 10 / m.n)).sort((a, b) => a - b);
+  const inSet = (k) => it.only == null || it.only(k);
+  const vals = it.mx.filter((m, k) => inSet(k) && m.n >= 3).map(m => Math.abs(m.sum / 10 / m.n)).sort((a, b) => a - b);
   const scale = Math.max(1, ...vals.slice(0, Math.ceil(vals.length * 0.9)));
   const grid = el('div', 'hp-grid');
   for (let k = 0; k < 169; k++) {
     const m = it.mx[k];
+    if (!inSet(k)) { const c = el('div', 'hp-c out'); c.append(el('span', 'h', handName(k))); grid.append(c); continue; }
     const c = el(isPinned && m.n ? 'button' : 'div', 'hp-c');
     if (isPinned && m.n) { c.type = 'button'; c.onclick = () => showHandList(it, k, c); c.title = handName(k) + ': ' + m.n + ' раздач — показать список'; }
     c.append(el('span', 'h', handName(k)));
@@ -84,7 +86,7 @@ function showHandPop(it, v, ev, anchor) {
 
 function pinHandPop(it, v, ev, anchor) {
   const was = pinned && handPop ? { left: handPop.style.left, top: handPop.style.top } : null;
-  pinned = { pos: it.p };
+  pinned = { pos: it.key || it.p };
   const pop = buildPop(it, v, true);
   pop.hidden = false;
   if (was) { pop.style.left = was.left; pop.style.top = was.top; } else placeNear(pop, ev, anchor);
@@ -126,7 +128,7 @@ async function showHandList(it, k, cellBtn) {
   const pop = handPop; const list = pop.querySelector('.hp-list');
   pop.querySelectorAll('.hp-c.sel').forEach(c => c.classList.remove('sel')); cellBtn.classList.add('sel');
   const p = POS_NAMES.indexOf(it.p), c = DB.cols;
-  const all = CURRENT_IDX.filter(i => c.sit[i] === 0 && c.act[i] >= 2 && c.pos[i] === p && c.hc[i] === k);
+  const all = (it.ids || CURRENT_IDX).filter(i => c.sit[i] === 0 && c.act[i] >= 2 && c.pos[i] === p && c.hc[i] === k);
   list.hidden = false; pop.classList.add('with-list'); list.replaceChildren(el('div', 'hp-list-head', 'Загружаю раздачи…'));
   const rp = await loadReplays();
   const reach = (i) => { const r = rp[i]; if (!r) return 0; if (r.sh && Object.keys(r.sh).length) return 4; return r.bd.length === 5 ? 3 : r.bd.length === 4 ? 2 : r.bd.length === 3 ? 1 : 0; };

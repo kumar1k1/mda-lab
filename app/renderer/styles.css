@@ -474,3 +474,6 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .gt-c.none{background:#3A4152;color:var(--soft)}
 .gt-c.low{opacity:.6}
 .gt-f{font-size:10.5px;color:var(--muted);line-height:1.4}
+
+.hg-c.click{cursor:pointer}
+.hp-c.out{background:transparent!important;opacity:.28}

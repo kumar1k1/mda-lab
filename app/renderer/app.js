@@ -523,7 +523,7 @@ function showGroupTip(pos, label, k, z, hands, e) {
     }
     grid.append(cell);
   }
-  groupTip.append(grid, el('div', 'gt-f', 'Выделены руки группы; в клетке — результат руки с ' + pos + ' в BB. Серые — руки группы, которыми не открывались.'));
+  groupTip.append(grid, el('div', 'gt-f', 'Выделены руки группы; в клетке — результат руки с ' + pos + ' в BB. Серые — руки группы, которыми не открывались. Клик — закрепить окно и открыть раздачи.'));
   groupTip.hidden = false; moveGroupTip(e);
 }
 function moveGroupTip(e) {
@@ -546,8 +546,11 @@ function handGroupTable(o) {
   const hd = el('div', 'hg-row hg-head'); hd.append(el('span', null, 'Группа рук'), el('span', null, 'CO'), el('span', null, 'BTN')); box.append(hd);
   HAND_GROUPS.forEach(([lab], k) => {
     const r = el('div', 'hg-row'); r.append(el('span', 'hg-l', lab));
-    [[A.g[k], C_CO, 'CO', A.h], [B.g[k], C_BTN, 'BTN', B.h]].forEach(([z, col, nm, hands]) => {
+    [[A.g[k], C_CO, 'CO', A.h, o.CO.nr.all.ids], [B.g[k], C_BTN, 'BTN', B.h, o.BTN.nr.all.ids]].forEach(([z, col, nm, hands, ids]) => {
       const cell = el('div', 'hg-c');
+      if (z.n) { cell.classList.add('click'); cell.tabIndex = 0; cell.setAttribute('role', 'button'); cell.setAttribute('aria-label', nm + ', ' + lab + ': показать руки и раздачи');
+        const pin = (e) => { hideGroupTip(); pinHandPop({ p: nm, key: 'grp' + nm + k, title: nm + ' · ' + lab, o: z, mx: hands, ids, only: (q) => handGroup(q) === k }, z.sum / 10 / z.n, e, cell); };
+        cell.addEventListener('click', pin); cell.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pin(null); } }); }
       cell.addEventListener('mouseenter', (e) => showGroupTip(nm, lab, k, z, hands, e)); cell.addEventListener('mousemove', moveGroupTip); cell.addEventListener('mouseleave', hideGroupTip);
       if (!z.n) { cell.append(el('span', 'hg-na', '—')); r.append(cell); return; }
       const v = z.sum / 10 / z.n;
@@ -732,7 +735,7 @@ function renderRFISummary(idx, r) {
 
   // матрица рук
   const b13 = el('section', 'block'); b13.append(numTag(13));
-  const h13 = el('div', 'block-head'); h13.append(el('h2', null, 'Какие руки вы открываете'), el('p', null, 'процент открытия каждой руки, когда до вас все сбросили; без PokerDom — там нет карт героя'));
+  const h13 = el('div', 'block-head'); h13.append(el('h2', null, 'Какие руки вы открываете'), el('p', null, 'процент открытия каждой руки, когда до вас все сбросили'));
   const seg = el('div', 'seg');
   ['TOT', 'EP', 'MP', 'HJ', 'CO', 'BTN', 'SB'].forEach(p => { const b = el('button', uiState.mxPos === p ? 'on' : '', p === 'TOT' ? 'Все' : p); b.type = 'button'; b.onclick = () => { uiState.mxPos = p; render(); }; seg.append(b); });
   const mxBody = el('div', 'block-body'); mxBody.append(handMatrix(x.mx));
@@ -978,5 +981,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 window.__pinNet = (i) => { const g = document.querySelectorAll('.net-bar')[i]; const r = g.getBoundingClientRect(); g.dispatchEvent(new MouseEvent('click', { clientX: r.left + r.width / 2, clientY: r.top + 40 })); };
 window.__hoverNet = (i) => { const g = document.querySelectorAll('.net-bar')[i]; const r = g.getBoundingClientRect(); g.dispatchEvent(new MouseEvent('mouseenter', { clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 })); };
 window.__pickBar = (k) => { document.querySelectorAll('g.pick')[k].dispatchEvent(new MouseEvent('click')); };
+window.__pinGroup = (n) => document.querySelectorAll('.hg-c')[n].click();
 window.__hoverGroup = (n) => { const c = document.querySelectorAll('.hg-c')[n]; const r = c.getBoundingClientRect(); c.dispatchEvent(new MouseEvent('mouseenter', { clientX: r.left + 20, clientY: r.top + 5 })); };
 window.__hoverMx = (k) => { const c = document.querySelectorAll('.mx .mx-c')[k]; c.scrollIntoView({ block: 'center' }); const r = c.getBoundingClientRect(); c.dispatchEvent(new MouseEvent('mouseenter', { clientX: r.left + 10, clientY: r.top + 10 })); };
