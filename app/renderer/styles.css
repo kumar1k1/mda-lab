@@ -589,3 +589,8 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .iso-rv{font-family:var(--mono);font-size:15px;text-align:center;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 0}
 .iso-rl.tot{color:var(--text);font-weight:700}
 .iso-rv.tot{font-size:18px;border-color:var(--line2);background:var(--card)}
+
+.iso-sz{display:flex;flex-direction:column;gap:8px;margin-top:10px;padding-top:12px;border-top:1px solid var(--line)}
+.iso-sz-h{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px}
+.iso-sz-h b{font-size:14px}
+.iso-sz-h .bx-seg{margin-left:auto}

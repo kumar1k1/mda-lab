@@ -912,7 +912,7 @@ function renderShovePanel(idx, stackBars) {
 const ISO_POS = ['MP', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
 function isoData(idx) {
   const c = DB.cols, cell = () => ({ o: 0, x: 0, sum: 0, n: 0, f: 0, fn: 0, ids: [], mx: null });
-  const M = [ISO_POS.map(cell), ISO_POS.map(cell)], tot = [cell(), cell()], resp = [0, 0, 0], respL = [[0, 0, 0], [0, 0, 0]];
+  const M = [ISO_POS.map(cell), ISO_POS.map(cell)], tot = [cell(), cell()], resp = [0, 0, 0], respL = [[0, 0, 0], [0, 0, 0]], szx = [{}, {}];
   for (const i of idx) {
     const p = c.pos[i]; if (c.sit[i] !== 1 || p < 1) continue;
     const r = c.lim[i] === 1 ? 0 : 1, z = M[r][p - 1], t = tot[r];
@@ -921,13 +921,18 @@ function isoData(idx) {
     if (!bvb) { z.o++; if (raised) z.x++; } // в колонке BB — без блайнда против блайнда, как в HUD
     if (!raised) continue;
     if (c.orsp && c.orsp[i] >= 0) { resp[c.orsp[i]]++; respL[r][c.orsp[i]]++; }
+    if (c.act[i] === 2 && c.bb[i] / 10 - c.size[i] / 100 >= 0.5) { // сайзинг изолейта с точностью до 0.5 BB, без олл-инов
+      const key = String(Math.round(c.size[i] / 50) / 2);
+      const q = szx[r][key] || (szx[r][key] = { n: 0, r: [0, 0, 0], rn: 0, sum: 0, sn: 0 });
+      q.n++; if (c.orsp && c.orsp[i] >= 0) { q.r[c.orsp[i]]++; q.rn++; } if (c.net) { q.sum += c.net[i]; q.sn++; }
+    }
     if (c.fvr && c.fvr[i] >= 0) { z.fn++; if (c.fvr[i] === 1) z.f++; }
     if (c.net) { z.sum += c.net[i]; z.n++; }
     z.ids.push(i);
     const hc = c.hc ? c.hc[i] : -1;
     if (hc >= 0) { if (!z.mx) z.mx = Array.from({ length: 169 }, () => ({ n: 0, sum: 0 })); z.mx[hc].n++; if (c.net) z.mx[hc].sum += c.net[i]; }
   }
-  return { M, tot, resp, respL };
+  return { M, tot, resp, respL, szx };
 }
 
 function isoCard(d) {
@@ -954,6 +959,47 @@ function isoCard(d) {
   rt.append(g);
   box.append(sub, rt);
   return card(5, 'Изолейт лимперов', '<em>' + pctTxt(all) + '</em>', null, box);
+}
+
+// сайзинги изолейта: доля, все сбросили, рейз в ответ, винрейт
+let ISO_SZ = 'all';
+function isoSizing(d) {
+  const box = el('div', 'iso-sz');
+  const head = el('div', 'iso-sz-h'); head.append(el('b', null, 'Сайзинг изолейта'), el('span', 'sm-s', 'самые частые размеры рейза поверх лимпа, BB, и их результат (без олл-инов)'));
+  const body = el('div');
+  head.append(segBtns([['all', 'Все'], ['0', 'vs 1 лимпер'], ['1', 'vs 2+']], ISO_SZ, (k) => { ISO_SZ = k; draw(); }));
+  box.append(head, body);
+  function draw() {
+    const src = ISO_SZ === 'all' ? [d.szx[0], d.szx[1]] : [d.szx[+ISO_SZ]], map = {};
+    src.forEach(m => Object.entries(m).forEach(([k, z]) => { const t = map[k] || (map[k] = { n: 0, r: [0, 0, 0], rn: 0, sum: 0, sn: 0 }); t.n += z.n; t.rn += z.rn; t.sum += z.sum; t.sn += z.sn; z.r.forEach((v, j) => { t.r[j] += v; }); }));
+    const tot = Object.values(map).reduce((a, z) => a + z.n, 0);
+    body.replaceChildren();
+    if (!tot) { body.append(el('p', 'muted small', 'Нет изолейтов в выборке.')); return; }
+    const rows = [], other = { n: 0, r: [0, 0, 0], rn: 0, sum: 0, sn: 0 };
+    Object.entries(map).sort((a, b) => b[1].n - a[1].n).forEach(([k, z], j) => {
+      if (j < 5 && z.n / tot >= 0.03) rows.push([k.replace('.', ',') + ' BB', z]);
+      else { other.n += z.n; other.rn += z.rn; other.sum += z.sum; other.sn += z.sn; z.r.forEach((v, q) => { other.r[q] += v; }); }
+    });
+    rows.sort((a, b) => parseFloat(a[0].replace(',', '.')) - parseFloat(b[0].replace(',', '.')));
+    if (other.n) rows.push(['другие', other]);
+    const t = el('div', 'sz5-t');
+    const hd = el('div', 'sz5-r sz5-h'); ['Размер', 'Доля', 'Сбросили', 'Рейз', 'Винрейт, BB'].forEach(x => hd.append(el('span', null, x))); t.append(hd);
+    rows.forEach(([lab, z]) => {
+      const r = el('div', 'sz5-r');
+      const share = z.n / tot, fold = z.rn ? z.r[0] / z.rn : null, rr = z.rn ? z.r[2] / z.rn : null, bb = z.sn ? z.sum / 10 / z.sn : null;
+      const tk = el('span', 'sz5-tk'); const tr = el('i'); tr.style.width = Math.max(1, share * 100) + '%'; tk.append(tr);
+      const fv = el('span', 'sz5-v', fold == null ? '—' : fmtPct(fold) + '%'); fv.style.color = 'var(--good)';
+      const rv = el('span', 'sz5-v', rr == null ? '—' : fmtPct(rr) + '%'); rv.style.color = 'var(--bad)';
+      r.append(el('b', null, lab), el('span', 'sz5-sh', fmtPct(share) + '%'), fv, rv,
+        el('span', 'sz5-v ' + (bb == null ? '' : bb >= 0 ? 'up' : 'down'), bb == null ? '—' : signed(bb, 2)),
+        el('small', null, z.n.toLocaleString('ru-RU') + ' раз'), tk);
+      if (z.n < 30) r.classList.add('low');
+      t.append(r);
+    });
+    body.append(t);
+  }
+  draw();
+  return box;
 }
 
 function isoPanel(d) {
@@ -989,7 +1035,7 @@ function isoPanel(d) {
       tb.append(c);
     });
   });
-  card.append(tb, el('p', 'sz5-note', 'В клетке: частота изолейта (как часто вы рейзите, когда перед вами лимпили), и винрейт за изолейт в BB. В колонке BB — без ситуаций блайнд против блайнда. Чем ярче клетка, тем чаще изолейт; бледные — меньше 20 возможностей. Наведите на клетку — покажутся руки, клик закрепит окно, клик по руке откроет раздачи и реплеер.'));
+  card.append(tb, el('p', 'sz5-note', 'В клетке: частота изолейта (как часто вы рейзите, когда перед вами лимпили), и винрейт за изолейт в BB. В колонке BB — без ситуаций блайнд против блайнда. Чем ярче клетка, тем чаще изолейт; бледные — меньше 20 возможностей. Наведите на клетку — покажутся руки, клик закрепит окно, клик по руке откроет раздачи и реплеер.'), isoSizing(d));
   return card;
 }
 
