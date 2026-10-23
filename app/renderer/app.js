@@ -625,9 +625,8 @@ function sizingCard(o) {
     const hd = el('div', 'sz5-r sz5-h'); ['Размер', 'Доля', 'Сбросили', '3-бет', 'BB'].forEach(x => hd.append(el('span', null, x))); t.append(hd);
     const side = SZ_SIDE === 'both' ? 'CO + BTN' : SZ_SIDE;
     rows.forEach(([lab, z, full]) => {
-      const r = el('button', 'sz5-r'); r.type = 'button';
+      const r = el('div', 'sz5-r');
       const share = z.n / tot, fold = z.rn ? z.r[0] / z.rn : null, rr = z.rn ? z.r[2] / z.rn : null, bb = z.sn ? z.sum / 10 / z.sn : null;
-      r.setAttribute('aria-label', side + ', ' + full + ': ' + Math.round(share * 100) + '% открытий, ' + z.n + ' раз — показать раздачи');
       const sh = el('span', 'sz5-sh', fmtPct(share) + '%');
       r.append(el('b', null, lab), sh,
         el('span', 'sz5-v', fold == null ? '—' : fmtPct(fold) + '%'),
@@ -636,10 +635,9 @@ function sizingCard(o) {
       const tk = el('span', 'sz5-tk'); const tr = el('i'); tr.style.width = Math.max(1, share * 100) + '%'; if (SZ_SIDE === 'BTN') tr.style.background = C_BTN; tk.append(tr);
       r.append(el('small', null, z.n.toLocaleString('ru-RU') + ' раз'), tk);
       if (z.n < 30) r.classList.add('low');
-      r.onclick = () => openIdsList(side + ' · ' + full, z.ids);
       t.append(r);
     });
-    body.append(t, el('p', 'sz5-note', 'Сбросили — все за вами сфолдили. 3-бет — первый ответ рейзом. BB — средний итог раздачи. Нажмите на строку, чтобы открыть раздачи.'));
+    body.append(t, el('p', 'sz5-note', 'Сбросили — все за вами сфолдили. 3-бет — первый ответ рейзом. BB — средний итог раздачи.'));
   }
   draw();
   return m;
