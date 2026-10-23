@@ -861,13 +861,12 @@ function renderShovePanel(idx, stackBars) {
     if (c.orsp && c.orsp[i] >= 0) resp[c.orsp[i]]++;
     if (c.net) { net.sum += c.net[i]; net.n++; netPos[p].sum += c.net[i]; netPos[p].n++; if (k >= 0) { netStk[k].sum += c.net[i]; netStk[k].n++; } }
   }
-  const card = el('div', 'insight steal-panel');
+  const card = el('div', 'insight steal-panel pm-card');
   card.append(numTag('4+'));
-  const m = el('div', 'sm pm');
-  const h = el('div', 'sm-h'); h.append(el('span', 'num-tag sm-tag', '#4.1'), el('b', null, 'Где и как вы пушите'));
-  m.append(h, el('span', 'sm-s', 'first-in пуш (до вас все сбросили): частота и винрейт по каждой позиции и стеку; в среднем ' + signed(net.n ? net.sum / 10 / net.n : null, 2) + ' BB за пуш, ' + net.n.toLocaleString('ru-RU') + ' пушей'));
+  const m = card;
+  m.append(el('b', 'pm-title', 'Где и как вы пушите'), el('span', 'sm-s', 'first-in пуш (до вас все сбросили): частота и винрейт по каждой позиции и стеку; в среднем ' + signed(net.n ? net.sum / 10 / net.n : null, 2) + ' BB за пуш, ' + net.n.toLocaleString('ru-RU') + ' пушей'));
   // матрица: строки — стек, колонки — позиции; в клетке частота пуша и винрейт за пуш
-  const cell = () => ({ o: 0, x: 0, sum: 0, n: 0, ho: null, hx: null });
+  const cell = () => ({ o: 0, x: 0, sum: 0, n: 0, ho: null, hx: null, ids: [], mx: null });
   const M = SB.map(() => P.map(cell)), rowT = SB.map(cell), colT = P.map(cell), allT = cell();
   for (const i of idx) {
     const p = c.pos[i]; if (c.sit[i] !== 0 || p > 5) continue;
@@ -876,6 +875,7 @@ function renderShovePanel(idx, stackBars) {
     [M[k][p], rowT[k], colT[p], allT].forEach(z => { z.o++; if (push) { z.x++; if (c.net) { z.sum += c.net[i]; z.n++; } } });
     const hc = c.hc ? c.hc[i] : -1;
     if (hc >= 0) { const z = M[k][p]; if (!z.ho) { z.ho = new Uint32Array(169); z.hx = new Uint32Array(169); z.hs = new Float64Array(169); } z.ho[hc]++; if (push) { z.hx[hc]++; if (c.net) z.hs[hc] += c.net[i]; } }
+    if (push) { const z = M[k][p]; z.ids.push(i); if (hc >= 0) { if (!z.mx) z.mx = Array.from({ length: 169 }, () => ({ n: 0, sum: 0 })); z.mx[hc].n++; if (c.net) z.mx[hc].sum += c.net[i]; } }
   }
   const tb = el('div', 'pmx');
   const corner = el('span', 'pmx-corner', 'стек, BB'); tb.append(corner);
@@ -888,15 +888,23 @@ function renderShovePanel(idx, stackBars) {
     d.style.setProperty('--f', Math.min(1, f / maxF).toFixed(3));
     d.append(el('b', null, fmtPct(f) + '%'), el('span', 'pmx-w ' + (w == null ? '' : w >= 0 ? 'up' : 'down'), w == null ? '—' : signed(w, 2)));
     if (z.n < 10) d.classList.add('low');
-    d.addEventListener('mouseenter', (e) => showPushTip(lab, z, f, w, e)); d.addEventListener('mousemove', movePushTip); d.addEventListener('mouseleave', hidePushTip);
+    if (z.mx) {
+      const mxN = z.mx.reduce((a, q) => a + q.n, 0), mxS = z.mx.reduce((a, q) => a + q.sum, 0);
+      const it = { p: lab.split(',')[0], key: 'push ' + lab, title: lab + ' · пуш ' + fmtPct(f) + '%', o: { n: mxN, sum: mxS }, mx: z.mx, ids: z.ids, vlab: ' BB за пуш', nlab: ' пушей с картами' };
+      const v = mxN ? mxS / 10 / mxN : 0;
+      d.tabIndex = 0; d.setAttribute('role', 'button'); d.setAttribute('aria-label', lab + ': показать руки и раздачи'); d.classList.add('click');
+      const show = (ev) => showHandPop(it, v, ev, d);
+      d.addEventListener('mouseenter', show); d.addEventListener('mousemove', show); d.addEventListener('mouseleave', hideHandPop);
+      d.addEventListener('click', (ev) => pinHandPop(it, v, ev, d));
+      d.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); pinHandPop(it, v, null, d); } });
+    }
     return d;
   };
   SB.forEach((z0, k) => {
     tb.append(el('span', 'pmx-rh', z0[0]));
     P.forEach((nm, p) => tb.append(put(M[k][p], nm + ', ' + z0[0] + ' BB')));
   });
-  m.append(tb, el('p', 'sz5-note', 'В клетке: сверху — частота пуша (как часто вы идёте олл-ин от всех возможностей открыться), снизу — винрейт за пуш в BB. Чем ярче клетка, тем чаще пуш. Бледные клетки — меньше 10 пушей. Наведите на клетку — покажется диапазон пуша.'));
-  card.append(m);
+  m.append(tb, el('p', 'sz5-note', 'В клетке: сверху — частота пуша (как часто вы идёте олл-ин от всех возможностей открыться), снизу — винрейт за пуш в BB. Чем ярче клетка, тем чаще пуш. Бледные клетки — меньше 10 пушей. Наведите на клетку — покажутся руки, которыми вы пушили, и их итог; клик закрепит окно, а клик по руке откроет раздачи и реплеер. Без PokerDom: там нет карт героя.'));
   return card;
 }
 

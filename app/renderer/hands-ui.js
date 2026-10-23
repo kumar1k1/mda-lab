@@ -29,14 +29,14 @@ function buildPop(it, v, isPinned) {
   pop.replaceChildren();
   const head = el('div', 'hp-head');
   if (isPinned) { const grip = el('span', 'hp-grip', '⠿'); grip.setAttribute('aria-hidden', 'true'); head.append(grip); }
-  head.append(el('b', null, it.title || it.p), el('span', v >= 0 ? 'up' : 'down', signed(v, 2) + ' BB за открытие'), el('span', 'muted', it.o.n.toLocaleString('ru-RU') + ' открытий'));
+  head.append(el('b', null, it.title || it.p), el('span', v >= 0 ? 'up' : 'down', signed(v, 2) + (it.vlab || ' BB за открытие')), el('span', 'muted', it.o.n.toLocaleString('ru-RU') + (it.nlab || ' открытий')));
   if (isPinned) {
     const x = el('button', 'hp-close'); x.type = 'button'; x.setAttribute('aria-label', 'Закрыть окно');
     x.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
     x.onclick = () => unpin();
     head.append(x);
     enableDrag(pop, head);
-  } else head.append(el('span', 'hp-hint', 'клик по столбику — закрепить'));
+  } else head.append(el('span', 'hp-hint', 'клик — закрепить окно'));
   const inSet = (k) => it.only == null || it.only(k);
   const vals = it.mx.filter((m, k) => inSet(k) && m.n >= 3).map(m => Math.abs(m.sum / 10 / m.n)).sort((a, b) => a - b);
   const scale = Math.max(1, ...vals.slice(0, Math.ceil(vals.length * 0.9)));

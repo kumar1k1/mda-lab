@@ -567,3 +567,7 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .pmx-c{cursor:default}
 .pmx-c:hover{border-color:var(--ice)}
 .gt-c.px .v{color:#fff}
+
+.pm-card{display:flex;flex-direction:column;gap:6px}
+.pm-title{font-size:15px;font-family:var(--display)}
+.pmx-c.click{cursor:pointer}
