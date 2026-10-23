@@ -665,12 +665,12 @@ function bxHead(tag, title, sub) {
 const BX_STK_TXT = 'короткий <15 BB, средний 15–35, глубокий 35+';
 
 // 3.7.1 — тепловая карта 3×3: строки — стек SB, колонки — стек BB
-let BX1 = { side: 'both', met: 'fold' };
+let BX1 = { side: 'CO', met: 'fold' };
 function bxHeat(o) {
   const m = bxHead('3.7.1', 'Вариант 1 · Карта стеков блайндов', 'строки — стек SB, колонки — стек BB; ' + BX_STK_TXT);
   const ctl = el('div', 'bx-ctl'), body = el('div');
-  ctl.append(segBtns([['both', 'CO + BTN'], ['CO', 'CO'], ['BTN', 'BTN']], BX1.side, (k) => { BX1.side = k; draw(); }),
-    segBtns([['fold', 'Сбросили'], ['bb', 'BB'], ['freq', 'Частота']], BX1.met, (k) => { BX1.met = k; draw(); }));
+  ctl.append(segBtns([['CO', 'CO'], ['BTN', 'BTN']], BX1.side, (k) => { BX1.side = k; draw(); }),
+    segBtns([['fold', 'Сбросили'], ['bb', 'Винрейт, BB']], BX1.met, (k) => { BX1.met = k; draw(); }));
   m.append(ctl, body);
   function draw() {
     const M = BX_MET[BX1.met], g = el('div', 'bx-grid');
