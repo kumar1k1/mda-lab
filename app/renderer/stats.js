@@ -123,7 +123,7 @@
     const c = db.cols, has = (k) => Array.isArray(c[k]);
     const R = () => ({ x: 0, n: 0 });
     const Z = () => ({ sum: 0, n: 0, ids: [] });
-    const mk = () => ({ all: R(), stk: STEAL_STK.map(R), resp: [0, 0, 0], f3b: R(), net: { sum: 0, n: 0 }, sz: [0, 0, 0, 0], month: {}, blind: BLIND_STK.map(R),
+    const mk = () => ({ all: R(), stk: STEAL_STK.map(R), resp: [0, 0, 0], f3b: R(), net: { sum: 0, n: 0 }, sz: [0, 0, 0, 0], szx: {}, month: {}, blind: BLIND_STK.map(R),
       // результат стила (BB×10) по разрезам, с номерами раздач для списка
       nr: { all: Z(), resp: [Z(), Z(), Z()], stk: STEAL_STK.map(Z), kind: [Z(), Z()], type: [Z(), Z()], fight: [Z(), Z()], room: {}, month: {} } });
     const out = { CO: mk(), BTN: mk() };
@@ -148,6 +148,13 @@
         if (has('sto') && c.sto[i] >= 0) put(o.nr.fight[c.sto[i] === 1 ? 0 : 1]);
         put(o.nr.room[c.room[i]] || (o.nr.room[c.room[i]] = Z()));
         const mz = o.nr.month[c.month[i]] || (o.nr.month[c.month[i]] = { sum: 0, n: 0 }); mz.sum += v; mz.n++;
+      }
+      { // точный сайзинг: пуш отдельно, рейзы с точностью до 0.1 BB
+        const key = c.act[i] === 3 ? 'AI' : String(Math.round(c.size[i] / 10) / 10);
+        const z = o.szx[key] || (o.szx[key] = { n: 0, r: [0, 0, 0], rn: 0, sum: 0, sn: 0, ids: [] });
+        z.n++; z.ids.push(i);
+        if (has('orsp') && c.orsp[i] >= 0) { z.r[c.orsp[i]]++; z.rn++; }
+        if (has('net')) { z.sum += c.net[i]; z.sn++; }
       }
       if (c.act[i] === 3) o.sz[3]++; else { const z = STEAL_SZ.findIndex(q => c.size[i] >= q[1] && c.size[i] < q[2]); if (z >= 0) o.sz[z]++; }
     }

@@ -588,6 +588,63 @@ function stealResultCard(o) {
   return m;
 }
 
+// 3.5 — самые частые сайзинги открытия и как они работают
+let SZ_SIDE = 'both';
+function sizingCard(o) {
+  const m = el('div', 'sm sz5');
+  const h = el('div', 'sm-h'); h.append(el('span', 'num-tag sm-tag', '#3.5'), el('b', null, 'Сайзинг стила'));
+  m.append(h, el('span', 'sm-s', 'самые частые размеры открытия и их результат'));
+  const seg = el('div', 'seg sz5-seg'); seg.setAttribute('role', 'group'); seg.setAttribute('aria-label', 'Позиция');
+  const body = el('div', 'sz5-body');
+  [['both', 'CO + BTN'], ['CO', 'CO'], ['BTN', 'BTN']].forEach(([k, t]) => {
+    const b = el('button', null, t); b.type = 'button'; b.setAttribute('aria-pressed', String(SZ_SIDE === k)); b.classList.toggle('on', SZ_SIDE === k);
+    b.onclick = () => { SZ_SIDE = k; seg.querySelectorAll('button').forEach(x => { x.setAttribute('aria-pressed', String(x === b)); x.classList.toggle('on', x === b); }); draw(); };
+    seg.append(b);
+  });
+  m.append(seg, body);
+  function merged() {
+    const src = SZ_SIDE === 'both' ? [o.CO.szx, o.BTN.szx] : [o[SZ_SIDE].szx], out = {};
+    src.forEach(map => Object.entries(map).forEach(([k, z]) => {
+      const t = out[k] || (out[k] = { n: 0, r: [0, 0, 0], rn: 0, sum: 0, sn: 0, ids: [] });
+      t.n += z.n; t.rn += z.rn; t.sum += z.sum; t.sn += z.sn; z.r.forEach((v, j) => { t.r[j] += v; }); t.ids = t.ids.concat(z.ids);
+    }));
+    return out;
+  }
+  function draw() {
+    const map = merged(), tot = Object.values(map).reduce((a, z) => a + z.n, 0);
+    body.replaceChildren();
+    if (!tot) { body.append(el('p', 'muted small', 'Нет открытий в выборке.')); return; }
+    const rows = [], other = { n: 0, r: [0, 0, 0], rn: 0, sum: 0, sn: 0, ids: [] };
+    Object.entries(map).filter(([k]) => k !== 'AI').sort((a, b) => b[1].n - a[1].n).forEach(([k, z], j) => {
+      if (j < 4 && z.n / tot >= 0.01) rows.push([k.replace('.', ',') + ' BB', z, 'рейз ' + k.replace('.', ',') + ' BB']);
+      else { other.n += z.n; other.rn += z.rn; other.sum += z.sum; other.sn += z.sn; z.r.forEach((v, q) => { other.r[q] += v; }); other.ids = other.ids.concat(z.ids); }
+    });
+    if (other.n) rows.push(['другие', other, 'другие размеры рейза']);
+    if (map.AI) rows.push(['пуш', map.AI, 'пуш']);
+    const t = el('div', 'sz5-t');
+    const hd = el('div', 'sz5-r sz5-h'); ['Размер', 'Доля', 'Сбросили', '3-бет', 'BB'].forEach(x => hd.append(el('span', null, x))); t.append(hd);
+    const side = SZ_SIDE === 'both' ? 'CO + BTN' : SZ_SIDE;
+    rows.forEach(([lab, z, full]) => {
+      const r = el('button', 'sz5-r'); r.type = 'button';
+      const share = z.n / tot, fold = z.rn ? z.r[0] / z.rn : null, rr = z.rn ? z.r[2] / z.rn : null, bb = z.sn ? z.sum / 10 / z.sn : null;
+      r.setAttribute('aria-label', side + ', ' + full + ': ' + Math.round(share * 100) + '% открытий, ' + z.n + ' раз — показать раздачи');
+      const sh = el('span', 'sz5-sh', fmtPct(share) + '%');
+      r.append(el('b', null, lab), sh,
+        el('span', 'sz5-v', fold == null ? '—' : fmtPct(fold) + '%'),
+        el('span', 'sz5-v', rr == null ? '—' : fmtPct(rr) + '%'),
+        el('span', 'sz5-v ' + (bb == null ? '' : bb >= 0 ? 'up' : 'down'), bb == null ? '—' : signed(bb, 2)));
+      const tk = el('span', 'sz5-tk'); const tr = el('i'); tr.style.width = Math.max(1, share * 100) + '%'; if (SZ_SIDE === 'BTN') tr.style.background = C_BTN; tk.append(tr);
+      r.append(el('small', null, z.n.toLocaleString('ru-RU') + ' раз'), tk);
+      if (z.n < 30) r.classList.add('low');
+      r.onclick = () => openIdsList(side + ' · ' + full, z.ids);
+      t.append(r);
+    });
+    body.append(t, el('p', 'sz5-note', 'Сбросили — все за вами сфолдили. 3-бет — первый ответ рейзом. BB — средний итог раздачи. Нажмите на строку, чтобы открыть раздачи.'));
+  }
+  draw();
+  return m;
+}
+
 function renderStealPanel(idx) {
   const o = Stats.stealExtra(DB, idx);
   // каждый пункт 3.1–3.8 — отдельное окно; общий контейнер без рамки
@@ -598,7 +655,7 @@ function renderStealPanel(idx) {
   const f3 = (z) => (z.n ? z.x / z.n : null);
   const nb = (z) => (z.n ? z.sum / 10 / z.n : null);
   grid.append(stealResultCard(o));
-  grid.append(stealModule('3.5', 'Сайзинг стила', 'доля открытий каждым размером, BB', pairStack([{ label: 'CO', vals: o.CO.sz }, { label: 'BTN', vals: o.BTN.sz }], o.SZ.map((z, k) => [z, ['var(--amber)', '#E07B39', '#A78BFA', 'var(--bad)'][k]]))));
+  grid.append(sizingCard(o));
   grid.append(stealModule('3.7', 'Против стека блайндов', 'стил, когда самый короткий блайнд имеет …, BB', pairBars(o.BLIND, o.CO.blind.map(rateOf), o.BTN.blind.map(rateOf), pct, 'Стил против стека блайндов'), true));
   const st = el('div', 'sm sm-soon');
   st.append(el('div', 'sm-h'), el('span', 'sm-s', 'Стил по стадии турнира (баббл, ITM, финальный стол) — нужно научить парсер определять стадию'));
@@ -982,5 +1039,6 @@ window.__pinNet = (i) => { const g = document.querySelectorAll('.net-bar')[i]; c
 window.__hoverNet = (i) => { const g = document.querySelectorAll('.net-bar')[i]; const r = g.getBoundingClientRect(); g.dispatchEvent(new MouseEvent('mouseenter', { clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 })); };
 window.__pickBar = (k) => { document.querySelectorAll('g.pick')[k].dispatchEvent(new MouseEvent('click')); };
 window.__pinGroup = (n) => document.querySelectorAll('.hg-c')[n].click();
+window.__sz = (k) => { SZ_SIDE = k; };
 window.__hoverGroup = (n) => { const c = document.querySelectorAll('.hg-c')[n]; const r = c.getBoundingClientRect(); c.dispatchEvent(new MouseEvent('mouseenter', { clientX: r.left + 20, clientY: r.top + 5 })); };
 window.__hoverMx = (k) => { const c = document.querySelectorAll('.mx .mx-c')[k]; c.scrollIntoView({ block: 'center' }); const r = c.getBoundingClientRect(); c.dispatchEvent(new MouseEvent('mouseenter', { clientX: r.left + 10, clientY: r.top + 10 })); };
