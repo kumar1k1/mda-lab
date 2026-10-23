@@ -309,7 +309,7 @@ button.hp-c:hover{outline:2px solid var(--amber);outline-offset:-1px}
 .resp-legend.row{flex-direction:row;gap:14px;flex-wrap:wrap}
 .sm-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:4px}
 @media (max-width: 760px){.sm-grid{grid-template-columns:1fr}}
-.sm{position:relative;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.sm:not(.pc){position:relative;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;min-width:0}
 .sm-h{display:flex;align-items:center;gap:8px;padding-right:34px}
 .sm-h b{font-size:13px}
 .sm-tag{top:8px;right:8px}
