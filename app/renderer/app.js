@@ -436,7 +436,6 @@ function renderStealPanel(idx) {
     { label: 'CO', v: nb(o.CO.net), text: signed(nb(o.CO.net), 2), cls: nb(o.CO.net) >= 0 ? 'up' : 'down', color: C_CO, title: o.CO.net.n + ' открытий' },
     { label: 'BTN', v: nb(o.BTN.net), text: signed(nb(o.BTN.net), 2), cls: nb(o.BTN.net) >= 0 ? 'up' : 'down', color: C_BTN, title: o.BTN.net.n + ' открытий' }]), true));
   grid.append(stealModule('3.5', 'Сайзинг стила', 'доля открытий каждым размером, BB', pairStack([{ label: 'CO', vals: o.CO.sz }, { label: 'BTN', vals: o.BTN.sz }], o.SZ.map((z, k) => [z, ['var(--amber)', '#E07B39', '#A78BFA', 'var(--bad)'][k]]))));
-  grid.append(stealModule('3.6', 'По месяцам', 'стил, %', monthPair(o.CO.month, o.BTN.month), true));
   grid.append(stealModule('3.7', 'Против стека блайндов', 'стил, когда самый короткий блайнд имеет …, BB', pairBars(o.BLIND, o.CO.blind.map(rateOf), o.BTN.blind.map(rateOf), pct, 'Стил против стека блайндов'), true));
   const st = el('div', 'sm sm-soon');
   st.append(el('div', 'sm-h'), el('span', 'sm-s', 'Стил по стадии турнира (баббл, ITM, финальный стол) — нужно научить парсер определять стадию'));
