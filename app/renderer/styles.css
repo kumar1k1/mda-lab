@@ -520,5 +520,5 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .bx-seg button{white-space:nowrap}
 .sz5-r small{white-space:nowrap}
 
-.net-lg{margin:6px 0 0;font-size:11px;color:var(--muted)}
+.net-lg{margin-top:6px;font-size:11px}
 .net-lg-t{color:var(--muted)}

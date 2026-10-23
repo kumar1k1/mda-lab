@@ -216,7 +216,7 @@ function netChart(items, avg) {
       const gr = svgEl('g'); const tt = svgEl('title');
       tt.textContent = it.p + ', ответ оппонентов: все сбросили ' + fmtPct(rs[0] / rt) + '%, колл ' + fmtPct(rs[1] / rt) + '%, рейз ' + fmtPct(rs[2] / rt) + '% (' + rt + ' открытий)';
       gr.append(tt);
-      RESP_COLS.forEach((col, k) => gr.append(svgText(cx + (k - 1) * (sw / 3 + 1), sy + 9, Math.round(rs[k] / rt * 100), 'middle', 'font-size:12px;font-weight:700;font-family:var(--mono);fill:var(--text)')));
+      RESP_COLS.forEach((col, k) => gr.append(svgText(cx + (k - 1) * (sw / 3 + 1), sy + 9, Math.round(rs[k] / rt * 100), 'middle', 'font-size:12px;font-weight:700;font-family:var(--mono);fill:' + col)));
       s.append(gr);
     }
     if (v == null) return;
@@ -240,7 +240,8 @@ function netChart(items, avg) {
   }
   s.append(svgText(P.l - 6, H - P.b + 46, '%', 'end', 'font-size:10px;fill:var(--faint)'));
   const box = el('div', 'net-wrap'); box.append(s);
-  const lg = el('p', 'net-lg', 'Цифры под позицией — первый ответ оппонентов за спиной, %: фолд · колл · рейз.');
+  const lg = el('div', 'resp-legend row net-lg'); lg.append(el('span', 'net-lg-t', 'цифры под позицией — первый ответ оппонентов за спиной, %:'));
+  [['все сбросили', RESP_COLS[0]], ['колл', RESP_COLS[1]], ['рейз', RESP_COLS[2]]].forEach(([l, col]) => { const it = el('span'); const i = el('i'); i.style.background = col; it.append(i, document.createTextNode(l)); lg.append(it); });
   box.append(lg);
   return box;
 }
