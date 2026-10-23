@@ -1036,107 +1036,6 @@ function isoPanel(d) {
   return card;
 }
 
-// ---------- #6 / #6+ — опен-лимп: где и чем вы лимпите и что дали бы те же руки рейзом ----------
-const LP_POS = ['EP', 'MP', 'HJ', 'CO', 'BTN', 'SB'];
-const LP_STK = [['<12', 0, 12], ['12–20', 12, 20], ['20–35', 20, 35], ['35+', 35, 1e9]];
-const LP_C = 'var(--mx-limp)', RZ_C = 'var(--mx-raise)';
-function limpData(idx) {
-  const c = DB.cols;
-  const cell = () => ({ o: 0, l: 0, iso: 0, isoN: 0, ids: [], lh: new Uint32Array(169), ls: new Float64Array(169), rh: new Uint32Array(169), rs: new Float64Array(169) });
-  const M = LP_POS.map(() => LP_STK.map(cell));
-  for (const i of idx) {
-    const p = c.pos[i]; if (c.sit[i] !== 0 || p > 5) continue;
-    const bb = c.bb[i] / 10, k = LP_STK.findIndex(z => bb >= z[1] && bb < z[2]); if (k < 0) continue;
-    const z = M[p][k], a = c.act[i], hc = c.hc ? c.hc[i] : -1, v = c.net ? c.net[i] : 0;
-    z.o++;
-    if (a === 1) {
-      z.l++; z.ids.push(i);
-      if (c.orsp && c.orsp[i] >= 0) { z.isoN++; if (c.orsp[i] === 2) z.iso++; }
-      if (hc >= 0) { z.lh[hc]++; z.ls[hc] += v; }
-    } else if (a >= 2 && hc >= 0) { z.rh[hc]++; z.rs[hc] += v; }
-  }
-  return M;
-}
-// сводка по набору клеток (и, при желании, только по одной группе рук)
-function limpSum(cells, grp) {
-  const t = { o: 0, l: 0, iso: 0, isoN: 0, ln: 0, lsum: 0, rw: 0, rsum: 0, ids: [], mx: Array.from({ length: 169 }, () => ({ n: 0, sum: 0 })) };
-  const lh = new Float64Array(169), rh = new Float64Array(169), rs = new Float64Array(169);
-  cells.forEach(z => {
-    t.o += z.o; t.l += z.l; t.iso += z.iso; t.isoN += z.isoN;
-    for (let h = 0; h < 169; h++) {
-      if (grp != null && handGroup(h) !== grp) continue;
-      lh[h] += z.lh[h]; t.mx[h].n += z.lh[h]; t.mx[h].sum += z.ls[h];
-      rh[h] += z.rh[h]; rs[h] += z.rs[h];
-    }
-    if (grp == null) t.ids = t.ids.concat(z.ids); else z.ids.forEach(i => { const hc = DB.cols.hc[i]; if (hc >= 0 && handGroup(hc) === grp) t.ids.push(i); });
-  });
-  for (let h = 0; h < 169; h++) {
-    t.ln += t.mx[h].n; t.lsum += t.mx[h].sum;
-    // «те же руки рейзом»: средний итог рейза каждой руки с весом её лимпов
-    if (lh[h] && rh[h]) { t.rw += lh[h]; t.rsum += lh[h] * rs[h] / rh[h]; }
-  }
-  if (grp != null) t.l = t.ln;
-  return t;
-}
-
-function limpCard(M) {
-  const t = limpSum(M.flat());
-  const box = el('div', 'iso-box'), sub = el('div', 'iso-sub');
-  const lw = t.ln ? t.lsum / 10 / t.ln : null, rw = t.rw ? t.rsum / 10 / t.rw : null;
-  [['Винрейт лимпа', lw, LP_C, t.ln.toLocaleString('ru-RU') + ' лимпов'], ['Те же руки рейзом', rw, RZ_C, 'ваши рейзы теми же руками с тех же позиций и стеков']].forEach(([lab, v, col, note]) => {
-    const r = el('div', 'iso-sr lp-sr'); const b = el('b', v == null ? '' : v >= 0 ? 'up' : 'down', v == null ? '—' : signed(v, 2) + ' BB');
-    const nm = el('span'); const i = el('i', 'lp-dot'); i.style.background = col; nm.append(i, document.createTextNode(lab));
-    r.append(nm, b, el('small', null, note)); sub.append(r);
-  });
-  box.append(sub, respTiles([t.isoN - t.iso, 0, t.iso].filter((_, k) => k !== 1), 'Ответ оппонентов на ваш лимп', [['без рейза', 'var(--good)'], ['изолейт', 'var(--bad)']]));
-  return card(6, 'Опен-лимп', '<em>' + (t.o ? fmtPct(t.l / t.o) + '%' : '—') + '</em>', t.l.toLocaleString('ru-RU') + ' лимпов из ' + t.o.toLocaleString('ru-RU') + ' возможностей открыться', box);
-}
-
-let LP_POSSEL = 'all', LP_VIEW = 'stk';
-function limpPanel(M) {
-  const card = el('div', 'insight steal-panel pm-card');
-  card.append(numTag('6+'), el('b', 'pm-title', 'Лимп против рейза теми же руками'), el('span', 'sm-s', 'где и чем вы лимпите первым и какой результат те же руки дали, когда вы открывались рейзом'));
-  const ctl = el('div', 'bx-ctl');
-  ctl.append(segBtns([['all', 'Все']].concat(LP_POS.map(p => [p, p])), LP_POSSEL, (k) => { LP_POSSEL = k; draw(); }),
-    segBtns([['stk', 'По стеку'], ['grp', 'По группам рук']], LP_VIEW, (k) => { LP_VIEW = k; draw(); }));
-  const body = el('div');
-  const lg = el('div', 'resp-legend row net-lg');
-  [['винрейт лимпа', LP_C], ['винрейт тех же рук рейзом', RZ_C]].forEach(([l, col]) => { const it = el('span'); const i = el('i'); i.style.background = col; it.append(i, document.createTextNode(l)); lg.append(it); });
-  card.append(ctl, lg, body, el('p', 'sz5-note', 'Лимп — доля лимпов от всех возможностей открыться в этой строке. «Те же руки рейзом» — средний итог ваших рейзов теми же руками с той же позиции и стеком, взвешенный по тому, как часто вы ими лимпили. Бледные строки — меньше 20 лимпов. Наведите на строку — покажутся руки, которыми вы лимпили; клик закрепит окно, клик по руке откроет раздачи и реплеер.'));
-  function draw() {
-    const pIdx = LP_POSSEL === 'all' ? LP_POS.map((_, i) => i) : [LP_POS.indexOf(LP_POSSEL)];
-    const rows = LP_VIEW === 'stk'
-      ? LP_STK.map((z, k) => [z[0] + ' BB', limpSum(pIdx.map(p => M[p][k]))])
-      : HAND_GROUPS.map(([lab], g) => [lab, limpSum(pIdx.flatMap(p => M[p]), g)]).filter(([, t]) => t.l > 0);
-    const vals = rows.flatMap(([, t]) => [t.ln >= 5 ? t.lsum / 10 / t.ln : 0, t.rw >= 5 ? t.rsum / 10 / t.rw : 0]).map(Math.abs);
-    const max = Math.max(0.5, ...vals);
-    const tb = el('div', 'lp-t');
-    const hd = el('div', 'lp-r lp-h'); [LP_VIEW === 'stk' ? 'Ваш стек' : 'Группа рук', LP_VIEW === 'stk' ? 'Лимп' : 'Лимпов', 'Винрейт лимпа, BB', 'Те же руки рейзом, BB'].forEach(x => hd.append(el('span', null, x))); tb.append(hd);
-    const posLab = LP_POSSEL === 'all' ? 'все позиции' : LP_POSSEL;
-    rows.forEach(([lab, t]) => {
-      const r = el('div', 'lp-r'); if (t.l < 20) r.classList.add('low');
-      const lw = t.ln ? t.lsum / 10 / t.ln : null, rw = t.rw ? t.rsum / 10 / t.rw : null;
-      const bar = (v, col) => { const c = el('div', 'hg-c'); const tr = el('div', 'hg-track'); tr.append(el('div', 'hg-zero')); const f = el('div', 'hg-fill'); const w = v == null ? 0 : Math.min(50, Math.abs(v) / max * 50); f.style.width = w + '%'; f.style.left = v >= 0 ? '50%' : (50 - w) + '%'; f.style.background = col; tr.append(f); c.append(tr, el('span', 'hg-v ' + (v == null ? '' : v >= 0 ? 'up' : 'down'), v == null ? '—' : signed(v, 2))); return c; };
-      r.append(el('span', 'lp-l', lab), el('b', 'lp-f', LP_VIEW === 'stk' ? (t.o ? fmtPct(t.l / t.o) + '%' : '—') : String(t.l)), bar(lw, LP_C), bar(rw, RZ_C));
-      if (LP_VIEW === 'stk') r.querySelector('.lp-f').append(el('small', null, t.l + ' из ' + t.o));
-      if (t.ln) {
-        const it = { p: LP_POSSEL === 'all' ? null : LP_POSSEL, key: 'limp ' + posLab + ' ' + lab, title: 'Лимп · ' + posLab + ' · ' + lab, o: { n: t.ln, sum: t.lsum }, mx: t.mx, ids: t.ids, sit: 0, act: 1, vlab: ' BB за лимп', nlab: ' лимпов' };
-        const v = t.lsum / 10 / t.ln;
-        r.classList.add('click'); r.tabIndex = 0; r.setAttribute('role', 'button'); r.setAttribute('aria-label', lab + ': руки и раздачи лимпа');
-        const show = (ev) => showHandPop(it, v, ev, r);
-        r.addEventListener('mouseenter', show); r.addEventListener('mousemove', show); r.addEventListener('mouseleave', hideHandPop);
-        r.addEventListener('click', (ev) => pinHandPop(it, v, ev, r));
-        r.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); pinHandPop(it, v, null, r); } });
-      }
-      tb.append(r);
-    });
-    if (!rows.length) tb.append(el('p', 'muted small', 'В этой выборке нет лимпов.'));
-    body.replaceChildren(tb);
-  }
-  draw();
-  return card;
-}
-
 function renderRFISummary(idx, r) {
   const x = Stats.rfiExtra(DB, idx, { mxPos: uiState.mxPos, mxStk: uiState.mxStk === 'custom' && uiState.mxCustom ? uiState.mxCustom : (MX_STK.find(z => z[0] === uiState.mxStk) || MX_STK[0])[2] });
   const zone = el('div', 'summary');
@@ -1193,14 +1092,13 @@ function renderRFISummary(idx, r) {
   const byTag = {}; [...cards.children].forEach(n => { byTag[n.querySelector('.num-tag').textContent] = n; });
   byTag['#3+'] = renderStealPanel(idx); byTag['#4+'] = shovePanel;
   const isoD = isoData(idx); byTag['#5'] = isoCard(isoD); byTag['#5+'] = isoPanel(isoD);
-  const lpD = limpData(idx); byTag['#6'] = limpCard(lpD); byTag['#6+'] = limpPanel(lpD);
   const row = (l, r) => { const d = el('div', 'sum-pair'); d.append(byTag[l], byTag[r]); return d; };
   // строка #3: карточка #3 и окна 3.4–3.8 одного размера в общей сетке
   const stealRow = el('div', 'steal-row'); stealRow.append(byTag['#3']);
   [...byTag['#3+'].querySelectorAll(':scope > .sm')].forEach(m => { if (m.querySelector('.sm-tag').textContent === '#3.4') m.classList.add('span2'); stealRow.append(m); });
   // разделы с заголовком и отступом, чтобы блоки не слипались
   const sec = (title, note) => { const d = el('div', 'sec'); const t = el('div', 'sec-t'); t.append(el('h3', null, title)); if (note) t.append(el('span', null, note)); d.append(t, el('div', 'sec-line')); return d; };
-  zone.append(row('#1', '#8'), sec('Стил с поздних позиций', 'CO и BTN, когда до вас все сбросили'), stealRow, sec('Пуши', 'олл-ин вместо обычного открытия'), row('#4', '#4+'), sec('Изоляция лимперов', 'ваш рейз поверх лимпа'), row('#5', '#5+'), sec('Опен-лимп', 'вы первым входите в банк лимпом'), row('#6', '#6+'));
+  zone.append(row('#1', '#8'), sec('Стил с поздних позиций', 'CO и BTN, когда до вас все сбросили'), stealRow, sec('Пуши', 'олл-ин вместо обычного открытия'), row('#4', '#4+'), sec('Изоляция лимперов', 'ваш рейз поверх лимпа'), row('#5', '#5+'));
 
   // матрица рук
   const b13 = el('section', 'block'); b13.append(numTag(13));
