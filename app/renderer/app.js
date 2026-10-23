@@ -593,7 +593,7 @@ let SZ_SIDE = 'both';
 function sizingCard(o) {
   const m = el('div', 'sm sz5 span2');
   const h = el('div', 'sm-h'); h.append(el('span', 'num-tag sm-tag', '#3.5'), el('b', null, 'Сайзинг стила'));
-  m.append(h, el('span', 'sm-s', 'самые частые размеры открытия и их результат'));
+  m.append(h, el('span', 'sm-s', 'самые частые размеры открытия рейзом (без пушей) и их результат'));
   const seg = el('div', 'seg sz5-seg'); seg.setAttribute('role', 'group'); seg.setAttribute('aria-label', 'Позиция');
   const body = el('div', 'sz5-body');
   [['both', 'CO + BTN'], ['CO', 'CO'], ['BTN', 'BTN']].forEach(([k, t]) => {
@@ -611,7 +611,7 @@ function sizingCard(o) {
     return out;
   }
   function draw() {
-    const map = merged(), tot = Object.values(map).reduce((a, z) => a + z.n, 0);
+    const map = merged(); delete map.AI; const tot = Object.values(map).reduce((a, z) => a + z.n, 0);
     body.replaceChildren();
     if (!tot) { body.append(el('p', 'muted small', 'Нет открытий в выборке.')); return; }
     const rows = [], other = { n: 0, r: [0, 0, 0], rn: 0, sum: 0, sn: 0, ids: [] };
@@ -620,7 +620,6 @@ function sizingCard(o) {
       else { other.n += z.n; other.rn += z.rn; other.sum += z.sum; other.sn += z.sn; z.r.forEach((v, q) => { other.r[q] += v; }); other.ids = other.ids.concat(z.ids); }
     });
     if (other.n) rows.push(['другие', other, 'другие размеры рейза']);
-    if (map.AI) rows.push(['пуш', map.AI, 'пуш']);
     const t = el('div', 'sz5-t');
     const hd = el('div', 'sz5-r sz5-h'); ['Размер', 'Доля', 'Сбросили', '3-бет', 'BB'].forEach(x => hd.append(el('span', null, x))); t.append(hd);
     const side = SZ_SIDE === 'both' ? 'CO + BTN' : SZ_SIDE;
