@@ -1144,7 +1144,7 @@ function renderRFI(idx) {
   // заголовок и выводы
   const head = el('div', 'page-head');
   const h1 = el('h1'); h1.append(document.createTextNode('Открытие рейзом '), el('span', null, 'RFI'));
-  head.append(h1, el('p', null, 'Как часто вы открываете банк рейзом, когда до вас все сбросили: по позициям, сайзингу, глубине стека и против лимперов.'));
+  head.append(h1, el('p', null, 'Как часто вы открываете банк рейзом, когда до вас все сбросили: результат по позициям, диапазон, стил с поздних позиций, пуши и изоляция лимперов.'));
   page.append(head);
 
   const tot = rate(r.tot.TOT.TOT);
