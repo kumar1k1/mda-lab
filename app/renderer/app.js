@@ -342,10 +342,12 @@ function calendar(cal, maxDay) {
 const C_CO = 'var(--amber)', C_BTN = 'var(--ice)';
 const rateOf = (z) => (z && z.n ? z.x / z.n : null);
 
-function stealModule(tag, title, sub, node) {
+function stealModule(tag, title, sub, node, pairLegend) {
   const m = el('div', 'sm');
   const h = el('div', 'sm-h'); h.append(el('span', 'num-tag sm-tag', '#' + tag), el('b', null, title));
-  m.append(h); if (sub) m.append(el('span', 'sm-s', sub)); m.append(node);
+  m.append(h); if (sub) m.append(el('span', 'sm-s', sub));
+  if (pairLegend) { const lg = el('div', 'resp-legend row sm-lg'); [['CO', C_CO], ['BTN', C_BTN]].forEach(([lab, col]) => { const it = el('span'); const i = el('i'); i.style.background = col; it.append(i, document.createTextNode(lab)); lg.append(it); }); m.append(lg); }
+  m.append(node);
   return m;
 }
 
@@ -423,31 +425,28 @@ function monthPair(co, btn) {
 
 function renderStealPanel(idx) {
   const o = Stats.stealExtra(DB, idx);
-  const card = el('div', 'insight steal-panel');
-  card.append(numTag('3+'), el('span', 'k', 'Стил с CO и BTN — подробно'));
-  const lg = el('div', 'resp-legend row');
-  [['CO', C_CO], ['BTN', C_BTN]].forEach(([lab, col]) => { const it = el('span'); const i = el('i'); i.style.background = col; it.append(i, document.createTextNode(lab)); lg.append(it); });
-  card.append(lg);
-  const grid = el('div', 'sm-grid');
+  // каждый пункт 3.1–3.8 — отдельное окно; общий контейнер без рамки
+  const card = el('div', 'steal-split');
+  card.append(el('span', 'num-tag', '#3+')); // служебная метка для раскладки, скрыта стилями
+  const grid = card;
   const pct = (v) => (v == null ? '—' : fmtPct(v) + '%');
-  grid.append(stealModule('3.1', 'По вашему стеку', 'как часто открываетесь, BB', pairBars(o.STK, o.CO.stk.map(rateOf), o.BTN.stk.map(rateOf), pct, 'Стил по стеку')));
+  grid.append(stealModule('3.1', 'По вашему стеку', 'как часто открываетесь, BB', pairBars(o.STK, o.CO.stk.map(rateOf), o.BTN.stk.map(rateOf), pct, 'Стил по стеку'), true));
   grid.append(stealModule('3.2', 'Ответ блайндов', 'фолд / колл / рейз, %', pairStack([{ label: 'CO', vals: o.CO.resp }, { label: 'BTN', vals: o.BTN.resp }], [['фолд', 'var(--good)'], ['колл', 'var(--ice)'], ['рейз', 'var(--bad)']])));
   const f3 = (z) => (z.n ? z.x / z.n : null);
   grid.append(stealModule('3.3', 'Фолд на 3-бет', 'после вашего стила', pairH([
     { label: 'CO', v: f3(o.CO.f3b), text: pct(f3(o.CO.f3b)), color: C_CO, title: o.CO.f3b.x + ' из ' + o.CO.f3b.n },
-    { label: 'BTN', v: f3(o.BTN.f3b), text: pct(f3(o.BTN.f3b)), color: C_BTN, title: o.BTN.f3b.x + ' из ' + o.BTN.f3b.n }])));
+    { label: 'BTN', v: f3(o.BTN.f3b), text: pct(f3(o.BTN.f3b)), color: C_BTN, title: o.BTN.f3b.x + ' из ' + o.BTN.f3b.n }]), true));
   const nb = (z) => (z.n ? z.sum / 10 / z.n : null);
   grid.append(stealModule('3.4', 'Результат стила', 'BB за открытие', pairH([
     { label: 'CO', v: nb(o.CO.net), text: signed(nb(o.CO.net), 2), cls: nb(o.CO.net) >= 0 ? 'up' : 'down', color: C_CO, title: o.CO.net.n + ' открытий' },
-    { label: 'BTN', v: nb(o.BTN.net), text: signed(nb(o.BTN.net), 2), cls: nb(o.BTN.net) >= 0 ? 'up' : 'down', color: C_BTN, title: o.BTN.net.n + ' открытий' }])));
+    { label: 'BTN', v: nb(o.BTN.net), text: signed(nb(o.BTN.net), 2), cls: nb(o.BTN.net) >= 0 ? 'up' : 'down', color: C_BTN, title: o.BTN.net.n + ' открытий' }]), true));
   grid.append(stealModule('3.5', 'Сайзинг стила', 'доля открытий каждым размером, BB', pairStack([{ label: 'CO', vals: o.CO.sz }, { label: 'BTN', vals: o.BTN.sz }], o.SZ.map((z, k) => [z, ['var(--amber)', '#E07B39', '#A78BFA', 'var(--bad)'][k]]))));
-  grid.append(stealModule('3.6', 'По месяцам', 'стил, %', monthPair(o.CO.month, o.BTN.month)));
-  grid.append(stealModule('3.7', 'Против стека блайндов', 'стил, когда самый короткий блайнд имеет …, BB', pairBars(o.BLIND, o.CO.blind.map(rateOf), o.BTN.blind.map(rateOf), pct, 'Стил против стека блайндов')));
+  grid.append(stealModule('3.6', 'По месяцам', 'стил, %', monthPair(o.CO.month, o.BTN.month), true));
+  grid.append(stealModule('3.7', 'Против стека блайндов', 'стил, когда самый короткий блайнд имеет …, BB', pairBars(o.BLIND, o.CO.blind.map(rateOf), o.BTN.blind.map(rateOf), pct, 'Стил против стека блайндов'), true));
   const st = el('div', 'sm sm-soon');
   st.append(el('div', 'sm-h'), el('span', 'sm-s', 'Стил по стадии турнира (баббл, ITM, финальный стол) — нужно научить парсер определять стадию'));
   st.firstChild.append(el('span', 'num-tag sm-tag', '#3.8'), el('b', null, 'По стадии турнира'));
   grid.append(st);
-  card.append(grid);
   return card;
 }
 
