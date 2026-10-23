@@ -616,3 +616,15 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .privacy{margin:10px 0 0;color:var(--muted);line-height:1.45}
 .btn-danger{color:var(--bad)}
 .imp-table td.ok{color:var(--good)}
+
+.rp-bet[class*="a-"]{text-transform:uppercase;letter-spacing:.03em;font-family:var(--sans);font-weight:800;font-size:11.5px;padding:3px 10px;box-shadow:0 2px 6px rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.14)}
+.rp-bet.a-x{background:#3A4152;color:#E6E9EF}
+.rp-bet.a-c{background:var(--ice);color:#06202C}
+.rp-bet.a-b{background:var(--amber);color:#1B1406}
+.rp-bet.a-r{background:#F97316;color:#1B0B02}
+.rp-bet.a-ai{background:var(--bad);color:#fff}
+.rp-bet.a-f{background:rgba(26,31,42,.9);color:var(--muted)}
+.rp-bet.a-w{background:var(--good);color:#06210F}
+.rp-bet.now{animation:rpPop .35s ease-out}
+@keyframes rpPop{from{transform:translate(-50%,-50%) scale(.6);opacity:.2}to{transform:translate(-50%,-50%) scale(1);opacity:1}}
+@media (prefers-reduced-motion: reduce){.rp-bet.now{animation:none}}

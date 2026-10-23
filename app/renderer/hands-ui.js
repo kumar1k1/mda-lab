@@ -278,8 +278,19 @@ async function openReplayer(i) {
       s.stack.textContent = (f.allin[j] && f.stacks[j] <= 0.01 ? 'олл-ин' : f.stacks[j] + ' BB');
       const show = j === rp.h ? (rp.hc || '').split(' ') : f.show && rp.sh && rp.sh[j] ? rp.sh[j].split(' ') : null;
       s.cards.replaceChildren(...(f.folded[j] && j !== rp.h ? [] : show ? show.map(c => cardEl(c, true)) : [cardEl(null, true), cardEl(null, true)]));
-      s.bet.textContent = f.bets[j] > 0 ? f.bets[j] + ' BB' : '';
-      s.bet.hidden = !(f.bets[j] > 0);
+      // на месте фишек ставки — действие игрока на этой улице: чек, колл, бет, рейз, олл-ин, фолд, выигрыш
+      const a = f.act[j];
+      if (a) {
+        const ai = a.ai && a.t !== 'w' && a.t !== 'f';
+        const T = { f: 'Фолд', x: 'Чек', c: 'Колл ' + a.v, b: 'Бет ' + a.v, r: 'Рейз ' + a.v, w: '+' + a.v + ' BB' }[a.t];
+        s.bet.textContent = ai ? 'Олл-ин ' + a.v : T;
+        s.bet.className = 'rp-bet a-' + (ai ? 'ai' : a.t) + (f.actor === j ? ' now' : '');
+        s.bet.hidden = false;
+      } else {
+        s.bet.textContent = f.bets[j] > 0 ? f.bets[j] + ' BB' : '';
+        s.bet.className = 'rp-bet';
+        s.bet.hidden = !(f.bets[j] > 0);
+      }
     });
     action.textContent = f.text;
     prog.textContent = 'шаг ' + k + ' из ' + (fr.length - 1);
