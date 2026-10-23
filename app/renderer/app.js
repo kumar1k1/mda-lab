@@ -497,8 +497,7 @@ function stealResultCard(o) {
   const rooms = [...new Set(Object.keys(o.CO.nr.room).concat(Object.keys(o.BTN.nr.room)))].map(Number).sort((a, b) => a - b);
   grid.append(
     sub('3.4.2', 'По вашему стеку, BB', pairSigned(o.STK, o.CO.nr.stk, o.BTN.nr.stk, 'Стек', pick)),
-    sub('3.4.3', 'Рейз или пуш', pairSigned(['рейз', 'пуш'], o.CO.nr.kind, o.BTN.nr.kind, 'Способ открытия', pick)),
-    sub('3.4.4', 'По румам', pairSigned(rooms.map(r => ROOM_CODES[DB.rooms[r]] || DB.rooms[r]), rooms.map(r => o.CO.nr.room[r]), rooms.map(r => o.BTN.nr.room[r]), 'Рум', pick))
+    sub('3.4.3', 'Рейз или пуш', pairSigned(['рейз', 'пуш'], o.CO.nr.kind, o.BTN.nr.kind, 'Способ открытия', pick))
   );
   m.append(grid);
   return m;
