@@ -961,25 +961,6 @@ function renderRFI(idx) {
   const deep = rate(r.stk[r.STACKS[0]].TOT), short = rate(r.stk[r.STACKS[r.STACKS.length - 1]].TOT);
   page.append(renderRFISummary(idx, r));
 
-  // 1. по позициям
-  page.append(block('По позициям', 'доля открытий рейзом',
-    heatTable({ cols: r.RFI_COLS, rows: [{ label: 'RFI', data: r.tot.TOT }, { label: 'не олл-ин (NAI)', sub: true, data: r.nai.NAI }] }),
-    [barsChart(POS, POS.map(p => rate(r.tot.TOT[p])), tot, 'RFI по позициям')]));
-
-  // 2. сайзинг
-  const sizeColors = ['var(--amber)', '#E07B39', '#A78BFA', 'var(--ice)'];
-  const parts = r.SIZES.map((s, i) => ({ label: s + ' BB', value: r.nai[s].TOT.x, color: sizeColors[i] })).concat([{ label: 'олл-ин', value: Math.max(0, allin), color: sizeColors[3] }]);
-  page.append(block('Сайзинг открытия', 'доля рук, открытых этим размером',
-    heatTable({ cols: r.RFI_COLS, rows: r.SIZES.map(s => ({ label: s + ' BB', data: r.nai[s] })) }),
-    [shareBar(parts, 'Распределение открытий по размеру'), legend(parts.map(p => ({ label: p.label + ' — ' + (opens ? (p.value / opens * 100).toFixed(1) : 0) + '%', color: p.color }))), el('div', 'cap', 'Как распределены все ваши открытия по размеру ставки.')]));
-
-  // 3. по стеку
-  const stackColors = ['var(--amber)', '#E07B39', '#A78BFA', 'var(--ice)'];
-  page.append(block('По глубине стека', 'открытия не олл-ином при вашем стеке, BB',
-    heatTable({ cols: r.RFI_COLS, rows: r.STACKS.map(s => ({ label: s + ' BB', data: r.stk[s] })) }),
-    [linesChart(POS, r.STACKS.map((s, i) => ({ color: stackColors[i], values: POS.map(p => rate(r.stk[s][p])) })), 'RFI по позициям для разных стеков'),
-      legend(r.STACKS.map((s, i) => ({ label: s + ' BB', color: stackColors[i] })))]));
-
   // 4. изоляция
   const ISOP = r.ISO_COLS.slice(1);
   page.append(block('Изоляция лимперов', 'ISO — ваш рейз поверх лимпа; ниже — как часто вы сбрасываете, когда лимпер ререйзит ваш изолейт',
