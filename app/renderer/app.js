@@ -564,7 +564,7 @@ function renderRFISummary(idx, r) {
   const row = (l, r) => { const d = el('div', 'sum-pair'); d.append(byTag[l], byTag[r]); return d; };
   // строка #3: карточка #3 и окна 3.4–3.8 одного размера в общей сетке
   const stealRow = el('div', 'steal-row'); stealRow.append(byTag['#3']);
-  [...byTag['#3+'].querySelectorAll(':scope > .sm')].forEach(m => stealRow.append(m));
+  [...byTag['#3+'].querySelectorAll(':scope > .sm')].forEach(m => { if (m.querySelector('.sm-tag').textContent === '#3.4') m.classList.add('span2'); stealRow.append(m); });
   zone.append(row('#1', '#8'), stealRow, row('#4', '#4+'));
   const rest = el('div', 'insights'); ['#6', '#10'].forEach(t => byTag[t] && rest.append(byTag[t])); zone.append(rest);
 
