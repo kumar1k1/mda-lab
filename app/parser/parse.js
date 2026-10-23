@@ -209,6 +209,13 @@ function parseHand(text, fmt, heroes) {
   // стеки малого и большого блайнда по отдельности, BB×10 (-1 — нет блайнда или это герой)
   const st = (sn) => (sn != null && sn !== heroSeat && seats[sn] ? Math.round(seats[sn].stack / bb * 10) : -1);
   rec.sbs = st(sbSeat); rec.bbs = st(bbSeat);
+  // стеки всех, кто ходит после героя префлоп (BB): самый короткий, сколько коротких/средних/глубоких, покрывает ли герой всех
+  {
+    const hi0 = order.indexOf(heroSeat), beh = hi0 < 0 ? [] : order.slice(hi0 + 1).filter(sn => seats[sn]).map(sn => seats[sn].stack / bb);
+    rec.bh = beh.length ? Math.round(Math.min(...beh) * 10) : -1;
+    rec.bsh = beh.filter(v => v < 12).length; rec.bmd = beh.filter(v => v >= 12 && v < 25).length; rec.bdp = beh.filter(v => v >= 25).length;
+    rec.cov = beh.length ? (seats[heroSeat].stack / bb >= Math.max(...beh) ? 1 : 0) : -1;
+  }
   if (hi < 0) return rec; // герой не действовал префлоп (все сбросили до BB)
   const before = acts.slice(0, hi);
   const raises = before.filter(x => x.a === 'raises' || x.a === 'bets').length;
