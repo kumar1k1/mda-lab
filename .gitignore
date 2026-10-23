@@ -1,0 +1,7 @@
+# сборка и временные файлы
+build/stage/
+build/*.exe
+preview/MDA-Lab-preview.html
+preview/replays.json
+node_modules/
+*.log
