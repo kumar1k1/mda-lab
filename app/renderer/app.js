@@ -190,9 +190,10 @@ const bb100 = (sum10, n) => (n ? (sum10 / 10 / n * 100) : null);
 const signed = (v, d) => (v == null ? '—' : (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(d == null ? 1 : d));
 
 // #8 — столбики «BB за открытие» по позициям, ноль посередине
+const RESP_COLS = ['var(--good)', 'var(--ice)', 'var(--bad)'];
 function netChart(items, avg) {
-  const W = 520, H = 170, P = { l: 34, r: 10, t: 22, b: 34 };
-  const s = svgRoot(W, H, 'Результат открытий по позициям, BB за открытие');
+  const W = 520, H = 214, P = { l: 34, r: 10, t: 22, b: 78 };
+  const s = svgRoot(W, H, 'Результат открытий по позициям, BB за открытие, и ответ оппонентов');
   const vals = items.map(it => (it.o.n ? it.o.sum / 10 / it.o.n : null));
   const ext = Math.max(0.5, ...vals.filter(v => v != null).map(Math.abs)) * 1.2;
   const lo = Math.min(0, ...vals.filter(v => v != null)) < 0 ? -ext : 0, hi = ext;
@@ -205,8 +206,23 @@ function netChart(items, avg) {
   const bw = (W - P.l - P.r) / items.length;
   items.forEach((it, i) => {
     const v = vals[i]; const cx = P.l + i * bw + bw / 2, w = Math.min(46, bw * 0.55);
-    s.append(svgText(cx, H - 18, it.p, 'middle', 'fill:var(--soft);font-weight:700'));
-    s.append(svgText(cx, H - 5, it.o.n ? it.o.n.toLocaleString('ru-RU') : '—', 'middle', 'font-size:10px;fill:var(--faint)'));
+    const yb = H - P.b;
+    s.append(svgText(cx, yb + 16, it.p, 'middle', 'fill:var(--soft);font-weight:700'));
+    s.append(svgText(cx, yb + 28, it.o.n ? it.o.n.toLocaleString('ru-RU') : '—', 'middle', 'font-size:10px;fill:var(--faint)'));
+    // ответ оппонентов за спиной: доли «все сбросили / колл / рейз»
+    const rs = it.r || [0, 0, 0], rt = rs[0] + rs[1] + rs[2];
+    if (rt) {
+      const sw = Math.min(70, bw * 0.84), sx = cx - sw / 2, sy = yb + 37, sh = 11;
+      const gr = svgEl('g'); const tt = svgEl('title');
+      tt.textContent = it.p + ', ответ оппонентов: все сбросили ' + fmtPct(rs[0] / rt) + '%, колл ' + fmtPct(rs[1] / rt) + '%, рейз ' + fmtPct(rs[2] / rt) + '% (' + rt + ' открытий)';
+      gr.append(tt);
+      const clip = 'rc' + i + Math.random().toString(36).slice(2, 6);
+      const cp = svgEl('clipPath', { id: clip }); cp.append(svgEl('rect', { x: sx, y: sy, width: sw, height: sh, rx: 5.5 })); gr.append(cp);
+      let x0 = sx;
+      RESP_COLS.forEach((col, k) => { const w2 = sw * rs[k] / rt; if (w2 > 0) gr.append(svgEl('rect', { x: x0, y: sy, width: w2 + 0.4, height: sh, 'clip-path': 'url(#' + clip + ')' }, 'fill:' + col)); x0 += w2; });
+      RESP_COLS.forEach((col, k) => gr.append(svgText(cx + (k - 1) * (sw / 3 + 1), sy + sh + 13, Math.round(rs[k] / rt * 100), 'middle', 'font-size:10.5px;font-weight:700;font-family:var(--mono);fill:' + col)));
+      s.append(gr);
+    }
     if (v == null) return;
     const top = y(Math.max(v, 0)), bot = y(Math.min(v, 0));
     const col = v >= 0 ? 'var(--good)' : 'var(--bad)';
@@ -226,7 +242,12 @@ function netChart(items, avg) {
   if (avg != null) {
     s.append(svgEl('line', { x1: P.l, x2: W - P.r, y1: y(avg), y2: y(avg) }, 'stroke:var(--amber);stroke-width:1.2;stroke-dasharray:5 4'));
   }
-  return s;
+  s.append(svgText(P.l - 6, H - P.b + 47, '%', 'end', 'font-size:10px;fill:var(--faint)'));
+  const box = el('div', 'net-wrap'); box.append(s);
+  const lg = el('div', 'resp-legend row net-lg'); lg.append(el('span', 'net-lg-t', 'ответ оппонентов за спиной:'));
+  [['все сбросили', RESP_COLS[0]], ['колл', RESP_COLS[1]], ['рейз', RESP_COLS[2]]].forEach(([l, col]) => { const it = el('span'); const i = el('i'); i.style.background = col; it.append(i, document.createTextNode(l)); lg.append(it); });
+  box.append(lg);
+  return box;
 }
 
 // #2 — RFI по 30-дневным периодам (последняя точка — последние 30 дней)
@@ -853,7 +874,7 @@ function renderRFISummary(idx, r) {
   const sp1 = el('div'); sp1.append(el('span', 'k', 'без борьбы'), el('b', unc == null ? '' : unc >= 0 ? 'up' : 'down', signed(unc, 2)), el('span', 'n', x.netUnc.n.toLocaleString('ru-RU') + ' раз'));
   const sp2 = el('div'); sp2.append(el('span', 'k', 'когда сыграли'), el('b', con == null ? '' : con >= 0 ? 'up' : 'down', signed(con, 2)), el('span', 'n', x.netCon.n.toLocaleString('ru-RU') + ' раз'));
   split.append(sp1, sp2);
-  const c8 = card(8, 'Результат открытий', '<span class="' + (nb >= 0 ? 'up' : 'down') + '">' + signed(nb == null ? null : nb / 100, 2) + '</span> <small>BB за открытие</small>', 'фактический итог раздачи после вашего открытия по позициям; пунктир — среднее, под позицией — число открытий', netChart((LAST_NET_ITEMS = ['EP', 'MP', 'HJ', 'CO', 'BTN', 'SB'].map(p => ({ p, o: x.openNetPos[p], mx: x.netMx[p] }))), nb == null ? null : nb / 100));
+  const c8 = card(8, 'Результат открытий', '<span class="' + (nb >= 0 ? 'up' : 'down') + '">' + signed(nb == null ? null : nb / 100, 2) + '</span> <small>BB за открытие</small>', 'фактический итог раздачи после вашего открытия по позициям; пунктир — среднее; под позицией — число открытий и первый ответ оппонентов за спиной, %', netChart((LAST_NET_ITEMS = ['EP', 'MP', 'HJ', 'CO', 'BTN', 'SB'].map(p => ({ p, o: x.openNetPos[p], mx: x.netMx[p], r: x.respPos[p] }))), nb == null ? null : nb / 100));
   c8.classList.add('wide', 'span3');
   cards.append(c8);
   // #3 — стил + ответ блайндов (CO и BTN вместе), как в #1

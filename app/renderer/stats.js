@@ -73,11 +73,11 @@
     const R = () => ({ x: 0, n: 0 });
     const out = {
       all: R(), month: {}, last30: R(), late: R(), latePos: { CO: R(), BTN: R() }, shove: R(), shoveStk: SHOVE_STK.map(() => R()), pko: R(), reg: R(), rooms: {}, win30: [],
-      openNet: { sum: 0, n: 0 }, openNetPos: {}, netUnc: { sum: 0, n: 0 }, resp: [0, 0, 0], netMx: {}, netCon: { sum: 0, n: 0 }, sto: R(), f3b: R(),
+      openNet: { sum: 0, n: 0 }, openNetPos: {}, respPos: {}, netUnc: { sum: 0, n: 0 }, resp: [0, 0, 0], netMx: {}, netCon: { sum: 0, n: 0 }, sto: R(), f3b: R(),
       funnel: { opp: 0, open: 0, nai: 0, std: 0 }, seats: {}, mx: [], cal: {}, maxDay: 0
     };
     for (let k = 0; k < 169; k++) out.mx.push(R());
-    POS.forEach(p => { out.seats[p] = R(); out.openNetPos[p] = { sum: 0, n: 0 }; out.netMx[p] = Array.from({ length: 169 }, () => ({ n: 0, sum: 0 })); });
+    POS.forEach(p => { out.seats[p] = R(); out.openNetPos[p] = { sum: 0, n: 0 }; out.respPos[p] = [0, 0, 0]; out.netMx[p] = Array.from({ length: 169 }, () => ({ n: 0, sum: 0 })); });
     let maxDay = 0;
     if (has('day')) for (const i of idx) if (c.day[i] > maxDay) maxDay = c.day[i];
     out.maxDay = maxDay;
@@ -100,6 +100,7 @@
       if (has('sto') && c.sto[i] >= 0) { out.sto.n++; if (c.sto[i] === 1) out.sto.x++; }
       if (has('f3b') && c.f3b[i] >= 0) { out.f3b.n++; if (c.f3b[i] === 1) out.f3b.x++; }
       if (has('hc') && c.hc[i] >= 0 && (opt.mxPos === 'TOT' ? p <= 5 : POS[p] === opt.mxPos) && (!opt.mxStk || (c.bb[i] >= opt.mxStk[0] * 10 && c.bb[i] < opt.mxStk[1] * 10))) { const m = out.mx[c.hc[i]]; m.n++; if (open) m.x++; if (a === 3) m.ai = (m.ai || 0) + 1; if (a === 1) m.lp = (m.lp || 0) + 1; }
+      if (open && has('orsp') && c.orsp[i] >= 0) out.respPos[POS[p]][c.orsp[i]]++; // ответ оппонентов по позициям, включая SB
       if (p > 4) continue; // ниже — RFI как в таблице: EP..BTN
       out.all.n++; if (open) out.all.x++;
       if (open && has('orsp') && c.orsp[i] >= 0) out.resp[c.orsp[i]]++;
