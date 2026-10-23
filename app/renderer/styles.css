@@ -566,3 +566,4 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .gt-c.px0{background:var(--card);color:var(--muted)}
 .pmx-c{cursor:default}
 .pmx-c:hover{border-color:var(--ice)}
+.gt-c.px .v{color:#fff}

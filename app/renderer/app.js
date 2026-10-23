@@ -816,17 +816,23 @@ function showPushTip(lab, z, f, w, e) {
   h.append(el('span', null, 'пуш ' + fmtPct(f) + '% · ' + z.x + ' из ' + z.o + (w == null ? '' : ' · ' + signed(w, 2) + ' BB за пуш')));
   pushTip.append(h);
   const R = 'AKQJT98765432', grid = el('div', 'gt-grid');
-  let any = 0;
+  let any = 0, scale = 1;
+  if (z.hx) for (let q = 0; q < 169; q++) if (z.hx[q] >= 2) scale = Math.max(scale, Math.abs(z.hs[q] / 10 / z.hx[q]));
   for (let i = 0; i < 13; i++) for (let j = 0; j < 13; j++) {
     const q = i * 13 + j, cell = el('div', 'gt-c');
     cell.append(el('span', 'h', i === j ? R[i] + R[j] : i < j ? R[i] + R[j] + 's' : R[j] + R[i] + 'o'));
     const o = z.ho ? z.ho[q] : 0, x = z.hx ? z.hx[q] : 0;
     if (!o) cell.classList.add('out');
     else if (!x) cell.classList.add('px0');
-    else { any++; const v = x / o; cell.style.background = 'linear-gradient(to right, var(--mx-push) ' + (v * 100).toFixed(0) + '%, var(--card) ' + (v * 100).toFixed(0) + '%)'; cell.classList.add('px'); if (o < 3) cell.classList.add('low'); }
+    else {
+      any++; const r = z.hs[q] / 10 / x, t = Math.min(1, Math.abs(r) / scale);
+      cell.style.background = 'rgba(' + (r >= 0 ? 'var(--good-rgb)' : 'var(--bad-rgb)') + ',' + (0.3 + 0.6 * t).toFixed(2) + ')';
+      cell.classList.add('px'); cell.append(el('span', 'v', (r >= 0 ? '+' : '−') + Math.abs(r).toFixed(1)));
+      if (x < 2) cell.classList.add('low');
+    }
     grid.append(cell);
   }
-  pushTip.append(grid, el('div', 'gt-f', any ? 'Синяя заливка — доля пушей этой рукой, когда она приходила. Тёмные — руки, которыми не пушили; пустые — не приходили. Без PokerDom: там нет карт героя.' : 'Нет пушей с известными картами в этой клетке.'));
+  pushTip.append(grid, el('div', 'gt-f', any ? 'Зелёные — руки, которые в сумме принесли плюс, красные — минус; в клетке средний итог пуша этой рукой в BB. Бледные — один пуш. Тёмные — руки, которыми не пушили; пустые — не приходили. Без PokerDom: там нет карт героя.' : 'Нет пушей с известными картами в этой клетке.'));
   pushTip.hidden = false; movePushTip(e);
 }
 function movePushTip(e) {
@@ -856,7 +862,7 @@ function renderShovePanel(idx, stackBars) {
     if (c.net) { net.sum += c.net[i]; net.n++; netPos[p].sum += c.net[i]; netPos[p].n++; if (k >= 0) { netStk[k].sum += c.net[i]; netStk[k].n++; } }
   }
   const card = el('div', 'insight steal-panel');
-  card.append(numTag('4+'), el('span', 'k', 'Пуши подробно'));
+  card.append(numTag('4+'));
   const m = el('div', 'sm pm');
   const h = el('div', 'sm-h'); h.append(el('span', 'num-tag sm-tag', '#4.1'), el('b', null, 'Где и как вы пушите'));
   m.append(h, el('span', 'sm-s', 'first-in пуш (до вас все сбросили): частота и винрейт по каждой позиции и стеку; в среднем ' + signed(net.n ? net.sum / 10 / net.n : null, 2) + ' BB за пуш, ' + net.n.toLocaleString('ru-RU') + ' пушей'));
@@ -869,7 +875,7 @@ function renderShovePanel(idx, stackBars) {
     const push = c.act[i] === 3;
     [M[k][p], rowT[k], colT[p], allT].forEach(z => { z.o++; if (push) { z.x++; if (c.net) { z.sum += c.net[i]; z.n++; } } });
     const hc = c.hc ? c.hc[i] : -1;
-    if (hc >= 0) { const z = M[k][p]; if (!z.ho) { z.ho = new Uint32Array(169); z.hx = new Uint32Array(169); } z.ho[hc]++; if (push) z.hx[hc]++; }
+    if (hc >= 0) { const z = M[k][p]; if (!z.ho) { z.ho = new Uint32Array(169); z.hx = new Uint32Array(169); z.hs = new Float64Array(169); } z.ho[hc]++; if (push) { z.hx[hc]++; if (c.net) z.hs[hc] += c.net[i]; } }
   }
   const tb = el('div', 'pmx');
   const corner = el('span', 'pmx-corner', 'стек, BB'); tb.append(corner);
