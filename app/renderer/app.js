@@ -497,9 +497,48 @@ function handGroup(k) {
   if (gap === 1) return suited ? 9 : 10;         // T8, 97 … 42
   return suited ? 11 : 12;
 }
+// всплывающее окно над ячейкой 3.4: какие руки входят в группу и их результат с позиции
+let groupTip = null;
+function showGroupTip(pos, label, k, z, hands, e) {
+  if (!groupTip) { groupTip = el('div', 'gt'); groupTip.setAttribute('role', 'tooltip'); document.body.append(groupTip); }
+  groupTip.replaceChildren();
+  const h = el('div', 'gt-h'); h.append(el('b', null, pos + ' · ' + label));
+  if (z.n) h.append(el('span', z.sum >= 0 ? 'up' : 'down', signed(z.sum / 10 / z.n, 2) + ' BB · ' + z.n + ' раз'));
+  groupTip.append(h);
+  const R = 'AKQJT98765432', grid = el('div', 'gt-grid');
+  const inG = []; for (let q = 0; q < 169; q++) if (handGroup(q) === k) inG.push(q);
+  const scale = Math.max(1, ...inG.filter(q => hands[q].n >= 3).map(q => Math.abs(hands[q].sum / 10 / hands[q].n)));
+  for (let i = 0; i < 13; i++) for (let j = 0; j < 13; j++) {
+    const q = i * 13 + j, cell = el('div', 'gt-c');
+    cell.append(el('span', 'h', i === j ? R[i] + R[j] : i < j ? R[i] + R[j] + 's' : R[j] + R[i] + 'o'));
+    if (handGroup(q) !== k) cell.classList.add('out');
+    else {
+      const y = hands[q];
+      if (y.n) {
+        const v = y.sum / 10 / y.n, t = Math.min(1, Math.abs(v) / scale);
+        cell.style.background = 'rgba(' + (v >= 0 ? 'var(--good-rgb)' : 'var(--bad-rgb)') + ',' + (0.25 + 0.65 * t).toFixed(2) + ')';
+        cell.append(el('span', 'v', (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(1)));
+        if (y.n < 5) cell.classList.add('low');
+      } else cell.classList.add('none');
+    }
+    grid.append(cell);
+  }
+  groupTip.append(grid, el('div', 'gt-f', 'Выделены руки группы; в клетке — результат руки с ' + pos + ' в BB. Серые — руки группы, которыми не открывались.'));
+  groupTip.hidden = false; moveGroupTip(e);
+}
+function moveGroupTip(e) {
+  if (!groupTip || groupTip.hidden) return;
+  const w = groupTip.offsetWidth, h = groupTip.offsetHeight;
+  let x = e.clientX + 16, y = e.clientY - h / 2;
+  if (x + w > window.innerWidth - 8) x = e.clientX - w - 16;
+  y = Math.max(8, Math.min(y, window.innerHeight - h - 8));
+  groupTip.style.left = x + 'px'; groupTip.style.top = y + 'px';
+}
+function hideGroupTip() { if (groupTip) groupTip.hidden = true; }
+
 function handGroupTable(o) {
   const c = DB.cols;
-  const agg = (ids) => { const g = HAND_GROUPS.map(() => ({ sum: 0, n: 0 })); let skipped = 0; ids.forEach(i => { if (c.hc[i] < 0) { skipped++; return; } const z = g[handGroup(c.hc[i])]; z.sum += c.net[i]; z.n++; }); return { g, skipped }; };
+  const agg = (ids) => { const g = HAND_GROUPS.map(() => ({ sum: 0, n: 0 })), h = Array.from({ length: 169 }, () => ({ sum: 0, n: 0 })); let skipped = 0; ids.forEach(i => { if (c.hc[i] < 0) { skipped++; return; } const z = g[handGroup(c.hc[i])]; z.sum += c.net[i]; z.n++; const y = h[c.hc[i]]; y.sum += c.net[i]; y.n++; }); return { g, h, skipped }; };
   const A = agg(o.CO.nr.all.ids), B = agg(o.BTN.nr.all.ids);
   const vals = A.g.concat(B.g).filter(z => z.n >= 5).map(z => Math.abs(z.sum / 10 / z.n));
   const max = Math.max(0.5, ...vals);
@@ -507,8 +546,9 @@ function handGroupTable(o) {
   const hd = el('div', 'hg-row hg-head'); hd.append(el('span', null, 'Группа рук'), el('span', null, 'CO'), el('span', null, 'BTN')); box.append(hd);
   HAND_GROUPS.forEach(([lab], k) => {
     const r = el('div', 'hg-row'); r.append(el('span', 'hg-l', lab));
-    [[A.g[k], C_CO, 'CO'], [B.g[k], C_BTN, 'BTN']].forEach(([z, col, nm]) => {
+    [[A.g[k], C_CO, 'CO', A.h], [B.g[k], C_BTN, 'BTN', B.h]].forEach(([z, col, nm, hands]) => {
       const cell = el('div', 'hg-c');
+      cell.addEventListener('mouseenter', (e) => showGroupTip(nm, lab, k, z, hands, e)); cell.addEventListener('mousemove', moveGroupTip); cell.addEventListener('mouseleave', hideGroupTip);
       if (!z.n) { cell.append(el('span', 'hg-na', '—')); r.append(cell); return; }
       const v = z.sum / 10 / z.n;
       const tr = el('div', 'hg-track'); const f = el('div', 'hg-fill'); const w = Math.min(50, Math.abs(v) / max * 50);
@@ -516,13 +556,10 @@ function handGroupTable(o) {
       tr.append(el('i', 'hg-zero'), f);
       const t = el('span', 'hg-v ' + (v >= 0 ? 'up' : 'down'), signed(v, 2)); const n = el('span', 'hg-n', String(z.n));
       cell.append(tr, t, n); if (z.n < 30) cell.classList.add('low');
-      cell.title = nm + ', ' + lab + ': ' + signed(v, 2) + ' BB за открытие, ' + z.n + ' раз, всего ' + signed(z.sum / 10, 0) + ' BB';
       r.append(cell);
     });
     box.append(r);
   });
-  const sk = A.skipped + B.skipped;
-  box.append(el('p', 'muted small hg-note', 'Бродвеи — обе карты от T до A. Коннекторы — соседние карты (T9, 98…), гэпперы — через одну (T8, 97…). Бледные строки — меньше 30 раздач.' + (sk ? ' Без карт героя (PokerDom) не учтено: ' + sk + ' раздач.' : '')));
   return box;
 }
 
@@ -813,7 +850,7 @@ function currentIdx() {
 }
 
 function render() {
-  hideHandPop(); hideMxTip();
+  hideHandPop(); hideMxTip(); hideGroupTip();
   const rail = $('rail'); rail.replaceChildren();
   GROUPS.forEach(g => {
     const box = el('div', 'rgroup');
@@ -941,4 +978,5 @@ document.addEventListener('DOMContentLoaded', async () => {
 window.__pinNet = (i) => { const g = document.querySelectorAll('.net-bar')[i]; const r = g.getBoundingClientRect(); g.dispatchEvent(new MouseEvent('click', { clientX: r.left + r.width / 2, clientY: r.top + 40 })); };
 window.__hoverNet = (i) => { const g = document.querySelectorAll('.net-bar')[i]; const r = g.getBoundingClientRect(); g.dispatchEvent(new MouseEvent('mouseenter', { clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 })); };
 window.__pickBar = (k) => { document.querySelectorAll('g.pick')[k].dispatchEvent(new MouseEvent('click')); };
+window.__hoverGroup = (n) => { const c = document.querySelectorAll('.hg-c')[n]; const r = c.getBoundingClientRect(); c.dispatchEvent(new MouseEvent('mouseenter', { clientX: r.left + 20, clientY: r.top + 5 })); };
 window.__hoverMx = (k) => { const c = document.querySelectorAll('.mx .mx-c')[k]; c.scrollIntoView({ block: 'center' }); const r = c.getBoundingClientRect(); c.dispatchEvent(new MouseEvent('mouseenter', { clientX: r.left + 10, clientY: r.top + 10 })); };
