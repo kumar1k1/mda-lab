@@ -522,3 +522,30 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 
 .net-lg{margin-top:6px;font-size:11px}
 .net-lg-t{color:var(--muted)}
+
+.pm-body{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:22px;align-items:start;margin-top:4px}
+
+.pm-stk{display:grid;grid-template-columns:auto minmax(80px,1fr) minmax(110px,1.2fr) auto;column-gap:14px;row-gap:2px}
+.pm-r{display:grid;grid-column:1/-1;grid-template-columns:subgrid;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)}
+.pm-r.low{opacity:.55}
+.pm-h{font-size:10px;letter-spacing:.03em;text-transform:uppercase;color:var(--faint);padding-top:0}
+.pm-h span:last-child{text-align:right}
+.pm-l{font-family:var(--mono);font-size:13px;font-weight:700}
+.pm-bar{display:flex;align-items:center;gap:8px;min-width:0}
+.pm-bar .mb-track,.pm-bar .hg-track{flex:1 1 auto;min-width:30px}
+.pm-bar b{font-family:var(--mono);font-size:12.5px;min-width:44px;text-align:right}
+.pm-n{font-family:var(--mono);font-size:11px;color:var(--faint);text-align:right}
+.pm-pos{display:flex;flex-direction:column;gap:8px}
+.pm-cap{font-size:10px;letter-spacing:.03em;text-transform:uppercase;color:var(--faint)}
+.pm-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.pm-tile{display:flex;gap:10px;align-items:stretch;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 10px}
+.pm-tile.low{opacity:.6}
+.pm-meter{width:8px;border-radius:4px;background:var(--line);position:relative;overflow:hidden;flex:0 0 auto}
+.pm-meter i{position:absolute;left:0;right:0;bottom:0;background:var(--amber);border-radius:4px}
+.pm-tt{display:flex;flex-direction:column;gap:1px;min-width:0}
+.pm-p{font-size:11px;font-weight:700;color:var(--soft)}
+.pm-tt b{font-family:var(--mono);font-size:18px;color:var(--amber);line-height:1.15}
+.pm-w{font-family:var(--mono);font-size:12px}
+.pm-tt .pm-n{text-align:left}
+.pm-tt .pm-w,.pm-tt .pm-n{white-space:nowrap}
+@media (max-width: 1300px){.pm-body{grid-template-columns:1fr}.pm-tiles{grid-template-columns:repeat(6,minmax(0,1fr))}}
