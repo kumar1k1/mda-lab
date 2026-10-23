@@ -480,7 +480,7 @@ function cumLine(co, btn) {
 function stealResultCard(o) {
   const m = el('div', 'sm res34');
   const h = el('div', 'sm-h'); h.append(el('span', 'num-tag sm-tag', '#3.4'), el('b', null, 'Результат стила'));
-  m.append(h, el('span', 'sm-s', 'BB за открытие; под столбиками — число раздач CO / BTN; нажмите на столбик, чтобы открыть раздачи'));
+  m.append(h, el('span', 'sm-s', 'BB за открытие; нажмите на цифру, чтобы открыть раздачи'));
   const lg = el('div', 'resp-legend row sm-lg'); [['CO', C_CO], ['BTN', C_BTN]].forEach(([lab, col]) => { const it = el('span'); const i = el('i'); i.style.background = col; it.append(i, document.createTextNode(lab)); lg.append(it); }); m.append(lg);
   // крупные цифры
   const top = el('div', 'r34-top');
@@ -488,6 +488,8 @@ function stealResultCard(o) {
     const v = z.n ? z.sum / 10 / z.n : null;
     const b = el('div', 'r34-big'); b.style.borderColor = col;
     b.append(el('span', 'nm', nm), el('b', v == null ? '' : v >= 0 ? 'up' : 'down', signed(v, 2)), el('span', 's', 'BB за открытие · ' + z.n.toLocaleString('ru-RU') + ' раз · всего ' + signed(z.sum / 10, 0) + ' BB'));
+    b.classList.add('pick-big'); b.tabIndex = 0; b.setAttribute('role', 'button'); b.setAttribute('aria-label', nm + ': показать все раздачи стила');
+    const go = () => openIdsList(nm + ' · все стилы', z.ids); b.addEventListener('click', go); b.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
     top.append(b);
   });
   m.append(top);
@@ -495,11 +497,6 @@ function stealResultCard(o) {
   const pick = (title, ids) => openIdsList(title, ids);
   const sub = (tag, title, node) => { const d = el('div', 'r34-m'); const hh = el('div', 'sm-h'); hh.append(el('span', 'num-tag sm-tag', '#' + tag), el('b', null, title)); d.append(hh, node); return d; };
   const rooms = [...new Set(Object.keys(o.CO.nr.room).concat(Object.keys(o.BTN.nr.room)))].map(Number).sort((a, b) => a - b);
-  grid.append(
-    sub('3.4.2', 'По вашему стеку, BB', pairSigned(o.STK, o.CO.nr.stk, o.BTN.nr.stk, 'Стек', pick)),
-    sub('3.4.3', 'Рейз или пуш', pairSigned(['рейз', 'пуш'], o.CO.nr.kind, o.BTN.nr.kind, 'Способ открытия', pick))
-  );
-  m.append(grid);
   return m;
 }
 

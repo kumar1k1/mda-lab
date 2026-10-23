@@ -440,3 +440,6 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .sec-t h3{margin:0;font-family:var(--display);font-size:19px;font-weight:800;letter-spacing:-.01em;color:var(--text)}
 .sec-t span{font-size:12px;color:var(--muted)}
 .sec-line{flex:1 1 auto;height:1px;background:linear-gradient(90deg,var(--line2),transparent);margin-bottom:8px}
+
+.r34-big.pick-big{cursor:pointer}
+.r34-big.pick-big:hover{background:var(--card)}
