@@ -181,6 +181,8 @@
   const CC_COLS = ['TOT', 'EP', 'MP', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
   function cc(db, idx) {
     const c = db.cols, R = () => ({ x: 0, n: 0 }), out = { cc: {} };
+    const bxCell = () => ({ n: 0, x: 0, rn: 0, fold: 0, rr: 0, sum: 0, sn: 0 });
+    out.bx = { CO: BX_STK.map(() => BX_STK.map(bxCell)), BTN: BX_STK.map(() => BX_STK.map(bxCell)) }; // колд-колл с CO/BTN по стекам SB и BB
     out.vs = {}; out.vsHands = {}; // позиция героя → позиция открывающего
     out.hands = {}; out.resp = [0, 0, 0]; // ваш ответ на открытие (без BB): фолд / колл / рейз
     CC_COLS.forEach(k => { out.cc[k] = R(); out.hands[k] = { n: 0, sum: 0, ids: [], mx: Array.from({ length: 169 }, () => ({ n: 0, sum: 0 })) }; });
@@ -189,6 +191,11 @@
       if (c.rz[i] !== 1) continue;
       const p = POS[c.pos[i]], call = c.act[i] === 1;
       (p === 'BB' ? [out.cc[p]] : [out.cc.TOT, out.cc[p]]).forEach(z => { z.n++; if (call) z.x++; }); // TOT — без BB
+      if ((p === 'CO' || p === 'BTN') && c.sbs && c.sbs[i] >= 0 && c.bbs[i] >= 0) {
+        const f = (v) => BX_STK.findIndex(z => v / 10 >= z[1] && v / 10 < z[2]);
+        const z = out.bx[p][f(c.sbs[i])][f(c.bbs[i])]; z.n++;
+        if (call) { z.x++; if (c.net) { z.sum += c.net[i]; z.sn++; } }
+      }
       if (c.opos && c.opos[i] >= 0) {
         const op = POS[c.opos[i]], row = out.vs[p] || (out.vs[p] = {}), z = row[op] || (row[op] = { x: 0, n: 0 });
         z.n++; if (call) z.x++;

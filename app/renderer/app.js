@@ -731,14 +731,23 @@ function bxHeat(o) {
 // 3.7.2 — все 9 сочетаний, отсортированные по результату
 let BX2 = 'bb';
 function bxList(o) {
-  const m = bxHead('3.7', 'Стил против стеков блайндов', 'результат стила с CO и BTN при разных стеках SB и BB, от лучшего сочетания к худшему; ' + BX_STK_TXT);
+  return bxListCore(o, { tag: '3.7', title: 'Стил против стеков блайндов', sub: 'результат стила с CO и BTN при разных стеках SB и BB, от лучшего сочетания к худшему; ' + BX_STK_TXT,
+    tabs: [['bb', 'Винрейт за открытие, BB'], ['fold', 'Фолд обоих блайндов, %']], get: () => BX2, set: (k) => { BX2 = k; } });
+}
+// общий список «9 сочетаний стеков SB и BB, CO и BTN рядом» — для стила (3.7) и колд-колла
+function bxListCore(o, opt) {
+  const m = bxHead(opt.tag, opt.title, opt.sub);
   const body = el('div');
-  m.append(segBtns([['bb', 'Винрейт за открытие, BB'], ['fold', 'Фолд обоих блайндов, %']], BX2, (k) => { BX2 = k; draw(); }), body);
+  m.append(segBtns(opt.tabs, opt.get(), (k) => { opt.set(k); draw(); }), body);
+  if (opt.note) m.append(infoNote(opt.note));
   function draw() {
-    const M = BX_MET[BX2], rows = [];
+    const BX2 = opt.get(), M = BX_MET[BX2], rows = [];
     for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) rows.push({ i, j, a: o.CO.bx[i][j], b: o.BTN.bx[i][j], t: M.v(bxSum([o.CO.bx[i][j], o.BTN.bx[i][j]])) });
-    rows.sort((x, y) => (y.t ?? -1e9) - (x.t ?? -1e9));
-    const max = Math.max(0.01, ...rows.flatMap(r => [M.v(r.a), M.v(r.b)]).filter(v => v != null).map(Math.abs));
+    // сначала сочетания с выборкой от 30 раздач (по лучшему результату), малые выборки — внизу; масштаб полос — тоже по ним
+    const solid = (r) => M.n(r.a) + M.n(r.b) >= 30;
+    rows.sort((x, y) => (solid(y) - solid(x)) || ((y.t ?? -1e9) - (x.t ?? -1e9)));
+    const sv = rows.flatMap(r => [[M.v(r.a), M.n(r.a)], [M.v(r.b), M.n(r.b)]]).filter(([v, n]) => v != null && n >= 30).map(([v]) => Math.abs(v));
+    const max = Math.max(0.01, ...(sv.length ? sv : rows.flatMap(r => [M.v(r.a), M.v(r.b)]).filter(v => v != null).map(Math.abs)));
     const t = el('div', 'bx-list');
     const hd = el('div', 'bx-lr bx-lh'); hd.append(el('span', null, 'SB · BB'), el('span', null, 'CO'), el('span', null, 'BTN')); t.append(hd);
     rows.forEach(r => {
@@ -747,8 +756,8 @@ function bxList(o) {
       [[r.a, C_CO], [r.b, C_BTN]].forEach(([z, col]) => {
         const v = M.v(z), n = M.n(z), cell = el('div', 'hg-c');
         const tr = el('div', 'hg-track'), f = el('div', 'hg-fill');
-        if (BX2 === 'bb') { tr.append(el('div', 'hg-zero')); const w = v == null ? 0 : Math.abs(v) / max * 50; f.style.width = w + '%'; f.style.left = v >= 0 ? '50%' : (50 - w) + '%'; }
-        else { f.style.left = '0'; f.style.width = (v == null ? 0 : v / max * 100) + '%'; }
+        if (BX2 === 'bb') { tr.append(el('div', 'hg-zero')); const w = v == null ? 0 : Math.min(50, Math.abs(v) / max * 50); f.style.width = w + '%'; f.style.left = v >= 0 ? '50%' : (50 - w) + '%'; }
+        else { f.style.left = '0'; f.style.width = (v == null ? 0 : Math.min(100, v / max * 100)) + '%'; }
         f.style.background = col; tr.append(f);
         cell.append(tr, el('span', 'hg-v ' + (BX2 === 'bb' && v != null ? (v >= 0 ? 'up' : 'down') : ''), v == null ? '—' : M.f(v)), el('span', 'hg-n', n ? String(n) : ''));
         if (n < 30) cell.classList.add('low');
@@ -1170,6 +1179,7 @@ function renderRFISummary(idx, r) {
 }
 
 // ---------- вкладка «Колд-колл» ----------
+let CC_BX = 'bb';
 // таблица «позиция против позиции»: строки — ваша позиция, колонки — кто открыл
 function ccVsTable(r) {
   const heroPos = r.CC_COLS.slice(1).filter(p => r.cc[p].n >= SMALL);
@@ -1234,7 +1244,13 @@ function renderCC(idx) {
   const c8 = card(8, 'Результат колд-колла', '<span class="' + (avg >= 0 ? 'up' : 'down') + '">' + signed(avg, 2) + '</span> <small>BB за колд-колл</small>', 'фактический итог раздачи после вашего колд-колла по позициям, без BB в общем итоге; под позицией — число колд-коллов', netChart(items, avg));
   c8.classList.add('wide');
   const zone = el('div', 'summary'); const pair = el('div', 'sum-pair'); pair.append(c1, c8); zone.append(pair);
-  c2.classList.add('cc-table'); zone.append(c2, ccVsTable(r));
+  c2.classList.add('cc-table');
+  // #4 — колд-колл с CO и BTN при разных стеках блайндов (как 3.7 во вкладке RFI)
+  const c4 = bxListCore({ CO: { bx: r.bx.CO }, BTN: { bx: r.bx.BTN } }, { tag: '4', title: 'Колд-колл с CO и BTN против стеков блайндов', sub: 'винрейт колд-колла с CO и BTN при разных стеках SB и BB, от лучшего сочетания к худшему; ' + BX_STK_TXT,
+    tabs: [['bb', 'Винрейт за колд-колл, BB'], ['freq', 'Частота колд-колла, %']], get: () => CC_BX, set: (k) => { CC_BX = k; },
+    note: 'Блайнды ходят после вас: короткие стеки чаще пушат или сквизят, глубокие — коллируют и играют постфлоп. Винрейт — средний итог раздачи после вашего колд-колла. Частота — доля коллов от всех открытий перед вами при таких стеках блайндов. Бледные строки — меньше 30 раздач.' });
+  c4.classList.add('cc-table', 'cc-bx');
+  zone.append(c2, ccVsTable(r), c4);
   page.append(zone);
   return page;
 }
