@@ -1,5 +1,7 @@
 'use strict';
-// Поток разбора: получает номера файлов, разбирает раздачи целиком (герой + соперники) и отдаёт их основному потоку.
+// Поток разбора: получает номера файлов, разбирает раздачи целиком (герой + соперники) и отдаёт их основному потоку
+// порциями по ~2000 раздач. После каждой порции ждёт подтверждения — так даже файл в гигабайты не копится в памяти:
+// если основной поток ещё занят предыдущим файлом, этот поток просто ждёт.
 // Ход раздачи для реплеера сразу сжимается (deflate-raw) — так он и хранится в базе.
 const { parentPort, workerData } = require('worker_threads');
 const zlib = require('zlib');
@@ -10,18 +12,33 @@ const { closeAll } = require('./zip.js');
 
 const { files } = workerData;
 const heroes = new Set(workerData.heroes);
-parentPort.on('message', async (m) => {
-  if (m.type === 'stop') { closeAll(); process.exit(0); }
-  const fi = m.fi, hands = []; let errors = 0;
+const BATCH = 2000;
+const queue = []; let busy = false, ackResolve = null;
+
+function waitAck() { return new Promise(r => { ackResolve = r; }); }
+async function work(fi) {
+  let hands = [], errors = 0, seq = 0;
+  const flush = async (done) => { parentPort.postMessage({ fi, seq: seq++, hands, errors, done }); hands = []; errors = 0; await waitAck(); };
   try {
-    await eachText(files[fi], (text) => {
+    await eachText(files[fi], async (text) => {
       const r = parseTextAll(text, heroes); errors += r.errors;
       for (const h of r.hands) {
         const rp = h.rp; if (rp) delete rp.bb;
         const heroRp = !!h.hero.rp; delete h.hero.rp; // у героя — запись реплеера только в его спотах (как раньше)
         hands.push({ k: hash53(h.hero.id + '|' + h.hero.tour), hero: h.hero, opps: h.opps, heroRp, rpz: rp ? zlib.deflateRawSync(Buffer.from(JSON.stringify(rp), 'utf8')) : null });
       }
+      if (hands.length >= BATCH) await flush(false);
     });
   } catch (e) { /* файл не прочитан — пропускаем */ }
-  parentPort.postMessage({ fi, hands, errors });
+  await flush(true);
+}
+async function pump() {
+  if (busy) return; busy = true;
+  while (queue.length) await work(queue.shift());
+  busy = false;
+}
+parentPort.on('message', (m) => {
+  if (m.type === 'ack') { const r = ackResolve; ackResolve = null; if (r) r(); return; }
+  if (m.type === 'stop') { closeAll(); process.exit(0); }
+  queue.push(m.fi); pump();
 });

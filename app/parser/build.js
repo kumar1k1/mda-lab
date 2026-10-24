@@ -102,17 +102,17 @@ async function streamPieces(stream, cb) {
     const buf = carry ? Buffer.concat([carry, chunk]) : chunk;
     if (buf.length < PIECE) { carry = buf; continue; }
     const cut = lastHandStart(buf);
-    if (cut > 0) { cb(buf.toString('utf8', 0, cut)); carry = Buffer.from(buf.subarray(cut + 1)); } else carry = buf;
+    if (cut > 0) { await cb(buf.toString('utf8', 0, cut)); carry = Buffer.from(buf.subarray(cut + 1)); } else carry = buf;
   }
-  if (carry && carry.length) cb(carry.toString('utf8'));
+  if (carry && carry.length) await cb(carry.toString('utf8'));
 }
 async function eachText(f, cb) {
   if (isZipPath(f)) {
-    if (zipSize(f) <= BIG) cb(zipRead(f).toString('utf8'));
+    if (zipSize(f) <= BIG) await cb(zipRead(f).toString('utf8'));
     else await streamPieces(zipStream(f), cb);
     return;
   }
-  if (fs.statSync(f).size <= BIG) cb(fs.readFileSync(f).toString('utf8'));
+  if (fs.statSync(f).size <= BIG) await cb(fs.readFileSync(f).toString('utf8'));
   else await streamPieces(fs.createReadStream(f, { highWaterMark: 4 * 1024 * 1024 }), cb);
 }
 
@@ -120,7 +120,7 @@ async function eachText(f, cb) {
 // Сборка и дозагрузка — в ingest.js (герой + соперники, разбор по ядрам, слияние потоком).
 // Подключается при вызове, чтобы не было круговой зависимости (потоки разбора используют eachText отсюда).
 const buildBase = (...a) => require('./ingest.js').buildBase(...a);
-const appendBase = (files, nicks, alias, dir, onProgress, opts) => require('./ingest.js').ingest(files, nicks, alias, dir, onProgress, opts);
+const appendBase = (files, nicks, alias, dir, onProgress, opts) => require('./ingest.js').ingestGrouped(files, nicks, alias, dir, onProgress, opts);
 
 // ---------- оценка до загрузки ----------
 // Прогоняет образец историй (~16 МБ, равномерно по списку файлов) тем же разбором (вы + все соперники)
@@ -166,4 +166,4 @@ async function estimate(files, heroNicks, opts) {
   return { totalBytes: total, sampleBytes: sBytes, hands, opp, bytes, seconds: Math.round(seconds), threads, cpus, exact: sBytes >= total };
 }
 
-module.exports = { ROOM_SIGNS, SUPPORTED, walk, addFile, scan, buildBase, appendBase, eachText, estimate };
+module.exports = { fileSize, ROOM_SIGNS, SUPPORTED, walk, addFile, scan, buildBase, appendBase, eachText, estimate };

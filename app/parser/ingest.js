@@ -53,30 +53,49 @@ function openOld(dir) {
   return { meta, g, og, heroN: meta.count, oppN: meta.opp.rows, players };
 }
 
-// Разбор файлов по ядрам; onHand(hand) вызывается строго в порядке файлов
+// Разбор файлов по ядрам; onHand(hand) вызывается строго в порядке файлов (и порций внутри файла).
+// Порции текущего файла обрабатываются сразу и подтверждаются; порции следующих файлов ждут своей очереди
+// (их потоки стоят до подтверждения). Вперёд раздаётся не больше ~256 МБ файлов — память ограничена при любых объёмах.
 async function parseParallel(files, heroes, onHand, onFile, threads) {
   const { Worker } = require('worker_threads');
+  const { fileSize } = require('./build.js');
   const P = Math.max(1, threads || Math.min(8, Math.max(1, (os.cpus() || []).length - 1)));
-  let next = 0, want = 0, errors = 0; const ready = new Map();
+  const size = files.map(f => { try { return fileSize(f); } catch (e) { return 0; } });
+  const AHEAD = 256 * 1024 * 1024;
+  let next = 0, want = 0, errors = 0, ahead = 0;
+  const pending = new Map(); // fi -> [{m, w}] порции, ждущие своей очереди
+  if (!files.length) return 0;
   await new Promise((resolve, reject) => {
-    const ws = []; let alive = 0, failed = false;
-    const drain = () => {
-      while (ready.has(want)) {
-        const r = ready.get(want); ready.delete(want);
-        errors += r.errors; for (const h of r.hands) onHand(h);
-        want++; if (onFile) onFile(want, files.length);
+    const ws = []; let failed = false, finished = false;
+    const assign = () => {
+      for (const w of ws) {
+        while (w.load < 2 && next < files.length && (ahead < AHEAD || next === want)) { ahead += size[next]; w.load++; w.postMessage({ fi: next++ }); }
       }
-      if (want >= files.length && !failed) { ws.forEach(w => w.postMessage({ type: 'stop' })); resolve(); }
     };
-    const feed = (w) => { if (next < files.length && ready.size < P * 8) w.postMessage({ fi: next++ }); else w.idle = true; };
-    if (!files.length) return resolve();
+    const take = (m, w) => {
+      errors += m.errors; for (const h of m.hands) onHand(h);
+      w.postMessage({ type: 'ack' });
+      if (m.done) { ahead -= size[m.fi]; w.load--; want++; if (onFile) onFile(want, files.length); }
+    };
+    const drain = () => {
+      for (;;) {
+        const q = pending.get(want); if (!q || !q.length) break;
+        const { m, w } = q.shift(); if (!q.length) pending.delete(m.fi);
+        take(m, w);
+      }
+      if (want >= files.length && !finished) { finished = true; ws.forEach(w => w.postMessage({ type: 'stop' })); resolve(); return; }
+      assign();
+    };
     for (let t = 0; t < P; t++) {
       const w = new Worker(path.join(__dirname, 'parse-worker.js'), { workerData: { files, heroes: [...heroes] } });
-      ws.push(w); alive++;
-      w.on('message', (m) => { ready.set(m.fi, m); drain(); feed(w); ws.forEach(x => { if (x.idle && next < files.length && ready.size < P * 8) { x.idle = false; feed(x); } }); });
+      w.load = 0; ws.push(w);
+      w.on('message', (m) => {
+        if (m.fi === want) take(m, w); else { if (!pending.has(m.fi)) pending.set(m.fi, []); pending.get(m.fi).push({ m, w }); }
+        drain();
+      });
       w.on('error', (e) => { if (!failed) { failed = true; reject(e); } });
-      feed(w); feed(w); // по два файла в работе на поток
     }
+    assign();
   });
   return errors;
 }
@@ -217,10 +236,30 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
   return { hands: meta.count, added: nH, dup, errors, rooms, opp: meta.opp.rows, oppAdded: nO, players: plist.length };
 }
 
+// Очень большие загрузки идут группами по ~4 ГБ историй: первая группа создаёт базу (или дописывается),
+// каждая следующая дописывается потоком. Так пиковая память зависит от размера группы, а не от общего объёма
+// (на 3 ГБ за раз — ~1,5 ГБ памяти; с группами — не больше этого при любом объёме).
+const GROUP = 4 * 1024 * 1024 * 1024;
+async function ingestGrouped(files, nicks, alias, dir, onProgress, opts) {
+  opts = opts || {};
+  const { fileSize } = require('./build.js');
+  const lim = opts.groupBytes || GROUP, groups = []; let cur = [], sz = 0;
+  for (const f of files) { let b = 0; try { b = fileSize(f); } catch (e) { /* размер неизвестен */ } if (cur.length && sz + b > lim) { groups.push(cur); cur = []; sz = 0; } cur.push(f); sz += b; }
+  if (cur.length || !groups.length) groups.push(cur);
+  let done = 0, last = null; const sum = { added: 0, dup: 0, errors: 0, oppAdded: 0 };
+  for (let g = 0; g < groups.length; g++) {
+    const off = done;
+    const r = await ingest(groups[g], nicks, alias, dir, (d, t, h, st) => { if (onProgress) onProgress(st === 'parse' ? off + d : d, st === 'parse' ? files.length : t, h, st, g + 1, groups.length); }, opts);
+    done += groups[g].length; last = r;
+    sum.added += r.added || 0; sum.dup += r.dup || 0; sum.errors += r.errors || 0; sum.oppAdded += r.oppAdded || 0;
+  }
+  return Object.assign({}, last, sum, { groups: groups.length });
+}
+
 // Полная загрузка в новую папку
 async function buildBase(files, nicks, alias, outDir, onProgress, opts) {
   fs.rmSync(outDir, { recursive: true, force: true });
-  return ingest(files, nicks, alias, outDir, onProgress, opts);
+  return ingestGrouped(files, nicks, alias, outDir, onProgress, opts);
 }
 
-module.exports = { ingest, buildBase, FORMAT, HERO_SCHEMA, OPP_SCHEMA, oppSeed };
+module.exports = { ingest, ingestGrouped, buildBase, FORMAT, HERO_SCHEMA, OPP_SCHEMA, oppSeed };

@@ -1857,7 +1857,7 @@ async function runImport() {
     const f = m.stage === 'ev' ? 0.75 + 0.25 * m.done / Math.max(1, m.total) : m.stage === 'merge' ? 0.65 + 0.1 * m.done / Math.max(1, m.total) : 0.65 * m.done / Math.max(1, m.total);
     $('progFill').style.width = (f * 100).toFixed(1) + '%';
     const el2 = (Date.now() - t0) / 1000, left = f > 0.03 ? el2 / f - el2 : null;
-    $('progText').textContent = (m.stage === 'ev'
+    $('progText').textContent = (m.groups > 1 && m.stage !== 'parse' ? 'Часть ' + m.group + ' из ' + m.groups + ' · ' : '') + (m.stage === 'ev'
       ? 'Считаю EV олл-инов: ' + m.done.toLocaleString('ru-RU') + ' из ' + m.total.toLocaleString('ru-RU')
       : m.stage === 'merge' ? 'Раскладываю раздачи по базе'
       : 'Разобрано файлов: ' + m.done.toLocaleString('ru-RU') + ' из ' + m.total.toLocaleString('ru-RU')) + ' · ваших раздач: ' + m.hands.toLocaleString('ru-RU') + (left != null ? ' · осталось ' + fmtDur(left) : '');
