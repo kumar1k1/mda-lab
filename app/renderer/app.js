@@ -599,6 +599,23 @@ function moveGroupTip(e) {
 }
 function hideGroupTip() { if (groupTip) groupTip.hidden = true; }
 
+// 3.4 / 3.7: факт и EV — в своих колонках, выровнены по разряду; на полосе — риска EV
+function hgNums(v, e) {
+  const f = el('span', 'hg-f ' + (v == null ? '' : v >= 0 ? 'up' : 'down'), v == null ? '—' : signed(v, 2));
+  const x = el('span', 'hg-e ' + (e == null ? '' : e >= 0 ? 'up' : 'down'), e == null ? '' : signed(e, 2));
+  return [f, x];
+}
+function hgEvMark(tr, e, max) {
+  if (e == null) return;
+  const p = 50 + Math.max(-50, Math.min(50, e / max * 50));
+  const m = el('i', 'hg-evm'); m.style.left = p + '%'; m.title = 'EV ' + signed(e, 2); tr.append(m);
+}
+function hgHeadCell(nm, withEv) {
+  const h = el('div', 'hg-c hg-hc');
+  h.append(el('span', 'hg-pos'), el('span', 'hg-hp', nm), el('span', 'hg-hf', 'факт'), el('span', 'hg-he', withEv ? 'EV' : ''), el('span', 'hg-hn', 'раз'));
+  return h;
+}
+
 function handGroupTable(o) {
   const c = DB.cols;
   const agg = (ids) => { const g = HAND_GROUPS.map(() => ({ sum: 0, es: 0, n: 0 })), h = Array.from({ length: 169 }, () => ({ sum: 0, es: 0, n: 0 })), EV = EVcol(); let skipped = 0; ids.forEach(i => { if (c.hc[i] < 0) { skipped++; return; } const z = g[handGroup(c.hc[i])]; z.sum += c.net[i]; z.es += EV[i]; z.n++; const y = h[c.hc[i]]; y.sum += c.net[i]; y.es += EV[i]; y.n++; }); return { g, h, skipped }; };
@@ -606,7 +623,7 @@ function handGroupTable(o) {
   const vals = A.g.concat(B.g).filter(z => z.n >= 5).map(z => Math.abs(z.sum / 10 / z.n));
   const max = Math.max(0.5, ...vals);
   const box = el('div', 'hg');
-  const hd = el('div', 'hg-row hg-head'); hd.append(el('span', null, 'Группа рук'), el('span', null, 'CO'), el('span', null, 'BTN')); box.append(hd);
+  const hd = el('div', 'hg-row hg-head'); hd.append(el('span', null, 'Группа рук'), hgHeadCell('CO', true), hgHeadCell('BTN', true)); box.append(hd);
   HAND_GROUPS.forEach(([lab], k) => {
     const r = el('div', 'hg-row'); r.append(el('span', 'hg-l', lab));
     [[A.g[k], C_CO, 'CO', A.h, o.CO.nr.all.ids], [B.g[k], C_BTN, 'BTN', B.h, o.BTN.nr.all.ids]].forEach(([z, col, nm, hands, ids]) => {
@@ -615,13 +632,14 @@ function handGroupTable(o) {
         const pin = (e) => { hideGroupTip(); pinHandPop({ p: nm, key: 'grp' + nm + k, title: nm + ' · ' + lab, o: z, mx: hands, ids, only: (q) => handGroup(q) === k }, z.sum / 10 / z.n, e, cell); };
         cell.addEventListener('click', pin); cell.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pin(null); } }); }
       cell.addEventListener('mouseenter', (e) => showGroupTip(nm, lab, k, z, hands, e)); cell.addEventListener('mousemove', moveGroupTip); cell.addEventListener('mouseleave', hideGroupTip);
-      if (!z.n) { cell.append(el('span', 'hg-pos', nm), el('span', 'hg-na', '—')); r.append(cell); return; }
+      if (!z.n) { cell.append(el('span', 'hg-pos', nm), el('span', 'hg-track hg-void'), ...hgNums(null, null), el('span', 'hg-n', '')); r.append(cell); return; }
       const v = z.sum / 10 / z.n;
       const tr = el('div', 'hg-track'); const f = el('div', 'hg-fill'); const w = Math.min(50, Math.abs(v) / max * 50);
       f.style.width = w + '%'; f.style.left = v >= 0 ? '50%' : (50 - w) + '%'; f.style.background = col; if (v < 0) f.style.opacity = '.7';
-      tr.append(el('i', 'hg-zero'), f);
-      const t = wrNode('hg-v', v, z.es / 10 / z.n, 2); const n = el('span', 'hg-n', z.n.toLocaleString('ru-RU')); n.title = z.n.toLocaleString('ru-RU') + ' открытий';
-      cell.append(el('span', 'hg-pos', nm), tr, t, n); if (z.n < 30) cell.classList.add('low');
+      const e = z.es / 10 / z.n;
+      tr.append(el('i', 'hg-zero'), f); hgEvMark(tr, e, max);
+      const n = el('span', 'hg-n', z.n.toLocaleString('ru-RU')); n.title = z.n.toLocaleString('ru-RU') + ' открытий';
+      cell.append(el('span', 'hg-pos', nm), tr, ...hgNums(v, e), n); if (z.n < 30) cell.classList.add('low');
       r.append(cell);
     });
     box.append(r);
@@ -787,17 +805,19 @@ function bxListCore(o, opt) {
     const sv = rows.flatMap(r => [[M.v(r.a), M.n(r.a)], [M.v(r.b), M.n(r.b)]]).filter(([v, n]) => v != null && n >= 30).map(([v]) => Math.abs(v));
     const max = Math.max(0.01, ...(sv.length ? sv : rows.flatMap(r => [M.v(r.a), M.v(r.b)]).filter(v => v != null).map(Math.abs)));
     const t = el('div', 'bx-list');
-    const hd = el('div', 'bx-lr bx-lh'); hd.append(el('span', null, 'SB · BB'), el('span', null, 'CO'), el('span', null, 'BTN')); t.append(hd);
+    const hd = el('div', 'bx-lr bx-lh'); hd.append(el('span', null, 'SB · BB'), hgHeadCell('CO', !!M.e), hgHeadCell('BTN', !!M.e)); t.append(hd);
     rows.forEach(r => {
       const row = el('div', 'bx-lr');
       row.append(el('span', 'bx-ll', 'SB ' + BX_NAMES[r.i] + ' · BB ' + BX_NAMES[r.j]));
-      [[r.a, C_CO], [r.b, C_BTN]].forEach(([z, col]) => {
+      [[r.a, C_CO, 'CO'], [r.b, C_BTN, 'BTN']].forEach(([z, col, nm]) => {
         const v = M.v(z), n = M.n(z), cell = el('div', 'hg-c');
         const tr = el('div', 'hg-track'), f = el('div', 'hg-fill');
         if (BX2 === 'bb') { tr.append(el('div', 'hg-zero')); const w = v == null ? 0 : Math.min(50, Math.abs(v) / max * 50); f.style.width = w + '%'; f.style.left = v >= 0 ? '50%' : (50 - w) + '%'; }
         else { f.style.left = '0'; f.style.width = (v == null ? 0 : Math.min(100, v / max * 100)) + '%'; }
         f.style.background = col; tr.append(f);
-        cell.append(tr, M.e ? wrNode('hg-v', v, M.e(z), 2) : el('span', 'hg-v', v == null ? '—' : M.f(v)), el('span', 'hg-n', n ? String(n) : ''));
+        const ev = M.e && v != null ? M.e(z) : null; if (BX2 === 'bb') hgEvMark(tr, ev, max);
+        const nums = M.e ? hgNums(v, ev) : [el('span', 'hg-f', v == null ? '—' : M.f(v)), el('span', 'hg-e')];
+        cell.append(el('span', 'hg-pos', nm), tr, ...nums, el('span', 'hg-n', n ? n.toLocaleString('ru-RU') : ''));
         if (n < 30) cell.classList.add('low');
         row.append(cell);
       });
