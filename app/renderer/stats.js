@@ -14,6 +14,9 @@
       if (f.to != null && c.month[i] > f.to) continue;
       if (f.tbl === '6max' && c.tbl[i] !== 6) continue;
       if (f.tbl === '9max' && c.tbl[i] === 6) continue;
+      if ((f.biFrom != null || f.biTo != null) && (!c.bi || c.bi[i] < 0)) continue; // при фильтре по бай-ину — только раздачи с известным бай-ином
+      if (f.biFrom != null && c.bi[i] < f.biFrom) continue;
+      if (f.biTo != null && c.bi[i] > f.biTo) continue;
       if (f.minBB != null && c.bb[i] < f.minBB * 10) continue;
       if (f.maxBB != null && c.bb[i] >= f.maxBB * 10) continue;
       idx.push(i);

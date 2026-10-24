@@ -8,6 +8,27 @@ const POS_IDX = { EP: 0, MP: 1, HJ: 2, CO: 3, BTN: 4, SB: 5, BB: 6 };
 
 const num = (s) => parseFloat(String(s).replace(/,/g, ''));
 
+// бай-ин турнира в долларах (центы) по заголовку раздачи; −1 — неизвестен (у WPN в истории его нет)
+const FX = { '$': 1, '€': 1.1, '£': 1.27, '¥': 0.14, '₽': 0.011 };
+function buyInCents(header, fmt) {
+  const toC = (v, cur) => Math.round(v * (FX[cur] || 1) * 100);
+  if (fmt === 'wmx') {
+    const m = header.match(/buyIn: ([^l]*?)\s+level:/); if (!m) return -1;
+    const parts = [...m[1].matchAll(/([\d.]+)\s?€/g)]; return parts.length ? toC(parts.reduce((a, x) => a + parseFloat(x[1]), 0), '€') : -1;
+  }
+  if (fmt !== 'ps') return -1;
+  const t = header.match(/Tournament #\d+, (.*?) (?:Hold'em|Omaha)/); if (!t) return -1;
+  const name = t[1];
+  const sum = name.match(/^((?:[$€£]\s?[\d.,]+\+?)+)\s*(USD|EUR|GBP)?$/) || name.match(/^((?:[$€£][\d.,]+\+)+[$€£][\d.,]+)/);
+  if (sum) { const cur = sum[1][0]; return toC([...sum[1].matchAll(/[\d.,]+/g)].reduce((a, x) => a + parseFloat(x[0].replace(/,/g, '')), 0), cur); }
+  // экспорт GG: бай-ин записан в названии турнира («$54 Bounty Hunters…»); суммы гарантий ($1M GTD) пропускаем
+  for (const m of name.matchAll(/([$€£¥₽])\s?(\d[\d,]*(?:\.\d+)?)(\s?[KkMm]\b)?(\s?GTD)?/g)) {
+    if (m[3] || m[4]) continue;
+    return toC(parseFloat(m[2].replace(/,/g, '')), m[1]);
+  }
+  return -1;
+}
+
 function detectFormat(head) {
   if (head.startsWith('PokerStars Hand #')) return 'ps';
   if (head.startsWith('Winamax Poker - Tournament "')) return 'wmx';
@@ -198,7 +219,7 @@ function parseHand(text, fmt, heroes) {
   const heroSeat = byName[heroName];
   const hpos = pos[heroSeat];
   if (!hpos) return null;
-  const rec = { id, hero: heroName, date, tour, tblMax, n: seatNums.length, pos: POS_IDX[hpos], bb: Math.round(seats[heroSeat].stack / bb * 10), pko: bounty ? 1 : 0, pdom: isPdom, sit: 3, lim: 0, act: 0, size: 0, fti: -1, bvb: 0, fvr: -1 };
+  const rec = { id, hero: heroName, date, tour, tblMax, n: seatNums.length, pos: POS_IDX[hpos], bb: Math.round(seats[heroSeat].stack / bb * 10), pko: bounty ? 1 : 0, pdom: isPdom, bi: buyInCents(header, fmt), sit: 3, lim: 0, act: 0, size: 0, fti: -1, bvb: 0, fvr: -1 };
   const dealt = lines.find(l => l.startsWith('Dealt to ' + heroName + ' ['));
   rec.hc = dealt ? handClass(dealt.slice(dealt.indexOf('['))) : -1;
   rec.net = Math.round(heroNet(lines, heroName, fmt) / bb * 10); // ×10 BB

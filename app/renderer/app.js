@@ -1189,7 +1189,7 @@ function renderSoon(tab) {
 
 // ---------- отрисовка ----------
 function currentIdx() {
-  return Stats.selectHands(DB, { room: state.room, type: state.type, from: state.from, to: state.to, tbl: state.sub === 'TOT' ? null : state.sub });
+  return Stats.selectHands(DB, { room: state.room, type: state.type, from: state.from, to: state.to, biFrom: state.biFrom, biTo: state.biTo, tbl: state.sub === 'TOT' ? null : state.sub });
 }
 
 function render() {
@@ -1245,6 +1245,15 @@ function setupFilters() {
   $('fType').onchange = (e) => { state.type = e.target.value === '' ? null : +e.target.value; render(); };
   $('fFrom').onchange = (e) => { state.from = +e.target.value; render(); };
   $('fTo').onchange = (e) => { state.to = +e.target.value; render(); };
+  // бай-ины: реальные значения из базы (не реже 30 раздач), в долларах
+  const cnt = {}; if (DB.cols.bi) DB.cols.bi.forEach(v => { if (v >= 0) cnt[v] = (cnt[v] || 0) + 1; });
+  const bis = Object.keys(cnt).map(Number).filter(v => cnt[v] >= 30).sort((a, b) => a - b);
+  const biLab = (v) => '$' + (v / 100).toLocaleString('ru-RU', { maximumFractionDigits: 2 });
+  $('fBiFrom').parentElement.hidden = !bis.length;
+  opt($('fBiFrom'), [['', 'любой']].concat(bis.map(v => [v, biLab(v)])), state.biFrom ?? '');
+  opt($('fBiTo'), [['', 'любой']].concat(bis.map(v => [v, biLab(v)])), state.biTo ?? '');
+  $('fBiFrom').onchange = (e) => { state.biFrom = e.target.value === '' ? null : +e.target.value; if (state.biTo != null && state.biFrom != null && state.biTo < state.biFrom) { state.biTo = state.biFrom; $('fBiTo').value = String(state.biTo); } render(); };
+  $('fBiTo').onchange = (e) => { state.biTo = e.target.value === '' ? null : +e.target.value; if (state.biTo != null && state.biFrom != null && state.biFrom > state.biTo) { state.biFrom = state.biTo; $('fBiFrom').value = String(state.biFrom); } render(); };
 }
 
 // Шапка игрока: при выбранном руме — ник и объём этого рума, при Alias — общий ник и вся база
@@ -1274,7 +1283,7 @@ function setDb(db) {
   ROOM_COUNTS = db.rooms.map(() => 0);
   db.cols.room.forEach(r => { if (r >= 0) ROOM_COUNTS[r]++; });
   $('demoTag').hidden = !db.demo;
-  Object.assign(state, { room: null, type: null, from: null, to: null });
+  Object.assign(state, { room: null, type: null, from: null, to: null, biFrom: null, biTo: null });
   setupFilters();
   updatePlayer();
   render();
