@@ -1245,12 +1245,7 @@ function renderCC(idx) {
   c8.classList.add('wide');
   const zone = el('div', 'summary'); const pair = el('div', 'sum-pair'); pair.append(c1, c8); zone.append(pair);
   c2.classList.add('cc-table');
-  // #4 — колд-колл с CO и BTN при разных стеках блайндов (как 3.7 во вкладке RFI)
-  const c4 = bxListCore({ CO: { bx: r.bx.CO }, BTN: { bx: r.bx.BTN } }, { tag: '4', title: 'Колд-колл с CO и BTN против стеков блайндов', sub: 'винрейт колд-колла с CO и BTN при разных стеках SB и BB, от лучшего сочетания к худшему; ' + BX_STK_TXT,
-    tabs: [['bb', 'Винрейт за колд-колл, BB'], ['freq', 'Частота колд-колла, %']], get: () => CC_BX, set: (k) => { CC_BX = k; },
-    note: 'Блайнды ходят после вас: короткие стеки чаще пушат или сквизят, глубокие — коллируют и играют постфлоп. Винрейт — средний итог раздачи после вашего колд-колла. Частота — доля коллов от всех открытий перед вами при таких стеках блайндов. Бледные строки — меньше 30 раздач.' });
-  c4.classList.add('cc-table', 'cc-bx');
-  zone.append(c2, ccVsTable(r), c4);
+  zone.append(c2, ccVsTable(r));
   page.append(zone);
   return page;
 }
