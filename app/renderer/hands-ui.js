@@ -98,7 +98,7 @@ function unpin() { pinned = null; if (handPop) { handPop.hidden = true; handPop.
 // после смены фильтров закреплённое окно остаётся на месте и пересчитывается
 function refreshPinned(items) {
   if (!pinned || !handPop) return;
-  const it = items.find(x => x.p === pinned.pos);
+  const it = items.find(x => (x.key || x.p) === pinned.pos);
   if (!it || !it.o.n) { unpin(); return; }
   const left = handPop.style.left, top = handPop.style.top;
   const v = it.o.sum / 10 / it.o.n;

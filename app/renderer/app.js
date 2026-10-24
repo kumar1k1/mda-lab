@@ -192,7 +192,7 @@ const signed = (v, d) => (v == null ? '—' : (v >= 0 ? '+' : '−') + Math.abs(
 // #8 — столбики «BB за открытие» по позициям, ноль посередине
 const RESP_COLS = ['var(--good)', 'var(--ice)', 'var(--bad)'];
 function netChart(items, avg) {
-  const W = 520, H = 204, P = { l: 34, r: 10, t: 22, b: 68 };
+  const hasR = items.some(it => it.r), W = 520, H = hasR ? 204 : 170, P = { l: 34, r: 10, t: 22, b: hasR ? 68 : 34 };
   const s = svgRoot(W, H, 'Результат открытий по позициям, BB за открытие, и ответ оппонентов');
   const vals = items.map(it => (it.o.n ? it.o.sum / 10 / it.o.n : null));
   const ext = Math.max(0.5, ...vals.filter(v => v != null).map(Math.abs)) * 1.2;
@@ -235,8 +235,9 @@ function netChart(items, avg) {
     g.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); pinHandPop(it, v, null, g); } });
     s.append(g);
   });
-  s.append(svgText(P.l - 6, H - P.b + 44, '%', 'end', 'font-size:10px;fill:var(--faint)'));
+  if (hasR) s.append(svgText(P.l - 6, H - P.b + 44, '%', 'end', 'font-size:10px;fill:var(--faint)'));
   const box = el('div', 'net-wrap'); box.append(s);
+  if (!hasR) return box;
   const lg = el('div', 'resp-legend row net-lg'); lg.append(el('span', 'net-lg-t', 'цифры под позицией — первый ответ оппонентов за спиной, % (фолд — все сбросили):'));
   [['фолд', RESP_COLS[0]], ['колл', RESP_COLS[1]], ['рейз', RESP_COLS[2]]].forEach(([l, col]) => { const it = el('span'); const i = el('i'); i.style.background = col; it.append(i, document.createTextNode(l)); lg.append(it); });
   box.append(lg);
@@ -1189,7 +1190,15 @@ function renderCC(idx) {
   c2.append(numTag(2), el('span', 'k', 'Колд-колл по позициям'), el('span', 's', 'доля коллов от всех случаев, когда перед вами был один рейз; BB — отдельно'), ccTable(r));
   const note = infoNote('TOT — все позиции без BB (колл из BB — защита большого блайнда, показан отдельной колонкой). В SB колл открытия считается колд-коллом. Наведите на ячейку — покажется матрица рук, которыми вы коллировали, и их итог; клик закрепит окно, клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше ' + SMALL + ' раздач.');
   c2.append(note);
-  const zone = el('div', 'summary'); const pair = el('div', 'sum-pair'); pair.append(c1, c2); zone.append(pair);
+  // #8 — винрейт колд-колла по позициям, как в RFI: наведение — руки, клик — закрепить, раздачи и реплеер
+  const ccPos = r.CC_COLS.slice(1).filter(k => r.cc[k].n >= SMALL);
+  const items = ccPos.map(p => { const h = r.hands[p]; return { p, key: 'cc' + p, o: { n: h.n, sum: h.sum }, mx: h.mx, ids: h.ids, sit: 2, act: 1, title: 'Колд-колл · ' + p, vlab: ' BB за колд-колл', nlab: ' колд-коллов' }; });
+  const t = r.hands.TOT, avg = t.n ? t.sum / 10 / t.n : null;
+  LAST_NET_ITEMS = items;
+  const c8 = card(8, 'Результат колд-колла', '<span class="' + (avg >= 0 ? 'up' : 'down') + '">' + signed(avg, 2) + '</span> <small>BB за колд-колл</small>', 'фактический итог раздачи после вашего колд-колла по позициям, без BB в общем итоге; под позицией — число колд-коллов', netChart(items, avg));
+  c8.classList.add('wide');
+  const zone = el('div', 'summary'); const pair = el('div', 'sum-pair'); pair.append(c1, c8); zone.append(pair);
+  c2.classList.add('cc-table'); zone.append(c2);
   page.append(zone);
   return page;
 }
