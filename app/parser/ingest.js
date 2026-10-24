@@ -25,7 +25,8 @@ const { computeEv, STRIDE } = require('./ev-pool.js');
 const FORMAT = 'mdalab-cols-v3';
 // колонки ваших раздач: статы + ссылка на запись реплеера + отпечаток раздачи
 // aid — номер алиаса (в базе может быть несколько игроков со своими никами: вы, друг…)
-const HERO_SCHEMA = SCHEMA.concat([['rpp', 'i32'], ['rpo', 'u32'], ['rpl', 'u32'], ['key', 'f64'], ['aid', 'i16']]);
+const HERO_SCHEMA = SCHEMA.concat([['rpp', 'i32'], ['rpo', 'u32'], ['rpl', 'u32'], ['key', 'f64'], ['aid', 'i16'], ['nk', 'i16']]);
+// nk — номер ника героя в meta.heroNicks (у одного алиаса может быть несколько ников в одном руме)
 // колонки раздач соперников: статы + игрок, его место в раздаче, ссылка на запись реплеера, отпечаток раздачи
 const OPP_SCHEMA = SCHEMA.concat([['pid', 'i32'], ['seat', 'i8'], ['rpp', 'i32'], ['rpo', 'u32'], ['rpl', 'u32'], ['key', 'f64']]);
 
@@ -114,16 +115,21 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
   for (const r of Object.values(nicks)) if (!rooms.includes(r)) rooms.push(r);
   // Алиасы: у каждого своё имя и свои ники. Все раздачи этой загрузки идут в алиас с введённым именем
   // (нет такого — создаётся новый). Один ник может быть у разных алиасов (GG в экспорте пишет всех «Hero»).
-  const aliases = old ? (old.meta.aliases ? old.meta.aliases.map(a => ({ name: a.name, nicks: Object.assign({}, a.nicks), count: a.count || 0 }))
+  // алиас: name, nicks (ваши ники — раздачи с вашими картами), off (ваши ники, убранные из алиаса редактором),
+  // opp (игроки базы, добавленные в алиас), gone (распущен — номер aid не переиспользуется)
+  const aliases = old ? (old.meta.aliases ? old.meta.aliases.map(a => Object.assign({}, a, { nicks: Object.assign({}, a.nicks), count: a.count || 0 }))
     : [{ name: old.meta.hero, nicks: Object.assign({}, old.meta.nicks), count: old.heroN }]) : [];
+  const heroNicks = old ? (old.meta.heroNicks ? old.meta.heroNicks.slice() : [...new Set(aliases.flatMap(a => Object.keys(a.nicks)))]) : [];
   // без ников (датамайнинг, ваших карт нет) — алиас не создаётся: все игроки раздач идут в список соперников
   const observer = !Object.keys(nicks).length;
   const want = (alias || '').trim() || Object.keys(nicks)[0] || '';
-  let target = observer ? -1 : aliases.findIndex(a => a.name.toLowerCase() === want.toLowerCase());
+  let target = observer ? -1 : aliases.findIndex(a => !a.gone && a.name.toLowerCase() === want.toLowerCase());
   if (!observer && target < 0) { aliases.push({ name: want, nicks: {}, count: 0 }); target = aliases.length - 1; }
   // ники, которые до этой загрузки уже были у других алиасов: та же раздача того же ника — повтор, даже под другим именем алиаса
   const prevOwners = new Map(); aliases.forEach((a, i) => { if (i !== target) for (const n of Object.keys(a.nicks)) { if (!prevOwners.has(n)) prevOwners.set(n, []); prevOwners.get(n).push(i); } });
   if (!observer) Object.assign(aliases[target].nicks, nicks);
+  for (const n of Object.keys(nicks)) if (!heroNicks.includes(n)) heroNicks.push(n);
+  const nkOf = new Map(heroNicks.map((n, i) => [n, i]));
   const nicksAll = {}; aliases.forEach((a, i) => { if (i !== target) Object.assign(nicksAll, a.nicks); }); Object.assign(nicksAll, nicks);
   const heroes = new Set(Object.keys(nicks)); // герой раздачи — только ники этой загрузки
   const others = new Set(Object.keys(nicksAll)); // ники всех алиасов — не соперники
@@ -169,7 +175,7 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
     const hv = rowVals(h.hero, roomIdx);
     for (const [nm] of SCHEMA) H[nm].push(hv[nm]);
     const hr = h.heroRp && ref && h.hero.hc >= 0; // как раньше: запись реплеера у вашей раздачи — в ваших спотах и с вашими картами
-    H.rpp.push(hr ? ref[0] : -1); H.rpo.push(hr ? ref[1] : 0); H.rpl.push(hr ? ref[2] : 0); H.key.push(h.k); H.aid.push(aid);
+    H.rpp.push(hr ? ref[0] : -1); H.rpo.push(hr ? ref[1] : 0); H.rpl.push(hr ? ref[2] : 0); H.key.push(h.k); H.aid.push(aid); H.nk.push(nkOf.has(h.hero.hero) ? nkOf.get(h.hero.hero) : -1);
     nH++; addedBy[aid]++;
     if (newHand) addOpps(h, roomIdx, ref);
   }, (d, t) => prog('parse', d, t, nH + nD), opts.parseThreads, { observer, exclude: others });
@@ -213,7 +219,7 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
   for (const [nm, t] of HERO_SCHEMA) {
     const a = nm === 'day' ? permute(dayNew, hPerm) : permute(H[nm].readAll(), hPerm);
     const [fo, fn] = fix(nm);
-    mergeColumn(old && old.g, old ? old.heroN : 0, nm, t, a, hPlan, gdir, fo, fn);
+    mergeColumn(old && old.g, old ? old.heroN : 0, nm, t, a, hPlan, gdir, fo, fn, nm === 'nk' ? -1 : 0); // ник старых строк без nk — неизвестен (-1)
   }
   // 3б. соперники: по игроку, затем по дате
   prog('merge', 1, 2, nH);
@@ -268,9 +274,9 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
   fs.writeFileSync(path.join(godir, 'players.json'), JSON.stringify(plist));
 
   const meta = {
-    format: FORMAT, demo: false, hero: aliases.length ? aliases[0].name : '', nicks: nicksAll, aliases: aliases.map((a, i) => ({ name: a.name, nicks: a.nicks, count: a.count + addedBy[i] })), rooms, types: ['Обычный', 'PKO'],
+    format: FORMAT, demo: false, hero: aliases.length ? aliases[0].name : '', nicks: nicksAll, aliases: aliases.map((a, i) => Object.assign({}, a, { count: a.count + addedBy[i] })), heroNicks, rooms, types: ['Обычный', 'PKO'],
     periodStart: Math.floor(m0 / 12) + '-' + String(m0 % 12 + 1).padStart(2, '0'), count: (old ? old.heroN : 0) + nH,
-    cols: SCHEMA.concat([['aid', 'i16']]), colDir: 'g' + gen, opp: { rows: (old ? old.oppN : 0) + nO, players: plist.length }, rpParts: rpw.parts, rpz: 1
+    cols: SCHEMA.concat([['aid', 'i16'], ['nk', 'i16']]), colDir: 'g' + gen, opp: { rows: (old ? old.oppN : 0) + nO, players: plist.length }, rpParts: rpw.parts, rpz: 1
   };
   const mt = path.join(dir, 'meta.json.tmp'); fs.writeFileSync(mt, JSON.stringify(meta)); fs.renameSync(mt, path.join(dir, 'meta.json'));
   if (old) fs.rmSync(old.g, { recursive: true, force: true });

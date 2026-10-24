@@ -73,6 +73,29 @@ ipcMain.handle('db:replays', (_e, ids) => { const s = source(); return s && Arra
 ipcMain.handle('players:list', (_e, q, limit) => { const s = source(); return s && s.v3 ? s.playerList(q, limit) : { total: 0, players: [] }; });
 ipcMain.handle('player:meta', (_e, pid) => { const s = source(); return s && s.v3 ? s.playerMeta(pid) : null; });
 ipcMain.handle('player:col', (_e, pid, name) => { const s = source(); return s && s.v3 ? s.playerCol(pid, name) : null; });
+ipcMain.handle('players:find', (_e, list) => { const s = source(); return s && s.v3 && Array.isArray(list) ? s.playersFind(list) : []; });
+// Редактор алиасов: новый список алиасов — в meta.json базы (одной записью). Раздачи не трогаются:
+// алиас — это набор ников (ваших и игроков базы), статистика собирается из них при выборе.
+// Номер алиаса (aid) у ваших раздач — позиция в списке, поэтому алиасы не удаляются, а помечаются gone.
+ipcMain.handle('aliases:save', (_e, list) => {
+  const s = source(); if (!s || !s.v3 || !Array.isArray(list)) return { error: 'База не открыта' };
+  const cur = s.meta.aliases || [{ name: s.meta.hero, nicks: s.meta.nicks || {} }];
+  if (list.length < cur.length) return { error: 'Алиасы нельзя удалять — только распускать' };
+  const clean = list.map((a, i) => ({
+    name: String(a.name || '').trim().slice(0, 40) || ('Алиас ' + (i + 1)),
+    nicks: i < cur.length ? Object.assign({}, cur[i].nicks) : {}, // ваши ники меняет только загрузка
+    count: i < cur.length ? cur[i].count || 0 : 0,
+    off: Object.fromEntries(Object.keys(a.off || {}).filter(n => i < cur.length && cur[i].nicks && cur[i].nicks[n]).map(n => [n, 1])),
+    opp: (Array.isArray(a.opp) ? a.opp : []).filter(o => o && typeof o.n === 'string' && typeof o.r === 'string').map(o => ({ n: o.n, r: o.r })),
+    mine: (Array.isArray(a.mine) ? a.mine : []).filter(m => m && Number.isInteger(m.a) && m.a !== i && cur[m.a] && cur[m.a].nicks && cur[m.a].nicks[m.n]).map(m => ({ a: m.a, n: m.n })),
+    gone: a.gone && !(i < cur.length && Object.keys(cur[i].nicks || {}).length) ? 1 : undefined
+  }));
+  for (const a of clean) if (!a.gone) a.mine = a.mine.filter(m => !clean[m.a].gone);
+  const meta = Object.assign({}, s.meta, { aliases: clean });
+  if (!DEMO) { const f = path.join(s.dir, 'meta.json'), t = f + '.tmp'; fs.writeFileSync(t, JSON.stringify(meta)); fs.renameSync(t, f); }
+  s.meta = meta; // демо — только в памяти
+  return { ok: true, aliases: clean };
+});
 ipcMain.handle('player:replays', (_e, pid, ids) => { const s = source(); return s && s.v3 && Array.isArray(ids) ? s.playerReplays(pid, ids) : {}; });
 ipcMain.handle('db:demo', () => { if (!store.BaseDir.exists(demoDir())) return false; DEMO = true; SRC = null; return true; });
 ipcMain.handle('db:delete', () => { SRC = null; DEMO = false; try { fs.rmSync(baseDir(), { recursive: true, force: true }); } catch (e) { /* нет базы */ } return true; });

@@ -173,11 +173,18 @@ class BaseDir {
   playerList(q, limit) {
     const s = (q || '').trim().toLowerCase(), all = this.players(), out = [];
     const mine = this.meta.nicks || {}; // ники алиасов — это вы и ваши алиасы, не соперники
-    for (let i = 0; i < all.length; i++) { const p = all[i]; if (p.c && !mine[p.n] && (!s || p.n.toLowerCase().startsWith(s))) out.push(i); }
+    const memb = this.memberKeys(); // игроки базы, добавленные в алиасы, — показываются под алиасом
+    for (let i = 0; i < all.length; i++) { const p = all[i]; if (p.c && !mine[p.n] && !memb.has(this.meta.rooms[p.r] + '\u0001' + p.n) && (!s || p.n.toLowerCase().startsWith(s))) out.push(i); }
     out.sort((a, b) => all[b].c - all[a].c || (all[a].n < all[b].n ? -1 : 1));
     return { total: out.length, players: out.slice(0, limit || 100).map(i => ({ pid: i, name: all[i].n, room: all[i].r, count: all[i].c, shown: all[i].sh })) };
   }
   // описание «базы» одного соперника — как у вашей базы, чтобы все вкладки считали так же
+  memberKeys() { const m = new Set(); for (const a of this.meta.aliases || []) if (!a.gone) for (const o of a.opp || []) m.add(o.r + '\u0001' + o.n); return m; }
+  // игроки базы по нику и руму (для участников алиасов): [{pid, count, shown} | null]
+  playersFind(list) {
+    const all = this.players(), idx = new Map(); all.forEach((p, i) => idx.set(this.meta.rooms[p.r] + '\u0001' + p.n, i));
+    return (list || []).map(([n, r]) => { const i = idx.get(r + '\u0001' + n); return i == null ? null : { pid: i, name: all[i].n, room: all[i].r, count: all[i].c, shown: all[i].sh }; });
+  }
   // колонки соперников: общие со строками героя (без колонки алиаса aid — она только у ваших раздач)
   oppCols() { return this.meta.cols.filter(c => c[0] !== 'aid'); }
   playerMeta(pid) {

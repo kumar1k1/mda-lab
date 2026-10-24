@@ -1,5 +1,5 @@
 'use strict';
-/* global DB, el, signed, mda, Replay, CURRENT_IDX, MONTHS */
+/* global DB, el, signed, mda, Replay, CURRENT_IDX, MONTHS, srcReplays */
 // Окно матрицы рук (наведение — подсказка, клик — закрепить), список раздач по руке и реплеер.
 
 const RANKS = 'AKQJT98765432';
@@ -14,7 +14,8 @@ async function replaysFor(ids) {
   const need = []; for (const i of ids) if (!REPLAYS.has(i)) need.push(i);
   for (let k = 0; k < need.length; k += 20000) {
     const part = need.slice(k, k + 20000);
-    const got = (state.player ? mda.playerReplays && await mda.playerReplays(state.player.pid, part) : mda.replaysFor && await mda.replaysFor(part)) || {};
+    // собранная база алиаса (ваши ники + игроки базы) — записи из своих источников (srcReplays в app.js)
+    const got = (state.player ? mda.playerReplays && await mda.playerReplays(state.player.pid, part) : DB && DB.src ? await srcReplays(part) : mda.replaysFor && await mda.replaysFor(part)) || {};
     for (const i of part) REPLAYS.set(i, got[i] || null);
   }
   if (REPLAYS.size > 300000) { const keep = new Set(ids); for (const key of REPLAYS.keys()) { if (REPLAYS.size <= 150000) break; if (!keep.has(key)) REPLAYS.delete(key); } }

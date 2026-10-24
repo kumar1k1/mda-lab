@@ -76,11 +76,19 @@
     },
     // соперники (база v3)
     playersList: async (q, limit) => {
-      const P = await players(); const s = (q || '').trim().toLowerCase(), out = [];
-      for (let i = 0; i < P.length; i++) if (P[i][2] && (!s || P[i][0].toLowerCase().startsWith(s))) out.push(i);
+      const P = await players(); const s = (q || '').trim().toLowerCase(), out = [], m = await window.mda.dbMeta();
+      const memb = new Set(); for (const a of (m && m.aliases) || []) if (!a.gone) for (const o of a.opp || []) memb.add(o.r + '\u0001' + o.n);
+      const mine = (m && m.nicks) || {};
+      for (let i = 0; i < P.length; i++) if (P[i][2] && !mine[P[i][0]] && !memb.has(m.rooms[P[i][1]] + '\u0001' + P[i][0]) && (!s || P[i][0].toLowerCase().startsWith(s))) out.push(i);
       out.sort((a, b) => P[b][2] - P[a][2] || (P[a][0] < P[b][0] ? -1 : 1));
       return { total: out.length, players: out.slice(0, limit || 100).map(i => ({ pid: i, name: P[i][0], room: P[i][1], count: P[i][2], shown: P[i][3] })) };
     },
+    playersFind: async (list) => {
+      const P = await players(), m = await window.mda.dbMeta(), idx = new Map(); P.forEach((p, i) => idx.set(m.rooms[p[1]] + '\u0001' + p[0], i));
+      return (list || []).map(([n, r]) => { const i = idx.get(r + '\u0001' + n); return i == null ? null : { pid: i, name: P[i][0], room: P[i][1], count: P[i][2], shown: P[i][3] }; });
+    },
+    // правка алиасов в превью — только на время просмотра (в программе — в meta.json базы)
+    saveAliases: async (list) => { const m = await window.mda.dbMeta(); m.aliases = list.map(a => Object.assign({}, a)); return { ok: true, aliases: m.aliases }; },
     playerMeta: async (pid) => {
       const P = await players(), p = P[pid]; if (!p) return null; const m = await window.mda.dbMeta();
       return { format: m.format, demo: false, hero: p[0], nicks: { [p[0]]: m.rooms[p[1]] }, rooms: m.rooms, types: m.types, periodStart: m.periodStart, count: p[2], cols: m.cols, pid, opponent: true };
