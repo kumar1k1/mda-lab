@@ -7,6 +7,9 @@ body{padding-left:max(0px, env(safe-area-inset-left, 0px));padding-right:max(0px
   .top-main{gap:10px;flex-wrap:nowrap}
   .player{flex:1 1 auto}
   .brand span{display:none}
+  .player-wrap{flex:1 1 auto}
+  .player{width:100%}
+  .player-menu{position:fixed;top:64px;left:12px;right:12px;width:auto;max-width:none}
   .nick,.hands{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .top-div{display:none}
   #openImport{width:40px;padding:0;justify-content:center;font-size:0;gap:0}

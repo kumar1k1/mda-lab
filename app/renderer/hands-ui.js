@@ -237,7 +237,7 @@ async function openReplayer(i) {
     const seat = el('div', 'rp-seat' + (k === rp.h ? ' hero' : ''));
     seat.style.left = sx + '%'; seat.style.top = sy + '%';
     const cards = el('div', 'rp-cards');
-    const lab = el('div', 'rp-lab'); lab.append(el('b', null, k === rp.h ? 'Вы · ' + p[0] : p[0]));
+    const lab = el('div', 'rp-lab'); lab.append(el('b', null, k === rp.h ? (state.player ? state.player.name : 'Вы') + ' · ' + p[0] : p[0]));
     const stack = el('div', 'rp-stack');
     seat.append(cards, lab, stack);
     if (p[0] === 'BTN') { const d = el('span', 'rp-dealer', 'D'); seat.append(d); }

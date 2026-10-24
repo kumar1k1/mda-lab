@@ -15,13 +15,17 @@
       <span>MDA Lab</span>
     </div>
     <span class="top-div" aria-hidden="true"></span>
-    <div class="player">
-      <span class="badge-reg" id="roomBadge">ALIAS</span>
-      <div class="player-txt">
-        <span class="nick" id="nick">—</span>
-        <span class="hands" id="handsCount" title="Раздач в базе">—</span>
-      </div>
-      <span class="demo" id="demoTag" hidden>демо-база</span>
+    <div class="player-wrap">
+      <button class="player" id="playerBtn" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="playerMenu" title="Выбрать игрока">
+        <span class="badge-reg" id="roomBadge">ALIAS</span>
+        <span class="player-txt">
+          <span class="nick" id="nick">—</span>
+          <span class="hands" id="handsCount">—</span>
+        </span>
+        <span class="demo" id="demoTag" hidden>демо-база</span>
+        <svg class="player-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div class="player-menu" id="playerMenu" role="dialog" aria-label="Выбор игрока" hidden></div>
     </div>
     <button class="btn-load" id="openImport" aria-label="Загрузить базу">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg>

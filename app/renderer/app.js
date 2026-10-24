@@ -7,7 +7,7 @@ const MONTHS = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'и�
 let DB = null;
 let CURRENT_IDX = [];
 let LAST_NET_ITEMS = [];
-const state = { tab: 'rfi', sub: 'TOT', room: null, type: null, from: null, to: null };
+const state = { tab: 'rfi', sub: 'TOT', room: null, player: null, type: null, from: null, to: null };
 
 // ---------- вкладки (группы и список будем менять) ----------
 const GROUPS = [
@@ -1509,7 +1509,8 @@ function renderSoon(tab) {
 
 // ---------- отрисовка ----------
 function currentIdx() {
-  return Stats.selectHands(DB, { room: state.room, type: state.type, from: state.from, to: state.to, biFrom: state.biFrom, biTo: state.biTo, tbl: state.sub === 'TOT' ? null : state.sub });
+  const idx = Stats.selectHands(DB, { room: state.room, type: state.type, from: state.from, to: state.to, biFrom: state.biFrom, biTo: state.biTo, tbl: state.sub === 'TOT' ? null : state.sub });
+  return state.player ? idx.filter(i => state.player.mask[i]) : idx; // выбран другой игрок — только его раздачи
 }
 
 function render() {
@@ -1561,7 +1562,7 @@ function setupFilters() {
   const ml = Array.from({ length: months }, (_, i) => [i, monthLabel(i)]);
   opt($('fFrom'), ml, state.from ?? 0);
   opt($('fTo'), ml, state.to ?? months - 1);
-  $('fRoom').onchange = (e) => { state.room = e.target.value === '' ? null : +e.target.value; updatePlayer(); render(); };
+  $('fRoom').onchange = (e) => { state.room = e.target.value === '' ? null : +e.target.value; state.player = null; updatePlayer(); render(); }; // смена рума — снова ваш ник этого рума
   $('fType').onchange = (e) => { state.type = e.target.value === '' ? null : +e.target.value; render(); };
   $('fFrom').onchange = (e) => { state.from = +e.target.value; render(); };
   $('fTo').onchange = (e) => { state.to = +e.target.value; render(); };
@@ -1580,18 +1581,108 @@ function setupFilters() {
 const ROOM_CODES = { GGPoker: 'GG', Winamax: 'WNX', PokerStars: 'PS', PokerDom: 'PDOM', WPN: 'WPN', iPoker: 'IPK', '888poker': '888', PartyPoker: 'PP' };
 let ROOM_COUNTS = [];
 const kFmt = (n) => (n >= 1000 ? Math.round(n / 1000) + 'k' : String(n));
+function heroNickOf(room) { return (DB.nicks ? Object.keys(DB.nicks).find(n => DB.nicks[n] === DB.rooms[room]) : null) || DB.hero; }
 function updatePlayer() {
-  if (!DB) { $('roomBadge').textContent = 'НЕТ БАЗЫ'; $('nick').textContent = '—'; $('handsCount').textContent = ''; $('nick').parentElement.title = ''; return; }
-  const alias = state.room == null;
-  const roomName = alias ? null : DB.rooms[state.room];
-  const nick = alias ? DB.hero : (DB.nicks ? Object.keys(DB.nicks).find(n => DB.nicks[n] === roomName) : null) || DB.hero;
-  const count = alias ? DB.count : ROOM_COUNTS[state.room] || 0;
+  if (!DB) { $('roomBadge').textContent = 'НЕТ БАЗЫ'; $('nick').textContent = '—'; $('handsCount').textContent = ''; $('playerBtn').title = ''; $('playerBtn').disabled = true; return; }
+  $('playerBtn').disabled = false;
+  const opp = state.player, alias = !opp && state.room == null;
+  const roomName = alias ? null : DB.rooms[opp ? opp.room : state.room];
+  const nick = opp ? opp.name : alias ? DB.hero : heroNickOf(state.room);
+  const count = opp ? opp.count : alias ? DB.count : ROOM_COUNTS[state.room] || 0;
   $('roomBadge').textContent = alias ? 'ALIAS' : (ROOM_CODES[roomName] || roomName.slice(0, 4).toUpperCase());
-  $('roomBadge').classList.toggle('room', !alias);
+  $('roomBadge').classList.toggle('room', !alias && !opp);
+  $('roomBadge').classList.toggle('opp', !!opp);
+  $('playerBtn').classList.toggle('is-opp', !!opp);
   $('nick').textContent = nick;
-  $('handsCount').textContent = count.toLocaleString('ru-RU') + ' раздач' + (alias ? ' · все румы' : ' · ' + roomName);
-  $('handsCount').title = count.toLocaleString('ru-RU') + ' раздач' + (alias ? ' во всей базе' : ' в ' + roomName);
-  $('nick').parentElement.title = alias && DB.nicks ? 'Alias объединяет ники: ' + Object.keys(DB.nicks).map(n => n + ' (' + DB.nicks[n] + ')').join(', ') : roomName ? 'Ник в ' + roomName : '';
+  $('handsCount').textContent = count.toLocaleString('ru-RU') + ' раздач' + (opp ? ' · соперник · ' + roomName : alias ? ' · все румы' : ' · ' + roomName);
+  $('demoTag').hidden = !(DB.demo || opp);
+  $('demoTag').textContent = opp ? 'демо-данные' : 'демо-база';
+  $('playerBtn').title = 'Выбрать игрока' + (alias && DB.nicks ? '. Alias объединяет ники: ' + Object.keys(DB.nicks).map(n => n + ' (' + DB.nicks[n] + ')').join(', ') : '');
+}
+
+// ---------- выбор игрока: ваши ники и соперники из базы ----------
+// ДЕМО: в базе героя нет имён соперников, поэтому соперники синтетические —
+// каждому отдаётся детерминированная часть раздач его рума. После импорта с соперниками
+// mask заменит настоящий список раздач игрока, остальная механика та же.
+let OPPS = [];
+function buildDemoOpps() {
+  const A = ['Shark', 'River', 'Grind', 'Bluff', 'Stack', 'Tilt', 'Nuts', 'Lucky', 'Fold', 'Wolf', 'Ice', 'Dark', 'Royal', 'Chip', 'Ace', 'Turbo', 'Cold', 'Silent', 'Mad', 'Crazy'];
+  const B = ['Hunter', 'Rat', 'Monk', 'King', 'Fox', 'Pilot', 'Baron', 'Ghost', 'Rider', 'Bear', 'Lord', 'Ninja', 'Viper', 'Owl', 'Duke', 'Bandit'];
+  let seed = 7771; const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+  const used = new Set(Object.keys(DB.nicks || {}).concat(DB.hero)), out = [];
+  const roomW = ROOM_COUNTS.slice(), tot = roomW.reduce((a, b) => a + b, 0) || 1;
+  for (let k = 0; k < 48; k++) {
+    let name; do { const st = Math.floor(rnd() * 4); name = st === 0 ? A[Math.floor(rnd() * A.length)] + B[Math.floor(rnd() * B.length)] + Math.floor(rnd() * 99) : st === 1 ? A[Math.floor(rnd() * A.length)].toLowerCase() + '_' + B[Math.floor(rnd() * B.length)].toLowerCase() : st === 2 ? B[Math.floor(rnd() * B.length)] + 'Of' + A[Math.floor(rnd() * A.length)] : A[Math.floor(rnd() * A.length)] + Math.floor(1000 + rnd() * 9000); } while (used.has(name));
+    used.add(name);
+    let r = rnd() * tot, room = 0; while (room < roomW.length - 1 && (r -= roomW[room]) > 0) room++;
+    const target = Math.max(120, Math.round(5200 * Math.pow(0.9, k) * (0.8 + rnd() * 0.4)));
+    const p = Math.min(1, target / Math.max(1, ROOM_COUNTS[room])), salt = Math.floor(rnd() * 1e9);
+    const mask = new Uint8Array(DB.count); let count = 0;
+    for (let i = 0; i < DB.count; i++) if (DB.cols.room[i] === room && (((i + 1) * 2654435761 ^ salt) >>> 0) / 4294967296 < p) { mask[i] = 1; count++; }
+    out.push({ name, room, count, mask });
+  }
+  return out.sort((a, b) => b.count - a.count);
+}
+
+function choosePlayer(kind, v) {
+  if (kind === 'alias') { state.player = null; state.room = null; }
+  else if (kind === 'hero') { state.player = null; state.room = v; }
+  else { state.player = v; state.room = v.room; }
+  $('fRoom').value = state.room == null ? '' : String(state.room); // ник выбран — рум выставляется сам
+  closePlayerMenu(); updatePlayer(); render();
+}
+
+let PM_OPEN = false;
+function openPlayerMenu() {
+  if (!DB) return;
+  const m = $('playerMenu'); m.replaceChildren(); PM_OPEN = true;
+  $('playerBtn').setAttribute('aria-expanded', 'true');
+  const item = (opts) => {
+    const b = el('button', 'pm-item' + (opts.on ? ' on' : '')); b.type = 'button';
+    if (opts.on) b.setAttribute('aria-current', 'true');
+    const bd = el('span', 'badge-reg' + (opts.cls ? ' ' + opts.cls : ''), opts.badge);
+    const t = el('span', 'pm-t'); t.append(el('b', null, opts.name), el('span', null, opts.sub));
+    b.append(bd, t, el('span', 'pm-n', opts.count.toLocaleString('ru-RU')));
+    b.onclick = opts.pick; return b;
+  };
+  const code = (r) => ROOM_CODES[DB.rooms[r]] || DB.rooms[r].slice(0, 4).toUpperCase();
+  // 1) ваши ники
+  const mine = el('div', 'pm-sec'); mine.append(el('div', 'pm-h', 'Ваши ники'));
+  mine.append(item({ badge: 'ALIAS', name: DB.hero, sub: 'все румы вместе', count: DB.count, on: !state.player && state.room == null, pick: () => choosePlayer('alias') }));
+  DB.rooms.forEach((rn, r) => { if (!ROOM_COUNTS[r]) return; mine.append(item({ badge: code(r), cls: 'room', name: heroNickOf(r), sub: rn, count: ROOM_COUNTS[r], on: !state.player && state.room === r, pick: () => choosePlayer('hero', r) })); });
+  // 2) другие игроки базы
+  const oth = el('div', 'pm-sec pm-oth');
+  const hh = el('div', 'pm-h'); hh.append(document.createTextNode('Другие игроки в базе'), el('span', 'pm-demo', 'демо'));
+  const q = el('input', 'pm-q'); q.type = 'search'; q.placeholder = 'Найти ник'; q.setAttribute('aria-label', 'Найти игрока по нику');
+  const list = el('div', 'pm-list');
+  const fill = () => {
+    const s = q.value.trim().toLowerCase(); list.replaceChildren();
+    const rows = OPPS.filter(o => !s || o.name.toLowerCase().includes(s));
+    rows.forEach(o => list.append(item({ badge: code(o.room), cls: 'opp', name: o.name, sub: DB.rooms[o.room], count: o.count, on: state.player === o, pick: () => choosePlayer('opp', o) })));
+    if (!rows.length) list.append(el('p', 'pm-empty', 'Никого не нашли'));
+  };
+  q.oninput = fill; fill();
+  oth.append(hh, q, list, el('p', 'pm-note', 'Соперники и их раздачи здесь синтетические: в вашей базе нет имён соперников. Механика выбора та же, что будет с настоящими данными.'));
+  m.append(mine, oth); m.hidden = false;
+  const cur = m.querySelector('.pm-item.on') || m.querySelector('.pm-item'); if (cur) cur.focus();
+  if (state.player) { const on = list.querySelector('.on'); if (on) on.scrollIntoView({ block: 'nearest' }); }
+}
+function closePlayerMenu(focusBtn) {
+  if (!PM_OPEN) return; PM_OPEN = false;
+  $('playerMenu').hidden = true; $('playerBtn').setAttribute('aria-expanded', 'false');
+  if (focusBtn) $('playerBtn').focus();
+}
+function setupPlayerMenu() {
+  $('playerBtn').onclick = () => (PM_OPEN ? closePlayerMenu() : openPlayerMenu());
+  document.addEventListener('mousedown', (e) => { if (PM_OPEN && !e.target.closest('.player-wrap')) closePlayerMenu(); });
+  document.addEventListener('keydown', (e) => {
+    if (!PM_OPEN) return;
+    if (e.key === 'Escape') { e.preventDefault(); closePlayerMenu(true); return; }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      const items = [...$('playerMenu').querySelectorAll('.pm-item')]; const k = items.indexOf(document.activeElement);
+      e.preventDefault(); const nx = items[Math.max(0, Math.min(items.length - 1, k + (e.key === 'ArrowDown' ? 1 : -1)))]; if (nx) nx.focus();
+    }
+  });
 }
 
 function setDb(db) {
@@ -1599,11 +1690,11 @@ function setDb(db) {
   if (typeof REPLAYS !== 'undefined') REPLAYS = null; // реплеи новой базы загрузятся заново
   unpin();
   document.querySelector('.filters').hidden = !db;
-  if (!db) { $('demoTag').hidden = true; updatePlayer(); render(); return; }
+  if (!db) { $('demoTag').hidden = true; state.player = null; OPPS = []; closePlayerMenu(); updatePlayer(); render(); return; }
   ROOM_COUNTS = db.rooms.map(() => 0);
   db.cols.room.forEach(r => { if (r >= 0) ROOM_COUNTS[r]++; });
-  $('demoTag').hidden = !db.demo;
-  Object.assign(state, { room: null, type: null, from: null, to: null, biFrom: null, biTo: null });
+  Object.assign(state, { room: null, player: null, type: null, from: null, to: null, biFrom: null, biTo: null });
+  OPPS = buildDemoOpps(); closePlayerMenu();
   setupFilters();
   updatePlayer();
   render();
@@ -1715,7 +1806,7 @@ window.__go = (tab, sub) => { $('importModal').hidden = true; state.tab = tab; i
 window.__importDemo = () => { $('importModal').hidden = false; showImport({ source: 'D:\\HH\\Tournaments', files: 18432, bytes: 214e6, estHands: 142700, unknown: 3, rooms: { GGPoker: { files: 11204, bytes: 131e6 }, PokerStars: { files: 5120, bytes: 61e6 }, Winamax: { files: 2105, bytes: 22e6 } } }); };
 
 document.addEventListener('DOMContentLoaded', async () => {
-  setupImport();
+  setupImport(); setupPlayerMenu();
   const db = await mda.db();
   setDb(db);
   if (!db) openImportModal();
