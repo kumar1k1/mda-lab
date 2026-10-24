@@ -800,7 +800,7 @@ function bxListCore(o, opt) {
       const row = el('div', 'bx-lr');
       row.append(el('span', 'bx-ll', 'SB ' + BX_NAMES[r.i] + ' · BB ' + BX_NAMES[r.j]));
       [[r.a, C_CO], [r.b, C_BTN]].forEach(([z, col]) => {
-        const v = M.v(z), n = M.n(z), cell = el('div', 'hg-c');
+        const v = M.v(z), n = M.n(z), cell = el('div', 'hg-c'); cell.dataset.pos = col === C_CO ? 'CO' : 'BTN';
         const tr = el('div', 'hg-track'), f = el('div', 'hg-fill');
         if (BX2 === 'bb') { tr.append(el('div', 'hg-zero')); const w = v == null ? 0 : Math.min(50, Math.abs(v) / max * 50); f.style.width = w + '%'; f.style.left = v >= 0 ? '50%' : (50 - w) + '%'; }
         else { f.style.left = '0'; f.style.width = (v == null ? 0 : Math.min(100, v / max * 100)) + '%'; }

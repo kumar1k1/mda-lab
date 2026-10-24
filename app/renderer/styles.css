@@ -712,7 +712,7 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .net-lgs .net-lg{margin:0}
 .net-lg-r{margin-left:auto}
 /* 3.4: число раздач слева от полосы, вплотную к группе рук; CO и BTN разделены линией — ничего не наезжает */
-.hg:has(.hg-c34){container-type:inline-size}
+.res34{container-type:inline-size}
 .hg-row:has(.hg-c34),.hg-row.hg-head{grid-template-columns:minmax(110px,max-content) minmax(min-content,1fr) minmax(min-content,1fr);column-gap:0}
 .hg:has(.hg-c34){display:grid;row-gap:3px;grid-template-columns:minmax(110px,max-content) minmax(min-content,1fr) minmax(min-content,1fr)}
 .hg:has(.hg-c34) > .hg-row{grid-column:1 / -1;grid-template-columns:subgrid}
@@ -723,13 +723,13 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .hg-c34 .hg-n{text-align:left;white-space:nowrap;min-width:3ch}
 .hg-c34 .hg-v{white-space:nowrap}
 .hg-l{overflow-wrap:anywhere}
-@container (max-width: 600px){.hg-c34 .hg-v .evs{display:block;font-size:10px;line-height:1.2}.hg-c34 .hg-v{line-height:1.15}}
+@container (max-width: 630px){.hg-c34 .hg-v .evs{display:block;font-size:10px;line-height:1.2}.hg-c34 .hg-v{line-height:1.15}}
 /* 3.4 на телефоне: CO и BTN под названием группы рук */
-@container (max-width: 470px){
-  .hg:has(.hg-c34){display:flex}
-  .hg-row:has(.hg-c34){grid-template-columns:1fr;row-gap:3px}
-  .hg-row.hg-head{display:none}
-  .hg-row:has(.hg-c34) > :nth-child(n){padding:0;border-left:none}
+@container (max-width: 500px){
+  .res34 .hg:has(.hg-c34){display:flex;flex-direction:column}
+  .res34 .hg:has(.hg-c34) > .hg-row{grid-template-columns:1fr;row-gap:3px}
+  .res34 .hg-row.hg-head{display:none}
+  .res34 .hg-row:has(.hg-c34) > :nth-child(n){padding:0;border-left:none}
   .hg-c.hg-c34{grid-template-columns:30px max-content minmax(40px,1fr) max-content}
   .hg-c34::before{content:attr(data-pos);font-family:var(--mono);font-size:10px;font-weight:700;color:var(--muted)}
 }
@@ -754,3 +754,44 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .iso-rv.resp-tile b{font-size:16px}
 .iso-rv.resp-tile.tot b{font-size:18px}
 .iso-rv.resp-tile span{font-size:10.5px}
+
+/* ===== ничего не вылезает за рамки: размеры следуют за шириной блока ===== */
+/* #5: плитки ответа — шрифт по ширине сетки */
+.iso-rg{container-type:inline-size}
+.iso-rv.resp-tile{min-width:0;padding:5px 6px}
+.iso-rv.resp-tile b{font-size:clamp(11px, 6.2cqi, 16px)}
+.iso-rv.resp-tile.tot b{font-size:clamp(12px, 6.6cqi, 18px)}
+.iso-rv.resp-tile span{font-size:clamp(9px, 4.2cqi, 10.5px)}
+.iso-rl{font-size:clamp(10px, 4.6cqi, 12px);white-space:normal}
+
+/* таблицы сайзингов (5+, колд-колл): в узком блоке EV под фактом */
+.sz5-t{container-type:inline-size}
+@container (max-width: 560px){.sz5-t .sz5-v .evs{display:block;font-size:10px;line-height:1.2}.sz5-t .sz5-h span:last-child{white-space:normal}}
+@container (max-width: 400px){.sz5-t{column-gap:6px}.sz5-t .sz5-v,.sz5-t .sz5-sh{font-size:11.5px}}
+
+/* 3.7: колонки CO и BTN — EV под фактом в узком блоке, на телефоне друг под другом */
+.bx-list{container-type:inline-size}
+.bx-lr{grid-template-columns:minmax(110px,1fr) minmax(min-content,1fr) minmax(min-content,1fr)}
+.bx-lr .hg-c{grid-template-columns:minmax(30px,1fr) max-content max-content;column-gap:8px}
+.bx-lr .hg-v,.bx-lr .hg-n{white-space:nowrap}
+@container (max-width: 640px){.bx-lr .hg-v .evs{display:block;font-size:10px;line-height:1.2}.bx-lr .hg-v{line-height:1.15}}
+@container (max-width: 470px){
+  .bx-lr{grid-template-columns:1fr;row-gap:3px;gap:3px}
+  .bx-lh{display:none}
+  .bx-lr .hg-c{grid-template-columns:30px minmax(30px,1fr) max-content max-content}
+  .bx-lr .hg-c::before{content:attr(data-pos);font-family:var(--mono);font-size:10px;font-weight:700;color:var(--muted)}
+}
+
+/* 3.4: плашки CO / BTN — EV переносится под факт */
+.r34-top{container-type:inline-size}
+.r34-big{min-width:0}
+.r34-big b{display:flex;flex-wrap:wrap;align-items:baseline;column-gap:6px;font-size:clamp(18px, 6cqi, 26px)}
+
+/* матрица рук 13×13: клетки и шрифт по ширине блока */
+.mx{grid-template-columns:repeat(13,minmax(0,1fr));container-type:inline-size}
+.mx-c{min-width:0}
+.mx-c .h{font-size:clamp(7px, 2.6cqi, 11px)}
+.mx-c .p{font-size:clamp(6px, 2.3cqi, 10px)}
+
+/* широкие таблицы (колд-колл) на узком экране — прокрутка внутри карточки, а не всей страницы */
+.cc-table{overflow-x:auto;min-width:0}
