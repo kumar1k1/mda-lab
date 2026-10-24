@@ -1615,7 +1615,7 @@ function setupAliases(db) {
     let v = nk && nk[i] >= 0 ? nk[i] : -1;
     if (v < 0 && A) { const rn = A.roomNick[db.rooms[room[i]]]; if (rn != null) v = rn; }
     ROW_NICK[i] = v;
-    if (A) { const n = HERO_NICKS[v]; if (n != null) A.nickCnt[n] = (A.nickCnt[n] || 0) + 1; if (n == null || !A.off.has(n)) A.own++; }
+    if (A) { const n = HERO_NICKS[v]; if (n != null) A.nickCnt[n] = (A.nickCnt[n] || 0) + 1; else A.unk = (A.unk || 0) + 1; if (n == null || !A.off.has(n)) A.own++; }
   }
   for (const A of ALIASES) { A.mine = A.mine.filter(m => ALIASES[m.a] && ALIASES[m.a].nicks[m.n] && m.a !== A.k); for (const m of A.mine) A.own += ALIASES[m.a].nickCnt[m.n] || 0; }
   if (!ALIASES[state.alias] || ALIASES[state.alias].gone) state.alias = Math.max(0, ALIASES.findIndex(A => !A.gone));
@@ -1625,8 +1625,9 @@ async function resolveMembers() {
   const all = ALIASES.flatMap(A => A.opp);
   if (!all.length || !mda.playersFind) return;
   const r = await mda.playersFind(all.map(o => [o.n, o.r])) || [];
-  all.forEach((o, i) => { const p = r[i]; o.pid = p ? p.pid : null; o.c = p ? p.count : 0; o.sh = p ? p.shown : 0; });
+  all.forEach((o, i) => { const p = r[i]; o.pid = p ? p.pid : null; o.c = p ? p.count : 0; o.sh = p ? p.shown : 0; MEMB.set(o.r + '\u0001' + o.n, { pid: o.pid, c: o.c, sh: o.sh }); });
 }
+const MEMB = new Map(); // игрок базы (рум + ник) → номер и число раздач
 const aliasCount = (A) => A.own + A.opp.reduce((s, o) => s + o.c, 0);
 // сколько ников в алиасе (ваши без убранных + ваши из других алиасов + игроки базы)
 const nickCount = (A) => Object.keys(A.nicks).filter(n => !A.off.has(n)).length + A.mine.length + A.opp.length;
@@ -1817,28 +1818,56 @@ function openPlayerMenu() {
 }
 
 // ---------- редактор алиасов (вкладка) ----------
-// Правка сохраняется сразу (в meta.json базы); раздачи не трогаются — меняется только состав алиаса.
-let EDIT_A = null, EDIT_BUSY = false, EDIT_NEW = false, EDIT_MSG = '';
-async function saveAliasEdit(mut) {
-  if (!HERO_DB || !mda.saveAliases || EDIT_BUSY) return;
-  EDIT_BUSY = true; EDIT_MSG = '';
-  const list = aliasList(HERO_DB).map(a => JSON.parse(JSON.stringify(a)));
-  const pick = mut(list);
-  const r = await mda.saveAliases(list);
-  EDIT_BUSY = false;
-  if (!r || r.error) { EDIT_MSG = 'Не сохранилось: ' + ((r && r.error) || 'нет связи с базой'); render(); return; }
-  HERO_DB.aliases = r.aliases;
+// Правки копятся в черновике (DRAFT) и применяются кнопкой «ОК»: тогда пишутся в meta.json базы
+// и выбранный алиас открывается во вкладках. Раздачи не трогаются — меняется только состав алиаса.
+let EDIT_A = null, EDIT_BUSY = false, EDIT_NEW = false, EDIT_MSG = '', DRAFT = null;
+function editAliasEdit(mut) {
+  if (!HERO_DB) return;
+  if (!DRAFT) DRAFT = aliasList(HERO_DB).map(a => JSON.parse(JSON.stringify(a)));
+  EDIT_MSG = '';
+  const pick = mut(DRAFT);
   if (typeof pick === 'number') EDIT_A = pick;
-  setupAliases(HERO_DB);
-  await refreshAliasView();
+  render();
+}
+// алиасы черновика для показа: числа раздач — из уже посчитанных ников
+function draftInfo() {
+  if (!DRAFT) return ALIASES;
+  const info = DRAFT.map((a, k) => {
+    const base = ALIASES[k] || { nickCnt: {}, unk: 0 };
+    return { k, name: a.name, nicks: a.nicks || {}, off: new Set(Object.keys(a.off || {})), mine: (a.mine || []).map(m => ({ a: m.a, n: m.n })),
+      opp: (a.opp || []).map(o => Object.assign({ n: o.n, r: o.r, pid: null, c: 0, sh: 0 }, MEMB.get(o.r + '\u0001' + o.n))), gone: !!a.gone, nickCnt: base.nickCnt, unk: base.unk || 0, own: 0 };
+  });
+  for (const A of info) {
+    A.mine = A.mine.filter(m => info[m.a] && !info[m.a].gone && info[m.a].nicks[m.n] && m.a !== A.k);
+    A.own = (A.unk || 0) + Object.keys(A.nicks).filter(n => !A.off.has(n)).reduce((t, n) => t + (A.nickCnt[n] || 0), 0) + A.mine.reduce((t, m) => t + (info[m.a].nickCnt[m.n] || 0), 0);
+  }
+  return info;
+}
+// «ОК»: применить черновик и открыть алиас во вкладках
+async function applyAliasEdit() {
+  if (!HERO_DB || EDIT_BUSY) return;
+  const target = EDIT_A;
+  if (DRAFT) {
+    if (!mda.saveAliases) return;
+    EDIT_BUSY = true; render();
+    const r = await mda.saveAliases(DRAFT);
+    EDIT_BUSY = false;
+    if (!r || r.error) { EDIT_MSG = 'Не сохранилось: ' + ((r && r.error) || 'нет связи с базой'); render(); return; }
+    DRAFT = null; HERO_DB.aliases = r.aliases;
+    setupAliases(HERO_DB); VIEW_CACHE.clear(); await resolveMembers();
+  }
+  const A = ALIASES[target];
+  if (A && !A.gone) await choosePlayer('alias', target);
+  else await refreshAliasView();
 }
 function renderAliasEditor() {
   const c = el('div', 'als');
   c.append(el('h1', null, 'Редактор алиасов'),
     el('p', 'als-lead', 'Алиас — один игрок под всеми его никами. Добавьте в алиас ники игроков из базы или уберите свои — вкладки алиаса пересчитаются по его никам. Раздачи при этом не удаляются и не переносятся.'));
   if (!HERO_DB) { c.append(el('p', 'muted', 'Сначала загрузите базу.')); return c; }
-  const live = ALIASES.filter(A => !A.gone);
-  if (EDIT_A == null || !ALIASES[EDIT_A] || ALIASES[EDIT_A].gone) EDIT_A = curAlias() ? state.alias : live.length ? live[0].k : null;
+  const AL = draftInfo(); // черновик правок (до «ОК») или сохранённые алиасы
+  const live = AL.filter(A => !A.gone);
+  if (EDIT_A == null || !AL[EDIT_A] || AL[EDIT_A].gone) EDIT_A = curAlias() ? state.alias : live.length ? live[0].k : null;
   // алиасы базы
   const chips = el('div', 'als-chips'); chips.setAttribute('role', 'tablist');
   live.forEach(A => {
@@ -1851,15 +1880,16 @@ function renderAliasEditor() {
     const f = el('form', 'als-newform'); const ni = el('input'); ni.placeholder = 'Имя нового алиаса'; ni.maxLength = 40; ni.setAttribute('aria-label', 'Имя нового алиаса');
     const ok = el('button', 'btn small primary', 'Создать'); ok.type = 'submit';
     const no = el('button', 'btn small', 'Отмена'); no.type = 'button'; no.onclick = () => { EDIT_NEW = false; render(); };
-    f.onsubmit = (e) => { e.preventDefault(); const name = ni.value.trim(); if (!name) { ni.focus(); return; } if (ALIASES.some(A => !A.gone && A.name.toLowerCase() === name.toLowerCase())) { EDIT_MSG = 'Алиас «' + name + '» уже есть'; render(); return; } EDIT_NEW = false; saveAliasEdit(list => { list.push({ name, nicks: {}, off: {}, mine: [], opp: [] }); return list.length - 1; }); };
+    f.onsubmit = (e) => { e.preventDefault(); const name = ni.value.trim(); if (!name) { ni.focus(); return; } if (AL.some(A => !A.gone && A.name.toLowerCase() === name.toLowerCase())) { EDIT_MSG = 'Алиас «' + name + '» уже есть'; render(); return; } EDIT_NEW = false; editAliasEdit(list => { list.push({ name, nicks: {}, off: {}, mine: [], opp: [] }); return list.length - 1; }); };
     f.append(ni, ok, no); chips.append(f); setTimeout(() => ni.focus(), 0);
   } else {
     const nb = el('button', 'als-chip als-new', '+ Новый алиас'); nb.type = 'button'; nb.onclick = () => { EDIT_NEW = true; render(); }; chips.append(nb);
   }
   c.append(chips);
   if (EDIT_MSG) c.append(el('p', 'als-msg', EDIT_MSG));
+  if (DRAFT) c.append(el('p', 'als-pending', 'Изменения ещё не применены — нажмите «ОК».'));
   if (EDIT_A == null) { c.append(el('p', 'muted', 'В базе пока нет алиасов. Создайте алиас и добавьте в него игроков из базы.')); return c; }
-  const A = ALIASES[EDIT_A];
+  const A = AL[EDIT_A];
   const card = el('section', 'card als-card');
   const row = (rn, name, sub, n, btn, off) => {
     const r = el('div', 'als-row' + (off ? ' off' : ''));
@@ -1870,13 +1900,15 @@ function renderAliasEditor() {
   const button = (label, cls, fn) => { const b = el('button', 'btn small' + (cls ? ' ' + cls : ''), label); b.type = 'button'; b.onclick = fn; b.disabled = EDIT_BUSY; return b; };
   // имя
   const nameRow = el('label', 'als-name'); const nin = el('input'); nin.value = A.name; nin.maxLength = 40;
-  nin.onchange = () => { const v = nin.value.trim(); if (!v || v === A.name) { nin.value = A.name; return; } if (ALIASES.some(B => !B.gone && B !== A && B.name.toLowerCase() === v.toLowerCase())) { EDIT_MSG = 'Алиас «' + v + '» уже есть'; render(); return; } saveAliasEdit(list => { list[A.k].name = v; }); };
+  nin.onchange = () => { const v = nin.value.trim(); if (!v || v === A.name) { nin.value = A.name; return; } if (AL.some(B => !B.gone && B !== A && B.name.toLowerCase() === v.toLowerCase())) { EDIT_MSG = 'Алиас «' + v + '» уже есть'; render(); return; } editAliasEdit(list => { list[A.k].name = v; }); };
   nameRow.append(el('span', null, 'Имя алиаса'), nin);
   const top = el('div', 'als-top'); top.append(nameRow);
-  const isCur = !state.player && !state.nickView && state.alias === A.k;
-  const open = button(isCur ? 'Открыт во вкладках' : 'Открыть во вкладках', isCur ? '' : 'primary', () => { if (!isCur) choosePlayer('alias', A.k); });
-  if (isCur) open.disabled = true;
-  top.append(open);
+  // «ОК» — применить изменения (всех алиасов) и открыть этот алиас во вкладках; «Отменить» — вернуть как было
+  const acts = el('div', 'als-acts');
+  if (DRAFT) acts.append(button('Отменить изменения', '', () => { DRAFT = null; EDIT_MSG = ''; render(); }));
+  const ok = button(EDIT_BUSY ? 'Применяю…' : 'ОК', 'primary als-ok', () => applyAliasEdit());
+  ok.title = DRAFT ? 'Применить изменения и открыть алиас во вкладках' : 'Открыть алиас во вкладках';
+  acts.append(ok); top.append(acts);
   card.append(top);
   // ваши ники
   const own = Object.keys(A.nicks).sort((x, y) => (A.nickCnt[y] || 0) - (A.nickCnt[x] || 0));
@@ -1887,18 +1919,18 @@ function renderAliasEditor() {
     own.forEach(n => {
       const off = A.off.has(n);
       sec.append(row(A.nicks[n], n, A.nicks[n] + (off ? ' · не в алиасе' : ''), (A.nickCnt[n] || 0).toLocaleString('ru-RU'),
-        button(off ? 'Вернуть' : 'Убрать', off ? 'primary' : '', () => saveAliasEdit(list => { const o = list[A.k].off = Object.assign({}, list[A.k].off); if (off) delete o[n]; else o[n] = 1; })), off));
+        button(off ? 'Вернуть' : 'Убрать', off ? 'primary' : '', () => editAliasEdit(list => { const o = list[A.k].off = Object.assign({}, list[A.k].off); if (off) delete o[n]; else o[n] = 1; })), off));
     });
     card.append(sec);
   }
   // ваши ники из других алиасов: комбинации ваших ников
   const otherOwn = [];
-  ALIASES.forEach(B => { if (B.gone || B.k === A.k) return; Object.keys(B.nicks).forEach(n => { if (!A.mine.some(m => m.a === B.k && m.n === n)) otherOwn.push({ a: B.k, n }); }); });
+  AL.forEach(B => { if (B.gone || B.k === A.k) return; Object.keys(B.nicks).forEach(n => { if (!A.mine.some(m => m.a === B.k && m.n === n)) otherOwn.push({ a: B.k, n }); }); });
   if (A.mine.length || otherOwn.length) {
     const sec = el('div', 'als-sec');
     sec.append(el('h3', null, own.length ? 'Ваши ники из других алиасов' : 'Ваши ники'), el('p', 'als-hint', 'Соберите любые сочетания своих ников: каждый с каждым или все вместе. Ник остаётся и в своём алиасе.'));
-    A.mine.forEach(m => { const B = ALIASES[m.a]; sec.append(row(B.nicks[m.n], m.n, B.nicks[m.n] + ' · из «' + B.name + '»', (B.nickCnt[m.n] || 0).toLocaleString('ru-RU'), button('Убрать', '', () => saveAliasEdit(list => { list[A.k].mine = (list[A.k].mine || []).filter(x => !(x.a === m.a && x.n === m.n)); })))); });
-    otherOwn.forEach(m => { const B = ALIASES[m.a]; sec.append(row(B.nicks[m.n], m.n, B.nicks[m.n] + ' · в «' + B.name + '»', (B.nickCnt[m.n] || 0).toLocaleString('ru-RU'), button('Добавить', 'primary', () => saveAliasEdit(list => { list[A.k].mine = (list[A.k].mine || []).concat([{ a: m.a, n: m.n }]); })), true)); });
+    A.mine.forEach(m => { const B = AL[m.a]; sec.append(row(B.nicks[m.n], m.n, B.nicks[m.n] + ' · из «' + B.name + '»', (B.nickCnt[m.n] || 0).toLocaleString('ru-RU'), button('Убрать', '', () => editAliasEdit(list => { list[A.k].mine = (list[A.k].mine || []).filter(x => !(x.a === m.a && x.n === m.n)); })))); });
+    otherOwn.forEach(m => { const B = AL[m.a]; sec.append(row(B.nicks[m.n], m.n, B.nicks[m.n] + ' · в «' + B.name + '»', (B.nickCnt[m.n] || 0).toLocaleString('ru-RU'), button('Добавить', 'primary', () => editAliasEdit(list => { list[A.k].mine = (list[A.k].mine || []).concat([{ a: m.a, n: m.n }]); })), true)); });
     card.append(sec);
   }
   // игроки базы в алиасе
@@ -1906,7 +1938,7 @@ function renderAliasEditor() {
   ms.append(el('h3', null, own.length || A.mine.length ? 'Игроки из базы в этом алиасе' : 'Ники алиаса'), el('p', 'als-hint', 'Их раздачи из «Других игроков» объединяются с алиасом. Убранный игрок возвращается в «Другие игроки».'));
   if (!A.opp.length) ms.append(el('p', 'als-empty', 'Пока никого — добавьте ниже.'));
   A.opp.forEach((o, j) => ms.append(row(o.r, o.n, o.r + (o.sh ? ' · карты видны в ' + o.sh.toLocaleString('ru-RU') : '') + (o.pid == null ? ' · нет в базе' : ''), o.c.toLocaleString('ru-RU'),
-    button('Убрать', '', () => saveAliasEdit(list => { list[A.k].opp = (list[A.k].opp || []).filter((x, k) => k !== j); })))));
+    button('Убрать', '', () => editAliasEdit(list => { list[A.k].opp = (list[A.k].opp || []).filter((x, k) => k !== j); })))));
   card.append(ms);
   // добавить из базы
   const add = el('div', 'als-sec');
@@ -1917,7 +1949,8 @@ function renderAliasEditor() {
   const fill = async () => {
     const s = ++seq; const r = mda.playersList ? await mda.playersList(q.value, 30) : { total: 0, players: [] }; if (s !== seq) return;
     res.replaceChildren();
-    r.players.forEach(p => { const rn = HERO_DB.rooms[p.room]; res.append(row(rn, p.name, rn + (p.shown ? ' · карты видны в ' + p.shown.toLocaleString('ru-RU') : ''), p.count.toLocaleString('ru-RU'), button('Добавить', 'primary', () => saveAliasEdit(list => { list[A.k].opp = (list[A.k].opp || []).concat([{ n: p.name, r: rn }]); })))); });
+    const inDraft = new Set(AL.flatMap(B => B.gone ? [] : B.opp.map(o => o.r + '\u0001' + o.n))); // уже добавлены в черновике
+    r.players.forEach(p => { const rn = HERO_DB.rooms[p.room]; if (inDraft.has(rn + '\u0001' + p.name)) return; res.append(row(rn, p.name, rn + (p.shown ? ' · карты видны в ' + p.shown.toLocaleString('ru-RU') : ''), p.count.toLocaleString('ru-RU'), button('Добавить', 'primary', () => { MEMB.set(rn + '\u0001' + p.name, { pid: p.pid, c: p.count, sh: p.shown }); editAliasEdit(list => { list[A.k].opp = (list[A.k].opp || []).concat([{ n: p.name, r: rn }]); }); }))); });
     if (!r.players.length) res.append(el('p', 'als-empty', q.value ? 'Никого не нашли' : 'В базе нет других игроков'));
     else if (r.total > r.players.length) res.append(el('p', 'als-empty', 'Показаны ' + r.players.length + ' из ' + r.total.toLocaleString('ru-RU') + ' — уточните начало ника'));
   };
@@ -1926,7 +1959,7 @@ function renderAliasEditor() {
   // распустить
   const foot = el('div', 'als-foot');
   if (!own.length) {
-    const d = button('Распустить алиас', 'danger', () => { if (!d.dataset.armed) { d.dataset.armed = '1'; d.textContent = 'Точно распустить? Игроки вернутся в «Другие игроки»'; return; } saveAliasEdit(list => { list[A.k].gone = 1; list[A.k].opp = []; list[A.k].mine = []; }); });
+    const d = button('Распустить алиас', 'danger', () => { if (!d.dataset.armed) { d.dataset.armed = '1'; d.textContent = 'Точно распустить? Игроки вернутся в «Другие игроки»'; return; } editAliasEdit(list => { list[A.k].gone = 1; list[A.k].opp = []; list[A.k].mine = []; }); });
     foot.append(d);
   } else foot.append(el('p', 'als-hint', 'Здесь лежат раздачи ваших ников — этот алиас можно переименовать и менять его состав, но не распустить.'));
   card.append(foot);
@@ -1975,7 +2008,7 @@ function setDb(db, keepAlias) {
   document.querySelector('.filters').hidden = !db;
   HERO_DB = db;
   if (!db) { $('demoTag').hidden = true; state.player = null; closePlayerMenu(); updatePlayer(); render(); return; }
-  setupAliases(db); VIEW_CACHE.clear(); EDIT_A = null;
+  setupAliases(db); VIEW_CACHE.clear(); EDIT_A = null; DRAFT = null;
   Object.assign(state, { room: null, player: null, nickView: null, nickA: null, type: null, from: null, to: null, biFrom: null, biTo: null });
   closePlayerMenu();
   setupFilters();
