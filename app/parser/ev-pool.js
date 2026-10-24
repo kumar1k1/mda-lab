@@ -42,7 +42,7 @@ async function computeEv(dir, jobs, opts) {
       w.postMessage({ a, jobs: jobs.slice(a * S, b * S) });
     };
     for (let t = 0; t < threads; t++) {
-      const w = new Worker(path.join(__dirname, 'ev-worker.js'), { workerData: { dir, samples, z } }); alive++;
+      const w = new Worker(path.join(__dirname, 'ev-worker.js'), { workerData: { dir, samples, z }, resourceLimits: { maxOldGenerationSizeMb: 192, maxYoungGenerationSizeMb: 32 } }); alive++;
       w.on('message', (m) => { out.set(m.res, m.a); done += m.res.length; if (opts.onTick) opts.onTick(done, n); feed(w); });
       w.on('error', (e) => { if (!failed) { failed = true; reject(e); } });
       feed(w);

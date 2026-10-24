@@ -18,7 +18,15 @@ const queue = []; let busy = false, ackResolve = null;
 function waitAck() { return new Promise(r => { ackResolve = r; }); }
 async function work(fi) {
   let hands = [], errors = 0, seq = 0;
-  const flush = async (done) => { parentPort.postMessage({ fi, seq: seq++, hands, errors, done }); hands = []; errors = 0; await waitAck(); };
+  // сжатые записи порции — в один плотный буфер, передаётся без копирования.
+  // (буфер от deflateRawSync — 16 КБ под запись в ~300 байт: передавать его как есть значит раздувать память в десятки раз)
+  const flush = async (done) => {
+    let total = 0; for (const h of hands) if (h.rpz) total += h.rpz.length;
+    const buf = new Uint8Array(total); let off = 0;
+    for (const h of hands) { if (h.rpz) { buf.set(h.rpz, off); h.rpzOff = off; h.rpzLen = h.rpz.length; off += h.rpz.length; } else h.rpzOff = -1; h.rpz = undefined; }
+    parentPort.postMessage({ fi, seq: seq++, hands, errors, done, rpzBuf: buf }, [buf.buffer]);
+    hands = []; errors = 0; await waitAck();
+  };
   try {
     await eachText(files[fi], async (text) => {
       const r = parseTextAll(text, heroes); errors += r.errors;

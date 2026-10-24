@@ -73,7 +73,9 @@ async function parseParallel(files, heroes, onHand, onFile, threads) {
       }
     };
     const take = (m, w) => {
-      errors += m.errors; for (const h of m.hands) onHand(h);
+      errors += m.errors;
+      const rb = m.rpzBuf;
+      for (const h of m.hands) { h.rpz = h.rpzOff >= 0 ? Buffer.from(rb.buffer, rb.byteOffset + h.rpzOff, h.rpzLen) : null; onHand(h); }
       w.postMessage({ type: 'ack' });
       if (m.done) { ahead -= size[m.fi]; w.load--; want++; if (onFile) onFile(want, files.length); }
     };
@@ -87,7 +89,8 @@ async function parseParallel(files, heroes, onHand, onFile, threads) {
       assign();
     };
     for (let t = 0; t < P; t++) {
-      const w = new Worker(path.join(__dirname, 'parse-worker.js'), { workerData: { files, heroes: [...heroes] } });
+      // предел памяти потока: без него движок копит мусор и раздувает память при больших файлах
+      const w = new Worker(path.join(__dirname, 'parse-worker.js'), { workerData: { files, heroes: [...heroes] }, resourceLimits: { maxOldGenerationSizeMb: 384, maxYoungGenerationSizeMb: 48 } });
       w.load = 0; ws.push(w);
       w.on('message', (m) => {
         if (m.fi === want) take(m, w); else { if (!pending.has(m.fi)) pending.set(m.fi, []); pending.get(m.fi).push({ m, w }); }
@@ -126,7 +129,7 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
   const errors = await parseParallel(files, heroes, (h) => {
     if (!seen.add(h.k)) { dup++; return; }
     const roomIdx = rooms.indexOf(nicksAll[h.hero.hero]);
-    const ref = h.rpz ? rpw.addRaw(Buffer.from(h.rpz.buffer, h.rpz.byteOffset, h.rpz.byteLength)) : null;
+    const ref = h.rpz ? rpw.addRaw(h.rpz) : null;
     const hv = rowVals(h.hero, roomIdx);
     for (const [nm] of SCHEMA) H[nm].push(hv[nm]);
     const hr = h.heroRp && ref && h.hero.hc >= 0; // как раньше: запись реплеера у вашей раздачи — в ваших спотах и с вашими картами
@@ -189,31 +192,29 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
     mergeColumn(old && old.og, old ? old.oppN : 0, nm, t, a, oPlan, godir, fo, fn);
   }
 
-  // 4. EV для новых строк — по их местам после слияния
-  const jobs = [], where = []; // where: [таблица 0/1, позиция]
-  const addJobs = (table, plan, perm, cols, seedOf) => {
-    const hc = cols.hc.readAll(), rpp = cols.rpp.readAll(), rpo = cols.rpo.readAll(), rpl = cols.rpl.readAll(), key = cols.key.readAll(), seat = cols.seat ? cols.seat.readAll() : null;
-    for (let k = 0, j = 0; k < plan.length; k++) {
-      if (!plan[k]) continue;
-      const o = perm[j++];
-      if (rpp[o] < 0 || hc[o] < 0) continue;
-      jobs.push(k, rpp[o], rpo[o], rpl[o], seedOf(k, key[o], seat ? seat[o] : -1), seat ? seat[o] : -1); where.push(table, k);
+  // 4. EV для новых строк — по их местам после слияния. Колонки читаются кусками по порядку строк
+  //    (не целиком), список расчётов — плотный массив: память не растёт с размером базы.
+  const nTot = [(old ? old.heroN : 0) + nH, (old ? old.oppN : 0) + nO];
+  const scan = (table, plan, gd, cb) => {
+    const R = (n, t) => new ColumnReader(colFile(gd, n), t, nTot[table]);
+    const hc = R('hc', 'i16'), rpp = R('rpp', 'i32'), rpo = R('rpo', 'u32'), rpl = R('rpl', 'u32'), key = R('key', 'f64'), seat = table ? R('seat', 'i8') : null;
+    for (let k = 0; k < plan.length; k++) {
+      if (!plan[k] || rpp.get(k) < 0 || hc.get(k) < 0) continue;
+      cb(k, rpp.get(k), rpo.get(k), rpl.get(k), key.get(k), seat ? seat.get(k) : -1);
     }
+    [hc, rpp, rpo, rpl, key].concat(seat ? [seat] : []).forEach(r => r.close());
   };
-  addJobs(0, hPlan, hPerm, H, (k) => k + 1); // ваши — как раньше: номер раздачи после сортировки
-  addJobs(1, oPlan, oPerm, O, (k, key, seat) => oppSeed(key, seat));
-  const J = Float64Array.from(jobs);
+  let nJobs = 0; scan(0, hPlan, gdir, () => nJobs++); const nHeroJobs = nJobs; scan(1, oPlan, godir, () => nJobs++);
+  const J = new Float64Array(nJobs * STRIDE); let q = 0;
+  scan(0, hPlan, gdir, (k, p, o, l) => { J.set([k, p, o, l, k + 1, -1], q * STRIDE); q++; }); // ваши — как раньше: номер раздачи после сортировки
+  scan(1, oPlan, godir, (k, p, o, l, key, seat) => { J.set([k, p, o, l, oppSeed(key, seat), seat], q * STRIDE); q++; });
   const ev = await computeEv(dir, J, { z: true, threads: opts.threads, onTick: (d, t) => prog('ev', d, t, nH) });
-  for (const [table, gd] of [[0, gdir], [1, godir]]) {
-    const pos = [], val = [];
-    for (let q = 0; q < ev.length; q++) {
-      if (where[q * 2] !== table || Number.isNaN(ev[q])) continue;
-      pos.push(where[q * 2 + 1]);
-    }
-    if (!pos.length) continue;
-    const net = typedFrom(fs.readFileSync(colFile(gd, 'net')), 'f64');
-    for (let q = 0; q < ev.length; q++) { if (where[q * 2] !== table || Number.isNaN(ev[q])) continue; const k = where[q * 2 + 1]; val.push(Math.round((net[k] / 10 + ev[q]) * 1000) / 100); }
-    patchColumn(gd, 'nev', 'f64', pos, val);
+  // запись EV: итог раздачи + поправка; позиции идут по возрастанию — итог читается кусками
+  for (const [table, gd, a0, a1] of [[0, gdir, 0, nHeroJobs], [1, godir, nHeroJobs, nJobs]]) {
+    const pos = [], val = [], net = new ColumnReader(colFile(gd, 'net'), 'f64', nTot[table]);
+    for (let j = a0; j < a1; j++) { if (Number.isNaN(ev[j])) continue; const k = J[j * STRIDE]; pos.push(k); val.push(Math.round((net.get(k) / 10 + ev[j]) * 1000) / 100); }
+    net.close();
+    if (pos.length) patchColumn(gd, 'nev', 'f64', pos, val);
   }
 
   // 5. игроки: где начинаются строки каждого и сколько их (строки упорядочены по номеру игрока)
