@@ -1735,7 +1735,7 @@ async function choosePlayer(kind, v, a) {
     state.player = { pid: v.pid, name: v.name, room: v.room, count: v.count, shown: v.shown };
     state.nickView = null; state.room = v.room; DB = odb;
   } else {
-    if (kind === 'alias' && v != null && ALIASES[v] && !ALIASES[v].gone) state.alias = v;
+    if (kind === 'alias' && v != null && ALIASES[v] && !ALIASES[v].gone) { if (state.alias !== v) OPEN_K = null; state.alias = v; }
     const A = curAlias();
     if (kind === 'nick' || !isSimple(A)) { $('nick').textContent = kind === 'nick' ? v : A.name; $('handsCount').textContent = 'собираю раздачи…'; }
     const na = kind === 'nick' ? (a != null ? a : state.nickA != null ? state.nickA : state.alias) : null;
@@ -1866,11 +1866,11 @@ function draftInfo() {
   }
   return info;
 }
-// ники алиаса в списке игроков: раскрыты/скрыты (по умолчанию раскрыт только открытый алиас); запоминается на этом компьютере
-let ALIAS_OPEN = {};
-try { ALIAS_OPEN = JSON.parse(localStorage.getItem('mda.aliasOpen') || '{}') || {}; } catch (e) { ALIAS_OPEN = {}; }
-function aliasOpen(A) { return A.name in ALIAS_OPEN ? !!ALIAS_OPEN[A.name] : A.k === state.alias; }
-function setAliasOpen(A, v) { ALIAS_OPEN[A.name] = v ? 1 : 0; try { localStorage.setItem('mda.aliasOpen', JSON.stringify(ALIAS_OPEN)); } catch (e) { /* без запоминания */ } }
+// ники в списке игроков раскрыты только у одного алиаса: у открытого (или того, что раскрыли стрелкой).
+// Раскрыли другой, выбрали или создали алиас — предыдущий сворачивается. OPEN_K: номер алиаса, -1 — все свёрнуты, null — открытый.
+let OPEN_K = null;
+function aliasOpen(A) { return OPEN_K == null ? A.k === state.alias : A.k === OPEN_K; }
+function setAliasOpen(A, v) { OPEN_K = v ? A.k : -1; }
 // правка из списка игроков (крестик у ника): применяется сразу, список остаётся открытым
 async function quickAliasEdit(mut) {
   if (!HERO_DB || EDIT_BUSY || !mda.saveAliases) return;
@@ -1909,7 +1909,7 @@ async function applyAliasEdit() {
     if (draftInfo().filter(A => !A.gone).length >= MAX_ALIASES) { EDIT_MSG = 'Больше ' + MAX_ALIASES + ' алиасов создать нельзя'; render(); return; }
     EDIT_NEW = false;
     if (!DRAFT) DRAFT = aliasList(HERO_DB).map(a => JSON.parse(JSON.stringify(a)));
-    DRAFT.push({ name: pend, nicks: {}, off: {}, mine: [], opp: [] }); EDIT_A = DRAFT.length - 1;
+    DRAFT.push({ name: pend, nicks: {}, off: {}, mine: [], opp: [] }); EDIT_A = DRAFT.length - 1; OPEN_K = EDIT_A;
     await saveDraftNow(); return;
   }
   EDIT_NEW = false;
@@ -1971,7 +1971,7 @@ function renderAliasEditor() {
     f.onsubmit = (e) => { e.preventDefault(); const name = ni.value.trim(); if (!name) { ni.focus(); return; } if (AL.some(A => !A.gone && A.name.toLowerCase() === name.toLowerCase())) { EDIT_MSG = 'Алиас «' + name + '» уже есть'; render(); return; } EDIT_NEW = false;
       // новый алиас создаётся сразу (можно пустым) — ники добавите потом
       if (!DRAFT) DRAFT = aliasList(HERO_DB).map(a => JSON.parse(JSON.stringify(a)));
-      DRAFT.push({ name, nicks: {}, off: {}, mine: [], opp: [] }); EDIT_A = DRAFT.length - 1;
+      DRAFT.push({ name, nicks: {}, off: {}, mine: [], opp: [] }); EDIT_A = DRAFT.length - 1; OPEN_K = EDIT_A;
       saveDraftNow(); };
     f.append(ni, ok, no); chips.append(f); setTimeout(() => ni.focus(), 0);
   } else {
