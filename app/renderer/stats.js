@@ -198,7 +198,7 @@
         const m = out.mx[c.hc[i]], a = c.act[i]; m.n++;
         if (a === 1) m.lp++; else if (a >= 2) { m.x++; if (a === 3) m.ai++; }
       }
-      if (c.hc[i] >= 0 && p === opt.oPos && c.ostk && (!opt.oStk || (c.ostk[i] >= opt.oStk[0] * 10 && c.ostk[i] < opt.oStk[1] * 10)) && (!opt.oMy || (c.bb[i] >= opt.oMy[0] * 10 && c.bb[i] < opt.oMy[1] * 10))) {
+      if (c.hc[i] >= 0 && p === opt.oPos && c.ostk && (!opt.oStk || (c.ostk[i] >= opt.oStk[0] * 10 && c.ostk[i] < opt.oStk[1] * 10)) && (!opt.oMy || (c.bb[i] >= opt.oMy[0] * 10 && c.bb[i] < opt.oMy[1] * 10)) && (!opt.oOpen || !opt.oOpen.length || opt.oOpen.includes(POS[c.opos[i]]))) {
         const m = out.mxO[c.hc[i]], a = c.act[i]; m.n++;
         if (a === 1) m.lp++; else if (a >= 2) { m.x++; if (a === 3) m.ai++; }
       }

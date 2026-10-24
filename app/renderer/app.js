@@ -171,7 +171,7 @@ function block(title, note, tableNode, vizNodes) {
 
 // ---------- вкладка RFI ----------
 // ---------- сводка вкладки RFI (нумерованные элементы — чтобы удобно выбирать, что оставить) ----------
-const uiState = { mxPos: 'EP', mxStk: '20–30', mxCustom: null, ccPos: 'BTN', ccStk: '20–30', ccCustom: null, ccOPos: 'BTN', ccOStkR: null, ccOMyR: null };
+const uiState = { mxPos: 'EP', mxStk: '20–30', mxCustom: null, ccPos: 'BTN', ccStk: '20–30', ccCustom: null, ccOPos: 'BTN', ccOStkR: null, ccOMyR: null, ccOOpen: [] };
 const MX_STK = [['<12', '<12', [0, 12]], ['12–16', '12–16', [12, 16]], ['16–20', '16–20', [16, 20]], ['20–30', '20–30', [20, 30]], ['30–50', '30–50', [30, 50]], ['50+', '50+', [50, 1e9]]];
 function getTarget() { try { const v = parseFloat(localStorage.getItem('mdalab.rfiTarget')); return isNaN(v) ? 30 : v; } catch (e) { return 30; } }
 function setTarget(v) { try { localStorage.setItem('mdalab.rfiTarget', String(v)); } catch (e) { /* без сохранения */ } }
@@ -1204,7 +1204,13 @@ function ccOppBlock(r) {
   const b = el('section', 'block cc-table'); b.append(numTag(5));
   const h = el('div', 'block-head'); h.append(el('h2', null, 'Ваш ответ против стека открывающего'), el('p', null, 'колл, 3-бет, олл-ин или фолд каждой рукой, когда перед вами был один рейз; стеки задаёте сами'));
   const seg = el('div', 'seg');
-  ['MP', 'HJ', 'CO', 'BTN', 'SB', 'BB'].filter(p => r.cc[p].n >= SMALL).forEach(p => { const bt = el('button', uiState.ccOPos === p ? 'on' : '', p); bt.type = 'button'; bt.onclick = () => { uiState.ccOPos = p; render(); }; seg.append(bt); });
+  ['MP', 'HJ', 'CO', 'BTN', 'SB', 'BB'].filter(p => r.cc[p].n >= SMALL).forEach(p => { const bt = el('button', uiState.ccOPos === p ? 'on' : '', p); bt.type = 'button'; bt.onclick = () => { uiState.ccOPos = p; uiState.ccOOpen = []; render(); }; seg.append(bt); });
+  // позиция открывающего: можно выбрать одну или несколько — ответ считается суммарно против них
+  const segO = el('div', 'seg seg-multi');
+  const opts = ['EP', 'MP', 'HJ', 'CO', 'BTN', 'SB'].filter(op => r.vs[uiState.ccOPos] && r.vs[uiState.ccOPos][op] && r.vs[uiState.ccOPos][op].n > 0);
+  const sel = uiState.ccOOpen.filter(op => opts.includes(op));
+  const ball = el('button', sel.length ? '' : 'on', 'Все'); ball.type = 'button'; ball.setAttribute('aria-pressed', String(!sel.length)); ball.onclick = () => { uiState.ccOOpen = []; render(); }; segO.append(ball);
+  opts.forEach(op => { const on = sel.includes(op); const bt = el('button', on ? 'on' : '', op); bt.type = 'button'; bt.setAttribute('aria-pressed', String(on)); bt.onclick = () => { uiState.ccOOpen = on ? sel.filter(x => x !== op) : sel.concat([op]); render(); }; segO.append(bt); });
   const body = el('div', 'block-body'); body.append(handMatrix(r.mxO, ['3-бет', 'олл-ин', 'колл', 'фолд']));
   const side = el('div', 'mx-side');
   const leg = el('div', 'resp-legend row'); [['3-бет', 'var(--mx-raise)'], ['олл-ин', 'var(--mx-push)'], ['колл', 'var(--mx-limp)'], ['фолд', 'var(--mx-empty)']].forEach(([l, col]) => { const it = el('span'); const i = el('i'); i.style.background = col; if (col === 'var(--mx-empty)') i.style.border = '1px solid var(--line2)'; it.append(i, document.createTextNode(l)); leg.append(it); });
@@ -1236,8 +1242,8 @@ function ccOppBlock(r) {
     if (o === 'bad' || m === 'bad') { err.textContent = 'В каждом диапазоне «до» должно быть больше «от»'; return; }
     uiState.ccOStkR = o; uiState.ccOMyR = m; render();
   };
-  side.append(leg, el('span', 'mx-cap', 'Ваша позиция'), seg, form,
-    el('span', 'muted small', 'Открывающий: ' + rangeTxt(uiState.ccOStkR) + ' · вы: ' + rangeTxt(uiState.ccOMyR) + ' · ' + n.toLocaleString('ru-RU') + ' раз перед вами был один рейз'));
+  side.append(leg, el('span', 'mx-cap', 'Ваша позиция'), seg, el('span', 'mx-cap', 'Позиция открывающего — можно несколько'), segO, form,
+    el('span', 'muted small', 'Открывающий: ' + (sel.length ? sel.join(' + ') : 'любая позиция') + ', ' + rangeTxt(uiState.ccOStkR) + ' · вы: ' + rangeTxt(uiState.ccOMyR) + ' · ' + n.toLocaleString('ru-RU') + ' раз перед вами был один рейз'));
   side.append(infoNote('Задайте стек открывающего и свой стек в BB: «от» и «до» можно заполнить оба или одно (пустое «до» — без верхней границы). Нажмите «Показать» — матрица покажет ваши ответы ровно в таких раздачах. «Сброс» возвращает «любой». Клетка закрашена слева направо на долю ответов этой рукой: янтарная часть — 3-бет, синяя — олл-ин, зелёная — колл, тёмная — фолд. Бледная заливка — меньше 5 раздач.'));
   body.append(side);
   b.append(h, body);
@@ -1323,7 +1329,7 @@ function ccTable(r) {
 }
 function renderCC(idx) {
   const ccStk = uiState.ccStk === 'custom' && uiState.ccCustom ? uiState.ccCustom : (MX_STK.find(z => z[0] === uiState.ccStk) || MX_STK[0])[2];
-  const r = Stats.cc(DB, idx, { mxPos: uiState.ccPos, mxStk: ccStk, oPos: uiState.ccOPos, oStk: uiState.ccOStkR, oMy: uiState.ccOMyR });
+  const r = Stats.cc(DB, idx, { mxPos: uiState.ccPos, mxStk: ccStk, oPos: uiState.ccOPos, oStk: uiState.ccOStkR, oMy: uiState.ccOMyR, oOpen: uiState.ccOOpen });
   const page = el('div', 'page');
   const head = el('div', 'page-head');
   const h1 = el('h1'); h1.append(document.createTextNode('Колд-колл '), el('span', null, 'CC'));
