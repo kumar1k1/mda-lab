@@ -1159,7 +1159,9 @@ function renderRFISummary(idx, r) {
 // ---------- вкладка «Колд-колл» ----------
 // таблица CC: наведение на ячейку — матрица рук, которыми вы коллировали, с итогом; клик — закрепить, раздачи и реплеер
 function ccTable(r) {
-  const w = heatTable({ cols: r.CC_COLS, groupGapBefore: 6, rows: [{ label: 'Колд-колл', data: r.cc }] });
+  // позиции, где такой ситуации почти не бывает (EP за 8-max), не показываем
+  const cols = r.CC_COLS.filter(k => k === 'TOT' || r.cc[k].n >= SMALL);
+  const w = heatTable({ cols, groupGapBefore: cols.indexOf('SB') >= 0 ? cols.indexOf('SB') : cols.indexOf('BB'), rows: [{ label: 'Колд-колл', data: r.cc }] });
   w.querySelectorAll('td.c').forEach(td => {
     const col = td.dataset.col, z = r.hands[col]; if (!z || !z.n) return;
     const it = { p: col === 'TOT' ? null : col, key: 'cc ' + col, title: 'Колд-колл · ' + (col === 'TOT' ? 'все позиции без BB' : col), o: { n: z.n, sum: z.sum }, mx: z.mx, ids: z.ids, sit: 2, act: 1, vlab: ' BB за колд-колл', nlab: ' колд-коллов' };
@@ -1180,7 +1182,7 @@ function renderCC(idx) {
   head.append(h1, el('p', null, 'Как часто вы просто коллируете открытие, когда до вас был ровно один рейз и вы ещё не вкладывались в банк.'));
   page.append(head);
   // #1 — общий колд-колл, по позициям и ваш ответ на открытие; #2 — таблица по позициям (в стиле вкладки RFI)
-  const posRows = ['EP', 'MP', 'HJ', 'CO', 'BTN', 'SB'].map(p => { const z = r.cc[p]; return [p, z.n ? z.x / z.n : null, p + ': ' + z.x + ' из ' + z.n]; });
+  const posRows = ['EP', 'MP', 'HJ', 'CO', 'BTN', 'SB'].filter(p => r.cc[p].n >= SMALL).map(p => { const z = r.cc[p]; return [p, z.n ? z.x / z.n : null, p + ': ' + z.x + ' из ' + z.n]; });
   const c1 = card(1, 'Колд-коллите', '<em>' + pctTxt(r.cc.TOT) + '</em>', 'из ' + r.cc.TOT.n.toLocaleString('ru-RU') + ' открытий перед вами, без BB',
     fillBox(posStrip('По позициям', posRows), respTiles(r.resp, 'Ваш ответ на открытие', [['фолд', 'var(--good)'], ['колл', 'var(--ice)'], ['3-бет', 'var(--bad)']])));
   const c2 = el('div', 'insight');
