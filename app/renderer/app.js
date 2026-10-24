@@ -1346,8 +1346,7 @@ function renderCC(idx) {
   c8.classList.add('wide');
   const zone = el('div', 'summary'); const pair = el('div', 'sum-pair'); pair.append(c1, c8); zone.append(pair);
   c2.classList.add('cc-table');
-  zone.append(c2, ccVsTable(r), ccRangeBlock(r),
-    ccOppBlock(r));
+  zone.append(c2, ccVsTable(r), ccOppBlock(r));
   page.append(zone);
   return page;
 }
