@@ -7,7 +7,7 @@ const MONTHS = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'и�
 let DB = null;
 let CURRENT_IDX = [];
 let LAST_NET_ITEMS = [];
-const state = { tab: 'rfi', sub: 'TOT', room: null, player: null, type: null, from: null, to: null };
+const state = { tab: 'rfi', sub: 'TOT', alias: 0, room: null, player: null, type: null, from: null, to: null };
 
 // ---------- вкладки (группы и список будем менять) ----------
 const GROUPS = [
@@ -1516,7 +1516,7 @@ function renderSoon(tab) {
 
 // ---------- отрисовка ----------
 function currentIdx() {
-  const idx = Stats.selectHands(DB, { room: state.room, type: state.type, from: state.from, to: state.to, biFrom: state.biFrom, biTo: state.biTo, tbl: state.sub === 'TOT' ? null : state.sub });
+  const idx = Stats.selectHands(DB, { aid: state.player ? null : state.alias, room: state.room, type: state.type, from: state.from, to: state.to, biFrom: state.biFrom, biTo: state.biTo, tbl: state.sub === 'TOT' ? null : state.sub });
   return idx; // у соперника своя база (DB) — все его раздачи
 }
 
@@ -1586,18 +1586,31 @@ function setupFilters() {
 
 // Шапка игрока: при выбранном руме — ник и объём этого рума, при Alias — общий ник и вся база
 const ROOM_CODES = { GGPoker: 'GG', Winamax: 'WNX', PokerStars: 'PS', PokerDom: 'PDOM', WPN: 'WPN', iPoker: 'IPK', '888poker': '888', PartyPoker: 'PP' };
-let ROOM_COUNTS = [];
+let ROOM_COUNTS = []; // число раздач выбранного алиаса по румам
+// Алиасы базы: у каждого своё имя, свои ники и свои раздачи (колонка aid). Старая база — один алиас.
+let ALIASES = [];
+function setupAliases(db) {
+  // база только из датамайнинга — алиасов нет (пустой список), старая база — один алиас
+  const list = Array.isArray(db.aliases) ? db.aliases : [{ name: db.hero, nicks: db.nicks || {} }];
+  ALIASES = list.map(a => ({ name: a.name, nicks: a.nicks || {}, count: 0, rooms: db.rooms.map(() => 0) }));
+  const aid = db.cols.aid, room = db.cols.room;
+  for (let i = 0; i < db.count; i++) { const A = ALIASES[aid ? aid[i] : 0]; if (!A) continue; A.count++; if (room[i] >= 0) A.rooms[room[i]]++; }
+  if (!ALIASES[state.alias]) state.alias = 0;
+  ROOM_COUNTS = ALIASES[state.alias] ? ALIASES[state.alias].rooms : db.rooms.map(() => 0);
+}
+const curAlias = () => ALIASES[state.alias] || { name: (HERO_DB || DB).hero, nicks: (HERO_DB || DB).nicks || {}, count: (HERO_DB || DB).count, rooms: ROOM_COUNTS };
 const kFmt = (n) => (n >= 1000 ? Math.round(n / 1000) + 'k' : String(n));
 // подпись героя в реплеере: «Вы» или ник выбранного соперника (функция — чтобы не зависеть от локальных имён в реплеере)
 function heroLabel() { return state.player ? state.player.name : 'Вы'; }
-function heroNickOf(room) { const H = HERO_DB || DB; return (H.nicks ? Object.keys(H.nicks).find(n => H.nicks[n] === H.rooms[room]) : null) || H.hero; }
+function heroNickOf(room, a) { const H = HERO_DB || DB, A = a || curAlias(); return Object.keys(A.nicks).find(n => A.nicks[n] === H.rooms[room]) || A.name; }
 function updatePlayer() {
   if (!DB) { $('roomBadge').textContent = 'НЕТ БАЗЫ'; $('nick').textContent = '—'; $('handsCount').textContent = ''; $('playerBtn').title = ''; $('playerBtn').disabled = true; return; }
   $('playerBtn').disabled = false;
   const opp = state.player, alias = !opp && state.room == null;
   const roomName = alias ? null : DB.rooms[opp ? opp.room : state.room];
-  const nick = opp ? opp.name : alias ? (HERO_DB || DB).hero : heroNickOf(state.room);
-  const count = opp ? opp.count : alias ? (HERO_DB || DB).count : ROOM_COUNTS[state.room] || 0;
+  const A = curAlias();
+  const nick = opp ? opp.name : alias ? A.name : heroNickOf(state.room);
+  const count = opp ? opp.count : alias ? A.count : ROOM_COUNTS[state.room] || 0;
   $('roomBadge').textContent = alias ? 'ALIAS' : (ROOM_CODES[roomName] || roomName.slice(0, 4).toUpperCase());
   $('roomBadge').classList.toggle('room', !alias && !opp);
   $('roomBadge').classList.toggle('opp', !!opp);
@@ -1605,8 +1618,7 @@ function updatePlayer() {
   $('nick').textContent = nick;
   $('handsCount').textContent = count.toLocaleString('ru-RU') + ' раздач' + (opp ? ' · соперник · ' + roomName : alias ? ' · все румы' : ' · ' + roomName);
   $('demoTag').hidden = !DB.demo;
-  const H = HERO_DB || DB;
-  $('playerBtn').title = 'Выбрать игрока' + (alias && H.nicks ? '. Alias объединяет ники: ' + Object.keys(H.nicks).map(n => n + ' (' + H.nicks[n] + ')').join(', ') : '');
+  $('playerBtn').title = 'Выбрать игрока' + (alias ? '. Alias «' + A.name + '» объединяет ники: ' + Object.keys(A.nicks).map(n => n + ' (' + A.nicks[n] + ')').join(', ') : '');
 }
 
 // ---------- выбор игрока: ваши ники и соперники из базы ----------
@@ -1631,7 +1643,8 @@ async function choosePlayer(kind, v) {
     state.player = { pid: v.pid, name: v.name, room: v.room, count: v.count, shown: v.shown };
     state.room = v.room; DB = odb;
   } else {
-    state.player = null; state.room = kind === 'alias' ? null : v; DB = HERO_DB;
+    state.player = null; DB = HERO_DB;
+    if (kind === 'alias') { state.room = null; if (v != null && ALIASES[v]) { state.alias = v; ROOM_COUNTS = ALIASES[v].rooms; } } else state.room = v;
   }
   REPLAYS = null; unpin();
   $('fRoom').value = state.room == null ? '' : String(state.room); // ник выбран — рум выставляется сам
@@ -1652,11 +1665,15 @@ function openPlayerMenu() {
     b.onclick = opts.pick; return b;
   };
   const code = (r) => ROOM_CODES[DB.rooms[r]] || DB.rooms[r].slice(0, 4).toUpperCase();
-  // 1) ваши ники
-  const mine = el('div', 'pm-sec'); mine.append(el('div', 'pm-h', 'Ваши ники'));
+  // 1) алиасы базы (каждый — отдельный игрок со своими никами), под выбранным — его ники по румам
   const H = HERO_DB || DB;
-  mine.append(item({ badge: 'ALIAS', name: H.hero, sub: 'все румы вместе', count: H.count, on: !state.player && state.room == null, pick: () => choosePlayer('alias') }));
-  H.rooms.forEach((rn, r) => { if (!ROOM_COUNTS[r]) return; mine.append(item({ badge: code(r), cls: 'room', name: heroNickOf(r), sub: rn, count: ROOM_COUNTS[r], on: !state.player && state.room === r, pick: () => choosePlayer('hero', r) })); });
+  const mine = el('div', 'pm-sec'); if (!ALIASES.length) mine.hidden = true; mine.append(el('div', 'pm-h', ALIASES.length > 1 ? 'Алиасы в базе' : 'Ваши ники'));
+  ALIASES.forEach((A, a) => {
+    const nr = A.rooms.filter(Boolean).length;
+    mine.append(item({ badge: 'ALIAS', name: A.name, sub: nr > 1 ? 'все румы вместе' : nr === 1 ? H.rooms[A.rooms.findIndex(Boolean)] : 'нет раздач', count: A.count, on: !state.player && state.alias === a && state.room == null, pick: () => choosePlayer('alias', a) }));
+    if (a !== state.alias) return;
+    H.rooms.forEach((rn, r) => { if (!A.rooms[r]) return; const b = item({ badge: code(r), cls: 'room', name: heroNickOf(r, A), sub: rn, count: A.rooms[r], on: !state.player && state.room === r, pick: () => choosePlayer('hero', r) }); if (ALIASES.length > 1) b.classList.add('pm-sub'); mine.append(b); });
+  });
   // 2) другие игроки базы
   const oth = el('div', 'pm-sec pm-oth');
   const hh = el('div', 'pm-h', 'Другие игроки в базе');
@@ -1713,20 +1730,22 @@ async function loadDb() {
   return Object.assign({}, meta, { cols });
 }
 
-function setDb(db) {
+function setDb(db, keepAlias) {
+  if (!keepAlias) state.alias = 0;
   DB = db;
   if (typeof REPLAYS !== 'undefined') REPLAYS = null; // реплеи новой базы загрузятся заново
   unpin();
   document.querySelector('.filters').hidden = !db;
   HERO_DB = db;
   if (!db) { $('demoTag').hidden = true; state.player = null; closePlayerMenu(); updatePlayer(); render(); return; }
-  ROOM_COUNTS = db.rooms.map(() => 0);
-  db.cols.room.forEach(r => { if (r >= 0) ROOM_COUNTS[r]++; });
+  setupAliases(db);
   Object.assign(state, { room: null, player: null, type: null, from: null, to: null, biFrom: null, biTo: null });
   closePlayerMenu();
   setupFilters();
   updatePlayer();
   render();
+  // в базе нет ваших раздач (только датамайнинг) — сразу открыть самого частого игрока
+  if (!ALIASES.length && mda.playersList) mda.playersList('', 1).then(r => { if (DB === db && r && r.players && r.players[0]) choosePlayer('opp', r.players[0]); });
 }
 
 // ---------- загрузка базы ----------
@@ -1739,7 +1758,11 @@ function renderWelcome() {
   const w = el('div', 'welcome');
   const ic = el('div', 'welcome-ic'); ic.innerHTML = '<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 11v5M9.5 13.5 12 11l2.5 2.5"/></svg>';
   const b1 = el('button', 'btn-load', 'Загрузить базу'); b1.type = 'button'; b1.onclick = () => openImportModal();
-  const b2 = el('button', 'btn', 'Посмотреть на демо-данных'); b2.type = 'button'; b2.onclick = async () => setDb(await mda.demoDb());
+  const b2 = el('button', 'btn', 'Посмотреть на демо-данных'); b2.type = 'button'; b2.onclick = async () => { // демо-база открывается в программе как обычная (вкладки, соперники, реплеер)
+    const ok = await mda.demoDb();
+    if (!ok) { b2.textContent = 'Демо-данные не найдены в этой сборке'; b2.disabled = true; return; }
+    state.alias = 0; setDb(await loadDb());
+  };
   const btns = el('div', 'welcome-btns'); btns.append(b1, b2);
   w.append(ic, el('h1', null, 'Загрузите свою базу раздач'),
     el('p', null, 'Укажите папку или zip-архив с историями турнирных раздач. Программа найдёт ваши ники, разберёт раздачи и построит все вкладки по вашей игре.'),
@@ -1763,25 +1786,54 @@ function showImport(r) {
   if (r.unknown) { const tr = el('tr'); tr.append(el('td', 'bad', 'Не распознано'), el('td', null, String(r.unknown)), el('td', null, '—'), el('td', 'muted', 'не похоже на историю раздач')); body.append(tr); }
   const nicks = r.nicks || [];
   $('impNicks').hidden = !nicks.length;
+  const supported = Object.values(r.rooms || {}).some(z => z.supported !== false);
+  IMPORT_SCAN.ok = !!r.nicks && supported;
   $('impNote').hidden = !!nicks.length;
-  $('impNote').textContent = nicks.length ? '' : (r.nicks ? 'Не удалось найти ники героя: в файлах нет поддерживаемых историй раздач.' : 'В онлайн-превью загрузка не работает — только в установленной программе.');
+  $('impNote').textContent = nicks.length ? '' : !r.nicks ? 'В онлайн-превью загрузка не работает — только в установленной программе.'
+    : !supported ? 'В файлах нет поддерживаемых историй раздач.'
+    : 'Ваших ников в этих историях нет (вам не раздавали карты) — похоже на датамайнинг. Раздачи загрузятся в список соперников («Другие игроки»), алиас не создаётся.';
   const list = $('nickList'); list.replaceChildren();
   nicks.forEach((n, k) => {
     const row = el('label', 'nick-row');
     const cb = el('input'); cb.type = 'checkbox'; cb.checked = true; cb.dataset.nick = n.nick;
-    const sel = el('select'); IMPORT_ROOMS.forEach(rm => { const o = el('option', null, rm); o.value = rm; if (rm === n.room) o.selected = true; sel.append(o); });
-    if (!IMPORT_ROOMS.includes(n.room)) { const o = el('option', null, n.room); o.value = n.room; o.selected = true; sel.prepend(o); }
-    sel.setAttribute('aria-label', 'Рум для ника ' + n.nick);
-    row.append(cb, el('b', null, n.nick), sel, el('span', 'muted small', n.hits.toLocaleString('ru-RU') + ' файлов'));
-    cb.onchange = () => { syncImportBtn(); runEstimate(); };
+    row.dataset.room = n.room; // рум определён по файлам — просто подпись, без выбора
+    const sel = el('span', 'nick-room', n.room);
+    const own = aliasOfNick(n.nick);
+    row.append(cb, el('b', null, n.nick), sel, el('span', 'muted small', n.hits.toLocaleString('ru-RU') + ' файлов' + (own ? ' · уже в алиасе «' + own.name + '»' : '')));
+    cb.onchange = () => { syncImportBtn(); runEstimate(); syncAliasHint(); };
     list.append(row);
   });
-  if (!$('aliasName').value && nicks.length) $('aliasName').value = nicks[0].nick;
-  syncImportBtn();
-  $('impPlan').hidden = !nicks.length;
-  if (nicks.length) { setupImportMode(); showBaseLocation(); runEstimate(); }
+  // имя алиаса подставляется заново для каждого архива: если ники уже знакомы — их алиас, иначе первый ник
+  // (раньше поле хранило прошлое имя, и архив друга сливался с вашим алиасом)
+  const known = nicks.map(n => aliasOfNick(n.nick)).find(Boolean);
+  $('aliasName').value = known ? known.name : (nicks[0] ? nicks[0].nick : '');
+  const dl = $('aliasList'); dl.replaceChildren(); ALIASES.forEach(a => { const o = el('option'); o.value = a.name; dl.append(o); });
+  $('aliasName').oninput = syncAliasHint;
+  syncImportBtn(); syncAliasHint();
+  $('impPlan').hidden = !IMPORT_SCAN.ok;
+  if (IMPORT_SCAN.ok) { setupImportMode(); showBaseLocation(); runEstimate(); }
 }
-function syncImportBtn() { $('doImport').disabled = !document.querySelector('#nickList input:checked'); }
+// ник уже есть в одном из алиасов текущей базы (только при дозагрузке — при замене база собирается заново)
+function aliasOfNick(nick) { return HERO_DB && !HERO_DB.demo && HERO_DB.format === 'mdalab-cols-v3' ? ALIASES.find(a => a.nicks[nick]) : null; }
+function syncAliasHint() {
+  const h = $('aliasHint'); if (!h) return;
+  const lab = document.querySelector('.alias-in');
+  const checked = [...document.querySelectorAll('#nickList input:checked')].map(x => x.dataset.nick);
+  const app = importMode() === 'append' && ALIASES.length && HERO_DB;
+  if (!checked.length) { lab.hidden = true; h.textContent = $('impNicks').hidden ? '' : 'Ники не отмечены — раздачи загрузятся только как база соперников, без алиаса.'; return; }
+  const fresh = app ? checked.filter(n => !aliasOfNick(n)) : checked;
+  // все ники уже знакомы — алиас не спрашиваем: раздачи просто допишутся в него
+  const owners = app ? [...new Set(checked.map(n => aliasOfNick(n)).filter(Boolean))] : [];
+  if (!fresh.length) { lab.hidden = true; $('aliasName').value = owners[0].name; h.textContent = 'Раздачи допишутся в алиас ' + owners.map(a => '«' + a.name + '»').join(', ') + '.'; return; }
+  lab.hidden = false;
+  if (!app) { h.textContent = ''; return; }
+  const name = $('aliasName').value.trim();
+  const same = ALIASES.find(a => name && a.name.toLowerCase() === name.toLowerCase());
+  h.textContent = same ? 'Новые ники (' + fresh.join(', ') + ') добавятся к алиасу «' + same.name + '».'
+    : 'Новые ники — будет новый алиас «' + (name || fresh[0]) + '». Его раздачи хранятся отдельно и не смешиваются с ' + ALIASES.map(a => '«' + a.name + '»').join(', ') + '. Переключаться — в списке игроков в шапке.';
+}
+// без отмеченных ников — загрузка как датамайнинг: только соперники, без алиаса
+function syncImportBtn() { $('doImport').disabled = !(IMPORT_SCAN && IMPORT_SCAN.ok); }
 
 // ---------- режим: дописать к базе или заменить ----------
 let DBINFO = null;
@@ -1794,14 +1846,17 @@ async function setupImportMode() {
   const ap = box.querySelector('input[value=append]');
   ap.disabled = !DBINFO.canAppend;
   if (!DBINFO.canAppend) { box.querySelector('input[value=replace]').checked = true; $('impModeAppendSub').textContent = 'текущая база старого формата — чтобы дописывать в неё и видеть соперников, её нужно один раз собрать заново'; }
-  else $('impModeAppendSub').textContent = 'сейчас в базе ' + DBINFO.count.toLocaleString('ru-RU') + ' раздач — новые допишутся, повторы пропустятся';
+  else { // каждый раз по умолчанию — дописать: замена стирает базу, её выбирают сознательно
+    ap.checked = true;
+    $('impModeAppendSub').textContent = 'сейчас в базе ' + DBINFO.count.toLocaleString('ru-RU') + ' раздач — новые допишутся, повторы пропустятся';
+  }
   box.querySelectorAll('input').forEach(i => { i.onchange = () => { syncModeUi(); }; });
   syncModeUi();
 }
 function syncModeUi() {
   const app = importMode() === 'append';
   $('pickBaseDir').hidden = app; // дописываем туда, где база уже лежит
-  renderEstimate();
+  renderEstimate(); syncAliasHint();
 }
 
 // ---------- место для базы и оценка до загрузки ----------
@@ -1817,7 +1872,8 @@ function renderEstimate() {
   $('estFree').textContent = free == null ? '—' : fmtBytes(free);
   if (!EST) return;
   const app = importMode() === 'append';
-  $('estHands').textContent = (app ? '+ ' : '≈ ') + EST.hands.toLocaleString('ru-RU');
+  const minedEst = !document.querySelector('#nickList input:checked');
+  $('estHands').textContent = (app ? '+ ' : '≈ ') + (minedEst ? (EST.mined || 0).toLocaleString('ru-RU') + ' без героя' : EST.hands.toLocaleString('ru-RU'));
   $('estSize').textContent = (app ? '+ ' : '≈ ') + fmtBytes(EST.bytes);
   $('estTime').textContent = fmtDur(EST.seconds);
   const need = EST.bytes * 1.3 + 64 * 1024 * 1024; // запас на временные файлы при сборке
@@ -1827,7 +1883,7 @@ function renderEstimate() {
   $('estNote').textContent = short
     ? 'Не хватит места: на время загрузки нужно около ' + fmtBytes(need) + '. Выберите другую папку или диск.'
     : 'Оценка по образцу ' + fmtBytes(EST.sampleBytes) + ' из ' + fmtBytes(EST.totalBytes) + ' ваших историй на этом компьютере (' + EST.cpus + ' ядер, разбор и EV — в ' + EST.threads + ' потоков)' + (EST.opp ? '; вместе с вашими раздачами сохранятся ≈ ' + EST.opp.toLocaleString('ru-RU') + ' раздач соперников' : '') + '.' + (app ? ' Повторы уже лежащих в базе раздач отсеются — добавится не больше.' : ' Точные цифры — после загрузки.');
-  $('doImport').disabled = short || !document.querySelector('#nickList input:checked');
+  $('doImport').disabled = short || !(IMPORT_SCAN && IMPORT_SCAN.ok);
 }
 function runEstimate() {
   clearTimeout(estTimer);
@@ -1846,9 +1902,9 @@ function runEstimate() {
 
 async function runImport() {
   const nicks = {};
-  document.querySelectorAll('#nickList .nick-row').forEach(r => { const cb = r.querySelector('input'); if (cb.checked) nicks[cb.dataset.nick] = r.querySelector('select').value; });
-  if (!Object.keys(nicks).length) return;
-  const alias = $('aliasName').value.trim() || Object.keys(nicks)[0];
+  document.querySelectorAll('#nickList .nick-row').forEach(r => { const cb = r.querySelector('input'); if (cb.checked) nicks[cb.dataset.nick] = r.dataset.room; });
+  const mined = !Object.keys(nicks).length; // датамайнинг: только соперники
+  const alias = mined ? '' : $('aliasName').value.trim() || Object.keys(nicks)[0];
   $('doImport').disabled = true; $('impProgress').hidden = false;
   $('progFill').style.width = '0%'; $('progText').textContent = 'Начинаю разбор…';
   const t0 = Date.now();
@@ -1865,12 +1921,20 @@ async function runImport() {
   const mode = importMode();
   const res = await mda.runImport({ nicks, alias, mode });
   if (res.type === 'error' || res.error) { $('progText').textContent = 'Ошибка: ' + (res.message || res.error); syncImportBtn(); return; }
-  if (!res.hands) { $('progText').textContent = 'Раздач с выбранными никами не нашлось. Проверьте ники.'; syncImportBtn(); return; }
+  if (!res.hands && !res.mined && !res.opp) { $('progText').textContent = mined ? 'Раздач не нашлось.' : 'Раздач с выбранными никами не нашлось. Проверьте ники.'; syncImportBtn(); return; }
   $('progFill').style.width = '100%';
-  $('progText').textContent = mode === 'append'
+  $('progText').textContent = mined
+    ? 'Загружено раздач без героя: ' + (res.mined || 0).toLocaleString('ru-RU') + (res.dup ? ', уже были в базе: ' + res.dup.toLocaleString('ru-RU') : '') + '. Игроков в базе: ' + (res.players || 0).toLocaleString('ru-RU') + '.'
+    : mode === 'append'
     ? (res.added ? 'Добавлено ' + res.added.toLocaleString('ru-RU') + ' раздач' : 'Новых раздач нет') + (res.dup ? ', повторов пропущено: ' + res.dup.toLocaleString('ru-RU') : '') + '. Всего в базе: ' + res.hands.toLocaleString('ru-RU') + ' раздач, соперников: ' + (res.players || 0).toLocaleString('ru-RU') + '.'
     : 'Готово: ' + res.hands.toLocaleString('ru-RU') + ' раздач' + (res.players ? ', соперников: ' + res.players.toLocaleString('ru-RU') : '') + (res.dup ? ', повторов пропущено: ' + res.dup.toLocaleString('ru-RU') : '') + '.';
-  setDb(await loadDb());
+  const ndb = await loadDb();
+  if (ndb) { // открыть алиас, в который только что загрузили
+    const list = ndb.aliases || [];
+    const k = mined ? -1 : list.findIndex(a => a.name.toLowerCase() === alias.toLowerCase());
+    if (k >= 0) state.alias = k; else if (!list[state.alias]) state.alias = 0;
+  }
+  setDb(ndb, true);
   setTimeout(closeImportModal, 900);
 }
 
@@ -1897,11 +1961,22 @@ function setupImport() {
     await mda.deleteDb(); b.hidden = true; setDb(await loadDb()); closeImportModal();
   };
   const drop = $('drop');
-  ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add('over'); }));
-  ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove('over'); }));
-  drop.addEventListener('drop', async (e) => { if (e.dataTransfer.files.length) showImport(await mda.dropped(e.dataTransfer.files)); });
-  document.addEventListener('dragover', (e) => e.preventDefault());
-  document.addEventListener('drop', (e) => e.preventDefault());
+  // перетаскивание: в окно загрузки или в любое место программы (окно загрузки откроется само)
+  const hasFiles = (e) => e.dataTransfer && [...(e.dataTransfer.types || [])].includes('Files');
+  let dragDepth = 0;
+  document.addEventListener('dragenter', (e) => { if (!hasFiles(e)) return; e.preventDefault(); dragDepth++; drop.classList.add('over'); });
+  document.addEventListener('dragleave', (e) => { if (!hasFiles(e)) return; if (--dragDepth <= 0) { dragDepth = 0; drop.classList.remove('over'); } });
+  document.addEventListener('dragover', (e) => { e.preventDefault(); if (hasFiles(e)) e.dataTransfer.dropEffect = 'copy'; });
+  document.addEventListener('drop', async (e) => {
+    e.preventDefault(); dragDepth = 0; drop.classList.remove('over');
+    const files = [...((e.dataTransfer && e.dataTransfer.files) || [])];
+    if (!files.length) return;
+    if (!mda.pathOf || !mda.droppedPaths) { openImportModal(); $('impNote').hidden = false; $('impNote').textContent = 'В онлайн-превью загрузка не работает — только в установленной программе.'; return; }
+    const paths = files.map(f => mda.pathOf(f)).filter(Boolean);
+    if ($('importModal').hidden) openImportModal();
+    if (!paths.length) { $('impNote').hidden = false; $('impNote').textContent = 'Не удалось прочитать перетащенные объекты — выберите их кнопкой ниже.'; return; }
+    showImport(await mda.droppedPaths(paths));
+  });
 }
 
 // хук для автоматических снимков экрана при сборке

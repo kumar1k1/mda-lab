@@ -11,7 +11,7 @@ const { hash53 } = require('./store.js');
 const { closeAll } = require('./zip.js');
 
 const { files } = workerData;
-const heroes = new Set(workerData.heroes);
+const heroes = new Set(workerData.heroes), observer = !!workerData.observer, exclude = new Set(workerData.exclude || []);
 const BATCH = 2000;
 const queue = []; let busy = false, ackResolve = null;
 
@@ -29,11 +29,11 @@ async function work(fi) {
   };
   try {
     await eachText(files[fi], async (text) => {
-      const r = parseTextAll(text, heroes); errors += r.errors;
+      const r = parseTextAll(text, heroes, observer, exclude); errors += r.errors;
       for (const h of r.hands) {
         const rp = h.rp; if (rp) delete rp.bb;
-        const heroRp = !!h.hero.rp; delete h.hero.rp; // у героя — запись реплеера только в его спотах (как раньше)
-        hands.push({ k: hash53(h.hero.id + '|' + h.hero.tour), hero: h.hero, opps: h.opps, heroRp, rpz: rp ? zlib.deflateRawSync(Buffer.from(JSON.stringify(rp), 'utf8')) : null });
+        const heroRp = !!(h.hero && h.hero.rp); if (h.hero) delete h.hero.rp; // у героя — запись реплеера только в его спотах (как раньше)
+        hands.push({ k: hash53(h.id + '|' + h.tour), room: h.room, hero: h.hero, opps: h.opps, heroRp, rpz: rp ? zlib.deflateRawSync(Buffer.from(JSON.stringify(rp), 'utf8')) : null });
       }
       if (hands.length >= BATCH) await flush(false);
     });

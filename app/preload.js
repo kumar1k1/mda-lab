@@ -18,8 +18,11 @@ contextBridge.exposeInMainWorld('mda', {
   pickBaseDir: () => ipcRenderer.invoke('base:pick'),
   onProgress: (cb) => { ipcRenderer.removeAllListeners('import:progress'); ipcRenderer.on('import:progress', (_e, m) => cb(m)); },
   pick: (mode) => ipcRenderer.invoke('import:pick', mode),
-  dropped: (files) => ipcRenderer.invoke('import:paths', Array.from(files).map(f => webUtils.getPathForFile(f))),
+  // путь перетащенного файла или папки: File нельзя передать списком (FileList через contextBridge приходит пустым),
+  // поэтому рендерер спрашивает путь у каждого File по одному (так описано в документации Electron)
+  pathOf: (file) => { try { return webUtils.getPathForFile(file) || ''; } catch (e) { return ''; } },
+  droppedPaths: (paths) => ipcRenderer.invoke('import:paths', Array.from(paths || []).map(String)),
   version: () => ipcRenderer.invoke('app:version'),
   // только для автотестов: выбрать папку без диалога
-  scanPathsForTest: (process.env.MDALAB_EVAL || process.env.MDALAB_SNAPSHOT) ? (paths) => ipcRenderer.invoke('import:paths', paths) : undefined
+  scanPathsForTest: (process.env.MDALAB_EVAL || process.env.MDALAB_SNAPSHOT || process.env.MDALAB_TEST) ? (paths) => ipcRenderer.invoke('import:paths', paths) : undefined
 });

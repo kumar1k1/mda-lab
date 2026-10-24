@@ -29,7 +29,6 @@ const out = [
   '<meta name="claude:viewport-fit-sides" content="cover">',
   '<style>', read('styles.css'), fs.readFileSync(path.join(__dirname, 'preview.css'), 'utf8'), '</style>',
   body.replace('src="icon.png"', 'src="' + icon + '"'),
-  '<script>', read('demo-gen.js'), '</script>',
   '<script>', fs.readFileSync(path.join(__dirname, 'shim.js'), 'utf8'), '</script>',
   '<script>', read('stats.js'), '</script>',
   '<script>', read('replay.js'), '</script>',

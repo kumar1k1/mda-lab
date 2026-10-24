@@ -18,13 +18,14 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { SCHEMA, ReplayWriter, HashSet53, typedFrom } = require('./store.js');
+const { SCHEMA, ReplayWriter, HashSet53, typedFrom, hash53 } = require('./store.js');
 const { SpillColumn, ColumnReader, mergePlan, mergeColumn, permute, patchColumn, colFile } = require('./table.js');
 const { computeEv, STRIDE } = require('./ev-pool.js');
 
 const FORMAT = 'mdalab-cols-v3';
 // колонки ваших раздач: статы + ссылка на запись реплеера + отпечаток раздачи
-const HERO_SCHEMA = SCHEMA.concat([['rpp', 'i32'], ['rpo', 'u32'], ['rpl', 'u32'], ['key', 'f64']]);
+// aid — номер алиаса (в базе может быть несколько игроков со своими никами: вы, друг…)
+const HERO_SCHEMA = SCHEMA.concat([['rpp', 'i32'], ['rpo', 'u32'], ['rpl', 'u32'], ['key', 'f64'], ['aid', 'i16']]);
 // колонки раздач соперников: статы + игрок, его место в раздаче, ссылка на запись реплеера, отпечаток раздачи
 const OPP_SCHEMA = SCHEMA.concat([['pid', 'i32'], ['seat', 'i8'], ['rpp', 'i32'], ['rpo', 'u32'], ['rpl', 'u32'], ['key', 'f64']]);
 
@@ -56,7 +57,7 @@ function openOld(dir) {
 // Разбор файлов по ядрам; onHand(hand) вызывается строго в порядке файлов (и порций внутри файла).
 // Порции текущего файла обрабатываются сразу и подтверждаются; порции следующих файлов ждут своей очереди
 // (их потоки стоят до подтверждения). Вперёд раздаётся не больше ~256 МБ файлов — память ограничена при любых объёмах.
-async function parseParallel(files, heroes, onHand, onFile, threads) {
+async function parseParallel(files, heroes, onHand, onFile, threads, po) {
   const { Worker } = require('worker_threads');
   const { fileSize } = require('./build.js');
   const P = Math.max(1, threads || Math.min(8, Math.max(1, (os.cpus() || []).length - 1)));
@@ -90,7 +91,7 @@ async function parseParallel(files, heroes, onHand, onFile, threads) {
     };
     for (let t = 0; t < P; t++) {
       // предел памяти потока: без него движок копит мусор и раздувает память при больших файлах
-      const w = new Worker(path.join(__dirname, 'parse-worker.js'), { workerData: { files, heroes: [...heroes] }, resourceLimits: { maxOldGenerationSizeMb: 384, maxYoungGenerationSizeMb: 48 } });
+      const w = new Worker(path.join(__dirname, 'parse-worker.js'), { workerData: { files, heroes: [...heroes], observer: !!(po && po.observer), exclude: po && po.exclude ? [...po.exclude] : [] }, resourceLimits: { maxOldGenerationSizeMb: 384, maxYoungGenerationSizeMb: 48 } });
       w.load = 0; ws.push(w);
       w.on('message', (m) => {
         if (m.fi === want) take(m, w); else { if (!pending.has(m.fi)) pending.set(m.fi, []); pending.get(m.fi).push({ m, w }); }
@@ -110,11 +111,34 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
   fs.mkdirSync(dir, { recursive: true });
   const old = fs.existsSync(path.join(dir, 'meta.json')) ? openOld(dir) : null;
   const rooms = old ? old.meta.rooms.slice() : [];
-  const nicksAll = Object.assign({}, old ? old.meta.nicks : {}, nicks);
   for (const r of Object.values(nicks)) if (!rooms.includes(r)) rooms.push(r);
-  const heroes = new Set(Object.keys(nicksAll));
-  const seen = new HashSet53(old ? old.heroN : 0);
-  if (old) { const r = new ColumnReader(colFile(old.g, 'key'), 'f64', old.heroN); for (let i = 0; i < old.heroN; i++) seen.add(r.get(i)); r.close(); }
+  // Алиасы: у каждого своё имя и свои ники. Все раздачи этой загрузки идут в алиас с введённым именем
+  // (нет такого — создаётся новый). Один ник может быть у разных алиасов (GG в экспорте пишет всех «Hero»).
+  const aliases = old ? (old.meta.aliases ? old.meta.aliases.map(a => ({ name: a.name, nicks: Object.assign({}, a.nicks), count: a.count || 0 }))
+    : [{ name: old.meta.hero, nicks: Object.assign({}, old.meta.nicks), count: old.heroN }]) : [];
+  // без ников (датамайнинг, ваших карт нет) — алиас не создаётся: все игроки раздач идут в список соперников
+  const observer = !Object.keys(nicks).length;
+  const want = (alias || '').trim() || Object.keys(nicks)[0] || '';
+  let target = observer ? -1 : aliases.findIndex(a => a.name.toLowerCase() === want.toLowerCase());
+  if (!observer && target < 0) { aliases.push({ name: want, nicks: {}, count: 0 }); target = aliases.length - 1; }
+  // ники, которые до этой загрузки уже были у других алиасов: та же раздача того же ника — повтор, даже под другим именем алиаса
+  const prevOwners = new Map(); aliases.forEach((a, i) => { if (i !== target) for (const n of Object.keys(a.nicks)) { if (!prevOwners.has(n)) prevOwners.set(n, []); prevOwners.get(n).push(i); } });
+  if (!observer) Object.assign(aliases[target].nicks, nicks);
+  const nicksAll = {}; aliases.forEach((a, i) => { if (i !== target) Object.assign(nicksAll, a.nicks); }); Object.assign(nicksAll, nicks);
+  const heroes = new Set(Object.keys(nicks)); // герой раздачи — только ники этой загрузки
+  const others = new Set(Object.keys(nicksAll)); // ники всех алиасов — не соперники
+  // повторы: ваша раздача — по (раздача, алиас): одну раздачу могут прислать и вы, и друг, если сидели за одним столом;
+  // соперники раздачи — по самой раздаче, чтобы не задвоить их при второй истории той же раздачи
+  const hk2 = (k, a) => (a ? hash53(k + '|' + a) : k);
+  const seen = new HashSet53(old ? old.heroN : 0), handSeen = new HashSet53(old ? old.heroN : 0);
+  if (old) {
+    const r = new ColumnReader(colFile(old.g, 'key'), 'f64', old.heroN), ra = fs.existsSync(colFile(old.g, 'aid')) ? new ColumnReader(colFile(old.g, 'aid'), 'i16', old.heroN) : null;
+    for (let i = 0; i < old.heroN; i++) { const k = r.get(i); seen.add(hk2(k, ra ? ra.get(i) : 0)); handSeen.add(k); }
+    r.close(); if (ra) ra.close();
+    // раздачи, загруженные без героя (датамайнинг), есть только среди строк соперников
+    if (old.oppN) { const ro = new ColumnReader(colFile(old.og, 'key'), 'f64', old.oppN); for (let i = 0; i < old.oppN; i++) handSeen.add(ro.get(i)); ro.close(); }
+  }
+  const addedBy = new Float64Array(aliases.length);
   const players = old ? old.players.map(p => ({ n: p.n, r: p.r, c: p.c, sh: p.sh || 0 })) : [];
   const pmap = new Map(players.map((p, i) => [p.r + '\u0001' + p.n, i]));
 
@@ -123,19 +147,35 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
   for (const [nm, t] of HERO_SCHEMA) H[nm] = new SpillColumn(colFile(tmp, nm), nm, t);
   for (const [nm, t] of OPP_SCHEMA) O[nm] = new SpillColumn(colFile(path.join(tmp, 'opp'), nm), nm, t);
   const rpw = new ReplayWriter(dir, opts.partSize, old ? old.meta.rpParts : 0);
-  let dup = 0, nH = 0, nO = 0;
+  let dup = 0, nH = 0, nO = 0, nD = 0;
 
   // 1–2. разбор и раскладка по колонкам
   const errors = await parseParallel(files, heroes, (h) => {
-    if (!seen.add(h.k)) { dup++; return; }
+    if (!h.hero) { // раздача без героя: только соперники, если такой раздачи ещё нет в базе
+      if (!handSeen.add(h.k)) { dup++; return; }
+      let ri = rooms.indexOf(h.room); if (ri < 0) { rooms.push(h.room); ri = rooms.length - 1; }
+      const ref = h.rpz && h.opps.some(o => o.needRp) ? rpw.addRaw(h.rpz) : null;
+      addOpps(h, ri, ref); nD++;
+      return;
+    }
+    const aid = target;
+    const po = prevOwners.get(h.hero.hero);
+    if (po && po.some(a => seen.has(hk2(h.k, a)))) { dup++; return; }
+    if (!seen.add(hk2(h.k, aid))) { dup++; return; }
+    const newHand = handSeen.add(h.k); // раздачи ещё не было в базе (ни у одного алиаса)
     const roomIdx = rooms.indexOf(nicksAll[h.hero.hero]);
-    const ref = h.rpz ? rpw.addRaw(h.rpz) : null;
+    const needRef = h.rpz && (h.heroRp || (newHand && h.opps.some(o => o.needRp)));
+    const ref = needRef ? rpw.addRaw(h.rpz) : null;
     const hv = rowVals(h.hero, roomIdx);
     for (const [nm] of SCHEMA) H[nm].push(hv[nm]);
     const hr = h.heroRp && ref && h.hero.hc >= 0; // как раньше: запись реплеера у вашей раздачи — в ваших спотах и с вашими картами
-    H.rpp.push(hr ? ref[0] : -1); H.rpo.push(hr ? ref[1] : 0); H.rpl.push(hr ? ref[2] : 0); H.key.push(h.k);
-    nH++;
+    H.rpp.push(hr ? ref[0] : -1); H.rpo.push(hr ? ref[1] : 0); H.rpl.push(hr ? ref[2] : 0); H.key.push(h.k); H.aid.push(aid);
+    nH++; addedBy[aid]++;
+    if (newHand) addOpps(h, roomIdx, ref);
+  }, (d, t) => prog('parse', d, t, nH + nD), opts.parseThreads, { observer, exclude: others });
+  function addOpps(h, roomIdx, ref) {
     for (const o of h.opps) {
+      if (others.has(o.hero)) continue; // другой ваш алиас за тем же столом — у него свои раздачи
       const pk = roomIdx + '\u0001' + o.hero;
       let pid = pmap.get(pk); if (pid == null) { pid = players.length; players.push({ n: o.hero, r: roomIdx, c: 0, sh: 0 }); pmap.set(pk, pid); }
       const ov = rowVals(o, roomIdx);
@@ -144,15 +184,16 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
       O.pid.push(pid); O.seat.push(o.seatIdx); O.rpp.push(orr ? ref[0] : -1); O.rpo.push(orr ? ref[1] : 0); O.rpl.push(orr ? ref[2] : 0); O.key.push(h.k);
       nO++;
     }
-  }, (d, t) => prog('parse', d, t, nH), opts.parseThreads);
+  }
   rpw.close();
   for (const c of Object.values(H)) c.close();
   for (const c of Object.values(O)) c.close();
-  if (!nH) { fs.rmSync(tmp, { recursive: true, force: true }); if (!old) fs.rmSync(dir, { recursive: true, force: true }); return { hands: old ? old.heroN : 0, added: 0, dup, errors, rooms, opp: old ? old.oppN : 0, oppAdded: 0, players: old ? old.players.length : 0 }; }
+  if (!nH && !nO) { fs.rmSync(tmp, { recursive: true, force: true }); if (!old) fs.rmSync(dir, { recursive: true, force: true }); return { hands: old ? old.heroN : 0, added: 0, dup, errors, rooms, opp: old ? old.oppN : 0, oppAdded: 0, players: old ? old.players.length : 0, aliases: aliases.map(a => a.name) }; }
 
   // начало периода: самый ранний месяц среди старых и новых раздач
   const dayNew = H.day.readAll();
   let minDay = Infinity; for (let i = 0; i < nH; i++) if (dayNew[i] < minDay) minDay = dayNew[i];
+  if (!nH) { const od = O.day.readAll(); for (let i = 0; i < nO; i++) if (od[i] < minDay) minDay = od[i]; } // только соперники
   const oldM0 = old ? (+old.meta.periodStart.slice(0, 4)) * 12 + (+old.meta.periodStart.slice(5, 7)) - 1 : Infinity;
   const m0 = Math.min(oldM0, monthOfDay(minDay)), day0 = day0OfMonth(m0);
   const oldDayShift = old ? day0OfMonth(oldM0) - day0 : 0, oldMonShift = old ? oldM0 - m0 : 0;
@@ -227,14 +268,14 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
   fs.writeFileSync(path.join(godir, 'players.json'), JSON.stringify(plist));
 
   const meta = {
-    format: FORMAT, demo: false, hero: alias || (old ? old.meta.hero : Object.keys(nicks)[0]), nicks: nicksAll, rooms, types: ['Обычный', 'PKO'],
+    format: FORMAT, demo: false, hero: aliases.length ? aliases[0].name : '', nicks: nicksAll, aliases: aliases.map((a, i) => ({ name: a.name, nicks: a.nicks, count: a.count + addedBy[i] })), rooms, types: ['Обычный', 'PKO'],
     periodStart: Math.floor(m0 / 12) + '-' + String(m0 % 12 + 1).padStart(2, '0'), count: (old ? old.heroN : 0) + nH,
-    cols: SCHEMA.slice(), colDir: 'g' + gen, opp: { rows: (old ? old.oppN : 0) + nO, players: plist.length }, rpParts: rpw.parts, rpz: 1
+    cols: SCHEMA.concat([['aid', 'i16']]), colDir: 'g' + gen, opp: { rows: (old ? old.oppN : 0) + nO, players: plist.length }, rpParts: rpw.parts, rpz: 1
   };
   const mt = path.join(dir, 'meta.json.tmp'); fs.writeFileSync(mt, JSON.stringify(meta)); fs.renameSync(mt, path.join(dir, 'meta.json'));
   if (old) fs.rmSync(old.g, { recursive: true, force: true });
   fs.rmSync(tmp, { recursive: true, force: true });
-  return { hands: meta.count, added: nH, dup, errors, rooms, opp: meta.opp.rows, oppAdded: nO, players: plist.length };
+  return { hands: meta.count, added: nH, mined: nD, dup, errors, rooms, opp: meta.opp.rows, oppAdded: nO, players: plist.length, aliases: meta.aliases.map(a => a.name + ' (' + a.count + ')') };
 }
 
 // Очень большие загрузки идут группами по ~4 ГБ историй: первая группа создаёт базу (или дописывается),

@@ -1,6 +1,6 @@
 'use strict';
 // Разбор турнирных историй раздач: PokerStars (и экспорт GG/PokerDom в его формате), Winamax, WPN (ACR).
-// На выходе — записи раздач героя для префлоп-статов (формат mdalab-hands, см. demo-gen.js).
+// На выходе — записи раздач героя для префлоп-статов (формат mdalab-hands, колонки — store.js SCHEMA).
 
 const HEADERS = /^(?:PokerStars Hand #|Winamax Poker - Tournament "|Game Hand #)/m;
 const SPLIT = /\r?\n(?=(?:PokerStars Hand #|Winamax Poker - Tournament "|Game Hand #))/;
@@ -146,7 +146,15 @@ function buildReplay(lines, ctx) {
 }
 
 // Общая разметка раздачи: заголовок, места, блайнды, позиции, префлоп-действия — одна на всех игроков.
-function parseCtx(text, fmt, heroes) {
+// рум раздачи по заголовку — для загрузки без героя (датамайнинг), где рум не задан ником
+function roomOf(fmt, lines) {
+  if (fmt === 'wmx') return 'Winamax';
+  if (fmt === 'wpn') return 'WPN';
+  if (lines.slice(0, 3).some(l => /^Table 'PDOM_/.test(l))) return 'PokerDom';
+  return /\bET\]?\s*$/.test(lines[0]) ? 'PokerStars' : 'GGPoker'; // у PokerStars в заголовке время ET; экспорт GG в формате PokerStars — без него
+}
+// observer — раздача без героя (датамайнинг): точка обзора — игрок на BB, все игроки записываются как соперники
+function parseCtx(text, fmt, heroes, observer) {
   const lines = text.split(/\r?\n/);
   const header = lines[0];
   let bb = null, sbAmt = null, tour = null, date = null;
@@ -181,8 +189,12 @@ function parseCtx(text, fmt, heroes) {
     seats[+m[1]] = { seat: +m[1], name: m[2], stack };
     byName[m[2]] = +m[1];
   }
-  const heroName = Object.keys(byName).find(n => heroes.has(n));
-  if (!heroName || !bb) return null;
+  // герой — тот из известных ников, кому раздали карты («Dealt to»): в базе может быть несколько алиасов,
+  // и за одним столом могут сидеть ники разных алиасов (вы и друг). Без «Dealt to» (PokerDom) — первый найденный.
+  const heroCands = Object.keys(byName).filter(n => heroes.has(n));
+  let heroName = heroCands.length > 1 ? (heroCands.find(n => lines.some(l => l.startsWith('Dealt to ' + n + ' ['))) || heroCands[0]) : heroCands[0];
+  const obs = !heroName && !!observer;
+  if ((!heroName && !obs) || !bb) return null;
   const names = Object.keys(byName).sort((a, b) => b.length - a.length);
   const who = (l) => names.find(n => l.startsWith(n + ':') || l.startsWith(n + ' '));
 
@@ -194,6 +206,7 @@ function parseCtx(text, fmt, heroes) {
     if (/posts (the )?small blind/.test(l)) sbSeat = byName[n];
     else if (/posts (the )?big blind/.test(l) && bbSeat == null) bbSeat = byName[n];
   }
+  if (obs) { if (bbSeat == null || !seats[bbSeat]) return null; heroName = seats[bbSeat].name; }
   const seatedAll = Object.keys(seats).length; // все, кто сидит за столом (для UTG «стол полный»)
   // как в Hand2Note: в раздаче только те, кто поставил анте/блайнд или ходил на префлопе; севший за стол «в ожидании» (без анте и без хода) не считается
   {
@@ -227,7 +240,7 @@ function parseCtx(text, fmt, heroes) {
     if (!am) continue;
     acts.push({ name: n, a: am[1], amt: am[3] ? num(am[3]) : am[2] ? num(am[2]) : 0, allin: /all-in/.test(rest) });
   }
-  return { lines, header, fmt, bb, sbAmt, tour, id, date, tblMax, isPdom, bounty, seats, byName, seatNums, order, pos, acts, who, sbSeat, bbSeat, heroName };
+  return { lines, header, fmt, bb, sbAmt, tour, id, date, tblMax, isPdom, bounty, seats, byName, seatNums, order, pos, acts, who, sbSeat, bbSeat, heroName, observer: obs, room: obs ? roomOf(fmt, lines) : null };
 }
 
 // Запись одного игрока раздачи (те же правила, что для героя). opp — соперник: карты — только если показаны,
@@ -333,22 +346,26 @@ function parseHand(text, fmt, heroes) {
 
 // Раздача целиком: запись героя (как parseHand) и записи всех соперников, участвовавших в раздаче.
 // rp — ход раздачи (с позиции героя): у героя — как раньше; если реплеер нужен только соперникам — строится один раз на раздачу.
-function parseHandAll(text, fmt, heroes) {
-  const c = parseCtx(text, fmt, heroes);
+// observer: загрузка без героя — героя нет (hero: null), соперники — все игроки, кроме ников exclude (ваши алиасы)
+function parseHandAll(text, fmt, heroes, observer, exclude) {
+  const c = parseCtx(text, fmt, observer ? EMPTY : heroes, observer);
   if (!c) return null;
-  const hero = playerRec(c, c.heroName, false);
-  if (!hero) return null;
+  const hero = c.observer ? null : playerRec(c, c.heroName, false);
+  if (!hero && !c.observer) return null;
+  const skip = c.observer ? (exclude || EMPTY) : heroes;
   const opps = [];
   for (const sn of c.seatNums) {
     const name = c.seats[sn].name;
-    if (heroes.has(name)) continue;
+    if (skip.has(name)) continue;
     const r = playerRec(c, name, true);
     if (r) { r.seatIdx = c.seatNums.indexOf(sn); opps.push(r); }
   }
-  let rp = hero.rp || null;
+  if (c.observer && !opps.length) return null;
+  let rp = (hero && hero.rp) || null;
   if (!rp && opps.some(r => r.needRp)) rp = buildReplay(c.lines, { seatNums: c.seatNums, seats: c.seats, pos: c.pos, heroName: c.heroName, bb: c.bb, who: c.who, fmt: c.fmt, header: c.header, sbAmt: c.sbAmt });
-  return { hero, opps, rp };
+  return { hero, opps, rp, id: c.id, tour: c.tour, room: c.room };
 }
+const EMPTY = new Set();
 
 function parseText(text, heroes) {
   text = text.replace(/^﻿/, '').replace(/^\s+/, '');
@@ -364,7 +381,7 @@ function parseText(text, heroes) {
 }
 
 // Как parseText, но раздача целиком: герой + соперники (parseHandAll)
-function parseTextAll(text, heroes) {
+function parseTextAll(text, heroes, observer, exclude) {
   text = text.replace(/^\uFEFF/, '').replace(/^\s+/, '');
   const fmt = detectFormat(text.slice(0, 40));
   if (!fmt || !HEADERS.test(text)) return { fmt: null, hands: [], errors: 0 };
@@ -372,7 +389,7 @@ function parseTextAll(text, heroes) {
   for (const chunk of text.split(SPLIT)) {
     const c = chunk.replace(/^\s+/, '');
     if (!detectFormat(c.slice(0, 40))) continue;
-    try { const r = parseHandAll(c, fmt, heroes); if (r) out.push(r); else errors++; } catch (e) { errors++; }
+    try { const r = parseHandAll(c, fmt, heroes, observer, exclude); if (r) out.push(r); else errors++; } catch (e) { errors++; }
   }
   return { fmt, hands: out, errors };
 }

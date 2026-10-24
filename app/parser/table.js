@@ -66,7 +66,8 @@ function mergePlan(nOld, nNew, oldFirst) {
 // Слияние одной колонки: старая читается кусками с диска, новая (уже упорядоченная) — массив в памяти.
 // fixOld / fixNew — поправка значения (например, сдвиг дней при смене начала периода).
 function mergeColumn(oldDir, nOld, name, type, newArr, plan, outDir, fixOld, fixNew) {
-  const r = nOld ? new ColumnReader(colFile(oldDir, name), type, nOld) : null;
+  // колонки, которой нет в старой базе (добавлена позже, например aid), — старые строки получают 0
+  const r = nOld ? (fs.existsSync(colFile(oldDir, name)) ? new ColumnReader(colFile(oldDir, name), type, nOld) : { get: () => 0, close() {} }) : null;
   const w = new ColumnWriter(colFile(outDir, name), type);
   let i = 0, j = 0;
   for (let k = 0; k < plan.length; k++) {

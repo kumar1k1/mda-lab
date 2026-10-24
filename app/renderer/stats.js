@@ -8,6 +8,7 @@
   function selectHands(db, f) {
     const c = db.cols, n = db.count, idx = [];
     for (let i = 0; i < n; i++) {
+      if (f.aid != null && c.aid && c.aid[i] !== f.aid) continue; // в базе несколько алиасов — только раздачи выбранного
       if (f.room != null && c.room[i] !== f.room) continue;
       if (f.type != null && c.type[i] !== f.type) continue;
       if (f.from != null && c.month[i] < f.from) continue;

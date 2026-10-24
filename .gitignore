@@ -6,3 +6,4 @@ preview/replays.json
 preview/base/
 node_modules/
 *.log
+app/data/demo-base/

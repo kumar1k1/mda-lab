@@ -38,8 +38,13 @@ function migrateLegacy(srcDb, srcRp, dir) {
   return tmp;
 }
 let SRC = null; // открытая база: store.BaseDir
+// Демо-игрок: готовая база из синтетических раздач (tools/build-demo.js) — открывается только для просмотра,
+// ваша база при этом не трогается. Загрузка своей базы или перезапуск программы выходят из демо.
+let DEMO = false;
+const demoDir = () => path.join(__dirname, 'data', 'demo-base');
 function source() {
   if (SRC) return SRC;
+  if (DEMO) return store.BaseDir.exists(demoDir()) ? (SRC = new store.BaseDir(demoDir())) : null;
   const dir = baseDir();
   if (store.BaseDir.exists(dir)) return (SRC = new store.BaseDir(dir));
   if (fs.existsSync(baseFile('hands.json'))) { // база из прежней версии программы
@@ -69,8 +74,8 @@ ipcMain.handle('players:list', (_e, q, limit) => { const s = source(); return s 
 ipcMain.handle('player:meta', (_e, pid) => { const s = source(); return s && s.v3 ? s.playerMeta(pid) : null; });
 ipcMain.handle('player:col', (_e, pid, name) => { const s = source(); return s && s.v3 ? s.playerCol(pid, name) : null; });
 ipcMain.handle('player:replays', (_e, pid, ids) => { const s = source(); return s && s.v3 && Array.isArray(ids) ? s.playerReplays(pid, ids) : {}; });
-ipcMain.handle('db:demo', () => readJson(path.join(__dirname, 'data', 'demo-hands.json')));
-ipcMain.handle('db:delete', () => { SRC = null; try { fs.rmSync(baseDir(), { recursive: true, force: true }); } catch (e) { /* нет базы */ } return true; });
+ipcMain.handle('db:demo', () => { if (!store.BaseDir.exists(demoDir())) return false; DEMO = true; SRC = null; return true; });
+ipcMain.handle('db:delete', () => { SRC = null; DEMO = false; try { fs.rmSync(baseDir(), { recursive: true, force: true }); } catch (e) { /* нет базы */ } return true; });
 ipcMain.handle('db:info', () => {
   const stored = store.BaseDir.exists(baseDir()) || fs.existsSync(baseFile('hands.json'));
   let canAppend = false, count = 0, opp = false;
@@ -121,7 +126,7 @@ ipcMain.handle('import:run', (e, opts) => new Promise((resolve) => {
   const dir = append ? prev : (PENDING_DIR || prev), tmp = dir + '.tmp', old = dir + '.old';
   try { fs.mkdirSync(path.dirname(dir), { recursive: true }); } catch (err) { return resolve({ error: 'Не удаётся создать папку для базы: ' + err.message }); }
   if (!append) fs.rmSync(tmp, { recursive: true, force: true });
-  SRC = null; // база будет меняться — закрываем
+  SRC = null; DEMO = false; // база будет меняться — закрываем; загрузка своей базы выходит из демо
   const w = new Worker(path.join(__dirname, 'import-worker.js'), { workerData: { files: lastFiles, nicks: opts.nicks, alias: opts.alias, outDir: append ? dir : tmp, mode: append ? 'append' : 'build' } });
   w.on('message', (m) => {
     if (m.type === 'progress') { if (!e.sender.isDestroyed()) e.sender.send('import:progress', m); return; }

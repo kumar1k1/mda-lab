@@ -45,6 +45,15 @@ function readHead(f, n) {
   } catch (e) { return ''; }
 }
 
+// Рум файла в формате PokerStars: PokerDom — по столу PDOM_, экспорт GGPoker — по заголовку без часового пояса
+// (PokerStars пишет время с ET: «… MSK [2026/03/08 13:31:34 ET]» или «… ET»; GG при экспорте — только дату и время)
+function roomOfHead(room, head) {
+  if (room !== 'PokerStars') return room;
+  if (/^Table 'PDOM_/m.test(head)) return 'PokerDom';
+  const h = (head.match(/^PokerStars (?:Hand|Zoom Hand|Home Game Hand) #.*$/m) || [''])[0];
+  return h && !/\bET\]?\s*$/.test(h) ? 'GGPoker' : 'PokerStars';
+}
+
 // Быстрый обзор: румы, объём, кандидаты в ники героя (кому чаще всего «раздали карты»).
 function scan(files) {
   const rooms = {}; let bytes = 0, est = 0, unknown = 0;
@@ -56,20 +65,22 @@ function scan(files) {
     const head = readHead(f, 4096);
     const sign = ROOM_SIGNS.find(s => s.re.test(head));
     if (!sign) { unknown++; continue; }
-    const r = rooms[sign.room] || (rooms[sign.room] = { files: 0, bytes: 0, supported: SUPPORTED.has(sign.room) });
+    const rk = roomOfHead(sign.room, head); // в таблице румов — настоящий рум (экспорт GG и PokerDom — в формате PokerStars)
+    const r = rooms[rk] || (rooms[rk] = { files: 0, bytes: 0, supported: SUPPORTED.has(sign.room) });
     r.files++; r.bytes += size; est += Math.round(size / 1500);
     if (!r.supported) continue;
     // первая раздача каждого файла: кому «раздали карты» — это и есть игрок, чья это история
     const m = /^Dealt to (.+?) \[/m.exec(head);
     let who = m ? m[1] : null;
-    if (!who) { // рум не пишет карты героя (PokerDom): герой — тот, кто сидит за столом почти в каждом файле
-      let room = sign.room; if (room === 'PokerStars' && /^Table 'PDOM_/m.test(head)) room = 'PokerDom';
+    // PokerDom не пишет карты героя: герой — тот, кто сидит за столом почти в каждом файле.
+    // В других румах файлы без «Dealt to» — датамайнинг (чужие столы): героя там нет.
+    if (!who && roomOfHead(sign.room, head) === 'PokerDom') {
+      const room = 'PokerDom';
       noDealt[room] = (noDealt[room] || 0) + 1;
       new Set([...head.matchAll(/^Seat \d+: (.+?) \(/gm)].map(x => x[1])).forEach(n => { const c = seatCount[room] || (seatCount[room] = {}); c[n] = (c[n] || 0) + 1; });
     }
     if (who) {
-      let room = sign.room;
-      if (room === 'PokerStars' && /^Table 'PDOM_/m.test(head)) room = 'PokerDom';
+      const room = roomOfHead(sign.room, head);
       const c = nickCount[who] || (nickCount[who] = {}); c[room] = (c[room] || 0) + 1;
     }
   }
@@ -136,16 +147,16 @@ async function estimate(files, heroNicks, opts) {
   const budget = opts.sampleBytes || 16 * 1024 * 1024;
   const order = []; const step = Math.max(1, Math.floor(files.length / Math.max(1, Math.min(files.length, 400))));
   for (let i = 0; i < files.length; i += step) order.push(i);
-  let sBytes = 0, sHands = 0, sOpp = 0, rpN = 0, rpBytes = 0; const evRecs = []; const t0 = Date.now();
+  let sMined = 0, sBytes = 0, sHands = 0, sOpp = 0, rpN = 0, rpBytes = 0; const evRecs = []; const t0 = Date.now();
   for (const i of order) {
     if (sBytes >= budget) break;
     try {
       await eachText(files[i], (text) => {
-        const r = parseTextAll(text, heroes);
+        const r = parseTextAll(text, heroes, !heroes.size); // без ников — как датамайнинг: только соперники
         for (const h of r.hands) {
-          sHands++; sOpp += h.opps.length;
+          if (h.hero) sHands++; else sMined++; sOpp += h.opps.length;
           if (h.rp) { rpN++; rpBytes += zlib.deflateRawSync(Buffer.from(JSON.stringify(h.rp))).length; }
-          if (h.hero.rp && h.hero.hc >= 0) evRecs.push([h.rp, -1]);
+          if (h.hero && h.hero.rp && h.hero.hc >= 0) evRecs.push([h.rp, -1]);
           for (const o of h.opps) if (o.needRp && o.hc >= 0 && h.rp) evRecs.push([h.rp, o.seatIdx]);
         }
       });
@@ -163,7 +174,7 @@ async function estimate(files, heroNicks, opts) {
   const evJobs = evRecs.length * scale, evPer = evN ? evMs / evN : 0;
   const seconds = (parseMs * scale / threads * 1.25 + evJobs * evPer / threads) / 1000 + (hands + opp) * 2e-6 * 10 + 3; // +25% на раздачу потокам, слияние ~20 мкс на строку
   const bytes = Math.round(hands * HERO_ROW + opp * OPP_ROW + (rpN ? rpBytes / rpN : 0) * rpN * scale + hands * 8);
-  return { totalBytes: total, sampleBytes: sBytes, hands, opp, bytes, seconds: Math.round(seconds), threads, cpus, exact: sBytes >= total };
+  return { totalBytes: total, sampleBytes: sBytes, hands, mined: Math.round(sMined * scale), opp, bytes, seconds: Math.round(seconds), threads, cpus, exact: sBytes >= total };
 }
 
 module.exports = { fileSize, ROOM_SIGNS, SUPPORTED, walk, addFile, scan, buildBase, appendBase, eachText, estimate };

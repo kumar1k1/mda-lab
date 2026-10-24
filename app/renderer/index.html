@@ -93,9 +93,11 @@
       <p class="muted small" id="impNote"></p>
       <div class="imp-nicks" id="impNicks" hidden>
         <h3>Ваши ники</h3>
-        <p class="muted small">Программа нашла игроков, чьи это истории раздач. Отметьте свои ники и проверьте рум — например, GGPoker часто сохраняет историю в формате PokerStars.</p>
+        <p class="muted small">Программа нашла игроков, чьи это истории раздач. Отметьте свои ники. Если ни один не отмечен — раздачи загрузятся только как база соперников (датамайнинг).</p>
         <div class="nick-list" id="nickList"></div>
-        <label class="alias-in"><span>Имя Alias — общее имя для всех ваших ников</span><input id="aliasName" type="text" maxlength="40" autocomplete="off"></label>
+        <label class="alias-in"><span>Имя Alias — общее имя для ников этого игрока. Другое имя — отдельный алиас (например, друг), его раздачи не смешаются с вашими</span><input id="aliasName" type="text" maxlength="40" autocomplete="off" list="aliasList"></label>
+        <datalist id="aliasList"></datalist>
+        <p class="muted small alias-hint" id="aliasHint" aria-live="polite"></p>
       </div>
       <div class="imp-plan" id="impPlan" hidden>
         <fieldset class="imp-mode" id="impMode" hidden>

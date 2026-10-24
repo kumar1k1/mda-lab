@@ -172,7 +172,8 @@ class BaseDir {
   // список для выбора: по числу раздач; q — часть ника (без учёта регистра)
   playerList(q, limit) {
     const s = (q || '').trim().toLowerCase(), all = this.players(), out = [];
-    for (let i = 0; i < all.length; i++) { const p = all[i]; if (p.c && (!s || p.n.toLowerCase().includes(s))) out.push(i); }
+    const mine = this.meta.nicks || {}; // ники алиасов — это вы и ваши алиасы, не соперники
+    for (let i = 0; i < all.length; i++) { const p = all[i]; if (p.c && !mine[p.n] && (!s || p.n.toLowerCase().includes(s))) out.push(i); }
     out.sort((a, b) => all[b].c - all[a].c || (all[a].n < all[b].n ? -1 : 1));
     return { total: out.length, players: out.slice(0, limit || 100).map(i => ({ pid: i, name: all[i].n, room: all[i].r, count: all[i].c, shown: all[i].sh })) };
   }
@@ -215,6 +216,10 @@ function writeFromLegacy(dir, db, rp, partSize) {
 class HashSet53 {
   constructor(cap) { this.cap = 1 << Math.max(16, Math.ceil(Math.log2((cap || 65536) * 2))); this.t = new Float64Array(this.cap); this.size = 0; }
   _slot(h) { return (((h % 4294967296) >>> 0) ^ Math.floor(h / 4294967296)) & (this.cap - 1); }
+  has(h) {
+    h += 1; let i = this._slot(h);
+    for (;;) { const v = this.t[i]; if (v === 0) return false; if (v === h) return true; i = (i + 1) & (this.cap - 1); }
+  }
   // добавляет хеш; false — такой уже был
   add(h) {
     h += 1; // 0 — пустая ячейка

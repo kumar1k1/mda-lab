@@ -1,5 +1,4 @@
 'use strict';
-/* global generateDemoHands */
 // Браузерная замена функций программы для онлайн-превью.
 (function () {
   const SIGNS = [
@@ -99,7 +98,7 @@
       for (const i of ids) { if (!(i >= 0 && i < p[2])) continue; const r = p[5] + i, pp = rp.getInt32(r * 4, true); if (pp >= 0) refs.push([i, pp, ro.getUint32(r * 4, true), rl.getUint32(r * 4, true), new Int8Array(st.buffer)[r]]); }
       return readRecs(refs);
     },
-    demoDb: async () => generateDemoHands(),
+    demoDb: async () => true, // в превью уже открыта база
     // в превью — примерная оценка по объёму (в программе — замер на образце ваших историй)
     estimate: async () => { const b = LAST_BYTES || 1; const cpus = navigator.hardwareConcurrency || 4, threads = Math.max(1, Math.min(8, cpus - 1)); const hands = Math.round(b / 1411), opp = Math.round(hands * 5.46); return { totalBytes: b, sampleBytes: Math.min(b, 16777216), hands, opp, bytes: Math.round(hands * 985), seconds: Math.round(b / 5.2e6 / threads * 1.25 + hands * 0.55 * 3.4 / 1000 / threads + 3), threads, cpus }; },
     baseLocation: async () => ({ dir: 'C:\\Users\\Игрок\\AppData\\Roaming\\MDA Lab\\base', free: 412e9 }),
