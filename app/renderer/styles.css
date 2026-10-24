@@ -654,3 +654,4 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .ht td.c.click:hover{outline:2px solid var(--amber);outline-offset:-2px}
 .cc-table{margin-top:10px}
 .cc-bx{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.mx-clr{min-height:34px;padding:0 10px;font-size:12px}
