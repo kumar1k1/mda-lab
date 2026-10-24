@@ -1209,11 +1209,36 @@ function ccOppBlock(r) {
   const side = el('div', 'mx-side');
   const leg = el('div', 'resp-legend row'); [['3-бет', 'var(--mx-raise)'], ['олл-ин', 'var(--mx-push)'], ['колл', 'var(--mx-limp)'], ['фолд', 'var(--mx-empty)']].forEach(([l, col]) => { const it = el('span'); const i = el('i'); i.style.background = col; if (col === 'var(--mx-empty)') i.style.border = '1px solid var(--line2)'; it.append(i, document.createTextNode(l)); leg.append(it); });
   const n = r.mxO.reduce((a, m) => a + m.n, 0);
-  side.append(leg, el('span', 'mx-cap', 'Ваша позиция'), seg,
-    el('span', 'mx-cap', 'Стек открывающего'), rangeForm('ccOs', uiState.ccOStkR, (v) => { uiState.ccOStkR = v; render(); }),
-    el('span', 'mx-cap', 'Мой диапазон'), rangeForm('ccOm', uiState.ccOMyR, (v) => { uiState.ccOMyR = v; render(); }),
+  // одна форма: стек открывающего и мой стек, одна кнопка «Показать»
+  const form = el('form', 'cc-opp-form');
+  const mkIn = (id, ph, val) => { const i = el('input'); i.type = 'number'; i.id = id; i.min = '0'; i.max = '1000'; i.step = '0.5'; i.placeholder = ph; i.inputMode = 'decimal'; if (val != null) i.value = String(val); return i; };
+  const pair = (id, cur, cap) => {
+    const row = el('div', 'mx-range'); const lo = mkIn(id + 'Lo', 'от', cur ? cur[0] : null), hi = mkIn(id + 'Hi', 'до', cur && cur[1] < 1e8 ? cur[1] : null);
+    const l1 = el('label', 'sr', cap + ' от, BB'); l1.htmlFor = id + 'Lo'; const l2 = el('label', 'sr', cap + ' до, BB'); l2.htmlFor = id + 'Hi';
+    row.append(l1, lo, el('span', 'mx-dash', '—'), l2, hi, el('span', 'mx-unit', 'BB'));
+    return { row, lo, hi };
+  };
+  const po = pair('ccOs', uiState.ccOStkR, 'Стек открывающего'), pm = pair('ccOm', uiState.ccOMyR, 'Мой стек');
+  const err = el('span', 'mx-err');
+  const go = el('button', 'btn mx-go' + (uiState.ccOStkR || uiState.ccOMyR ? ' on' : ''), 'Показать'); go.type = 'submit';
+  const clr = el('button', 'btn mx-clr', 'Сброс'); clr.type = 'button'; clr.hidden = !(uiState.ccOStkR || uiState.ccOMyR);
+  clr.onclick = () => { uiState.ccOStkR = null; uiState.ccOMyR = null; render(); };
+  const btns = el('div', 'cc-opp-btns'); btns.append(go, clr);
+  form.append(el('span', 'mx-cap', 'Стек открывающего'), po.row, el('span', 'mx-cap', 'Мой диапазон'), pm.row, btns, err);
+  const read = (p) => {
+    if (p.lo.value === '' && p.hi.value === '') return null;
+    const a = p.lo.value === '' ? 0 : parseFloat(p.lo.value), b = p.hi.value === '' ? 1e9 : parseFloat(p.hi.value);
+    return isNaN(a) || isNaN(b) || a < 0 || b <= a ? 'bad' : [a, b];
+  };
+  form.onsubmit = (e) => {
+    e.preventDefault();
+    const o = read(po), m = read(pm);
+    if (o === 'bad' || m === 'bad') { err.textContent = 'В каждом диапазоне «до» должно быть больше «от»'; return; }
+    uiState.ccOStkR = o; uiState.ccOMyR = m; render();
+  };
+  side.append(leg, el('span', 'mx-cap', 'Ваша позиция'), seg, form,
     el('span', 'muted small', 'Открывающий: ' + rangeTxt(uiState.ccOStkR) + ' · вы: ' + rangeTxt(uiState.ccOMyR) + ' · ' + n.toLocaleString('ru-RU') + ' раз перед вами был один рейз'));
-  side.append(infoNote('Задайте стек открывающего и свой стек в BB: «от» и «до» можно заполнить оба или одно (пустое «до» — без верхней границы). «Сброс» возвращает «любой». Клетка закрашена слева направо на долю ответов этой рукой: янтарная часть — 3-бет, синяя — олл-ин, зелёная — колл, тёмная — фолд. Бледная заливка — меньше 5 раздач.'));
+  side.append(infoNote('Задайте стек открывающего и свой стек в BB: «от» и «до» можно заполнить оба или одно (пустое «до» — без верхней границы). Нажмите «Показать» — матрица покажет ваши ответы ровно в таких раздачах. «Сброс» возвращает «любой». Клетка закрашена слева направо на долю ответов этой рукой: янтарная часть — 3-бет, синяя — олл-ин, зелёная — колл, тёмная — фолд. Бледная заливка — меньше 5 раздач.'));
   body.append(side);
   b.append(h, body);
   return b;

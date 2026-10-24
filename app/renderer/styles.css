@@ -655,3 +655,5 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .cc-table{margin-top:10px}
 .cc-bx{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
 .mx-clr{min-height:34px;padding:0 10px;font-size:12px}
+.cc-opp-form{display:flex;flex-direction:column;gap:6px}
+.cc-opp-btns{display:flex;gap:8px;margin-top:4px}
