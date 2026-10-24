@@ -1881,11 +1881,12 @@ async function applyAliasEdit() {
     setupAliases(HERO_DB); VIEW_CACHE.clear(); await resolveMembers();
   }
   EDIT_NEW = false; EDIT_MSG = '';
+  const A = ALIASES[target];
+  // алиас без ников (только что создан) открывать нечего — остаёмся в редакторе, чтобы добавить ники
+  if (!A || A.gone || !nickCount(A)) { await refreshAliasView(); return; }
   state.tab = PREV_TAB && PREV_TAB !== 'aliases' && TABS.some(t => t.id === PREV_TAB) ? PREV_TAB : 'rfi';
   $('content').scrollTop = 0;
-  const A = ALIASES[target];
-  if (A && !A.gone) await choosePlayer('alias', target);
-  else await refreshAliasView();
+  await choosePlayer('alias', target);
 }
 function renderAliasEditor() {
   const c = el('div', 'als');
@@ -1897,9 +1898,11 @@ function renderAliasEditor() {
   if (EDIT_A == null || !AL[EDIT_A] || AL[EDIT_A].gone) EDIT_A = curAlias() ? state.alias : live.length ? live[0].k : null;
   // алиасы базы
   const chips = el('div', 'als-chips'); chips.setAttribute('role', 'tablist');
+  const chipNames = {}; // имя на плашке меняется сразу, пока вы печатаете новое имя
   live.forEach(A => {
     const b = el('button', 'als-chip' + (A.k === EDIT_A ? ' on' : '')); b.type = 'button'; b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', A.k === EDIT_A);
-    b.append(el('b', null, A.name), el('span', null, nicksLabel(nickCount(A)) + ' · ' + aliasCount(A).toLocaleString('ru-RU')));
+    const nm = el('b', null, A.name); chipNames[A.k] = nm;
+    b.append(nm, el('span', null, nicksLabel(nickCount(A)) + ' · ' + aliasCount(A).toLocaleString('ru-RU')));
     b.onclick = () => { EDIT_A = A.k; EDIT_NEW = false; render(); };
     const w = el('div', 'als-chipw'); w.append(b);
     // крестик — распустить алиас сразу: игроки базы возвращаются в «Другие игроки», ваши ники остаются в своих алиасах.
@@ -1934,7 +1937,7 @@ function renderAliasEditor() {
   const button = (label, cls, fn) => { const b = el('button', 'btn small' + (cls ? ' ' + cls : ''), label); b.type = 'button'; b.onclick = fn; b.disabled = EDIT_BUSY; return b; };
   // имя
   const nameRow = el('label', 'als-name'); const nin = el('input'); nin.value = A.name; nin.maxLength = 40;
-  nin.oninput = () => editAliasEdit(list => { list[A.k].name = nin.value; }, true);
+  nin.oninput = () => { editAliasEdit(list => { list[A.k].name = nin.value; }, true); if (chipNames[A.k]) chipNames[A.k].textContent = nin.value.trim() || A.name; };
   nin.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); applyAliasEdit(); } };
   nameRow.append(el('span', null, 'Имя алиаса'), nin);
   const top = el('div', 'als-top'); top.append(nameRow);
