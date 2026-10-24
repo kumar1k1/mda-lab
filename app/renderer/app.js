@@ -65,7 +65,7 @@ function heatTable(o) {
   const hr = el('tr'); hr.append(el('th'));
   o.cols.forEach((c, i) => {
     if (o.groupGapBefore === i) hr.append(el('th', 'gap'));
-    hr.append(el('th', i === 0 ? 'tot' : null, c));
+    hr.append(el('th', i === 0 && !o.noTot ? 'tot' : null, c));
   });
   const thead = el('thead'); thead.append(hr); t.append(thead);
   const tb = el('tbody');
@@ -80,7 +80,7 @@ function heatTable(o) {
     o.cols.forEach((c, i) => {
       if (o.groupGapBefore === i) tr.append(el('td', 'gap'));
       const cc = r.data[c], p = rate(cc);
-      const td = el('td', 'c' + (i === 0 ? ' tot' : '')); td.dataset.col = c; td.dataset.row = r.key || r.label;
+      const td = el('td', 'c' + (i === 0 && !o.noTot ? ' tot' : '')); td.dataset.col = c; td.dataset.row = r.key || r.label;
       if (p == null) { td.classList.add('na'); td.textContent = '--'; td.title = 'нет раздач'; }
       else {
         td.textContent = fmtPct(p);
@@ -1162,9 +1162,8 @@ function renderRFISummary(idx, r) {
 function ccVsTable(r) {
   const heroPos = r.CC_COLS.slice(1).filter(p => r.cc[p].n >= SMALL);
   const opCols = ['EP', 'MP', 'HJ', 'CO', 'BTN', 'SB'].filter(op => heroPos.some(p => r.vs[p] && r.vs[p][op] && r.vs[p][op].n >= SMALL));
-  const cols = ['TOT'].concat(opCols);
-  const rows = heroPos.map(p => ({ key: p, label: p, data: Object.assign({ TOT: r.cc[p] }, r.vs[p] || {}) }));
-  const w = heatTable({ cols, rows });
+  const rows = heroPos.map(p => ({ key: p, label: p, data: r.vs[p] || {} }));
+  const w = heatTable({ cols: opCols, rows, noTot: true });
   w.querySelectorAll('td.c').forEach(td => {
     const p = td.dataset.row, op = td.dataset.col;
     const z = op === 'TOT' ? r.hands[p] : r.vsHands[p] && r.vsHands[p][op];
@@ -1178,7 +1177,7 @@ function ccVsTable(r) {
     td.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); pinHandPop(it, v, null, td); } });
   });
   const card = el('div', 'insight cc-table');
-  card.append(numTag(3), el('span', 'k', 'Колд-колл: позиция против позиции'), el('span', 's', 'строки — ваша позиция, колонки — позиция открывающего; в ячейке — доля коллов, TOT — против любого открытия'), w,
+  card.append(numTag(3), el('span', 'k', 'Колд-колл: позиция против позиции'), el('span', 's', 'строки — ваша позиция, колонки — позиция открывающего; в ячейке — доля коллов'), w,
     infoNote('Пустые ячейки (--) — ситуация невозможна: открывающий ходит раньше вас. Наведите на ячейку — матрица рук, которыми вы коллировали против этой позиции, и их итог; клик закрепит окно, клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше ' + SMALL + ' раздач.'));
   return card;
 }
