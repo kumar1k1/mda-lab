@@ -181,6 +181,7 @@
   const CC_COLS = ['TOT', 'EP', 'MP', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
   function cc(db, idx) {
     const c = db.cols, R = () => ({ x: 0, n: 0 }), out = { cc: {} };
+    out.vs = {}; out.vsHands = {}; // позиция героя → позиция открывающего
     out.hands = {}; out.resp = [0, 0, 0]; // ваш ответ на открытие (без BB): фолд / колл / рейз
     CC_COLS.forEach(k => { out.cc[k] = R(); out.hands[k] = { n: 0, sum: 0, ids: [], mx: Array.from({ length: 169 }, () => ({ n: 0, sum: 0 })) }; });
     if (!c.rz) return Object.assign(out, { CC_COLS });
@@ -188,6 +189,11 @@
       if (c.rz[i] !== 1) continue;
       const p = POS[c.pos[i]], call = c.act[i] === 1;
       (p === 'BB' ? [out.cc[p]] : [out.cc.TOT, out.cc[p]]).forEach(z => { z.n++; if (call) z.x++; }); // TOT — без BB
+      if (c.opos && c.opos[i] >= 0) {
+        const op = POS[c.opos[i]], row = out.vs[p] || (out.vs[p] = {}), z = row[op] || (row[op] = { x: 0, n: 0 });
+        z.n++; if (call) z.x++;
+        if (call && c.hc[i] >= 0) { const hr = out.vsHands[p] || (out.vsHands[p] = {}), h = hr[op] || (hr[op] = { n: 0, sum: 0, ids: [], mx: Array.from({ length: 169 }, () => ({ n: 0, sum: 0 })) }), v = c.net ? c.net[i] : 0; h.n++; h.sum += v; h.ids.push(i); h.mx[c.hc[i]].n++; h.mx[c.hc[i]].sum += v; }
+      }
       if (p !== 'BB') out.resp[c.act[i] === 0 ? 0 : c.act[i] === 1 ? 1 : 2]++;
       if (call && c.hc[i] >= 0) (p === 'BB' ? [p] : ['TOT', p]).forEach(k => { const h = out.hands[k], m = h.mx[c.hc[i]], v = c.net ? c.net[i] : 0; h.n++; h.sum += v; h.ids.push(i); m.n++; m.sum += v; });
     }

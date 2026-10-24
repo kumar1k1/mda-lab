@@ -80,7 +80,7 @@ function heatTable(o) {
     o.cols.forEach((c, i) => {
       if (o.groupGapBefore === i) tr.append(el('td', 'gap'));
       const cc = r.data[c], p = rate(cc);
-      const td = el('td', 'c' + (i === 0 ? ' tot' : '')); td.dataset.col = c;
+      const td = el('td', 'c' + (i === 0 ? ' tot' : '')); td.dataset.col = c; td.dataset.row = r.key || r.label;
       if (p == null) { td.classList.add('na'); td.textContent = '--'; td.title = 'нет раздач'; }
       else {
         td.textContent = fmtPct(p);
@@ -1158,6 +1158,31 @@ function renderRFISummary(idx, r) {
 }
 
 // ---------- вкладка «Колд-колл» ----------
+// таблица «позиция против позиции»: строки — ваша позиция, колонки — кто открыл
+function ccVsTable(r) {
+  const heroPos = r.CC_COLS.slice(1).filter(p => r.cc[p].n >= SMALL);
+  const opCols = ['EP', 'MP', 'HJ', 'CO', 'BTN', 'SB'].filter(op => heroPos.some(p => r.vs[p] && r.vs[p][op] && r.vs[p][op].n >= SMALL));
+  const cols = ['TOT'].concat(opCols);
+  const rows = heroPos.map(p => ({ key: p, label: p, data: Object.assign({ TOT: r.cc[p] }, r.vs[p] || {}) }));
+  const w = heatTable({ cols, rows });
+  w.querySelectorAll('td.c').forEach(td => {
+    const p = td.dataset.row, op = td.dataset.col;
+    const z = op === 'TOT' ? r.hands[p] : r.vsHands[p] && r.vsHands[p][op];
+    if (!z || !z.n) return;
+    const it = { p, key: 'ccvs ' + p + op, title: 'Колд-колл · ' + p + (op === 'TOT' ? '' : ' против ' + op), o: { n: z.n, sum: z.sum }, mx: z.mx, ids: z.ids, sit: 2, act: 1, vlab: ' BB за колд-колл', nlab: ' колд-коллов' };
+    const v = z.sum / 10 / z.n;
+    td.classList.add('click'); td.tabIndex = 0; td.setAttribute('role', 'button');
+    const show = (ev) => showHandPop(it, v, ev, td);
+    td.addEventListener('mouseenter', show); td.addEventListener('mousemove', show); td.addEventListener('mouseleave', hideHandPop);
+    td.addEventListener('click', (ev) => pinHandPop(it, v, ev, td));
+    td.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); pinHandPop(it, v, null, td); } });
+  });
+  const card = el('div', 'insight cc-table');
+  card.append(numTag(3), el('span', 'k', 'Колд-колл: позиция против позиции'), el('span', 's', 'строки — ваша позиция, колонки — позиция открывающего; в ячейке — доля коллов, TOT — против любого открытия'), w,
+    infoNote('Пустые ячейки (--) — ситуация невозможна: открывающий ходит раньше вас. Наведите на ячейку — матрица рук, которыми вы коллировали против этой позиции, и их итог; клик закрепит окно, клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше ' + SMALL + ' раздач.'));
+  return card;
+}
+
 // таблица CC: наведение на ячейку — матрица рук, которыми вы коллировали, с итогом; клик — закрепить, раздачи и реплеер
 function ccTable(r) {
   // позиции, где такой ситуации почти не бывает (EP за 8-max), не показываем
@@ -1198,7 +1223,7 @@ function renderCC(idx) {
   const c8 = card(8, 'Результат колд-колла', '<span class="' + (avg >= 0 ? 'up' : 'down') + '">' + signed(avg, 2) + '</span> <small>BB за колд-колл</small>', 'фактический итог раздачи после вашего колд-колла по позициям, без BB в общем итоге; под позицией — число колд-коллов', netChart(items, avg));
   c8.classList.add('wide');
   const zone = el('div', 'summary'); const pair = el('div', 'sum-pair'); pair.append(c1, c8); zone.append(pair);
-  c2.classList.add('cc-table'); zone.append(c2);
+  c2.classList.add('cc-table'); zone.append(c2, ccVsTable(r));
   page.append(zone);
   return page;
 }
