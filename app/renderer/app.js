@@ -195,10 +195,13 @@ function netChart(items, avg) {
   const hasR = items.some(it => it.r), W = 520, H = hasR ? 204 : 170, P = { l: 34, r: 10, t: 22, b: hasR ? 68 : 34 };
   const s = svgRoot(W, H, 'Результат открытий по позициям, BB за открытие, и ответ оппонентов');
   const vals = items.map(it => (it.o.n ? it.o.sum / 10 / it.o.n : null));
-  const ext = Math.max(0.5, ...vals.filter(v => v != null).map(Math.abs)) * 1.2;
-  const lo = Math.min(0, ...vals.filter(v => v != null)) < 0 ? -ext : 0, hi = ext;
-  const y = (v) => P.t + (1 - (v - lo) / (hi - lo)) * (H - P.t - P.b);
-  const step = hi > 1.5 ? 1 : 0.5;
+  // масштаб — по позициям с выборкой от 30 раздач, чтобы 2–3 случайные раздачи не сжимали остальные столбики
+  const solid = vals.filter((v, i) => v != null && items[i].o.n >= 30);
+  const sv = solid.length ? solid : vals.filter(v => v != null);
+  const ext = Math.max(0.5, ...sv.map(Math.abs)) * 1.2;
+  const lo = Math.min(0, ...sv) < 0 ? -ext : 0, hi = ext;
+  const y = (v) => P.t + (1 - (Math.max(lo, Math.min(hi, v)) - lo) / (hi - lo)) * (H - P.t - P.b);
+  const step = [0.5, 1, 2, 5, 10, 20, 50, 100].find(v => (hi - lo) / v <= 4) || 100; // 2–4 линии сетки при любом размахе
   for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) {
     s.append(svgEl('line', { x1: P.l, x2: W - P.r, y1: y(v), y2: y(v) }, 'stroke:' + (Math.abs(v) < 1e-9 ? 'var(--line2)' : 'var(--line)') + ';stroke-width:1'));
     s.append(svgText(P.l - 6, y(v) + 4, (v > 0 ? '+' : '') + (Math.round(v * 10) / 10), 'end'));
@@ -221,9 +224,9 @@ function netChart(items, avg) {
     }
     if (v == null) return;
     const top = y(Math.max(v, 0)), bot = y(Math.min(v, 0));
-    const col = v >= 0 ? 'var(--good)' : 'var(--bad)';
+    const col = v >= 0 ? 'var(--good)' : 'var(--bad)', few = it.o.n < 30;
     const g = svgEl('g');
-    g.append(svgEl('rect', { x: cx - w / 2, y: top, width: w, height: Math.max(1.5, bot - top), rx: 5 }, 'fill:' + col + ';opacity:' + (0.4 + 0.6 * Math.min(1, Math.abs(v) / (ext / 1.2))).toFixed(2)));
+    g.append(svgEl('rect', { x: cx - w / 2, y: top, width: w, height: Math.max(1.5, bot - top), rx: 5 }, 'fill:' + col + ';opacity:' + (few ? 0.25 : 0.4 + 0.6 * Math.min(1, Math.abs(v) / (ext / 1.2))).toFixed(2) + (few ? ';stroke:' + col + ';stroke-dasharray:3 3' : '')));
     g.append(svgText(cx, v >= 0 ? top - 6 : bot + 14, signed(v, 2), 'middle', 'fill:var(--text);font-weight:700'));
     g.append(svgEl('rect', { x: P.l + i * bw, y: P.t, width: bw, height: H - P.t - 2, rx: 6 }, 'fill:transparent'));
     g.setAttribute('tabindex', '0'); g.setAttribute('class', 'net-bar');
