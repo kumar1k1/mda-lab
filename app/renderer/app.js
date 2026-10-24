@@ -198,8 +198,12 @@ function netChart(items, avg) {
   // масштаб — по позициям с выборкой от 30 раздач, чтобы 2–3 случайные раздачи не сжимали остальные столбики
   const solid = vals.filter((v, i) => v != null && items[i].o.n >= 30);
   const sv = solid.length ? solid : vals.filter(v => v != null);
-  const ext = Math.max(0.5, ...sv.map(Math.abs)) * 1.2;
+  // устойчивый масштаб: одна позиция с огромным плюсом/минусом не сжимает остальные — её столбик обрезается с изломом
+  const abs = sv.map(Math.abs).sort((a, b) => b - a);
+  const cap = abs.length > 1 ? Math.min(abs[0], Math.max(abs[1] * 2, 1)) : (abs[0] || 0.5);
+  const ext = Math.max(0.5, cap) * 1.2;
   const lo = Math.min(0, ...sv) < 0 ? -ext : 0, hi = ext;
+  const clipped = (v) => v > hi || v < lo;
   const y = (v) => P.t + (1 - (Math.max(lo, Math.min(hi, v)) - lo) / (hi - lo)) * (H - P.t - P.b);
   const step = [0.5, 1, 2, 5, 10, 20, 50, 100].find(v => (hi - lo) / v <= 4) || 100; // 2–4 линии сетки при любом размахе
   for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) {
@@ -227,6 +231,10 @@ function netChart(items, avg) {
     const col = v >= 0 ? 'var(--good)' : 'var(--bad)', few = it.o.n < 30;
     const g = svgEl('g');
     g.append(svgEl('rect', { x: cx - w / 2, y: top, width: w, height: Math.max(1.5, bot - top), rx: 5 }, 'fill:' + col + ';opacity:' + (few ? 0.25 : 0.4 + 0.6 * Math.min(1, Math.abs(v) / (ext / 1.2))).toFixed(2) + (few ? ';stroke:' + col + ';stroke-dasharray:3 3' : '')));
+    if (clipped(v)) { // излом на обрезанном столбике
+      const yb = v >= 0 ? top + 10 : bot - 10;
+      g.append(svgEl('path', { d: 'M' + (cx - w / 2 - 2) + ' ' + (yb + 3) + ' L' + (cx + w / 2 + 2) + ' ' + (yb - 3) + ' M' + (cx - w / 2 - 2) + ' ' + (yb + 8) + ' L' + (cx + w / 2 + 2) + ' ' + (yb + 2) }, 'stroke:var(--panel);stroke-width:3'));
+    }
     g.append(svgText(cx, v >= 0 ? top - 6 : bot + 14, signed(v, 2), 'middle', 'fill:var(--text);font-weight:700'));
     g.append(svgEl('rect', { x: P.l + i * bw, y: P.t, width: bw, height: H - P.t - 2, rx: 6 }, 'fill:transparent'));
     g.setAttribute('tabindex', '0'); g.setAttribute('class', 'net-bar');
@@ -525,7 +533,8 @@ function showGroupTip(pos, label, k, z, hands, e) {
   groupTip.append(h);
   const R = 'AKQJT98765432', grid = el('div', 'gt-grid');
   const inG = []; for (let q = 0; q < 169; q++) if (handGroup(q) === k) inG.push(q);
-  const scale = Math.max(1, ...inG.filter(q => hands[q].n >= 3).map(q => Math.abs(hands[q].sum / 10 / hands[q].n)));
+  const gv = inG.filter(q => hands[q].n >= 3).map(q => Math.abs(hands[q].sum / 10 / hands[q].n)).sort((a, b) => a - b);
+  const scale = Math.max(1, ...gv.slice(0, Math.ceil(gv.length * 0.9))); // крайние 10% не растягивают шкалу цвета
   for (let i = 0; i < 13; i++) for (let j = 0; j < 13; j++) {
     const q = i * 13 + j, cell = el('div', 'gt-c');
     cell.append(el('span', 'h', i === j ? R[i] + R[j] : i < j ? R[i] + R[j] + 's' : R[j] + R[i] + 'o'));
