@@ -615,13 +615,13 @@ function handGroupTable(o) {
         const pin = (e) => { hideGroupTip(); pinHandPop({ p: nm, key: 'grp' + nm + k, title: nm + ' · ' + lab, o: z, mx: hands, ids, only: (q) => handGroup(q) === k }, z.sum / 10 / z.n, e, cell); };
         cell.addEventListener('click', pin); cell.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pin(null); } }); }
       cell.addEventListener('mouseenter', (e) => showGroupTip(nm, lab, k, z, hands, e)); cell.addEventListener('mousemove', moveGroupTip); cell.addEventListener('mouseleave', hideGroupTip);
-      if (!z.n) { cell.append(el('span', 'hg-pos', nm), el('span', 'hg-na', '—')); r.append(cell); return; }
+      if (!z.n) { cell.append(el('span', 'hg-na', '—')); r.append(cell); return; }
       const v = z.sum / 10 / z.n;
       const tr = el('div', 'hg-track'); const f = el('div', 'hg-fill'); const w = Math.min(50, Math.abs(v) / max * 50);
       f.style.width = w + '%'; f.style.left = v >= 0 ? '50%' : (50 - w) + '%'; f.style.background = col; if (v < 0) f.style.opacity = '.7';
       tr.append(el('i', 'hg-zero'), f);
-      const t = wrNode('hg-v', v, z.es / 10 / z.n, 2); const n = el('span', 'hg-n', z.n.toLocaleString('ru-RU')); n.title = z.n.toLocaleString('ru-RU') + ' открытий';
-      cell.append(el('span', 'hg-pos', nm), tr, t, n); if (z.n < 30) cell.classList.add('low');
+      const t = wrNode('hg-v', v, z.es / 10 / z.n, 2); const n = el('span', 'hg-n', String(z.n));
+      cell.append(tr, t, n); if (z.n < 30) cell.classList.add('low');
       r.append(cell);
     });
     box.append(r);
