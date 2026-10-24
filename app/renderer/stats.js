@@ -179,18 +179,24 @@
 
   // Колд-колл: перед первым ходом героя был ровно один рейз (открытие), герой ещё не вкладывался добровольно; CC — колл этого рейза
   const CC_COLS = ['TOT', 'EP', 'MP', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
-  function cc(db, idx) {
+  function cc(db, idx, opt) {
+    opt = opt || {};
     const c = db.cols, R = () => ({ x: 0, n: 0 }), out = { cc: {} };
     const bxCell = () => ({ n: 0, x: 0, rn: 0, fold: 0, rr: 0, sum: 0, sn: 0 });
     out.bx = { CO: BX_STK.map(() => BX_STK.map(bxCell)), BTN: BX_STK.map(() => BX_STK.map(bxCell)) }; // колд-колл с CO/BTN по стекам SB и BB
     out.vs = {}; out.vsHands = {}; // позиция героя → позиция открывающего
-    out.hands = {}; out.resp = [0, 0, 0]; // ваш ответ на открытие (без BB): фолд / колл / рейз
+    out.hands = {}; out.resp = [0, 0, 0];
+    out.mx = Array.from({ length: 169 }, () => ({ n: 0, x: 0, ai: 0, lp: 0 })); // диапазон против открытия: колл / 3-бет / олл-ин / фолд // ваш ответ на открытие (без BB): фолд / колл / рейз
     CC_COLS.forEach(k => { out.cc[k] = R(); out.hands[k] = { n: 0, sum: 0, ids: [], mx: Array.from({ length: 169 }, () => ({ n: 0, sum: 0 })) }; });
     if (!c.rz) return Object.assign(out, { CC_COLS });
     for (const i of idx) {
       if (c.rz[i] !== 1) continue;
       const p = POS[c.pos[i]], call = c.act[i] === 1;
       (p === 'BB' ? [out.cc[p]] : [out.cc.TOT, out.cc[p]]).forEach(z => { z.n++; if (call) z.x++; }); // TOT — без BB
+      if (c.hc[i] >= 0 && p === opt.mxPos && (!opt.mxStk || (c.bb[i] >= opt.mxStk[0] * 10 && c.bb[i] < opt.mxStk[1] * 10))) {
+        const m = out.mx[c.hc[i]], a = c.act[i]; m.n++;
+        if (a === 1) m.lp++; else if (a >= 2) { m.x++; if (a === 3) m.ai++; }
+      }
       if ((p === 'CO' || p === 'BTN') && c.sbs && c.sbs[i] >= 0 && c.bbs[i] >= 0) {
         const f = (v) => BX_STK.findIndex(z => v / 10 >= z[1] && v / 10 < z[2]);
         const z = out.bx[p][f(c.sbs[i])][f(c.bbs[i])]; z.n++;
