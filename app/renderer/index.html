@@ -9,30 +9,42 @@
 </head>
 <body>
 <header class="top">
-  <div class="brand">
-    <img src="icon.png" alt="" width="28" height="28">
-    <span>MDA Lab</span>
-  </div>
-
-  <div class="player">
-    <span class="badge-reg" id="roomBadge">ALIAS</span>
-    <span class="nick" id="nick">—</span>
-    <span class="hands mono" id="handsCount" title="Раздач в базе">—</span>
-    <span class="demo" id="demoTag" hidden>демо-база</span>
+  <div class="top-main">
+    <div class="brand">
+      <img src="icon.png" alt="" width="28" height="28">
+      <span>MDA Lab</span>
+    </div>
+    <span class="top-div" aria-hidden="true"></span>
+    <div class="player">
+      <span class="badge-reg" id="roomBadge">ALIAS</span>
+      <div class="player-txt">
+        <span class="nick" id="nick">—</span>
+        <span class="hands" id="handsCount" title="Раздач в базе">—</span>
+      </div>
+      <span class="demo" id="demoTag" hidden>демо-база</span>
+    </div>
+    <button class="btn-load" id="openImport" aria-label="Загрузить базу">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg>
+      Загрузить базу
+    </button>
   </div>
 
   <div class="filters" role="group" aria-label="Фильтры базы">
-    <label class="flt"><span>Рум</span><select id="fRoom"></select></label>
-    <label class="flt"><span>Тип</span><select id="fType"></select></label>
-    <label class="flt"><span>С</span><select id="fFrom"></select></label>
-    <label class="flt"><span>По</span><select id="fTo"></select></label>
-    <label class="flt flt-bi" title="Бай-ин турнира. Евро и другие валюты пересчитаны в доллары примерно (1 € ≈ 1,1 $)"><span>Бай-ин от</span><select id="fBiFrom"></select><span>до</span><select id="fBiTo"></select></label>
+    <label class="flt"><span class="flt-k">Рум</span><select id="fRoom"></select></label>
+    <label class="flt"><span class="flt-k">Тип турнира</span><select id="fType"></select></label>
+    <div class="flt flt-pair" role="group" aria-labelledby="fPerK">
+      <span class="flt-k" id="fPerK">Период</span>
+      <div class="flt-row">
+        <select id="fFrom" aria-label="Период с"></select><span class="flt-dash" aria-hidden="true">—</span><select id="fTo" aria-label="Период по"></select>
+      </div>
+    </div>
+    <div class="flt flt-pair flt-bi" role="group" aria-labelledby="fBiK" title="Бай-ин турнира. Евро и другие валюты пересчитаны в доллары примерно (1 € ≈ 1,1 $)">
+      <span class="flt-k" id="fBiK">Бай-ин</span>
+      <div class="flt-row">
+        <select id="fBiFrom" aria-label="Бай-ин от"></select><span class="flt-dash" aria-hidden="true">—</span><select id="fBiTo" aria-label="Бай-ин до"></select>
+      </div>
+    </div>
   </div>
-
-  <button class="btn-load" id="openImport">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg>
-    Загрузить базу
-  </button>
 </header>
 
 <div class="body">

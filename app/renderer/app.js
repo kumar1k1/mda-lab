@@ -1589,7 +1589,7 @@ function updatePlayer() {
   $('roomBadge').textContent = alias ? 'ALIAS' : (ROOM_CODES[roomName] || roomName.slice(0, 4).toUpperCase());
   $('roomBadge').classList.toggle('room', !alias);
   $('nick').textContent = nick;
-  $('handsCount').textContent = kFmt(count);
+  $('handsCount').textContent = count.toLocaleString('ru-RU') + ' раздач' + (alias ? ' · все румы' : ' · ' + roomName);
   $('handsCount').title = count.toLocaleString('ru-RU') + ' раздач' + (alias ? ' во всей базе' : ' в ' + roomName);
   $('nick').parentElement.title = alias && DB.nicks ? 'Alias объединяет ники: ' + Object.keys(DB.nicks).map(n => n + ' (' + DB.nicks[n] + ')').join(', ') : roomName ? 'Ник в ' + roomName : '';
 }

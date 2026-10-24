@@ -3,7 +3,17 @@
 html,body{background:var(--bg);color:var(--text)}
 body{padding-left:max(0px, env(safe-area-inset-left, 0px));padding-right:max(0px, env(safe-area-inset-right, 0px))}
 @media (max-width: 760px){
-  .top{padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
+  .top-main,.filters{padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
+  .top-main{gap:10px;flex-wrap:nowrap}
+  .player{flex:1 1 auto}
+  .brand span{display:none}
+  .nick,.hands{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .top-div{display:none}
+  #openImport{width:40px;padding:0;justify-content:center;font-size:0;gap:0}
+  .filters{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px}
+  .flt-pair{grid-column:1 / -1}
+  .flt select,#fRoom{width:100%;min-width:0;max-width:none}
+  .flt-row select{flex:1 1 0}
   .body{flex-direction:column}
   .rail{width:auto;flex:0 0 auto;display:flex;overflow-x:auto;overflow-y:hidden;padding:0;border-right:none;border-bottom:1px solid var(--line)}
   .tab{width:auto;flex:0 0 auto;padding:0 14px;border-left:none;border-bottom:3px solid transparent}
@@ -11,5 +21,4 @@ body{padding-left:max(0px, env(safe-area-inset-left, 0px));padding-right:max(0px
   .sep{width:1px;height:auto;margin:8px 4px}
   .content{padding:12px max(16px, env(safe-area-inset-left, 0px))}
   .sheet{padding:14px}
-  .filters{flex-basis:100%}
 }
