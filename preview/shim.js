@@ -45,6 +45,25 @@
   }
   // база превью — та же папка колонок, что в программе (preview/base): описание, колонки, записи реплеера частями
   const BASE = 'base/';
+  // записи реплеера: части (сжатые deflate-raw в базе v3 или текст в старом формате), с позиции нужного игрока
+  const inflate = async (u8) => new Uint8Array(await new Response(new Blob([u8]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());
+  const asSeat = (rec, seat) => {
+    if (seat == null || seat < 0 || seat === rec.h) return rec;
+    const sh = Object.assign({}, rec.sh || {}); if (rec.hc && sh[rec.h] == null) sh[rec.h] = rec.hc;
+    return Object.assign({}, rec, { h: seat, hc: sh[seat] || null, sh, pl: rec.pl.map((p, j) => [p[0], p[1], j === seat ? 1 : 0, p[3]]) });
+  };
+  async function readRecs(refs) {
+    const m = await window.mda.dbMeta(), z = !!(m && m.rpz), out = {}, dec = new TextDecoder();
+    for (const [i, p, off, len, seat] of refs) {
+      let part = PARTS.get(p);
+      if (!part) { part = z ? b64('rpz_' + p) : fetch(BASE + 'rp_' + p + '.txt').then(r => r.arrayBuffer()).then(b => new Uint8Array(b)); PARTS.set(p, part); }
+      try { let u = (await part).subarray(off, off + len); if (z) u = await inflate(u); out[i] = asSeat(JSON.parse(dec.decode(u)), seat); } catch (e) { /* часть не загрузилась */ }
+    }
+    return out;
+  }
+  let PL = null; const CHUNKS = new Map();
+  const players = async () => { if (!PL) { try { const r = await fetch(BASE + 'players.json'); PL = r.ok ? await r.json() : []; } catch (e) { PL = []; } } return PL; };
+  const oppChunk = (k) => { let c = CHUNKS.get(k); if (!c) { c = fetch(BASE + 'opp_' + k + '.b64.json').then(r => r.json()).then(j => { const cols = {}; for (const n in j.cols) { const t = atob(j.cols[n]), u = new Uint8Array(t.length); for (let i = 0; i < t.length; i++) u[i] = t.charCodeAt(i); cols[n] = u; } return { start: j.start, cols }; }); CHUNKS.set(k, c); } return c; };
   const b64 = async (f) => { const r = await fetch(BASE + f + '.b64.json'); if (!r.ok) return null; const t = atob(await r.json()), u = new Uint8Array(t.length); for (let i = 0; i < t.length; i++) u[i] = t.charCodeAt(i); return u; };
   let META, IDX = null; const PARTS = new Map();
   window.mda = {
@@ -52,15 +71,33 @@
     dbCol: async (name) => { try { return await b64('c_' + name + '.bin'); } catch (e) { return null; } },
     replaysFor: async (ids) => {
       if (!IDX) { try { const u = await b64('rp.idx'); IDX = u ? new DataView(u.buffer) : new DataView(new ArrayBuffer(0)); } catch (e) { IDX = new DataView(new ArrayBuffer(0)); } }
-      const out = {}, dec = new TextDecoder();
-      for (const i of ids) {
-        if (!(i >= 0 && (i + 1) * 12 <= IDX.byteLength)) continue;
-        const p = IDX.getInt32(i * 12, true); if (p < 0) continue;
-        const off = IDX.getUint32(i * 12 + 4, true), len = IDX.getUint32(i * 12 + 8, true);
-        let part = PARTS.get(p); if (!part) { part = fetch(BASE + 'rp_' + p + '.txt').then(r => r.arrayBuffer()).then(b => new Uint8Array(b)); PARTS.set(p, part); }
-        try { out[i] = JSON.parse(dec.decode((await part).subarray(off, off + len))); } catch (e) { /* часть не загрузилась */ }
-      }
-      return out;
+      const refs = [];
+      for (const i of ids) { if (!(i >= 0 && (i + 1) * 12 <= IDX.byteLength)) continue; const p = IDX.getInt32(i * 12, true); if (p >= 0) refs.push([i, p, IDX.getUint32(i * 12 + 4, true), IDX.getUint32(i * 12 + 8, true), -1]); }
+      return readRecs(refs);
+    },
+    // соперники (база v3)
+    playersList: async (q, limit) => {
+      const P = await players(); const s = (q || '').trim().toLowerCase(), out = [];
+      for (let i = 0; i < P.length; i++) if (P[i][2] && (!s || P[i][0].toLowerCase().includes(s))) out.push(i);
+      out.sort((a, b) => P[b][2] - P[a][2] || (P[a][0] < P[b][0] ? -1 : 1));
+      return { total: out.length, players: out.slice(0, limit || 100).map(i => ({ pid: i, name: P[i][0], room: P[i][1], count: P[i][2], shown: P[i][3] })) };
+    },
+    playerMeta: async (pid) => {
+      const P = await players(), p = P[pid]; if (!p) return null; const m = await window.mda.dbMeta();
+      return { format: m.format, demo: false, hero: p[0], nicks: { [p[0]]: m.rooms[p[1]] }, rooms: m.rooms, types: m.types, periodStart: m.periodStart, count: p[2], cols: m.cols, pid, opponent: true };
+    },
+    playerCol: async (pid, name) => {
+      const P = await players(), p = P[pid], m = await window.mda.dbMeta(); if (!p) return null;
+      const t = (m.oppCols || []).find(c => c[0] === name); const ch = await oppChunk(p[4]); if (!t || !ch.cols[name]) return null;
+      const bpe = { i8: 1, i16: 2, i32: 4, u32: 4, f64: 8 }[t[1]];
+      return ch.cols[name].slice(p[5] * bpe, (p[5] + p[2]) * bpe);
+    },
+    playerReplays: async (pid, ids) => {
+      const P = await players(), p = P[pid]; if (!p) return {}; const ch = await oppChunk(p[4]);
+      const dv = (n) => new DataView(ch.cols[n].buffer); const rp = dv('rpp'), ro = dv('rpo'), rl = dv('rpl'), st = ch.cols.seat;
+      const refs = [];
+      for (const i of ids) { if (!(i >= 0 && i < p[2])) continue; const r = p[5] + i, pp = rp.getInt32(r * 4, true); if (pp >= 0) refs.push([i, pp, ro.getUint32(r * 4, true), rl.getUint32(r * 4, true), new Int8Array(st.buffer)[r]]); }
+      return readRecs(refs);
     },
     demoDb: async () => generateDemoHands(),
     // в превью — примерная оценка по объёму (в программе — замер на образце ваших историй)

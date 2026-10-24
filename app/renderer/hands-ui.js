@@ -13,7 +13,8 @@ async function replaysFor(ids) {
   if (!REPLAYS) REPLAYS = new Map();
   const need = []; for (const i of ids) if (!REPLAYS.has(i)) need.push(i);
   for (let k = 0; k < need.length; k += 20000) {
-    const part = need.slice(k, k + 20000), got = (mda.replaysFor && await mda.replaysFor(part)) || {};
+    const part = need.slice(k, k + 20000);
+    const got = (state.player ? mda.playerReplays && await mda.playerReplays(state.player.pid, part) : mda.replaysFor && await mda.replaysFor(part)) || {};
     for (const i of part) REPLAYS.set(i, got[i] || null);
   }
   if (REPLAYS.size > 300000) { const keep = new Set(ids); for (const key of REPLAYS.keys()) { if (REPLAYS.size <= 150000) break; if (!keep.has(key)) REPLAYS.delete(key); } }

@@ -5,8 +5,6 @@ const fs = require('fs');
 const path = require('path');
 const { parseText } = require('./parse.js');
 const { listZip, isZipPath, zipSize, zipRead, zipStream, closeAll } = require('./zip.js');
-const { computeEv } = require('./ev-pool.js');
-const { SCHEMA, ColumnBuilder, ReplayWriter, writeBaseDir, writeColumn, packIndex, hash53, HashSet53 } = require('./store.js');
 
 // признаки рума по началу файла
 const ROOM_SIGNS = [
@@ -118,75 +116,11 @@ async function eachText(f, cb) {
   else await streamPieces(fs.createReadStream(f, { highWaterMark: 4 * 1024 * 1024 }), cb);
 }
 
-// ---------- потоковая сборка базы ----------
-// Раздачи сразу раскладываются по колонкам (без списка объектов в памяти), записи реплеера пишутся на диск.
-// Итог тот же, что у прежней сборки: дубли (номер раздачи + турнир) отсеиваются, раздачи упорядочены по дате
-// (при равной дате — в порядке файлов), EV считается после сортировки с тем же зерном, что и раньше.
-// nicks: { ник: рум }, alias: имя Alias, outDir: папка новой базы. onProgress(done, total, hands).
-async function buildBase(files, nicks, alias, outDir, onProgress, opts) {
-  opts = opts || {};
-  const heroes = new Set(Object.keys(nicks));
-  const ROOMS = [...new Set(Object.values(nicks))];
-  fs.rmSync(outDir, { recursive: true, force: true }); fs.mkdirSync(outDir, { recursive: true });
-  const B = {}; for (const [name, type] of SCHEMA) B[name] = new ColumnBuilder(name, type);
-  const dkey = new ColumnBuilder('date', 'i32'), khash = new ColumnBuilder('key', 'f64');
-  const rpw = new ReplayWriter(outDir, opts.partSize);
-  const seen = new HashSet53(); let errors = 0, dup = 0, n = 0;
-  const add = (h) => {
-    const hk = hash53(h.id + '|' + h.tour);
-    if (!seen.add(hk)) { dup++; return; }
-    h.room = nicks[h.hero];
-    const y = +h.date.slice(0, 4), m = +h.date.slice(5, 7), d = +h.date.slice(8, 10);
-    const rec = {
-      room: ROOMS.indexOf(h.room), type: h.pko, month: y * 12 + m - 1, tbl: h.tblMax && h.tblMax <= 6 ? 6 : 9, pos: h.pos, bb: h.bb,
-      sit: h.sit, lim: h.lim, act: h.act, size: h.size, fti: h.fti, bvb: h.bvb, fvr: h.fvr, day: Math.round(Date.UTC(y, m - 1, d) / 864e5),
-      hc: h.hc, net: h.net, sto: h.sto, f3b: h.f3b, orsp: h.orsp, bmin: h.bmin, sbs: h.sbs, bbs: h.bbs, bh: h.bh, bsh: h.bsh, bmd: h.bmd,
-      bdp: h.bdp, cov: h.cov, bi: h.bi, rz: h.rz, cl: h.cl, rai: h.rai, opos: h.opos, ostk: h.ostk, osz: h.osz, nev: h.net,
-      hpa: h.hpa || 0, tmx: h.tblMax || 0, np: h.n || 0, lr: h.lr || 0
-    };
-    for (const [name] of SCHEMA) B[name].push(rec[name]);
-    dkey.push(y * 10000 + m * 100 + d); khash.push(hk);
-    if (h.rp && h.hc >= 0) { delete h.rp.bb; rpw.add(h.rp); } else rpw.add(null);
-    n++;
-  };
-  for (let k = 0; k < files.length; k++) {
-    try { await eachText(files[k], (text) => { const r = parseText(text, heroes); errors += r.errors; for (const h of r.hands) add(h); }); } catch (e) { /* файл не прочитан — пропускаем */ }
-    if (onProgress && (k % 25 === 0 || k === files.length - 1)) onProgress(k + 1, files.length, n, 'parse');
-  }
-  closeAll(); rpw.close(); seen.clear();
-  if (!n) { fs.rmSync(outDir, { recursive: true, force: true }); return { hands: 0, dup, errors, rooms: ROOMS }; }
-
-  // порядок по дате; при равной дате — как в файлах (как устойчивая сортировка прежней сборки)
-  let dk = dkey.toArray(); const perm = new Uint32Array(n); for (let i = 0; i < n; i++) perm[i] = i;
-  perm.sort((a, b) => dk[a] - dk[b] || a - b);
-  dk = null;
-  // колонки упорядочиваются по одной и сразу пишутся на диск, растущая колонка освобождается —
-  // так в памяти не держатся две копии базы одновременно
-  const m0 = B.month.get(perm[0]), sy = Math.floor(m0 / 12), sm = m0 % 12 + 1, day0 = Math.round(Date.UTC(sy, sm - 1, 1) / 864e5);
-  let net = null;
-  for (const [name] of SCHEMA) {
-    if (name === 'nev') continue;
-    const a = B[name].toArray(perm); B[name] = null;
-    if (name === 'month') for (let k = 0; k < n; k++) a[k] -= m0;
-    if (name === 'day') for (let k = 0; k < n; k++) a[k] -= day0;
-    writeColumn(outDir, name, a);
-    if (name === 'net') net = a;
-  }
-  // EV-итог (all-in adjusted): по эквити на момент олл-ина; зерно — номер раздачи после сортировки, как раньше.
-  // Считается параллельно по ядрам процессора — итог тот же, что при расчёте по одному.
-  const nev = Float64Array.from(net), rpPart = rpw.idxPart, rpOff = rpw.idxOff, rpLen = rpw.idxLen;
-  let m = 0; for (let k = 0; k < n; k++) if (rpPart.get(perm[k]) >= 0) m++;
-  const jobs = new Float64Array(m * 5);
-  for (let k = 0, j = 0; k < n; k++) { const o = perm[k], p = rpPart.get(o); if (p < 0) continue; jobs.set([k, p, rpOff.get(o), rpLen.get(o), k + 1], j * 5); j++; }
-  const ev = await computeEv(outDir, jobs, { threads: opts.threads, onTick: (d, t) => { if (onProgress) onProgress(d, t, n, 'ev'); } });
-  for (let j = 0; j < m; j++) { const e = ev[j]; if (!Number.isNaN(e)) { const k = jobs[j * 5]; nev[k] = Math.round((net[k] / 10 + e) * 1000) / 100; } }
-  writeColumn(outDir, 'nev', nev);
-  const idx = packIndex(rpw.idxPart.toArray(perm), rpw.idxOff.toArray(perm), rpw.idxLen.toArray(perm));
-  const periodStart = sy + '-' + String(sm).padStart(2, '0');
-  const meta = { demo: false, hero: alias || Object.keys(nicks)[0], nicks, rooms: ROOMS, types: ['Обычный', 'PKO'], periodStart, count: n };
-  writeBaseDir(outDir, meta, {}, khash.toArray(perm), idx, SCHEMA); // колонки уже на диске
-  return { hands: n, dup, errors, rooms: ROOMS };
-}
+// ---------- сборка базы ----------
+// Сборка и дозагрузка — в ingest.js (герой + соперники, разбор по ядрам, слияние потоком).
+// Подключается при вызове, чтобы не было круговой зависимости (потоки разбора используют eachText отсюда).
+const buildBase = (...a) => require('./ingest.js').buildBase(...a);
+const appendBase = (files, nicks, alias, dir, onProgress, opts) => require('./ingest.js').ingest(files, nicks, alias, dir, onProgress, opts);
 
 // ---------- оценка до загрузки ----------
 // Прогоняет образец историй (по умолчанию ~16 МБ, равномерно по списку файлов) тем же разбором и расчётом EV,
@@ -224,4 +158,4 @@ async function estimate(files, heroNicks, opts) {
   return { totalBytes: total, sampleBytes: sBytes, hands, bytes, seconds: Math.round(seconds), threads, cpus: (os.cpus() || []).length, exact: sBytes >= total };
 }
 
-module.exports = { ROOM_SIGNS, SUPPORTED, walk, addFile, scan, buildBase, eachText, estimate };
+module.exports = { ROOM_SIGNS, SUPPORTED, walk, addFile, scan, buildBase, appendBase, eachText, estimate };

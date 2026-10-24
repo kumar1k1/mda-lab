@@ -68,9 +68,9 @@ function typedFrom(bytes, type) {
 
 // Запись реплеера частями: JSON подряд, часть закрывается при partSize байт.
 class ReplayWriter {
-  constructor(dir, partSize) {
+  constructor(dir, partSize, firstPart) {
     this.dir = dir; this.partSize = partSize || 256 * 1024 * 1024;
-    this.part = -1; this.fd = null; this.off = 0; this.buf = []; this.bufLen = 0;
+    this.part = (firstPart || 0) - 1; this.fd = null; this.off = 0; this.buf = []; this.bufLen = 0;
     this.idxPart = new ColumnBuilder('rp.part', 'i32'); this.idxOff = new ColumnBuilder('rp.off', 'u32'); this.idxLen = new ColumnBuilder('rp.len', 'u32');
   }
   _open() { this._flush(); if (this.fd != null) fs.closeSync(this.fd); this.part++; this.fd = fs.openSync(path.join(this.dir, 'rp_' + this.part + '.dat'), 'w+'); this.off = 0; }
@@ -84,6 +84,15 @@ class ReplayWriter {
     this.buf.push(b); this.bufLen += b.length; this.off += b.length;
     if (this.bufLen > 4 * 1024 * 1024) this._flush();
   }
+  // готовая (сжатая) запись: возвращает [part, offset, length]
+  addRaw(b) {
+    if (this.fd == null || this.off + b.length > this.partSize) this._open();
+    const ref = [this.part, this.off, b.length];
+    this.buf.push(b); this.bufLen += b.length; this.off += b.length;
+    if (this.bufLen > 4 * 1024 * 1024) this._flush();
+    return ref;
+  }
+  get parts() { return this.part + 1; }
   close() { this._flush(); if (this.fd != null) fs.closeSync(this.fd); this.fd = null; }
   // чтение записи по исходному номеру (во время сборки, до перестановки)
   read(i) {
@@ -121,28 +130,69 @@ function writeBaseDir(dir, meta, cols, keys, rpIndex, written) {
   fs.writeFileSync(path.join(dir, 'meta.json'), JSON.stringify(Object.assign({}, meta, { format: FORMAT, cols: colsMeta })));
 }
 
-// Чтение папки базы: meta, колонка по имени (байты), записи реплеера по номерам раздач.
+// Чтение папки базы (форматы v2 и v3): meta, колонка по имени (байты), записи реплеера по номерам раздач,
+// а в v3 — ещё игроки-соперники: список, их колонки (диапазон строк) и записи реплеера с их позиции.
 class BaseDir {
-  constructor(dir) { this.dir = dir; this.meta = JSON.parse(fs.readFileSync(path.join(dir, 'meta.json'), 'utf8')); this._idx = null; }
+  constructor(dir) {
+    this.dir = dir; this.meta = JSON.parse(fs.readFileSync(path.join(dir, 'meta.json'), 'utf8'));
+    this.v3 = this.meta.format === 'mdalab-cols-v3';
+    this.g = this.v3 ? path.join(dir, this.meta.colDir) : dir; this.og = path.join(this.g, 'opp');
+    this.z = !!this.meta.rpz; this._idx = null; this._players = null;
+  }
   static exists(dir) { return fs.existsSync(path.join(dir, 'meta.json')); }
-  colBytes(name) { const f = path.join(this.dir, 'c_' + name + '.bin'); return fs.existsSync(f) ? fs.readFileSync(f) : null; }
+  colBytes(name) { const f = path.join(this.g, 'c_' + name + '.bin'); return fs.existsSync(f) ? fs.readFileSync(f) : null; }
   column(name) { const t = this.meta.cols.find(c => c[0] === name); const b = t && this.colBytes(name); return b ? typedFrom(b, t[1]) : null; }
   index() { if (!this._idx) { const f = path.join(this.dir, 'rp.idx'); this._idx = fs.existsSync(f) ? fs.readFileSync(f) : Buffer.alloc(0); } return this._idx; }
-  replays(ids) {
-    const idx = this.index(), out = {}, fds = new Map();
+  _readRecs(refs, seats) { // refs: [[id, part, off, len]]
+    const out = {}, fds = new Map();
     try {
-      for (const i of ids) {
-        if (!(i >= 0 && (i + 1) * 12 <= idx.length)) continue;
-        const p = idx.readInt32LE(i * 12); if (p < 0) continue;
-        const off = idx.readUInt32LE(i * 12 + 4), len = idx.readUInt32LE(i * 12 + 8);
+      for (let q = 0; q < refs.length; q++) {
+        const [i, p, off, len] = refs[q]; if (p < 0) continue;
         let fd = fds.get(p); if (fd == null) { fd = fs.openSync(path.join(this.dir, 'rp_' + p + '.dat'), 'r'); fds.set(p, fd); }
         const b = Buffer.alloc(len); fs.readSync(fd, b, 0, len, off);
-        out[i] = JSON.parse(b.toString('utf8'));
+        const rec = decodeRec(b, this.z); out[i] = seats ? asSeat(rec, seats[q]) : rec;
       }
     } finally { for (const fd of fds.values()) fs.closeSync(fd); }
     return out;
   }
+  replays(ids) {
+    ids = ids.filter(i => i >= 0 && i < this.meta.count);
+    if (this.v3) {
+      const { readAt } = require('./table.js');
+      const p = readAt(this.g, 'rpp', 'i32', ids), o = readAt(this.g, 'rpo', 'u32', ids), l = readAt(this.g, 'rpl', 'u32', ids);
+      return this._readRecs(ids.map((i, q) => [i, p[q], o[q], l[q]]));
+    }
+    const idx = this.index(), refs = [];
+    for (const i of ids) if ((i + 1) * 12 <= idx.length) refs.push([i, idx.readInt32LE(i * 12), idx.readUInt32LE(i * 12 + 4), idx.readUInt32LE(i * 12 + 8)]);
+    return this._readRecs(refs);
+  }
   keys() { const f = path.join(this.dir, 'keys.bin'); return fs.existsSync(f) ? typedFrom(fs.readFileSync(f), 'f64') : new Float64Array(0); }
+  // ---- соперники (v3)
+  players() { if (!this._players) this._players = this.v3 && fs.existsSync(path.join(this.og, 'players.json')) ? JSON.parse(fs.readFileSync(path.join(this.og, 'players.json'), 'utf8')) : []; return this._players; }
+  // список для выбора: по числу раздач; q — часть ника (без учёта регистра)
+  playerList(q, limit) {
+    const s = (q || '').trim().toLowerCase(), all = this.players(), out = [];
+    for (let i = 0; i < all.length; i++) { const p = all[i]; if (p.c && (!s || p.n.toLowerCase().includes(s))) out.push(i); }
+    out.sort((a, b) => all[b].c - all[a].c || (all[a].n < all[b].n ? -1 : 1));
+    return { total: out.length, players: out.slice(0, limit || 100).map(i => ({ pid: i, name: all[i].n, room: all[i].r, count: all[i].c, shown: all[i].sh })) };
+  }
+  // описание «базы» одного соперника — как у вашей базы, чтобы все вкладки считали так же
+  playerMeta(pid) {
+    const p = this.players()[pid]; if (!p) return null;
+    const room = this.meta.rooms[p.r];
+    return { format: this.meta.format, demo: false, hero: p.n, nicks: { [p.n]: room }, rooms: this.meta.rooms, types: this.meta.types, periodStart: this.meta.periodStart, count: p.c, cols: this.meta.cols, pid, opponent: true };
+  }
+  playerCol(pid, name) {
+    const p = this.players()[pid], t = this.meta.cols.find(c => c[0] === name); if (!p || !t) return null;
+    return require('./table.js').readRange(this.og, name, t[1], p.s, p.c);
+  }
+  playerReplays(pid, ids) {
+    const pl = this.players()[pid]; if (!pl) return {};
+    ids = ids.filter(i => i >= 0 && i < pl.c);
+    const { readAt } = require('./table.js'), rows = ids.map(i => pl.s + i);
+    const p = readAt(this.og, 'rpp', 'i32', rows), o = readAt(this.og, 'rpo', 'u32', rows), l = readAt(this.og, 'rpl', 'u32', rows), st = readAt(this.og, 'seat', 'i8', rows);
+    return this._readRecs(ids.map((i, q) => [i, p[q], o[q], l[q]]), Array.from(st));
+  }
 }
 
 // Перевод базы старого формата (JSON: db + rp) в папку нового формата — значения не меняются.
@@ -178,6 +228,17 @@ class HashSet53 {
   clear() { this.t = new Float64Array(0); this.cap = 0; this.size = 0; }
 }
 
+// Ход раздачи с позиции другого игрока (соперника): seat — его номер в pl.
+// Карты героя (того, чьими глазами записана раздача) остаются известными, карты игрока — только если показаны.
+function asSeat(rec, seat) {
+  if (seat == null || seat < 0 || seat === rec.h) return rec;
+  const sh = Object.assign({}, rec.sh || {});
+  if (rec.hc && sh[rec.h] == null) sh[rec.h] = rec.hc;
+  return Object.assign({}, rec, { h: seat, hc: sh[seat] || null, sh, pl: rec.pl.map((p, j) => [p[0], p[1], j === seat ? 1 : 0, p[3]]) });
+}
+// запись реплеера из байтов (z — сжата deflate-raw)
+function decodeRec(b, z) { return JSON.parse((z ? require('zlib').inflateRawSync(b) : b).toString('utf8')); }
+
 // 53-битный хеш строки (два 32-битных FNV-1a) — для отсева дублей без хранения строк
 function hash53(s) {
   let h1 = 0x811c9dc5, h2 = 0x01000193 ^ 0x5bd1e995;
@@ -185,4 +246,4 @@ function hash53(s) {
   return (h1 >>> 0) * 2097152 + ((h2 >>> 0) & 0x1fffff);
 }
 
-module.exports = { HashSet53, FORMAT, SCHEMA, TYPES, ColumnBuilder, ReplayWriter, BaseDir, writeBaseDir, writeColumn, writeFromLegacy, packIndex, typedFrom, bufOf, hash53 };
+module.exports = { asSeat, decodeRec, HashSet53, FORMAT, SCHEMA, TYPES, ColumnBuilder, ReplayWriter, BaseDir, writeBaseDir, writeColumn, writeFromLegacy, packIndex, typedFrom, bufOf, hash53 };

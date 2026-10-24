@@ -10,10 +10,13 @@ const body = html.split('<body>')[1].split('<script src="stats.js"></script>')[0
 // база превью — папка колонок, как в программе; записи реплеера частями по 8 МБ (лимит хостинга — 15 МБ на файл)
 const { writeFromLegacy } = require('../app/parser/store.js');
 const D = path.join(__dirname, '..', 'app', 'data');
-writeFromLegacy(path.join(__dirname, 'base'), JSON.parse(fs.readFileSync(path.join(D, 'my-base.json'), 'utf8')), JSON.parse(fs.readFileSync(path.join(D, 'my-base-replays.json'), 'utf8')), 8 * 1024 * 1024);
+// MDALAB_BASE=<папка базы v3> — превью с соперниками (база собрана из историй, в репозиторий не попадает);
+// иначе — ваша база из app/data (старый формат, без соперников)
+if (process.env.MDALAB_BASE) console.log('база v3:', require('./pack-v3.js').pack(process.env.MDALAB_BASE, path.join(__dirname, 'base')));
+else writeFromLegacy(path.join(__dirname, 'base'), JSON.parse(fs.readFileSync(path.join(D, 'my-base.json'), 'utf8')), JSON.parse(fs.readFileSync(path.join(D, 'my-base-replays.json'), 'utf8')), 8 * 1024 * 1024);
 // хостинг артефактов не отдаёт бинарные файлы — для превью колонки и индекс как base64 в .json, записи реплеера как .txt
 const BD = path.join(__dirname, 'base');
-for (const f of fs.readdirSync(BD)) {
+if (!process.env.MDALAB_BASE) for (const f of fs.readdirSync(BD)) {
   const p = path.join(BD, f);
   if (/\.(bin|idx)$/.test(f)) { fs.writeFileSync(p + '.b64.json', JSON.stringify(fs.readFileSync(p).toString('base64'))); fs.rmSync(p); }
   else if (/\.dat$/.test(f)) fs.renameSync(p, p.replace(/\.dat$/, '.txt'));

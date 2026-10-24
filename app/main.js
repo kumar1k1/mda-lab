@@ -64,9 +64,19 @@ function source() {
 ipcMain.handle('db:meta', () => { const s = source(); return s ? s.meta : null; });
 ipcMain.handle('db:col', (_e, name) => { const s = source(); return s ? s.colBytes(name) : null; });
 ipcMain.handle('db:replays', (_e, ids) => { const s = source(); return s && Array.isArray(ids) ? s.replays(ids) : {}; });
+// соперники (база v3): список с поиском, описание и колонки одного игрока, записи реплеера с его позиции
+ipcMain.handle('players:list', (_e, q, limit) => { const s = source(); return s && s.v3 ? s.playerList(q, limit) : { total: 0, players: [] }; });
+ipcMain.handle('player:meta', (_e, pid) => { const s = source(); return s && s.v3 ? s.playerMeta(pid) : null; });
+ipcMain.handle('player:col', (_e, pid, name) => { const s = source(); return s && s.v3 ? s.playerCol(pid, name) : null; });
+ipcMain.handle('player:replays', (_e, pid, ids) => { const s = source(); return s && s.v3 && Array.isArray(ids) ? s.playerReplays(pid, ids) : {}; });
 ipcMain.handle('db:demo', () => readJson(path.join(__dirname, 'data', 'demo-hands.json')));
 ipcMain.handle('db:delete', () => { SRC = null; try { fs.rmSync(baseDir(), { recursive: true, force: true }); } catch (e) { /* нет базы */ } return true; });
-ipcMain.handle('db:info', () => ({ stored: store.BaseDir.exists(baseDir()) || fs.existsSync(baseFile('hands.json')), folder: baseDir() }));
+ipcMain.handle('db:info', () => {
+  const stored = store.BaseDir.exists(baseDir()) || fs.existsSync(baseFile('hands.json'));
+  let canAppend = false, count = 0, opp = false;
+  if (stored) { try { const m = readJson(baseFile('meta.json')); canAppend = m.format === require('./parser/ingest.js').FORMAT; count = m.count || 0; opp = !!m.opp; } catch (e) { /* старая база */ } }
+  return { stored, folder: baseDir(), canAppend, count, opp };
+});
 // место для базы: текущее/выбранное и свободное место на этом диске
 ipcMain.handle('base:location', () => { const d = PENDING_DIR || baseDir(); return { dir: d, free: freeBytes(d), isDefault: d === defaultBase() }; });
 ipcMain.handle('base:pick', async () => {
@@ -102,15 +112,20 @@ ipcMain.handle('import:paths', (_e, paths) => {
   (paths || []).forEach(p => { try { fs.statSync(p).isDirectory() ? walk(p, files, 2e6) : addFile(p, files, 2e6); } catch (e) { /* пропуск */ } });
   return prepare(files, (paths || []).length === 1 ? path.basename(paths[0]) : (paths || []).length + ' объектов');
 });
-// сборка выбранных файлов с указанными никами; новая база заменяет прежнюю только после успешной сборки
+// Загрузка: mode 'append' — дописать новые раздачи в текущую базу (повторы пропускаются),
+// иначе — собрать новую базу во временной папке и заменить ею прежнюю только после успешной сборки.
 ipcMain.handle('import:run', (e, opts) => new Promise((resolve) => {
   if (!lastFiles.length) return resolve({ error: 'Сначала выберите файлы' });
-  const prev = baseDir(), dir = PENDING_DIR || prev, tmp = dir + '.tmp', old = dir + '.old';
+  const prev = baseDir();
+  const append = opts.mode === 'append' && store.BaseDir.exists(prev);
+  const dir = append ? prev : (PENDING_DIR || prev), tmp = dir + '.tmp', old = dir + '.old';
   try { fs.mkdirSync(path.dirname(dir), { recursive: true }); } catch (err) { return resolve({ error: 'Не удаётся создать папку для базы: ' + err.message }); }
-  fs.rmSync(tmp, { recursive: true, force: true });
-  const w = new Worker(path.join(__dirname, 'import-worker.js'), { workerData: { files: lastFiles, nicks: opts.nicks, alias: opts.alias, outDir: tmp } });
+  if (!append) fs.rmSync(tmp, { recursive: true, force: true });
+  SRC = null; // база будет меняться — закрываем
+  const w = new Worker(path.join(__dirname, 'import-worker.js'), { workerData: { files: lastFiles, nicks: opts.nicks, alias: opts.alias, outDir: append ? dir : tmp, mode: append ? 'append' : 'build' } });
   w.on('message', (m) => {
     if (m.type === 'progress') { if (!e.sender.isDestroyed()) e.sender.send('import:progress', m); return; }
+    if (append) { SRC = null; PENDING_DIR = null; return resolve(m); }
     if (m.type === 'done' && m.hands) {
       SRC = null; fs.rmSync(old, { recursive: true, force: true });
       if (fs.existsSync(dir)) fs.renameSync(dir, old);
@@ -121,7 +136,7 @@ ipcMain.handle('import:run', (e, opts) => new Promise((resolve) => {
     } else fs.rmSync(tmp, { recursive: true, force: true });
     resolve(m);
   });
-  w.on('error', (err) => { fs.rmSync(tmp, { recursive: true, force: true }); resolve({ type: 'error', message: String(err && err.message || err) }); });
+  w.on('error', (err) => { if (!append) fs.rmSync(tmp, { recursive: true, force: true }); resolve({ type: 'error', message: String(err && err.message || err) }); });
 }));
 ipcMain.handle('app:version', () => app.getVersion());
 

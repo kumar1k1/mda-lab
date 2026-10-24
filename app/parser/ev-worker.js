@@ -5,6 +5,6 @@ if (workerData && workerData.samples) global.EV_SAMPLES = workerData.samples;
 const { computeSerial } = require('./ev-pool.js');
 
 parentPort.on('message', ({ a, jobs }) => {
-  const res = computeSerial(workerData.dir, jobs);
+  const res = computeSerial(workerData.dir, jobs, null, workerData.z);
   parentPort.postMessage({ a, res }, [res.buffer]);
 });

@@ -805,3 +805,5 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .imp-est span{font-size:11px;color:var(--muted)}
 .imp-est b{font-family:var(--mono);font-size:15px;color:var(--text);overflow-wrap:anywhere}
 .imp-est b.bad,#estNote.bad{color:var(--bad)}
+.pm-more{margin:6px 8px 0;font-size:11.5px;color:var(--muted)}
+.pm-more:empty{display:none}

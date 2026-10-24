@@ -7,7 +7,7 @@ const SUITS = 'cdhs';
 const cardId = (s) => RANKS.indexOf(s[0]) * 4 + SUITS.indexOf(s[1]); // 0..51
 
 // оценка лучшей 5-карточной комбинации из 7 карт: чем больше число, тем сильнее
-function eval7(cs) {
+function eval7Ref(cs) {
   const cnt = new Array(13).fill(0), suitCnt = [0, 0, 0, 0], bySuit = [[], [], [], []];
   for (const c of cs) { const r = c >> 2, s = c & 3; cnt[r]++; suitCnt[s]++; bySuit[s].push(r); }
   const straightTop = (mask) => { // старшая карта стрита по маске рангов
@@ -36,6 +36,37 @@ function eval7(cs) {
   if (pairs.length >= 2) { const k = kick([pairs[0], pairs[1]], 1); return 2e6 + (pairs[0] * 13 + pairs[1]) * 13 + k[0]; }
   if (pairs.length) { const k = kick([pairs[0]], 3); return 1e6 + ((pairs[0] * 13 + k[0]) * 13 + k[1]) * 13 + k[2]; }
   return singles.slice(0, 5).reduce((a, r) => a * 13 + r, 0);
+}
+
+// Та же оценка, что eval7Ref (числа совпадают один в один), но без временных массивов —
+// в расчёте EV она вызывается миллионы раз, и выделение памяти было главной тратой времени.
+const _cnt = new Int32Array(13), _sc = new Int32Array(4), _sm = new Int32Array(4);
+function stTop(mask) { for (let r = 12; r >= 4; r--) if (((mask >> (r - 4)) & 31) === 31) return r; return (mask & 0x100f) === 0x100f ? 3 : -1; }
+function eval7(cs) {
+  _cnt.fill(0); _sc.fill(0); _sm.fill(0);
+  for (let i = 0; i < cs.length; i++) { const c = cs[i], r = c >> 2, s = c & 3; _cnt[r]++; _sc[s]++; _sm[s] |= 1 << r; }
+  let fs = -1; for (let s = 0; s < 4; s++) if (_sc[s] >= 5) fs = s;
+  if (fs >= 0) {
+    const m = _sm[fs], st = stTop(m);
+    if (st >= 0) return 8e6 + st;
+    let v = 0, k = 0; for (let r = 12; r >= 0 && k < 5; r--) if (m & (1 << r)) { v = v * 13 + r; k++; }
+    return 5e6 + v;
+  }
+  let mask = 0, q0 = -1, t0 = -1, t1 = -1, p0 = -1, p1 = -1, nT = 0, nP = 0;
+  for (let r = 12; r >= 0; r--) {
+    const c = _cnt[r]; if (!c) continue; mask |= 1 << r;
+    if (c === 4) { if (q0 < 0) q0 = r; } else if (c === 3) { if (nT === 0) t0 = r; else if (nT === 1) t1 = r; nT++; } else if (c === 2) { if (nP === 0) p0 = r; else if (nP === 1) p1 = r; nP++; }
+  }
+  // старшие карты, кроме указанных рангов (как kick в eval7Ref)
+  const kick = (x1, x2, n) => { let v = 0, k = 0; for (let r = 12; r >= 0 && k < n; r--) if (_cnt[r] && r !== x1 && r !== x2) { v = v * 13 + r; k++; } return { v, k }; };
+  if (q0 >= 0) { let kr = -1; for (let r = 12; r >= 0; r--) if (_cnt[r] && r !== q0) { kr = r; break; } return 7e6 + q0 * 13 + kr; }
+  if (nT && (nT > 1 || nP)) { const p = nT > 1 ? Math.max(t1, nP ? p0 : -1) : p0; return 6e6 + t0 * 13 + p; }
+  const st = stTop(mask); if (st >= 0) return 4e6 + st;
+  if (nT) { let a = -1, b = -1; for (let r = 12; r >= 0; r--) if (_cnt[r] && r !== t0) { if (a < 0) a = r; else { b = r; break; } } return 3e6 + (t0 * 13 + a) * 13 + b; }
+  if (nP >= 2) { let a = -1; for (let r = 12; r >= 0; r--) if (_cnt[r] && r !== p0 && r !== p1) { a = r; break; } return 2e6 + (p0 * 13 + p1) * 13 + a; }
+  if (nP) { const ks = []; for (let r = 12; r >= 0 && ks.length < 3; r--) if (_cnt[r] && r !== p0) ks.push(r); return 1e6 + ((p0 * 13 + ks[0]) * 13 + ks[1]) * 13 + ks[2]; }
+  let v = 0, k = 0; for (let r = 12; r >= 0 && k < 5; r--) if (_cnt[r] === 1) { v = v * 13 + r; k++; }
+  return v;
 }
 
 // детерминированный генератор, чтобы EV при каждой сборке получался одинаковым
@@ -96,21 +127,34 @@ function evNet(rp, seed) {
     const st = snaps[k].st; if (st >= 3) continue; // закрылся на ривере — без поправки
     const known = st === 0 ? 0 : st === 1 ? 3 : 4;
     const board0 = bd.slice(0, known);
-    const share = (board) => { const v = p.elig.map(i => eval7(cards[i].concat(board))); const m = Math.max(...v); const w = p.elig.filter((i, j) => v[j] === m); return w.includes(h) ? p.amt / w.length : 0; };
+    // доля банка героя на доске board (то же, что раньше, но без временных массивов на каждую доску)
+    const E = p.elig, ne = E.length, hands7 = E.map(() => []), vals = new Float64Array(ne);
+    const share = (board) => {
+      let m = -Infinity;
+      for (let j = 0; j < ne; j++) {
+        const hh = hands7[j], ci = cards[E[j]]; let L = 0;
+        for (let q = 0; q < ci.length; q++) hh[L++] = ci[q];
+        for (let q = 0; q < board.length; q++) hh[L++] = board[q];
+        hh.length = L; const v = eval7(hh); vals[j] = v; if (v > m) m = v;
+      }
+      let w = 0, hasH = false; for (let j = 0; j < ne; j++) if (vals[j] === m) { w++; if (E[j] === h) hasH = true; }
+      return hasH ? p.amt / w : 0;
+    };
     const actual = share(bd);
     // колода: без карт претендентов этого банка и известной доски (карты остальных считаются неизвестными, как в Hand2Note)
     const used = new Set(board0); p.elig.forEach(i => cards[i].forEach(c => used.add(c)));
     const deck = []; for (let c = 0; c < 52; c++) if (!used.has(c)) deck.push(c);
     const need = 5 - known; let tot = 0, runs = 0;
-    if (need === 1) for (const a of deck) { tot += share(board0.concat([a])); runs++; }
-    else if (need === 2) { for (let x = 0; x < deck.length; x++) for (let y = x + 1; y < deck.length; y++) { tot += share(board0.concat([deck[x], deck[y]])); runs++; } }
+    const b5 = board0.concat(new Array(need).fill(0));
+    if (need === 1) for (const a of deck) { b5[known] = a; tot += share(b5); runs++; }
+    else if (need === 2) { for (let x = 0; x < deck.length; x++) for (let y = x + 1; y < deck.length; y++) { b5[known] = deck[x]; b5[known + 1] = deck[y]; tot += share(b5); runs++; } }
     else { // префлоп: выборка досок
       const N = global.EV_SAMPLES || 20000, d = deck.slice();
-      for (let q = 0; q < N; q++) { for (let j = 0; j < need; j++) { const z = j + Math.floor(r() * (d.length - j)); const tmp = d[j]; d[j] = d[z]; d[z] = tmp; } tot += share(d.slice(0, need)); runs++; }
+      for (let q = 0; q < N; q++) { for (let j = 0; j < need; j++) { const z = j + Math.floor(r() * (d.length - j)); const tmp = d[j]; d[j] = d[z]; d[z] = tmp; b5[known + j] = d[j]; } tot += share(b5); runs++; }
     }
     delta += tot / runs - actual;
   }
   return pots.length ? delta : null;
 }
 
-module.exports = { evNet, eval7, cardId };
+module.exports = { evNet, eval7, eval7Ref, cardId };

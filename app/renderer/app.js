@@ -1517,7 +1517,7 @@ function renderSoon(tab) {
 // ---------- отрисовка ----------
 function currentIdx() {
   const idx = Stats.selectHands(DB, { room: state.room, type: state.type, from: state.from, to: state.to, biFrom: state.biFrom, biTo: state.biTo, tbl: state.sub === 'TOT' ? null : state.sub });
-  return state.player ? idx.filter(i => state.player.mask[i]) : idx; // выбран другой игрок — только его раздачи
+  return idx; // у соперника своя база (DB) — все его раздачи
 }
 
 function render() {
@@ -1569,7 +1569,7 @@ function setupFilters() {
   const ml = Array.from({ length: months }, (_, i) => [i, monthLabel(i)]);
   opt($('fFrom'), ml, state.from ?? 0);
   opt($('fTo'), ml, state.to ?? months - 1);
-  $('fRoom').onchange = (e) => { state.room = e.target.value === '' ? null : +e.target.value; state.player = null; updatePlayer(); render(); }; // смена рума — снова ваш ник этого рума
+  $('fRoom').onchange = (e) => { const r = e.target.value === '' ? null : +e.target.value; choosePlayer(r == null ? 'alias' : 'hero', r); }; // смена рума — снова ваш ник этого рума
   $('fType').onchange = (e) => { state.type = e.target.value === '' ? null : +e.target.value; render(); };
   $('fFrom').onchange = (e) => { state.from = +e.target.value; render(); };
   $('fTo').onchange = (e) => { state.to = +e.target.value; render(); };
@@ -1590,14 +1590,14 @@ let ROOM_COUNTS = [];
 const kFmt = (n) => (n >= 1000 ? Math.round(n / 1000) + 'k' : String(n));
 // подпись героя в реплеере: «Вы» или ник выбранного соперника (функция — чтобы не зависеть от локальных имён в реплеере)
 function heroLabel() { return state.player ? state.player.name : 'Вы'; }
-function heroNickOf(room) { return (DB.nicks ? Object.keys(DB.nicks).find(n => DB.nicks[n] === DB.rooms[room]) : null) || DB.hero; }
+function heroNickOf(room) { const H = HERO_DB || DB; return (H.nicks ? Object.keys(H.nicks).find(n => H.nicks[n] === H.rooms[room]) : null) || H.hero; }
 function updatePlayer() {
   if (!DB) { $('roomBadge').textContent = 'НЕТ БАЗЫ'; $('nick').textContent = '—'; $('handsCount').textContent = ''; $('playerBtn').title = ''; $('playerBtn').disabled = true; return; }
   $('playerBtn').disabled = false;
   const opp = state.player, alias = !opp && state.room == null;
   const roomName = alias ? null : DB.rooms[opp ? opp.room : state.room];
-  const nick = opp ? opp.name : alias ? DB.hero : heroNickOf(state.room);
-  const count = opp ? opp.count : alias ? DB.count : ROOM_COUNTS[state.room] || 0;
+  const nick = opp ? opp.name : alias ? (HERO_DB || DB).hero : heroNickOf(state.room);
+  const count = opp ? opp.count : alias ? (HERO_DB || DB).count : ROOM_COUNTS[state.room] || 0;
   $('roomBadge').textContent = alias ? 'ALIAS' : (ROOM_CODES[roomName] || roomName.slice(0, 4).toUpperCase());
   $('roomBadge').classList.toggle('room', !alias && !opp);
   $('roomBadge').classList.toggle('opp', !!opp);
@@ -1605,39 +1605,37 @@ function updatePlayer() {
   $('nick').textContent = nick;
   $('handsCount').textContent = count.toLocaleString('ru-RU') + ' раздач' + (opp ? ' · соперник · ' + roomName : alias ? ' · все румы' : ' · ' + roomName);
   $('demoTag').hidden = !DB.demo;
-  $('playerBtn').title = 'Выбрать игрока' + (alias && DB.nicks ? '. Alias объединяет ники: ' + Object.keys(DB.nicks).map(n => n + ' (' + DB.nicks[n] + ')').join(', ') : '');
+  const H = HERO_DB || DB;
+  $('playerBtn').title = 'Выбрать игрока' + (alias && H.nicks ? '. Alias объединяет ники: ' + Object.keys(H.nicks).map(n => n + ' (' + H.nicks[n] + ')').join(', ') : '');
 }
 
 // ---------- выбор игрока: ваши ники и соперники из базы ----------
-// ДЕМО: в базе героя нет имён соперников, поэтому соперники синтетические —
-// каждому отдаётся детерминированная часть раздач его рума. После импорта с соперниками
-// mask заменит настоящий список раздач игрока, остальная механика та же.
-let OPPS = [];
-function buildDemoOpps() {
-  const A = ['Shark', 'River', 'Grind', 'Bluff', 'Stack', 'Tilt', 'Nuts', 'Lucky', 'Fold', 'Wolf', 'Ice', 'Dark', 'Royal', 'Chip', 'Ace', 'Turbo', 'Cold', 'Silent', 'Mad', 'Crazy'];
-  const B = ['Hunter', 'Rat', 'Monk', 'King', 'Fox', 'Pilot', 'Baron', 'Ghost', 'Rider', 'Bear', 'Lord', 'Ninja', 'Viper', 'Owl', 'Duke', 'Bandit'];
-  let seed = 7771; const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
-  const used = new Set(Object.keys(DB.nicks || {}).concat(DB.hero)), out = [];
-  const roomW = ROOM_COUNTS.slice(), tot = roomW.reduce((a, b) => a + b, 0) || 1;
-  for (let k = 0; k < 48; k++) {
-    let name; do { const st = Math.floor(rnd() * 4); name = st === 0 ? A[Math.floor(rnd() * A.length)] + B[Math.floor(rnd() * B.length)] + Math.floor(rnd() * 99) : st === 1 ? A[Math.floor(rnd() * A.length)].toLowerCase() + '_' + B[Math.floor(rnd() * B.length)].toLowerCase() : st === 2 ? B[Math.floor(rnd() * B.length)] + 'Of' + A[Math.floor(rnd() * A.length)] : A[Math.floor(rnd() * A.length)] + Math.floor(1000 + rnd() * 9000); } while (used.has(name));
-    used.add(name);
-    let r = rnd() * tot, room = 0; while (room < roomW.length - 1 && (r -= roomW[room]) > 0) room++;
-    const target = Math.max(120, Math.round(5200 * Math.pow(0.9, k) * (0.8 + rnd() * 0.4)));
-    const p = Math.min(1, target / Math.max(1, ROOM_COUNTS[room])), salt = Math.floor(rnd() * 1e9);
-    const mask = new Uint8Array(DB.count); let count = 0;
-    for (let i = 0; i < DB.count; i++) if (DB.cols.room[i] === room && (((i + 1) * 2654435761 ^ salt) >>> 0) / 4294967296 < p) { mask[i] = 1; count++; }
-    out.push({ name, room, count, mask });
-  }
-  return out.sort((a, b) => b.count - a.count);
+// Соперник — настоящий игрок из ваших раздач: у него своя «база» (его строки, по тем же колонкам),
+// поэтому все вкладки, окна матрицы, списки раздач и реплеер считаются по его игре теми же функциями.
+let HERO_DB = null; // ваша база; DB указывает на неё или на базу выбранного соперника
+async function loadPlayerDb(pid) {
+  const meta = await mda.playerMeta(pid); if (!meta) return null;
+  const cols = {};
+  for (const [name, type] of meta.cols) { const b = await mda.playerCol(pid, name); if (b) cols[name] = typedCol(b, type); }
+  return Object.assign({}, meta, { cols });
 }
-
-function choosePlayer(kind, v) {
-  if (kind === 'alias') { state.player = null; state.room = null; }
-  else if (kind === 'hero') { state.player = null; state.room = v; }
-  else { state.player = v; state.room = v.room; }
+let PICK_SEQ = 0;
+async function choosePlayer(kind, v) {
+  const seq = ++PICK_SEQ;
+  closePlayerMenu();
+  if (kind === 'opp') {
+    $('nick').textContent = v.name; $('handsCount').textContent = 'загружаю раздачи…';
+    const odb = await loadPlayerDb(v.pid);
+    if (seq !== PICK_SEQ) return; // пока грузили, выбрали другого
+    if (!odb) { updatePlayer(); return; }
+    state.player = { pid: v.pid, name: v.name, room: v.room, count: v.count, shown: v.shown };
+    state.room = v.room; DB = odb;
+  } else {
+    state.player = null; state.room = kind === 'alias' ? null : v; DB = HERO_DB;
+  }
+  REPLAYS = null; unpin();
   $('fRoom').value = state.room == null ? '' : String(state.room); // ник выбран — рум выставляется сам
-  closePlayerMenu(); updatePlayer(); render();
+  updatePlayer(); render();
 }
 
 let PM_OPEN = false;
@@ -1656,24 +1654,30 @@ function openPlayerMenu() {
   const code = (r) => ROOM_CODES[DB.rooms[r]] || DB.rooms[r].slice(0, 4).toUpperCase();
   // 1) ваши ники
   const mine = el('div', 'pm-sec'); mine.append(el('div', 'pm-h', 'Ваши ники'));
-  mine.append(item({ badge: 'ALIAS', name: DB.hero, sub: 'все румы вместе', count: DB.count, on: !state.player && state.room == null, pick: () => choosePlayer('alias') }));
-  DB.rooms.forEach((rn, r) => { if (!ROOM_COUNTS[r]) return; mine.append(item({ badge: code(r), cls: 'room', name: heroNickOf(r), sub: rn, count: ROOM_COUNTS[r], on: !state.player && state.room === r, pick: () => choosePlayer('hero', r) })); });
+  const H = HERO_DB || DB;
+  mine.append(item({ badge: 'ALIAS', name: H.hero, sub: 'все румы вместе', count: H.count, on: !state.player && state.room == null, pick: () => choosePlayer('alias') }));
+  H.rooms.forEach((rn, r) => { if (!ROOM_COUNTS[r]) return; mine.append(item({ badge: code(r), cls: 'room', name: heroNickOf(r), sub: rn, count: ROOM_COUNTS[r], on: !state.player && state.room === r, pick: () => choosePlayer('hero', r) })); });
   // 2) другие игроки базы
   const oth = el('div', 'pm-sec pm-oth');
   const hh = el('div', 'pm-h', 'Другие игроки в базе');
   const q = el('input', 'pm-q'); q.type = 'search'; q.placeholder = 'Найти ник'; q.setAttribute('aria-label', 'Найти игрока по нику');
   const list = el('div', 'pm-list');
-  const fill = () => {
-    const s = q.value.trim().toLowerCase(); list.replaceChildren();
-    const rows = OPPS.filter(o => !s || o.name.toLowerCase().includes(s));
-    rows.forEach(o => list.append(item({ badge: code(o.room), cls: 'opp', name: o.name, sub: DB.rooms[o.room], count: o.count, on: state.player === o, pick: () => choosePlayer('opp', o) })));
-    if (!rows.length) list.append(el('p', 'pm-empty', 'Никого не нашли'));
+  const more = el('p', 'pm-more');
+  let fillSeq = 0, fillT = null;
+  const fill = async () => {
+    const seq = ++fillSeq;
+    const r = mda.playersList ? await mda.playersList(q.value, 100) : { total: 0, players: [] };
+    if (seq !== fillSeq) return;
+    list.replaceChildren();
+    r.players.forEach(o => list.append(item({ badge: code(o.room), cls: 'opp', name: o.name, sub: H.rooms[o.room] + (o.shown ? ' · карты видны в ' + o.shown.toLocaleString('ru-RU') : ''), count: o.count, on: state.player && state.player.pid === o.pid, pick: () => choosePlayer('opp', o) })));
+    if (!r.players.length) list.append(el('p', 'pm-empty', r.total === 0 && !q.value ? 'В базе нет соперников — загрузите истории заново, чтобы они появились.' : 'Никого не нашли'));
+    more.textContent = r.total > r.players.length ? 'Показаны ' + r.players.length + ' из ' + r.total.toLocaleString('ru-RU') + ' — уточните поиск' : '';
+    if (state.player) { const on = list.querySelector('.on'); if (on) on.scrollIntoView({ block: 'nearest' }); }
   };
-  q.oninput = fill; fill();
-  oth.append(hh, q, list);
+  q.oninput = () => { clearTimeout(fillT); fillT = setTimeout(fill, 150); }; fill();
+  oth.append(hh, q, list, more);
   m.append(mine, oth); m.hidden = false;
   const cur = m.querySelector('.pm-item.on') || m.querySelector('.pm-item'); if (cur) cur.focus();
-  if (state.player) { const on = list.querySelector('.on'); if (on) on.scrollIntoView({ block: 'nearest' }); }
 }
 function closePlayerMenu(focusBtn) {
   if (!PM_OPEN) return; PM_OPEN = false;
@@ -1714,11 +1718,12 @@ function setDb(db) {
   if (typeof REPLAYS !== 'undefined') REPLAYS = null; // реплеи новой базы загрузятся заново
   unpin();
   document.querySelector('.filters').hidden = !db;
-  if (!db) { $('demoTag').hidden = true; state.player = null; OPPS = []; closePlayerMenu(); updatePlayer(); render(); return; }
+  HERO_DB = db;
+  if (!db) { $('demoTag').hidden = true; state.player = null; closePlayerMenu(); updatePlayer(); render(); return; }
   ROOM_COUNTS = db.rooms.map(() => 0);
   db.cols.room.forEach(r => { if (r >= 0) ROOM_COUNTS[r]++; });
   Object.assign(state, { room: null, player: null, type: null, from: null, to: null, biFrom: null, biTo: null });
-  OPPS = buildDemoOpps(); closePlayerMenu();
+  closePlayerMenu();
   setupFilters();
   updatePlayer();
   render();

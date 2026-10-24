@@ -6,17 +6,19 @@ const path = require('path');
 const fs = require('fs');
 const { evNet } = require('./ev.js');
 
-// jobs: Float64Array по 5 чисел на раздачу — k (номер после сортировки), part, offset, length записи реплеера, зерно.
-// Возвращает Map k -> поправка EV (или null).
-function readRec(dir, fds, part, off, len) {
+const { asSeat, decodeRec } = require('./store.js');
+// jobs: Float64Array по S = 6 чисел — k (номер строки), part, offset, length записи реплеера, зерно, место игрока (−1 — как записано).
+// Возвращает Float64Array поправок EV (NaN — поправки нет).
+const S = 6;
+function readRec(dir, fds, part, off, len, z) {
   let fd = fds.get(part); if (fd == null) { fd = fs.openSync(path.join(dir, 'rp_' + part + '.dat'), 'r'); fds.set(part, fd); }
-  const b = Buffer.alloc(len); fs.readSync(fd, b, 0, len, off); return JSON.parse(b.toString('utf8'));
+  const b = Buffer.alloc(len); fs.readSync(fd, b, 0, len, off); return decodeRec(b, z);
 }
-function computeSerial(dir, jobs, onTick) {
-  const out = new Float64Array(jobs.length / 5).fill(NaN), fds = new Map();
+function computeSerial(dir, jobs, onTick, z) {
+  const out = new Float64Array(jobs.length / S).fill(NaN), fds = new Map();
   try {
     for (let j = 0; j < out.length; j++) {
-      const e = evNet(readRec(dir, fds, jobs[j * 5 + 1], jobs[j * 5 + 2], jobs[j * 5 + 3]), jobs[j * 5 + 4]);
+      const e = evNet(asSeat(readRec(dir, fds, jobs[j * S + 1], jobs[j * S + 2], jobs[j * S + 3], z), jobs[j * S + 5]), jobs[j * S + 4]);
       out[j] = e == null ? NaN : e; if (onTick && j % 500 === 0) onTick(j, out.length);
     }
   } finally { for (const fd of fds.values()) fs.closeSync(fd); }
@@ -25,10 +27,10 @@ function computeSerial(dir, jobs, onTick) {
 
 async function computeEv(dir, jobs, opts) {
   opts = opts || {};
-  const n = jobs.length / 5;
+  const n = jobs.length / S, z = !!opts.z;
   let threads = opts.threads != null ? opts.threads : Math.max(1, Math.min(8, (os.cpus() || []).length - 1));
   let Worker; try { ({ Worker } = require('worker_threads')); } catch (e) { threads = 1; }
-  if (threads <= 1 || n < 2000) return computeSerial(dir, jobs, opts.onTick);
+  if (threads <= 1 || n < 2000) return computeSerial(dir, jobs, opts.onTick, z);
   const out = new Float64Array(n).fill(NaN);
   const CH = 1000; let next = 0, done = 0;
   const samples = global.EV_SAMPLES;
@@ -37,10 +39,10 @@ async function computeEv(dir, jobs, opts) {
     const feed = (w) => {
       if (next >= n) { w.terminate(); if (--alive === 0) resolve(); return; }
       const a = next, b = Math.min(n, next + CH); next = b;
-      w.postMessage({ a, jobs: jobs.slice(a * 5, b * 5) });
+      w.postMessage({ a, jobs: jobs.slice(a * S, b * S) });
     };
     for (let t = 0; t < threads; t++) {
-      const w = new Worker(path.join(__dirname, 'ev-worker.js'), { workerData: { dir, samples } }); alive++;
+      const w = new Worker(path.join(__dirname, 'ev-worker.js'), { workerData: { dir, samples, z } }); alive++;
       w.on('message', (m) => { out.set(m.res, m.a); done += m.res.length; if (opts.onTick) opts.onTick(done, n); feed(w); });
       w.on('error', (e) => { if (!failed) { failed = true; reject(e); } });
       feed(w);
@@ -49,4 +51,4 @@ async function computeEv(dir, jobs, opts) {
   return out;
 }
 
-module.exports = { computeEv, computeSerial };
+module.exports = { computeEv, computeSerial, STRIDE: S };

@@ -145,7 +145,8 @@ function buildReplay(lines, ctx) {
   return { pl, h: heroI, hc, ev, bd: board, sh: shown, t: tl, d: tm ? tm[1].replace(/\//g, '-') + ' ' + tm[2] : '', bb: 1 };
 }
 
-function parseHand(text, fmt, heroes) {
+// Общая разметка раздачи: заголовок, места, блайнды, позиции, префлоп-действия — одна на всех игроков.
+function parseCtx(text, fmt, heroes) {
   const lines = text.split(/\r?\n/);
   const header = lines[0];
   let bb = null, sbAmt = null, tour = null, date = null;
@@ -226,13 +227,22 @@ function parseHand(text, fmt, heroes) {
     if (!am) continue;
     acts.push({ name: n, a: am[1], amt: am[3] ? num(am[3]) : am[2] ? num(am[2]) : 0, allin: /all-in/.test(rest) });
   }
+  return { lines, header, fmt, bb, sbAmt, tour, id, date, tblMax, isPdom, bounty, seats, byName, seatNums, order, pos, acts, who, sbSeat, bbSeat, heroName };
+}
+
+// Запись одного игрока раздачи (те же правила, что для героя). opp — соперник: карты — только если показаны,
+// ход раздачи для реплеера не строится здесь (one per hand), отмечается needRp.
+function playerRec(c, heroName, opp) {
+  const { lines, header, fmt, bb, sbAmt, tour, id, date, tblMax, isPdom, bounty, seats, byName, seatNums, order, pos, acts, who, sbSeat, bbSeat } = c;
+  let rec;
+  const mkRp = () => { if (opp) { rec.needRp = 1; return undefined; } return buildReplay(lines, { seatNums, seats, pos, heroName, bb, who, fmt, header, sbAmt }); };
   const hi = acts.findIndex(x => x.name === heroName);
   const heroSeat = byName[heroName];
   const hpos = pos[heroSeat];
   if (!hpos) return null;
-  const rec = { id, hero: heroName, date, tour, tblMax, n: seatNums.length, pos: POS_IDX[hpos], bb: Math.round(seats[heroSeat].stack / bb * 10), pko: bounty ? 1 : 0, pdom: isPdom, bi: buyInCents(header, fmt), sit: 3, lim: 0, act: 0, size: 0, fti: -1, bvb: 0, fvr: -1 };
-  const dealt = lines.find(l => l.startsWith('Dealt to ' + heroName + ' ['));
-  rec.hc = dealt ? handClass(dealt.slice(dealt.indexOf('['))) : -1;
+  rec = { id, hero: heroName, date, tour, tblMax, n: seatNums.length, pos: POS_IDX[hpos], bb: Math.round(seats[heroSeat].stack / bb * 10), pko: bounty ? 1 : 0, pdom: isPdom, bi: buyInCents(header, fmt), sit: 3, lim: 0, act: 0, size: 0, fti: -1, bvb: 0, fvr: -1 };
+  const dealt = opp ? null : lines.find(l => l.startsWith('Dealt to ' + heroName + ' ['));
+  rec.hc = dealt ? handClass(dealt.slice(dealt.indexOf('['))) : opp ? shownClass(lines, heroName) : -1;
   rec.net = Math.round(heroNet(lines, heroName, fmt) / bb * 1000) / 100; // ×10 BB, без округления до 0.1 BB (округление давало сдвиг около +1 bb/100)
   rec.hpa = 0; rec.sto = -1; rec.f3b = -1; rec.orsp = -1; rec.rz = 0; rec.cl = 0; rec.lr = 0; rec.rai = 0; rec.opos = -1; rec.ostk = -1; rec.osz = -1;
   // самый короткий стек среди блайндов (кроме героя), BB×10 — для стила против коротких/глубоких блайндов
@@ -270,12 +280,12 @@ function parseHand(text, fmt, heroes) {
     const called = after.some(x => x.name !== heroName && x.a === 'calls');
     rec.sto = rr < 0 && !called ? 1 : 0;
     const first = after.find(x => x.name !== heroName && x.a !== 'folds');
-    rec.rp = buildReplay(lines, { seatNums, seats, pos, heroName, bb, who, fmt, header, sbAmt });
+    rec.rp = mkRp();
     rec.orsp = !first ? 0 : first.a === 'calls' ? 1 : 2; // ответ соперников по первому действию (как в Hand2Note): 0 все фолд, 1 колл, 2 рейз
     if (rr >= 0) { const nx = after.slice(rr + 1).find(x => x.name === heroName); rec.f3b = nx ? (nx.a === 'folds' ? 1 : 0) : -1; }
   }
   // колд-колл (один рейз до героя, герой коллирует): ход раздачи для реплеера
-  if (rec.rz === 1 && rec.act === 1) rec.rp = buildReplay(lines, { seatNums, seats, pos, heroName, bb, who, fmt, header, sbAmt });
+  if (rec.rz === 1 && rec.act === 1) rec.rp = mkRp();
   // против лимперов: блайнд против блайнда (лимпил только SB) и реакция героя на ререйз после изолейта
   if (rec.sit === 1) {
     const lset = new Set(before.filter(x => x.a === 'calls').map(x => pos[byName[x.name]]));
@@ -301,9 +311,43 @@ function parseHand(text, fmt, heroes) {
     // ответ оппонентов на изолейт по первому действию (как для открытий) и ход раздачи для реплеера
     const first = acts.slice(hi + 1).find(x => x.name !== heroName && x.a !== 'folds');
     rec.orsp = !first ? 0 : first.a === 'calls' ? 1 : 2;
-    rec.rp = buildReplay(lines, { seatNums, seats, pos, heroName, bb, who, fmt, header, sbAmt });
+    rec.rp = mkRp();
   }
   return rec;
+}
+
+// Карты игрока, если он их показал (вскрытие или «mucked [...]» в итогах) → класс руки, иначе −1
+function shownClass(lines, name) {
+  for (const l of lines) {
+    if (l.startsWith(name + ': shows [') || l.startsWith(name + ' shows [')) return handClass(l.slice(l.indexOf('[')));
+    const m = l.match(/^Seat \d+: (.+?) (?:\([^)]*\) )?(?:showed|mucked) \[([^\]]+)\]/);
+    if (m && m[1] === name) return handClass('[' + m[2] + ']');
+  }
+  return -1;
+}
+
+function parseHand(text, fmt, heroes) {
+  const c = parseCtx(text, fmt, heroes);
+  return c ? playerRec(c, c.heroName, false) : null;
+}
+
+// Раздача целиком: запись героя (как parseHand) и записи всех соперников, участвовавших в раздаче.
+// rp — ход раздачи (с позиции героя): у героя — как раньше; если реплеер нужен только соперникам — строится один раз на раздачу.
+function parseHandAll(text, fmt, heroes) {
+  const c = parseCtx(text, fmt, heroes);
+  if (!c) return null;
+  const hero = playerRec(c, c.heroName, false);
+  if (!hero) return null;
+  const opps = [];
+  for (const sn of c.seatNums) {
+    const name = c.seats[sn].name;
+    if (heroes.has(name)) continue;
+    const r = playerRec(c, name, true);
+    if (r) { r.seatIdx = c.seatNums.indexOf(sn); opps.push(r); }
+  }
+  let rp = hero.rp || null;
+  if (!rp && opps.some(r => r.needRp)) rp = buildReplay(c.lines, { seatNums: c.seatNums, seats: c.seats, pos: c.pos, heroName: c.heroName, bb: c.bb, who: c.who, fmt: c.fmt, header: c.header, sbAmt: c.sbAmt });
+  return { hero, opps, rp };
 }
 
 function parseText(text, heroes) {
@@ -319,4 +363,18 @@ function parseText(text, heroes) {
   return { fmt, hands: out, errors };
 }
 
-module.exports = { parseText, parseHand, assignPositions, handClass, heroNet, POS_IDX };
+// Как parseText, но раздача целиком: герой + соперники (parseHandAll)
+function parseTextAll(text, heroes) {
+  text = text.replace(/^\uFEFF/, '').replace(/^\s+/, '');
+  const fmt = detectFormat(text.slice(0, 40));
+  if (!fmt || !HEADERS.test(text)) return { fmt: null, hands: [], errors: 0 };
+  const out = []; let errors = 0;
+  for (const chunk of text.split(SPLIT)) {
+    const c = chunk.replace(/^\s+/, '');
+    if (!detectFormat(c.slice(0, 40))) continue;
+    try { const r = parseHandAll(c, fmt, heroes); if (r) out.push(r); else errors++; } catch (e) { errors++; }
+  }
+  return { fmt, hands: out, errors };
+}
+
+module.exports = { parseText, parseTextAll, parseHand, parseHandAll, assignPositions, handClass, heroNet, POS_IDX };
