@@ -1534,7 +1534,7 @@ function render() {
       b.append(el('span', 'code', t.code), el('span', 'name', t.label), el('span', 'dot'));
       b.title = t.render ? t.label : t.label + ' — в работе';
       if (t.id === state.tab) b.setAttribute('aria-current', 'page');
-      b.onclick = () => { state.tab = t.id; render(); $('content').scrollTop = 0; };
+      b.onclick = () => { if (t.id === 'aliases' && state.tab !== 'aliases') PREV_TAB = state.tab; state.tab = t.id; render(); $('content').scrollTop = 0; };
       box.append(b);
     });
     rail.append(box);
@@ -1792,7 +1792,7 @@ function openPlayerMenu() {
     });
   });
   const ed = el('button', 'pm-edit', 'Редактор алиасов'); ed.type = 'button';
-  ed.onclick = () => { closePlayerMenu(); state.tab = 'aliases'; render(); };
+  ed.onclick = () => { closePlayerMenu(); if (state.tab !== 'aliases') PREV_TAB = state.tab; state.tab = 'aliases'; render(); };
   mine.append(ed);
   // 2) другие игроки базы
   const oth = el('div', 'pm-sec pm-oth');
@@ -1821,6 +1821,7 @@ function openPlayerMenu() {
 // Правки копятся в черновике (DRAFT) и применяются кнопкой «ОК»: тогда пишутся в meta.json базы
 // и выбранный алиас открывается во вкладках. Раздачи не трогаются — меняется только состав алиаса.
 let EDIT_A = null, EDIT_BUSY = false, EDIT_NEW = false, EDIT_MSG = '', DRAFT = null;
+let PREV_TAB = 'rfi'; // вкладка, с которой открыли редактор: «ОК» возвращает на неё
 function editAliasEdit(mut) {
   if (!HERO_DB) return;
   if (!DRAFT) DRAFT = aliasList(HERO_DB).map(a => JSON.parse(JSON.stringify(a)));
@@ -1843,7 +1844,7 @@ function draftInfo() {
   }
   return info;
 }
-// «ОК»: применить черновик и открыть алиас во вкладках
+// «ОК»: применить черновик, закрыть редактор (вернуться на прежнюю вкладку) и открыть алиас
 async function applyAliasEdit() {
   if (!HERO_DB || EDIT_BUSY) return;
   const target = EDIT_A;
@@ -1856,6 +1857,9 @@ async function applyAliasEdit() {
     DRAFT = null; HERO_DB.aliases = r.aliases;
     setupAliases(HERO_DB); VIEW_CACHE.clear(); await resolveMembers();
   }
+  EDIT_NEW = false; EDIT_MSG = '';
+  state.tab = PREV_TAB && PREV_TAB !== 'aliases' && TABS.some(t => t.id === PREV_TAB) ? PREV_TAB : 'rfi';
+  $('content').scrollTop = 0;
   const A = ALIASES[target];
   if (A && !A.gone) await choosePlayer('alias', target);
   else await refreshAliasView();
@@ -1907,7 +1911,7 @@ function renderAliasEditor() {
   const acts = el('div', 'als-acts');
   if (DRAFT) acts.append(button('Отменить изменения', '', () => { DRAFT = null; EDIT_MSG = ''; render(); }));
   const ok = button(EDIT_BUSY ? 'Применяю…' : 'ОК', 'primary als-ok', () => applyAliasEdit());
-  ok.title = DRAFT ? 'Применить изменения и открыть алиас во вкладках' : 'Открыть алиас во вкладках';
+  ok.title = DRAFT ? 'Применить изменения, закрыть редактор и открыть алиас' : 'Закрыть редактор и открыть алиас';
   acts.append(ok); top.append(acts);
   card.append(top);
   // ваши ники
