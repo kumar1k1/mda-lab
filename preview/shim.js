@@ -77,7 +77,7 @@
     // соперники (база v3)
     playersList: async (q, limit) => {
       const P = await players(); const s = (q || '').trim().toLowerCase(), out = [];
-      for (let i = 0; i < P.length; i++) if (P[i][2] && (!s || P[i][0].toLowerCase().includes(s))) out.push(i);
+      for (let i = 0; i < P.length; i++) if (P[i][2] && (!s || P[i][0].toLowerCase().startsWith(s))) out.push(i);
       out.sort((a, b) => P[b][2] - P[a][2] || (P[a][0] < P[b][0] ? -1 : 1));
       return { total: out.length, players: out.slice(0, limit || 100).map(i => ({ pid: i, name: P[i][0], room: P[i][1], count: P[i][2], shown: P[i][3] })) };
     },

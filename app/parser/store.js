@@ -169,11 +169,11 @@ class BaseDir {
   keys() { const f = path.join(this.dir, 'keys.bin'); return fs.existsSync(f) ? typedFrom(fs.readFileSync(f), 'f64') : new Float64Array(0); }
   // ---- соперники (v3)
   players() { if (!this._players) this._players = this.v3 && fs.existsSync(path.join(this.og, 'players.json')) ? JSON.parse(fs.readFileSync(path.join(this.og, 'players.json'), 'utf8')) : []; return this._players; }
-  // список для выбора: по числу раздач; q — часть ника (без учёта регистра)
+  // список для выбора: по числу раздач; q — начало ника (без учёта регистра)
   playerList(q, limit) {
     const s = (q || '').trim().toLowerCase(), all = this.players(), out = [];
     const mine = this.meta.nicks || {}; // ники алиасов — это вы и ваши алиасы, не соперники
-    for (let i = 0; i < all.length; i++) { const p = all[i]; if (p.c && !mine[p.n] && (!s || p.n.toLowerCase().includes(s))) out.push(i); }
+    for (let i = 0; i < all.length; i++) { const p = all[i]; if (p.c && !mine[p.n] && (!s || p.n.toLowerCase().startsWith(s))) out.push(i); }
     out.sort((a, b) => all[b].c - all[a].c || (all[a].n < all[b].n ? -1 : 1));
     return { total: out.length, players: out.slice(0, limit || 100).map(i => ({ pid: i, name: all[i].n, room: all[i].r, count: all[i].c, shown: all[i].sh })) };
   }

@@ -1677,7 +1677,7 @@ function openPlayerMenu() {
   // 2) другие игроки базы
   const oth = el('div', 'pm-sec pm-oth');
   const hh = el('div', 'pm-h', 'Другие игроки в базе');
-  const q = el('input', 'pm-q'); q.type = 'search'; q.placeholder = 'Найти ник'; q.setAttribute('aria-label', 'Найти игрока по нику');
+  const q = el('input', 'pm-q'); q.type = 'search'; q.placeholder = 'Начало ника'; q.setAttribute('aria-label', 'Найти игрока по нику');
   const list = el('div', 'pm-list');
   const more = el('p', 'pm-more');
   let fillSeq = 0, fillT = null;
