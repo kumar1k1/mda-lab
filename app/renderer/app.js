@@ -196,6 +196,13 @@ function wrNode(cls, f, e, d) {
   if (f != null && e != null) s.append(el('span', 'evs ' + (e >= 0 ? 'up' : 'down'), ' / ' + signed(e, d) + ' EV'));
   return s;
 }
+// ячейки 4+ / 5+: факт сверху, EV мелко под ним — всегда внутри ячейки
+function pmxWr(f, e) {
+  const s = el('span', 'pmx-w');
+  s.append(el('span', 'pmx-wf ' + (f == null ? '' : f >= 0 ? 'up' : 'down'), f == null ? '—' : signed(f, 2)));
+  if (f != null && e != null) s.append(el('span', 'pmx-we ' + (e >= 0 ? 'up' : 'down'), 'EV ' + signed(e, 2)));
+  return s;
+}
 const wrHtml = (f, e, d) => f == null ? '<span class="muted">—</span>' : '<span class="' + (f >= 0 ? 'up' : 'down') + '">' + signed(f, d) + '</span>' + (f == null || e == null ? '' : '<span class="evs-big ' + (e >= 0 ? 'up' : 'down') + '"> / ' + signed(e, d) + ' <i>EV</i></span>');
 
 // #8 — столбики «BB за открытие» по позициям, ноль посередине
@@ -961,7 +968,7 @@ function renderShovePanel(idx, stackBars) {
     if (!z.o) { d.classList.add('na'); d.append(el('b', null, '—')); return d; }
     const f = z.x / z.o, w = z.n ? z.sum / 10 / z.n : null, we = z.n ? z.es / 10 / z.n : null;
     d.style.setProperty('--f', Math.min(1, f / maxF).toFixed(3));
-    d.append(el('b', null, fmtPct(f) + '%'), wrNode('pmx-w', w, we, 2));
+    d.append(el('b', null, fmtPct(f) + '%'), pmxWr(w, we));
     if (z.n < 10) d.classList.add('low');
     if (z.mx) {
       const mxN = z.mx.reduce((a, q) => a + q.n, 0), mxS = z.mx.reduce((a, q) => a + q.sum, 0), mxE = z.mx.reduce((a, q) => a + q.es, 0);
@@ -1041,7 +1048,7 @@ function isoCard(d) {
 let ISO_SZ = 'all';
 function isoSizing(d) {
   const box = el('div', 'iso-sz');
-  const head = el('div', 'iso-sz-h'); head.append(el('b', null, 'Сайзинг изолейта'), el('span', 'sm-s', 'самые частые размеры рейза поверх лимпа, BB, и их результат (без олл-инов)'));
+  const head = el('div', 'iso-sz-h'); head.append(el('b', null, 'Сайзинг изолейта'), el('span', 'sm-s', 'самые частые размеры рейза после лимпа оппонента, BB, и их результат (без олл-инов)'));
   const body = el('div');
   head.append(segBtns([['all', 'Все'], ['0', 'vs 1 лимпер'], ['1', 'vs 2+']], ISO_SZ, (k) => { ISO_SZ = k; draw(); }));
   box.append(head, body);
@@ -1082,7 +1089,7 @@ function isoPanel(d) {
   const card = el('div', 'insight steal-panel pm-card');
   card.append(numTag('5+'));
   const nAll = d.M.flat().reduce((a, z) => a + z.n, 0), sAll = d.M.flat().reduce((a, z) => a + z.sum, 0), eAll = d.M.flat().reduce((a, z) => a + z.es, 0);
-  card.append(el('b', 'pm-title', 'Изолейт по позициям'), el('span', 'sm-s', 'ваш рейз поверх лимпа: частота и винрейт; в среднем ' + wrTxt(nAll ? sAll / 10 / nAll : null, nAll ? eAll / 10 / nAll : null, 2) + ' BB за изолейт, ' + nAll.toLocaleString('ru-RU') + ' изолейтов'));
+  card.append(el('b', 'pm-title', 'Изолейт по позициям'), el('span', 'sm-s', 'ваш рейз после лимпа оппонента: частота и винрейт; в среднем ' + wrTxt(nAll ? sAll / 10 / nAll : null, nAll ? eAll / 10 / nAll : null, 2) + ' BB за изолейт, ' + nAll.toLocaleString('ru-RU') + ' изолейтов'));
   const tb = el('div', 'pmx iso');
   tb.style.gridTemplateColumns = 'auto repeat(' + ISO_POS.filter(p => p !== 'HJ').length + ', minmax(0, 1fr))';
   tb.append(el('span', 'pmx-corner', 'лимперов'));
@@ -1097,7 +1104,7 @@ function isoPanel(d) {
       const f = z.x / z.o, w = z.n ? z.sum / 10 / z.n : null;
       c.style.setProperty('--f', Math.min(1, f / maxF).toFixed(3));
       c.style.background = 'rgba(var(--amber-rgb),calc(.05 + var(--f) * .45))';
-      c.append(el('b', null, fmtPct(f) + '%'), wrNode('pmx-w', w, z.n ? z.es / 10 / z.n : null, 2));
+      c.append(el('b', null, fmtPct(f) + '%'), pmxWr(w, z.n ? z.es / 10 / z.n : null));
       if (z.o < 20) c.classList.add('low');
       const title = nm + ', vs ' + lab + ' лимпер' + (r ? 'а' : '');
       if (z.mx) {
@@ -1183,7 +1190,7 @@ function renderRFISummary(idx, r) {
   [...byTag['#3+'].querySelectorAll(':scope > .sm')].forEach(m => { if (m.querySelector('.sm-tag').textContent === '#3.4') m.classList.add('span2'); stealRow.append(m); });
   // разделы с заголовком и отступом, чтобы блоки не слипались
   const sec = (title, note) => { const d = el('div', 'sec'); const t = el('div', 'sec-t'); t.append(el('h3', null, title)); if (note) t.append(el('span', null, note)); d.append(t, el('div', 'sec-line')); return d; };
-  zone.append(row('#1', '#8'), sec('Стил с поздних позиций', 'CO и BTN, когда до вас все сбросили'), stealRow, sec('Пуши', 'олл-ин вместо обычного открытия'), row('#4', '#4+'), sec('Изоляция лимперов', 'ваш рейз поверх лимпа'), row('#5', '#5+'));
+  zone.append(row('#1', '#8'), sec('Стил с поздних позиций', 'CO и BTN, когда до вас все сбросили'), stealRow, sec('Пуши', 'олл-ин вместо обычного открытия'), row('#4', '#4+'), sec('Изоляция лимперов', 'ваш рейз после лимпа оппонента'), row('#5', '#5+'));
 
   // матрица рук
   const b13 = el('section', 'block'); b13.append(numTag(13));
