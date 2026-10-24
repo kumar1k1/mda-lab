@@ -1898,7 +1898,6 @@ function renderAliasEditor() {
   }
   c.append(chips);
   if (EDIT_MSG) c.append(el('p', 'als-msg', EDIT_MSG));
-  if (DRAFT) c.append(el('p', 'als-pending', 'Изменения ещё не применены — нажмите «ОК».'));
   if (EDIT_A == null) { c.append(el('p', 'muted', 'В базе пока нет алиасов. Создайте алиас и добавьте в него игроков из базы.')); return c; }
   const A = AL[EDIT_A];
   const card = el('section', 'card als-card');

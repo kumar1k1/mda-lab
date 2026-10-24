@@ -869,4 +869,3 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .als-top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .als-acts{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .als-ok{min-width:96px}
-.als-pending{margin:0;padding:8px 12px;border-radius:9px;background:rgba(var(--amber-rgb),.1);border:1px solid rgba(var(--amber-rgb),.35);color:var(--amber);font-size:13px;font-weight:600}
