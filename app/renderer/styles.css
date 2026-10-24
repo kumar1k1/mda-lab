@@ -703,24 +703,27 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .res-ev{display:block;font-size:10px;font-weight:600;opacity:.8;white-space:nowrap}
 /* 3.4: столбцы CO и BTN разведены разделителем; число раздач — в своей колонке нужной ширины, ничего не наезжает */
 .hg-row{column-gap:0}
-.hg-row > .hg-c,.hg-row > span:not(.hg-l){padding:0 10px}
+.hg-row > .hg-c,.hg-row > span:not(.hg-l){padding:0 14px}
 .hg-row > :nth-child(3){border-left:1px solid var(--line)}
-.hg-c{grid-template-columns:minmax(48px,1fr) 50px 48px 46px;column-gap:6px}
+.hg-c{grid-template-columns:minmax(36px,1fr) max-content minmax(5.5ch,max-content);column-gap:10px}
 .hg-v{white-space:nowrap}
 .hg-n{white-space:nowrap;min-width:5.5ch}
 .hg{container-type:inline-size}
-.hg-row{grid-template-columns:minmax(96px,.8fr) minmax(min-content,1.4fr) minmax(min-content,1.4fr)}
+.hg-row{grid-template-columns:minmax(96px,1fr) minmax(min-content,1.35fr) minmax(min-content,1.35fr)}
 .hg-l{min-width:0;overflow-wrap:anywhere}
 .hg-pos{display:none;font-family:var(--mono);font-size:11px;font-weight:700;color:var(--muted)}
-
+/* средняя ширина карточки: EV под фактом */
+@container (max-width: 760px){
+  .hg-v .evs{display:block;font-size:10px;line-height:1.2}
+  .hg-v{line-height:1.15}
+}
 /* узкая: CO и BTN одной строки — друг под другом, у каждой своя метка */
-@container (max-width: 640px){
+@container (max-width: 520px){
   .hg-row{grid-template-columns:1fr;row-gap:4px}
-  .hg-head > span,.hg-head > .hg-c + .hg-c{display:none}
-  .hg-head .hg-hp{visibility:hidden}
+  .hg-head{display:none}
   .hg-row > .hg-c,.hg-row > span:not(.hg-l){padding:0}
   .hg-row > :nth-child(3){border-left:none}
-  .hg-c{grid-template-columns:34px minmax(48px,1fr) 50px 48px 46px}
+  .hg-c{grid-template-columns:34px minmax(36px,1fr) max-content minmax(5.5ch,max-content)}
   .hg-pos{display:block}
 }
 .pmx-w{text-align:center}
@@ -735,24 +738,3 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .r34-big{min-width:0}
 .r34-big b{display:flex;flex-wrap:wrap;align-items:baseline;column-gap:6px}
 @container (max-width: 420px){.r34-big b{font-size:22px}}
-/* 3.4 / 3.7: колонки «факт | EV | раз», цифры выровнены по разряду; риска EV на полосе */
-.hg-f,.hg-e,.hg-hf,.hg-he{font-family:var(--mono);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
-.hg-f{font-size:12.5px;font-weight:700}
-.hg-e{font-size:12px;font-weight:500;opacity:.72}
-.hg-hc{cursor:default}
-.hg-hc:hover{background:none}
-.hg-hp{font-weight:700;color:var(--soft)}
-.hg-hf,.hg-he,.hg-hn{font-size:10px;letter-spacing:.06em;text-align:right}
-.hg-he{opacity:.8}
-.hg-evm{position:absolute;top:-3px;bottom:-3px;width:0;margin-left:-1px;border-left:2px dotted var(--soft);opacity:.9}
-.hg-void{visibility:hidden}
-.bx-lh .hg-c{padding:0}
-/* 3.7: та же раскладка — узкая карточка: CO и BTN друг под другом */
-.bx-list{container-type:inline-size}
-@container (max-width: 640px){
-  .bx-lr{grid-template-columns:1fr;row-gap:4px;gap:4px}
-  .bx-lh > span,.bx-lh > .hg-c + .hg-c{display:none}
-  .bx-lh .hg-hp{visibility:hidden}
-  .bx-lr .hg-c{grid-template-columns:34px minmax(48px,1fr) 50px 48px 46px}
-  .bx-lr .hg-pos{display:block}
-}
