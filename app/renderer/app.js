@@ -1558,6 +1558,13 @@ function setDb(db) {
   unpin();
   document.querySelector('.filters').hidden = !db;
   if (!db) { $('demoTag').hidden = true; updatePlayer(); render(); return; }
+  // винрейт: факт или EV (all-in adjusted) — подменяем колонку итога, все расчёты берут её
+  if (!db.cols.netF) db.cols.netF = db.cols.net;
+  const hasEv = Array.isArray(db.cols.nev);
+  $('fEv').hidden = !hasEv;
+  if (!hasEv) state.ev = false;
+  db.cols.net = state.ev && hasEv ? db.cols.nev : db.cols.netF;
+  $('fEv').querySelectorAll('button').forEach(b => { const on = (b.dataset.v === 'ev') === !!state.ev; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); b.onclick = () => { state.ev = b.dataset.v === 'ev'; DB.cols.net = state.ev ? DB.cols.nev : DB.cols.netF; $('fEv').querySelectorAll('button').forEach(x => { const o = x === b; x.classList.toggle('on', o); x.setAttribute('aria-pressed', String(o)); }); render(); }; });
   ROOM_COUNTS = db.rooms.map(() => 0);
   db.cols.room.forEach(r => { if (r >= 0) ROOM_COUNTS[r]++; });
   $('demoTag').hidden = !db.demo;

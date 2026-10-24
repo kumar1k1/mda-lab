@@ -663,3 +663,5 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .cc-table > .resp-t{margin-top:10px}
 .sz5-r.click{cursor:pointer}
 .sz5-r.click:hover{border-color:var(--line2);background:var(--card)}
+.seg-ev{padding:2px}
+.seg-ev button{min-height:28px;padding:0 9px;font-size:12px}
