@@ -657,3 +657,7 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .mx-clr{min-height:34px;padding:0 10px;font-size:12px}
 .cc-opp-form{display:flex;flex-direction:column;gap:6px}
 .cc-opp-btns{display:flex;gap:8px;margin-top:4px}
+
+.sz5-t.cc-sz{grid-template-columns:auto minmax(40px,1fr) auto auto auto auto;margin-top:8px}
+.cc-ai-chart{display:flex;flex-direction:column;gap:4px;margin:12px 0 4px;max-width:760px}
+.cc-table > .resp-t{margin-top:10px}

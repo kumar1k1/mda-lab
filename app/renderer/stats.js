@@ -179,6 +179,8 @@
 
   // Колд-колл: перед первым ходом героя был ровно один рейз (открытие), герой ещё не вкладывался добровольно; CC — колл этого рейза
   const CC_COLS = ['TOT', 'EP', 'MP', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
+  const CC_SZ = [['2 BB', 0, 205], ['2,1–2,3 BB', 205, 235], ['2,4–2,6 BB', 235, 265], ['2,7–3,4 BB', 265, 345], ['3,5 BB и больше', 345, 1e9]];
+  const CC_AISTK = [['< 8 BB', 0, 8], ['8–12 BB', 8, 12], ['12–20 BB', 12, 20], ['20+ BB', 20, 1e9]];
   function cc(db, idx, opt) {
     opt = opt || {};
     const c = db.cols, R = () => ({ x: 0, n: 0 }), out = { cc: {} };
@@ -187,12 +189,30 @@
     out.vs = {}; out.vsHands = {}; // позиция героя → позиция открывающего
     out.hands = {}; out.resp = [0, 0, 0];
     out.mx = Array.from({ length: 169 }, () => ({ n: 0, x: 0, ai: 0, lp: 0 }));
+    // против сайзинга открытия (без олл-инов) и против олл-ина: по позиции героя и TOT (TOT — без BB)
+    const szCell = () => ({ n: 0, call: 0, rz: 0, fold: 0, sum: 0, sn: 0 });
+    const hset = () => ({ n: 0, sum: 0, ids: [], mx: Array.from({ length: 169 }, () => ({ n: 0, sum: 0 })) });
+    out.sz = {}; out.ai = {}; out.aiHands = {}; out.aiStk = {};
+    CC_COLS.forEach(k => { out.sz[k] = CC_SZ.map(szCell); out.ai[k] = { x: 0, n: 0 }; out.aiHands[k] = hset(); out.aiStk[k] = CC_AISTK.map(szCell); });
     out.mxO = Array.from({ length: 169 }, () => ({ n: 0, x: 0, ai: 0, lp: 0 })); // то же, но по стеку открывающего // диапазон против открытия: колл / 3-бет / олл-ин / фолд // ваш ответ на открытие (без BB): фолд / колл / рейз
     CC_COLS.forEach(k => { out.cc[k] = R(); out.hands[k] = { n: 0, sum: 0, ids: [], mx: Array.from({ length: 169 }, () => ({ n: 0, sum: 0 })) }; });
-    if (!c.rz) return Object.assign(out, { CC_COLS });
+    if (!c.rz) return Object.assign(out, { CC_COLS, CC_SZ, CC_AISTK });
     for (const i of idx) {
       if (c.rz[i] !== 1) continue;
       const p = POS[c.pos[i]], call = c.act[i] === 1;
+      const keys = p === 'BB' ? [p] : ['TOT', p], v0 = c.net ? c.net[i] : 0, a0 = c.act[i];
+      const shove = c.rai && (c.rai[i] === 1 || (c.osz && c.ostk && c.osz[i] >= 0 && c.osz[i] / 100 >= c.ostk[i] / 10 - 0.5)); // открытие олл-ином (или почти всем стеком)
+      if (shove) {
+        keys.forEach(k => {
+          const z = out.ai[k]; z.n++; if (call) z.x++;
+          const sk = CC_AISTK.findIndex(q => c.ostk[i] / 10 >= q[1] && c.ostk[i] / 10 < q[2]);
+          if (sk >= 0) { const q = out.aiStk[k][sk]; q.n++; if (call) { q.call++; q.sum += v0; q.sn++; } else if (a0 >= 2) q.rz++; else q.fold++; }
+          if (call && c.hc[i] >= 0) { const h = out.aiHands[k], m = h.mx[c.hc[i]]; h.n++; h.sum += v0; h.ids.push(i); m.n++; m.sum += v0; }
+        });
+      } else if (c.osz && c.osz[i] >= 0) {
+        const sk = CC_SZ.findIndex(q => c.osz[i] >= q[1] && c.osz[i] < q[2]);
+        if (sk >= 0) keys.forEach(k => { const q = out.sz[k][sk]; q.n++; if (call) { q.call++; q.sum += v0; q.sn++; } else if (a0 >= 2) q.rz++; else q.fold++; });
+      }
       (p === 'BB' ? [out.cc[p]] : [out.cc.TOT, out.cc[p]]).forEach(z => { z.n++; if (call) z.x++; }); // TOT — без BB
       if (c.hc[i] >= 0 && p === opt.mxPos && (!opt.mxStk || (c.bb[i] >= opt.mxStk[0] * 10 && c.bb[i] < opt.mxStk[1] * 10))) {
         const m = out.mx[c.hc[i]], a = c.act[i]; m.n++;
@@ -215,7 +235,7 @@
       if (p !== 'BB') out.resp[c.act[i] === 0 ? 0 : c.act[i] === 1 ? 1 : 2]++;
       if (call && c.hc[i] >= 0) (p === 'BB' ? [p] : ['TOT', p]).forEach(k => { const h = out.hands[k], m = h.mx[c.hc[i]], v = c.net ? c.net[i] : 0; h.n++; h.sum += v; h.ids.push(i); m.n++; m.sum += v; });
     }
-    return Object.assign(out, { CC_COLS });
+    return Object.assign(out, { CC_COLS, CC_SZ, CC_AISTK });
   }
 
   window.Stats = { POS, selectHands, rfi, rfiExtra, stealExtra, cc };

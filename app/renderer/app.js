@@ -197,7 +197,7 @@ function netChart(items, avg) {
   const vals = items.map(it => (it.o.n ? it.o.sum / 10 / it.o.n : null));
   // масштаб — по позициям с выборкой от 30 раздач, чтобы 2–3 случайные раздачи не сжимали остальные столбики
   const solid = vals.filter((v, i) => v != null && items[i].o.n >= 30);
-  const sv = solid.length ? solid : vals.filter(v => v != null);
+  const sv = solid.length >= 2 ? solid : vals.filter(v => v != null); // если надёжных позиций меньше двух — масштаб по всем
   // устойчивый масштаб: одна позиция с огромным плюсом/минусом не сжимает остальные — её столбик обрезается с изломом
   const abs = sv.map(Math.abs).sort((a, b) => b - a);
   const cap = abs.length > 1 ? Math.min(abs[0], Math.max(abs[1] * 2, 1)) : (abs[0] || 0.5);
@@ -235,7 +235,7 @@ function netChart(items, avg) {
       const yb = v >= 0 ? top + 10 : bot - 10;
       g.append(svgEl('path', { d: 'M' + (cx - w / 2 - 2) + ' ' + (yb + 3) + ' L' + (cx + w / 2 + 2) + ' ' + (yb - 3) + ' M' + (cx - w / 2 - 2) + ' ' + (yb + 8) + ' L' + (cx + w / 2 + 2) + ' ' + (yb + 2) }, 'stroke:var(--panel);stroke-width:3'));
     }
-    g.append(svgText(cx, v >= 0 ? top - 6 : bot + 14, signed(v, 2), 'middle', 'fill:var(--text);font-weight:700'));
+    g.append(svgText(cx, v >= 0 ? Math.max(P.t - 4, top - 6) : Math.min(bot + 14, H - P.b - 4), signed(v, 2), 'middle', 'fill:var(--text);font-weight:700'));
     g.append(svgEl('rect', { x: P.l + i * bw, y: P.t, width: bw, height: H - P.t - 2, rx: 6 }, 'fill:transparent'));
     g.setAttribute('tabindex', '0'); g.setAttribute('class', 'net-bar');
     g.setAttribute('aria-label', it.p + ': ' + signed(v, 2) + ' BB за открытие, ' + it.o.n + ' открытий');
@@ -1180,6 +1180,83 @@ function renderRFISummary(idx, r) {
 }
 
 // ---------- вкладка «Колд-колл» ----------
+// #6 — колд-колл против разных сайзингов открытия (без олл-инов): частоты ответа и винрейт колла
+let CC_SZPOS = 'TOT';
+function ccSizeBlock(r) {
+  const card = el('div', 'insight cc-table');
+  card.append(numTag(6), el('b', 'pm-title', 'Против сайзинга открытия'), el('span', 'sm-s', 'как вы отвечаете на открытие разного размера и какой результат дают ваши коллы; открытия олл-ином — в блоке #7'));
+  const posList = ['TOT'].concat(r.CC_COLS.slice(1).filter(p => r.cc[p].n >= SMALL));
+  const body = el('div');
+  card.append(segBtns(posList.map(p => [p, p === 'TOT' ? 'Все без BB' : p]), CC_SZPOS, (k) => { CC_SZPOS = k; draw(); }), body,
+    infoNote('Размер — до скольких BB открыл соперник. Доля — какая часть всех открытий перед вами была такого размера. Колл / 3-бет / Фолд — ваш ответ. Винрейт — средний итог раздачи после вашего колла. Бледные строки — меньше 30 раздач.'));
+  function draw() {
+    const rows = r.sz[CC_SZPOS] || [], tot = rows.reduce((a, z) => a + z.n, 0);
+    const t = el('div', 'sz5-t cc-sz');
+    const hd = el('div', 'sz5-r sz5-h'); ['Размер', 'Доля', 'Колл', '3-бет', 'Фолд', 'Винрейт колла, BB'].forEach(x => hd.append(el('span', null, x))); t.append(hd);
+    rows.forEach((z, k) => {
+      if (!z.n) return;
+      const row = el('div', 'sz5-r'); if (z.n < 30) row.classList.add('low');
+      const pc = (v) => fmtPct(v / z.n) + '%', wr = z.sn ? z.sum / 10 / z.sn : null;
+      const share = z.n / tot, tk = el('span', 'sz5-tk'); const tr = el('i'); tr.style.width = Math.max(1, share * 100) + '%'; tk.append(tr);
+      const v = (txt, col) => { const e = el('span', 'sz5-v', txt); e.style.color = col; return e; };
+      row.append(el('b', null, r.CC_SZ[k][0]), el('span', 'sz5-sh', fmtPct(share) + '%'), v(pc(z.call), 'var(--ice)'), v(pc(z.rz), 'var(--bad)'), v(pc(z.fold), 'var(--good)'),
+        el('span', 'sz5-v ' + (wr == null ? '' : wr >= 0 ? 'up' : 'down'), wr == null ? '—' : signed(wr, 2)), el('small', null, z.n.toLocaleString('ru-RU') + ' раз'), tk);
+      t.append(row);
+    });
+    body.replaceChildren(tot ? t : el('p', 'muted small', 'Нет открытий в выборке.'));
+  }
+  draw();
+  return card;
+}
+
+// #7 — колд-колл против олл-ина: частота колла пуша, винрейт по позициям и по стеку пушера
+let CC_AIPOS = 'TOT';
+function ccAllinBlock(r) {
+  const card = el('div', 'insight cc-table');
+  card.append(numTag(7), el('b', 'pm-title', 'Колл против олл-ина'), el('span', 'sm-s', 'перед вами открылись олл-ином (или почти всем стеком), а вы коллировали; TOT — все позиции без BB'));
+  // таблица частоты колла пуша по позициям: наведение — руки, клик — раздачи и реплеер
+  const cols = r.CC_COLS.filter(k => k === 'TOT' || r.ai[k].n >= SMALL);
+  const w = heatTable({ cols, groupGapBefore: cols.indexOf('SB') >= 0 ? cols.indexOf('SB') : cols.indexOf('BB'), rows: [{ label: 'Колл пуша', data: r.ai }] });
+  w.querySelectorAll('td.c').forEach(td => {
+    const col = td.dataset.col, z = r.aiHands[col]; if (!z || !z.n) return;
+    const it = { p: col === 'TOT' ? null : col, key: 'ccai ' + col, title: 'Колл олл-ина · ' + (col === 'TOT' ? 'все позиции без BB' : col), o: { n: z.n, sum: z.sum }, mx: z.mx, ids: z.ids, sit: 2, act: 1, vlab: ' BB за колл', nlab: ' коллов' };
+    const v = z.sum / 10 / z.n;
+    td.classList.add('click'); td.tabIndex = 0; td.setAttribute('role', 'button');
+    const show = (ev) => showHandPop(it, v, ev, td);
+    td.addEventListener('mouseenter', show); td.addEventListener('mousemove', show); td.addEventListener('mouseleave', hideHandPop);
+    td.addEventListener('click', (ev) => pinHandPop(it, v, ev, td));
+    td.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); pinHandPop(it, v, null, td); } });
+  });
+  // винрейт колла пуша по позициям — график как #8
+  const items = cols.filter(k => k !== 'TOT').map(p => { const h = r.aiHands[p]; return { p, key: 'ccai' + p, o: { n: h.n, sum: h.sum }, mx: h.mx, ids: h.ids, sit: 2, act: 1, title: 'Колл олл-ина · ' + p, vlab: ' BB за колл', nlab: ' коллов' }; });
+  const t = r.aiHands.TOT, avg = t.n ? t.sum / 10 / t.n : null;
+  const chart = el('div', 'cc-ai-chart');
+  chart.append(el('span', 'resp-t', 'Винрейт колла по позициям: в среднем ' + signed(avg, 2) + ' BB, без BB'), netChart(items.filter(it => it.o.n > 0), avg));
+  // по стеку того, кто пошёл олл-ин
+  const body = el('div');
+  const stTitle = el('span', 'resp-t', 'По стеку пушера');
+  const posList = ['TOT'].concat(cols.filter(k => k !== 'TOT'));
+  const draw = () => {
+    const rows = r.aiStk[CC_AIPOS] || [];
+    const tb = el('div', 'sz5-t cc-sz');
+    const hd = el('div', 'sz5-r sz5-h'); ['Стек пушера', 'Случаев', 'Колл', '3-бет / олл-ин', 'Фолд', 'Винрейт колла, BB'].forEach(x => hd.append(el('span', null, x))); tb.append(hd);
+    rows.forEach((z, k) => {
+      if (!z.n) return;
+      const row = el('div', 'sz5-r'); if (z.n < 30) row.classList.add('low');
+      const pc = (x) => fmtPct(x / z.n) + '%', wr = z.sn ? z.sum / 10 / z.sn : null;
+      const v = (txt, col) => { const e = el('span', 'sz5-v', txt); e.style.color = col; return e; };
+      row.append(el('b', null, r.CC_AISTK[k][0]), el('span', 'sz5-sh', z.n.toLocaleString('ru-RU')), v(pc(z.call), 'var(--ice)'), v(pc(z.rz), 'var(--bad)'), v(pc(z.fold), 'var(--good)'),
+        el('span', 'sz5-v ' + (wr == null ? '' : wr >= 0 ? 'up' : 'down'), wr == null ? '—' : signed(wr, 2)));
+      tb.append(row);
+    });
+    body.replaceChildren(tb);
+  };
+  card.append(w, chart, stTitle, segBtns(posList.map(p => [p, p === 'TOT' ? 'Все без BB' : p]), CC_AIPOS, (k) => { CC_AIPOS = k; draw(); }), body,
+    infoNote('Колл пуша — доля коллов, когда перед вами был один олл-ин (открытие на весь стек или почти на весь — за спиной меньше 0,5 BB). Наведите на ячейку или столбик — руки, которыми вы коллировали, и их итог; клик закрепит окно, клик по руке откроет раздачи и реплеер. Бледные строки и ячейки — меньше 30 и ' + SMALL + ' раздач.'));
+  draw();
+  return card;
+}
+
 // #5 — ответ против открытия с произвольными диапазонами: стек открывающего и мой стек (поля «от — до»)
 function rangeForm(id, cur, onSet) {
   const f = el('form', 'mx-range');
@@ -1352,7 +1429,7 @@ function renderCC(idx) {
   c8.classList.add('wide');
   const zone = el('div', 'summary'); const pair = el('div', 'sum-pair'); pair.append(c1, c8); zone.append(pair);
   c2.classList.add('cc-table');
-  zone.append(c2, ccVsTable(r), ccOppBlock(r));
+  zone.append(c2, ccVsTable(r), ccOppBlock(r), ccSizeBlock(r), ccAllinBlock(r));
   page.append(zone);
   return page;
 }
