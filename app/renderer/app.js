@@ -1844,6 +1844,22 @@ function draftInfo() {
   }
   return info;
 }
+// крестик на алиасе: распустить сразу (вместе с уже сделанными правками), редактор остаётся открытым
+async function dissolveAlias(k) {
+  if (!HERO_DB || EDIT_BUSY || !mda.saveAliases) return;
+  if (!DRAFT) DRAFT = aliasList(HERO_DB).map(a => JSON.parse(JSON.stringify(a)));
+  if (!DRAFT[k]) return;
+  Object.assign(DRAFT[k], { gone: 1, opp: [], mine: [] });
+  for (const a of DRAFT) if (a.mine) a.mine = a.mine.filter(m => m.a !== k);
+  EDIT_BUSY = true; render();
+  const r = await mda.saveAliases(DRAFT);
+  EDIT_BUSY = false;
+  if (!r || r.error) { EDIT_MSG = 'Не сохранилось: ' + ((r && r.error) || 'нет связи с базой'); render(); return; }
+  DRAFT = null; HERO_DB.aliases = r.aliases; EDIT_MSG = '';
+  if (EDIT_A === k) EDIT_A = null;
+  setupAliases(HERO_DB); // если распущенный алиас был открыт — выбирается первый
+  await refreshAliasView();
+}
 // «ОК»: применить черновик, закрыть редактор (вернуться на прежнюю вкладку) и открыть алиас
 async function applyAliasEdit() {
   if (!HERO_DB || EDIT_BUSY) return;
@@ -1885,7 +1901,15 @@ function renderAliasEditor() {
     const b = el('button', 'als-chip' + (A.k === EDIT_A ? ' on' : '')); b.type = 'button'; b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', A.k === EDIT_A);
     b.append(el('b', null, A.name), el('span', null, nicksLabel(nickCount(A)) + ' · ' + aliasCount(A).toLocaleString('ru-RU')));
     b.onclick = () => { EDIT_A = A.k; EDIT_NEW = false; render(); };
-    chips.append(b);
+    const w = el('div', 'als-chipw'); w.append(b);
+    // крестик — распустить алиас сразу: игроки базы возвращаются в «Другие игроки», ваши ники остаются в своих алиасах.
+    // Алиас, где лежат раздачи ваших ников, распустить нельзя — у него крестика нет.
+    if (!Object.keys(A.nicks).length) {
+      const x = el('button', 'als-x', '×'); x.type = 'button'; x.title = 'Распустить алиас «' + A.name + '»'; x.setAttribute('aria-label', 'Распустить алиас ' + A.name);
+      x.onclick = () => dissolveAlias(A.k);
+      w.append(x);
+    }
+    chips.append(w);
   });
   if (EDIT_NEW) {
     const f = el('form', 'als-newform'); const ni = el('input'); ni.placeholder = 'Имя нового алиаса'; ni.maxLength = 40; ni.setAttribute('aria-label', 'Имя нового алиаса');
@@ -1966,13 +1990,7 @@ function renderAliasEditor() {
   };
   q.oninput = () => { clearTimeout(t); t = setTimeout(fill, 150); }; fill();
   add.append(q, res); card.append(add);
-  // распустить
-  const foot = el('div', 'als-foot');
-  if (!own.length) {
-    const d = button('Распустить алиас', 'danger', () => { if (!d.dataset.armed) { d.dataset.armed = '1'; d.textContent = 'Точно распустить? Игроки вернутся в «Другие игроки»'; return; } editAliasEdit(list => { list[A.k].gone = 1; list[A.k].opp = []; list[A.k].mine = []; }); });
-    foot.append(d);
-  } else foot.append(el('p', 'als-hint', 'Здесь лежат раздачи ваших ников — этот алиас можно переименовать и менять его состав, но не распустить.'));
-  card.append(foot);
+  if (own.length) { const foot = el('div', 'als-foot'); foot.append(el('p', 'als-hint', 'Здесь лежат раздачи ваших ников — этот алиас можно переименовать и менять его состав, но не распустить.')); card.append(foot); }
   c.append(card);
   return c;
 }

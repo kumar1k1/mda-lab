@@ -869,3 +869,7 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .als-top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .als-acts{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .als-ok{min-width:96px}
+.als-chipw{position:relative;display:flex}
+.als-chipw:has(.als-x) .als-chip{padding-right:34px}
+.als-x{position:absolute;top:4px;right:4px;width:24px;height:24px;display:grid;place-items:center;border:none;border-radius:7px;background:transparent;color:var(--muted);font-size:17px;line-height:1;cursor:pointer}
+.als-x:hover,.als-x:focus-visible{background:rgba(var(--bad-rgb),.14);color:var(--bad)}
