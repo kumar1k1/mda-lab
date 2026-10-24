@@ -3,6 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const { parseText } = require('./parse.js');
+const { listZip, isZipPath, zipSize, zipRead, closeAll } = require('./zip.js');
 
 // признаки рума по началу файла
 const ROOM_SIGNS = [
@@ -25,11 +26,19 @@ function walk(dir, out, limit) {
     if (out.length >= limit) return;
     const p = path.join(dir, d.name);
     if (d.isDirectory()) walk(p, out, limit);
-    else if (/\.(txt|xml|log|hh)$/i.test(d.name)) out.push(p);
+    else addFile(p, out, limit);
   }
 }
+// обычный файл истории или zip-архив (истории внутри читаются без распаковки)
+function addFile(p, out, limit) {
+  if (/\.zip$/i.test(p)) listZip(p, out, limit);
+  else if (/\.(txt|xml|log|hh)$/i.test(p)) out.push(p);
+}
+const fileSize = (f) => (isZipPath(f) ? zipSize(f) : fs.statSync(f).size);
+function readText(f) { return (isZipPath(f) ? zipRead(f) : fs.readFileSync(f)).toString('utf8'); }
 
 function readHead(f, n) {
+  if (isZipPath(f)) { try { return zipRead(f).slice(0, n).toString('utf8').replace(/^\uFEFF/, ''); } catch (e) { return ''; } }
   try {
     const fd = fs.openSync(f, 'r'); const buf = Buffer.alloc(n); const k = fs.readSync(fd, buf, 0, n, 0); fs.closeSync(fd);
     return buf.slice(0, k).toString('utf8').replace(/^﻿/, '');
@@ -42,13 +51,13 @@ function scan(files) {
   const nickCount = {}; // nick -> { room -> count }
   const noDealt = {}, seatCount = {}; // румы без карт героя: сколько файлов и кто в них сидел
   for (const f of files) {
-    let st; try { st = fs.statSync(f); } catch (e) { continue; }
-    bytes += st.size;
+    let size; try { size = fileSize(f); } catch (e) { continue; }
+    bytes += size;
     const head = readHead(f, 4096);
     const sign = ROOM_SIGNS.find(s => s.re.test(head));
     if (!sign) { unknown++; continue; }
     const r = rooms[sign.room] || (rooms[sign.room] = { files: 0, bytes: 0, supported: SUPPORTED.has(sign.room) });
-    r.files++; r.bytes += st.size; est += Math.round(st.size / 1500);
+    r.files++; r.bytes += size; est += Math.round(size / 1500);
     if (!r.supported) continue;
     // первая раздача каждого файла: кому «раздали карты» — это и есть игрок, чья это история
     const m = /^Dealt to (.+?) \[/m.exec(head);
@@ -76,6 +85,7 @@ function scan(files) {
   });
   const maxHits = Math.max(1, ...nicks.map(x => x.hits));
   const cand = nicks.filter(x => x.hits >= Math.max(2, maxHits * 0.01)).sort((a, b) => b.hits - a.hits).slice(0, 12);
+  closeAll();
   return { files: files.length, bytes, rooms, unknown, estHands: est, nicks: cand };
 }
 
@@ -86,7 +96,7 @@ function buildDb(files, nicks, alias, onProgress) {
   const seen = new Set(); const recs = []; let errors = 0, dup = 0;
   files.forEach((f, k) => {
     let text = '';
-    try { text = fs.readFileSync(f, 'utf8'); } catch (e) { return; }
+    try { text = readText(f); } catch (e) { return; }
     const r = parseText(text, heroes);
     errors += r.errors;
     for (const h of r.hands) {
@@ -96,6 +106,7 @@ function buildDb(files, nicks, alias, onProgress) {
     }
     if (onProgress && (k % 25 === 0 || k === files.length - 1)) onProgress(k + 1, files.length, recs.length);
   });
+  closeAll();
   if (!recs.length) return { db: null, rp: {}, hands: 0, dup, errors };
   recs.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
   const start = recs[0].date.slice(0, 7);
@@ -114,4 +125,4 @@ function buildDb(files, nicks, alias, onProgress) {
   return { db, rp, hands: recs.length, dup, errors };
 }
 
-module.exports = { ROOM_SIGNS, SUPPORTED, walk, scan, buildDb };
+module.exports = { ROOM_SIGNS, SUPPORTED, walk, addFile, scan, buildDb };

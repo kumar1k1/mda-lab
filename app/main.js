@@ -11,7 +11,7 @@ if (process.env.MDALAB_USERDATA) app.setPath('userData', process.env.MDALAB_USER
 // База игрока хранится только на его компьютере, в папке данных программы (не внутри программы),
 // поэтому установщик уходит без чьих-либо раздач.
 const { Worker } = require('worker_threads');
-const { walk, scan } = require('./parser/build.js');
+const { walk, addFile, scan } = require('./parser/build.js');
 const baseDir = () => path.join(app.getPath('userData'), 'base');
 const baseFile = (n) => path.join(baseDir(), n);
 // при разработке (не в установленной программе) можно открыть базу из папки проекта
@@ -35,17 +35,17 @@ ipcMain.handle('import:pick', async (_e, mode) => {
   const r = await dialog.showOpenDialog(win, {
     title: mode === 'folder' ? 'Выберите папку с историями раздач' : 'Выберите файлы историй раздач',
     properties: mode === 'folder' ? ['openDirectory'] : ['openFile', 'multiSelections'],
-    filters: mode === 'folder' ? undefined : [{ name: 'Истории раздач', extensions: ['txt', 'xml', 'hh', 'log'] }]
+    filters: mode === 'folder' ? undefined : [{ name: 'Истории раздач и zip-архивы', extensions: ['txt', 'xml', 'hh', 'log', 'zip'] }]
   });
   if (r.canceled || !r.filePaths.length) return { canceled: true };
   const files = [];
-  if (mode === 'folder') walk(r.filePaths[0], files, 2e6); else files.push(...r.filePaths);
+  if (mode === 'folder') walk(r.filePaths[0], files, 2e6); else r.filePaths.forEach(p => addFile(p, files, 2e6));
   return prepare(files, mode === 'folder' ? r.filePaths[0] : files.length + ' файл(ов)');
 });
 ipcMain.handle('import:paths', (_e, paths) => {
   const files = [];
-  (paths || []).forEach(p => { try { fs.statSync(p).isDirectory() ? walk(p, files, 2e6) : files.push(p); } catch (e) { /* пропуск */ } });
-  return prepare(files, files.length + ' файл(ов)');
+  (paths || []).forEach(p => { try { fs.statSync(p).isDirectory() ? walk(p, files, 2e6) : addFile(p, files, 2e6); } catch (e) { /* пропуск */ } });
+  return prepare(files, (paths || []).length === 1 ? path.basename(paths[0]) : (paths || []).length + ' объектов');
 });
 // сборка выбранных файлов с указанными никами; новая база заменяет прежнюю только после успешной сборки
 ipcMain.handle('import:run', (e, opts) => new Promise((resolve) => {
