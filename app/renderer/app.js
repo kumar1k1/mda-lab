@@ -686,8 +686,7 @@ function sizingCard(o) {
     });
     if (other.n) rows.push(['другие', other, 'другие размеры рейза']);
     const t = el('div', 'sz5-t');
-    const hd = el('div', 'sz5-r sz5-h'); ['Размер', 'Доля', 'Фолд', 'Рейз', 'BB / EV'].forEach(x => hd.append(el('span', null, x))); t.append(hd);
-    const side = SZ_SIDE === 'both' ? 'CO + BTN' : SZ_SIDE;
+    const hd = el('div', 'sz5-r sz5-h'); ['Размер', 'Доля', 'Фолд', 'Рейз', 'BB'].forEach(x => hd.append(el('span', null, x))); t.append(hd);
     rows.forEach(([lab, z, full]) => {
       const r = el('div', 'sz5-r');
       const share = z.n / tot, fold = z.rn ? z.r[0] / z.rn : null, rr = z.rn ? z.r[2] / z.rn : null, bb = z.sn ? z.sum / 10 / z.sn : null;
@@ -695,9 +694,11 @@ function sizingCard(o) {
       r.append(el('b', null, lab), sh,
         Object.assign(el('span', 'sz5-v', fold == null ? '—' : fmtPct(fold) + '%'), { style: 'color:var(--good)' }),
         Object.assign(el('span', 'sz5-v', rr == null ? '—' : fmtPct(rr) + '%'), { style: 'color:var(--bad)' }),
-        wrNode('sz5-v', bb, z.sn ? z.es / 10 / z.sn : null, 2));
+        el('span', 'sz5-v sz5-bb ' + (bb == null ? '' : bb >= 0 ? 'up' : 'down'), bb == null ? '—' : signed(bb, 2)));
       const tk = el('span', 'sz5-tk'); const tr = el('i'); tr.style.width = Math.max(1, share * 100) + '%'; if (SZ_SIDE === 'BTN') tr.style.background = C_BTN; tk.append(tr);
-      r.append(el('small', null, z.n.toLocaleString('ru-RU') + ' раз'), tk);
+      // вторая линия: число раз, полоса доли и EV под фактом
+      const ev = z.sn ? z.es / 10 / z.sn : null;
+      r.append(el('small', null, z.n.toLocaleString('ru-RU') + ' раз'), tk, el('span', 'sz5-ev ' + (ev == null ? '' : ev >= 0 ? 'up' : 'down'), ev == null ? '' : 'EV ' + signed(ev, 2)));
       if (z.n < 30) r.classList.add('low');
       t.append(r);
     });

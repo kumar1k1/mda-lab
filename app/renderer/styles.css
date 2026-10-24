@@ -733,3 +733,10 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
   .hg-c.hg-c34{grid-template-columns:30px max-content minmax(40px,1fr) max-content}
   .hg-c34::before{content:attr(data-pos);font-family:var(--mono);font-size:10px;font-weight:700;color:var(--muted)}
 }
+/* 3.5: компактно в две линии — сверху размер, доля, фолд, рейз, факт BB; снизу раз, полоса доли, EV под фактом */
+.sz5 .sz5-t{grid-template-columns:auto minmax(28px,1fr) auto auto auto;column-gap:8px}
+.sz5 .sz5-r{padding:6px 8px;min-width:0}
+.sz5 .sz5-tk{grid-column:2 / 5}
+.sz5-bb{font-weight:700}
+.sz5-ev{grid-column:5;font-family:var(--mono);font-size:10.5px;text-align:right;white-space:nowrap;opacity:.8}
+.sz5 .sz5-v,.sz5 .sz5-sh,.sz5 .sz5-r b{white-space:nowrap}
