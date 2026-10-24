@@ -37,7 +37,7 @@ function detectFormat(head) {
 }
 
 // Позиции по порядку хода префлоп: места между BB и баттоном (не включая) + BTN, SB, BB.
-function assignPositions(order, btnSeat, sbSeat, bbSeat, tblMax) {
+function assignPositions(order, btnSeat, sbSeat, bbSeat, tblMax, seated) {
   // как в Hand2Note: позиции считаются по игрокам назад от BB — SB, BTN, CO (кто реально поставил блайнд и где фишка дилера, не важно);
   // UTG — первый ход префлоп, только если стол полный; все остальные ранние места — MP
   // order — номера мест по часовой стрелке, начиная с первого после BB (без BB)
@@ -46,7 +46,7 @@ function assignPositions(order, btnSeat, sbSeat, bbSeat, tblMax) {
   const k = order.length;
   order.forEach((s, i) => {
     const fromEnd = k - 1 - i;
-    pos[s] = fromEnd === 0 ? 'SB' : fromEnd === 1 ? 'BTN' : fromEnd === 2 ? 'CO' : (i === 0 && tblMax && k + 1 === tblMax ? 'UTG' : 'MP');
+    pos[s] = fromEnd === 0 ? 'SB' : fromEnd === 1 ? 'BTN' : fromEnd === 2 ? 'CO' : (i === 0 && tblMax && (seated || k + 1) === tblMax ? 'UTG' : 'MP');
   });
   return pos;
 }
@@ -193,13 +193,26 @@ function parseHand(text, fmt, heroes) {
     if (/posts (the )?small blind/.test(l)) sbSeat = byName[n];
     else if (/posts (the )?big blind/.test(l) && bbSeat == null) bbSeat = byName[n];
   }
+  const seatedAll = Object.keys(seats).length; // все, кто сидит за столом (для UTG «стол полный»)
+  // как в Hand2Note: в раздаче только те, кто поставил анте/блайнд или ходил на префлопе; севший за стол «в ожидании» (без анте и без хода) не считается
+  {
+    const inHand = new Set(); let pre = false;
+    for (const l of lines) {
+      if (/^\*\*\* (FLOP|TURN|RIVER|SHOW|SUMMARY)/.test(l)) break;
+      if (/^\*\*\* (HOLE CARDS|PRE-FLOP)/.test(l)) { pre = true; continue; }
+      const n = who(l); if (!n) continue;
+      const rest = l.slice(n.length).replace(/^:/, '').trim();
+      if (/^posts /.test(rest) || (pre && /^(folds|checks|calls|bets|raises)/.test(rest)) || /^is all-in/.test(rest)) inHand.add(byName[n]);
+    }
+    if (inHand.size >= 2 && heroName && inHand.has(byName[heroName])) for (const sn of Object.keys(seats).map(Number)) if (!inHand.has(sn)) { delete byName[seats[sn].name]; delete seats[sn]; }
+  }
   const seatNums = Object.keys(seats).map(Number).sort((a, b) => a - b);
   if (bbSeat == null || seatNums.length < 2) return null;
   const startI = seatNums.indexOf(bbSeat);
   const order = [];
   for (let i = 1; i <= seatNums.length; i++) order.push(seatNums[(startI + i) % seatNums.length]);
   // order: от первого после BB по кругу до BB включительно
-  const pos = assignPositions(order.slice(0, -1), btnSeat, sbSeat, bbSeat, tblMax);
+  const pos = assignPositions(order.slice(0, -1), btnSeat, sbSeat, bbSeat, tblMax, seatedAll);
 
   // префлоп-действия
   let inPre = false; const acts = [];
@@ -220,8 +233,8 @@ function parseHand(text, fmt, heroes) {
   const rec = { id, hero: heroName, date, tour, tblMax, n: seatNums.length, pos: POS_IDX[hpos], bb: Math.round(seats[heroSeat].stack / bb * 10), pko: bounty ? 1 : 0, pdom: isPdom, bi: buyInCents(header, fmt), sit: 3, lim: 0, act: 0, size: 0, fti: -1, bvb: 0, fvr: -1 };
   const dealt = lines.find(l => l.startsWith('Dealt to ' + heroName + ' ['));
   rec.hc = dealt ? handClass(dealt.slice(dealt.indexOf('['))) : -1;
-  rec.net = Math.round(heroNet(lines, heroName, fmt) / bb * 10); // ×10 BB
-  rec.hpa = 0; rec.sto = -1; rec.f3b = -1; rec.orsp = -1; rec.rz = 0; rec.cl = 0; rec.rai = 0; rec.opos = -1; rec.ostk = -1; rec.osz = -1;
+  rec.net = Math.round(heroNet(lines, heroName, fmt) / bb * 1000) / 100; // ×10 BB, без округления до 0.1 BB (округление давало сдвиг около +1 bb/100)
+  rec.hpa = 0; rec.sto = -1; rec.f3b = -1; rec.orsp = -1; rec.rz = 0; rec.cl = 0; rec.lr = 0; rec.rai = 0; rec.opos = -1; rec.ostk = -1; rec.osz = -1;
   // самый короткий стек среди блайндов (кроме героя), BB×10 — для стила против коротких/глубоких блайндов
   const bl = [sbSeat, bbSeat].filter(sn => sn != null && sn !== heroSeat && seats[sn]).map(sn => seats[sn].stack);
   rec.bmin = bl.length ? Math.round(Math.min(...bl) / bb * 10) : -1;
@@ -242,7 +255,7 @@ function parseHand(text, fmt, heroes) {
   const calls = before.filter(x => x.a === 'calls').length;
   // для колд-колла: сколько рейзов было до первого хода героя, сколько коллеров после первого рейза, был ли первый рейз олл-ином
   rec.rz = raises;
-  { const fr = before.findIndex(x => x.a === 'raises' || x.a === 'bets'); rec.cl = fr < 0 ? 0 : before.slice(fr + 1).filter(x => x.a === 'calls').length; rec.rai = fr < 0 ? 0 : (before[fr].allin ? 1 : 0); rec.opos = fr < 0 ? -1 : (POS_IDX[pos[byName[before[fr].name]]] ?? -1); rec.ostk = fr < 0 || !seats[byName[before[fr].name]] ? -1 : Math.round(seats[byName[before[fr].name]].stack / bb * 10); rec.osz = fr < 0 ? -1 : Math.round(before[fr].amt / bb * 100); }
+  { const fr = before.findIndex(x => x.a === 'raises' || x.a === 'bets'); rec.cl = fr < 0 ? 0 : before.slice(fr + 1).filter(x => x.a === 'calls').length; rec.lr = fr < 0 ? 0 : before.slice(0, fr).filter(x => x.a === 'calls').length; rec.rai = fr < 0 ? 0 : (before[fr].allin ? 1 : 0); rec.opos = fr < 0 ? -1 : (POS_IDX[pos[byName[before[fr].name]]] ?? -1); rec.ostk = fr < 0 || !seats[byName[before[fr].name]] ? -1 : Math.round(seats[byName[before[fr].name]].stack / bb * 10); rec.osz = fr < 0 ? -1 : Math.round(before[fr].amt / bb * 100); }
   if (raises) rec.sit = 2;
   else if (calls) { rec.sit = 1; rec.lim = new Set(before.filter(x => x.a === 'calls').map(x => x.name)).size; }
   else rec.sit = 0;

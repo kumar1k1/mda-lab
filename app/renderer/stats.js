@@ -198,8 +198,8 @@
     CC_COLS.forEach(k => { out.cc[k] = R(); out.hands[k] = { n: 0, sum: 0, es: 0, ids: [], mx: Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })) }; });
     if (!c.rz) return Object.assign(out, { CC_COLS, CC_SZ, CC_AISTK });
     for (const i of idx) {
-      // как в Hand2Note: «перед игроком 1 Raise» — ровно один рейз и никто его не коллировал
-      if (c.rz[i] !== 1 || (c.cl && c.cl[i] !== 0)) continue;
+      // как в Hand2Note: «перед игроком 1 Raise» — ровно один рейз, без лимперов до него и без коллеров после
+      if (c.rz[i] !== 1 || (c.cl && c.cl[i] !== 0) || (c.lr && c.lr[i] !== 0)) continue;
       const p = POS[c.pos[i]], call = c.act[i] === 1;
       const c1 = call && (!c.hpa || c.hpa[i] === 1); // «Префлоп: C» — колл был единственным ходом героя на префлопе (для винрейта и рук)
       const keys = p === 'BB' ? [p] : ['TOT', p], v0 = c.net ? c.net[i] : 0, e0 = c.net ? EV[i] : 0, a0 = c.act[i];
