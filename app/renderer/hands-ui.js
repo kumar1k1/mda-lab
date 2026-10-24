@@ -29,8 +29,8 @@ function buildPop(it, v, isPinned) {
   pop.replaceChildren();
   const head = el('div', 'hp-head');
   if (isPinned) { const grip = el('span', 'hp-grip', '⠿'); grip.setAttribute('aria-hidden', 'true'); head.append(grip); }
-  const ev = it.o.es != null && it.o.n ? it.o.es / 10 / it.o.n : null;
-  head.append(el('b', null, it.title || it.p), el('span', v >= 0 ? 'up' : 'down', (ev == null ? signed(v, 2) : wrTxt(v, ev, 2)) + (it.vlab || ' BB за открытие')), el('span', 'muted', it.o.n.toLocaleString('ru-RU') + (it.nlab || ' открытий')));
+  // в окнах матрицы — только фактический винрейт (без EV)
+  head.append(el('b', null, it.title || it.p), el('span', v >= 0 ? 'up' : 'down', signed(v, 2) + (it.vlab || ' BB за открытие')), el('span', 'muted', it.o.n.toLocaleString('ru-RU') + (it.nlab || ' открытий')));
   if (isPinned) {
     const x = el('button', 'hp-close'); x.type = 'button'; x.setAttribute('aria-label', 'Закрыть окно');
     x.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
@@ -53,7 +53,7 @@ function buildPop(it, v, isPinned) {
       c.style.background = 'rgba(' + (avg >= 0 ? 'var(--good-rgb)' : 'var(--bad-rgb)') + ',' + (0.18 + 0.72 * t).toFixed(2) + ')';
       if (t > 0.65) c.style.color = '#0B1410';
       c.append(el('span', 'v', (avg >= 0 ? '+' : '−') + Math.abs(avg).toFixed(1)));
-      if (m.es != null) c.title = (c.title ? c.title + '\n' : '') + handName(k) + ': ' + wrTxt(avg, m.es / 10 / m.n, 2) + ' BB, ' + m.n + ' раз';
+      c.title = (c.title ? c.title + '\n' : '') + handName(k) + ': ' + signed(avg, 2) + ' BB, ' + m.n + ' раз, всего ' + signed(m.sum / 10, 1) + ' BB';
       if (m.n < 5) c.classList.add('low');
     } else c.classList.add('na');
     grid.append(c);
@@ -167,8 +167,8 @@ async function showHandList(it, k, cellBtn) {
     });
     const by = { new: (a, b) => c.day[b] - c.day[a] || b - a, old: (a, b) => c.day[a] - c.day[b] || a - b, best: (a, b) => c.net[b] - c.net[a], worst: (a, b) => c.net[a] - c.net[b], pot: (a, b) => potOf(b) - potOf(a) };
     rows.sort(by[f.sort]);
-    const EV = c.nev || c.net, total = rows.reduce((s, i) => s + c.net[i], 0) / 10, totalE = rows.reduce((s, i) => s + EV[i], 0) / 10;
-    head.replaceChildren(el('b', null, handName(k) + (it.p ? ' с ' + it.p : '')), el('span', null, rows.length + (rows.length === all.length ? '' : ' из ' + all.length) + ' раздач'), el('span', total >= 0 ? 'up' : 'down', wrTxt(total, totalE, 1) + ' BB всего'));
+    const total = rows.reduce((s, i) => s + c.net[i], 0) / 10;
+    head.replaceChildren(el('b', null, handName(k) + (it.p ? ' с ' + it.p : '')), el('span', null, rows.length + (rows.length === all.length ? '' : ' из ' + all.length) + ' раздач'), el('span', total >= 0 ? 'up' : 'down', signed(total, 1) + ' BB всего' + (rows.length ? ' · ' + signed(total / rows.length, 2) + ' BB за раздачу' : '')));
     box.replaceChildren();
     if (!rows.length) { box.append(el('p', 'muted small', 'Нет раздач под эти фильтры.')); return; }
     rows.forEach(i => {
@@ -184,8 +184,8 @@ async function showHandList(it, k, cellBtn) {
       const bd = r ? r.bd : [];
       if (!bd.length) board.append(el('span', 'hp-nob', reach(i) === 4 ? 'олл-ин префлоп' : 'без флопа'));
       else bd.forEach((cd, j) => { const ce = cardEl(cd, true); ce.classList.add('xs'); if (j === 3 || j === 4) ce.classList.add('gap'); board.append(ce); });
-      row.append(play, info, board, el('span', 'stk', (c.bb[i] / 10).toFixed(0) + ' BB'), resEl(net, EV[i] / 10));
-      row.title = 'Стек ' + (c.bb[i] / 10).toFixed(1) + ' BB, итог ' + signed(net, 2) + ' BB' + (EV[i] !== c.net[i] ? ', EV ' + signed(EV[i] / 10, 2) + ' BB (олл-ин до ривера)' : '');
+      row.append(play, info, board, el('span', 'stk', (c.bb[i] / 10).toFixed(0) + ' BB'), resEl(net));
+      row.title = 'Стек ' + (c.bb[i] / 10).toFixed(1) + ' BB, итог ' + signed(net, 2) + ' BB';
       box.append(row);
     });
   }
@@ -350,8 +350,8 @@ async function openIdsList(title, ids) {
     let rows = ids.filter(i => (f.room === '' || String(c.room[i]) === f.room) && (f.res !== 'win' || c.net[i] > 0) && (f.res !== 'lose' || c.net[i] < 0));
     const by = { new: (a, b) => c.day[b] - c.day[a] || b - a, old: (a, b) => c.day[a] - c.day[b] || a - b, worst: (a, b) => c.net[a] - c.net[b], best: (a, b) => c.net[b] - c.net[a] };
     rows.sort(by[f.sort]);
-    const EV = c.nev || c.net, total = rows.reduce((s, i) => s + c.net[i], 0) / 10, totalE = rows.reduce((s, i) => s + EV[i], 0) / 10;
-    ts.textContent = rows.length + (rows.length === ids.length ? '' : ' из ' + ids.length) + ' раздач · ' + wrTxt(total, totalE, 1) + ' BB всего';
+    const total = rows.reduce((s, i) => s + c.net[i], 0) / 10;
+    ts.textContent = rows.length + (rows.length === ids.length ? '' : ' из ' + ids.length) + ' раздач · ' + signed(total, 1) + ' BB всего' + (rows.length ? ' · ' + signed(total / rows.length, 2) + ' BB за раздачу' : '');
     list.replaceChildren();
     if (!rows.length) { list.append(el('p', 'muted small', 'Нет раздач под эти фильтры.')); return; }
     rows.slice(0, 400).forEach(i => {
@@ -369,7 +369,7 @@ async function openIdsList(title, ids) {
       const bd = r ? r.bd : [];
       if (!bd.length) board.append(el('span', 'hp-nob', 'без флопа'));
       else bd.forEach((cd, j) => { const ce = cardEl(cd, true); ce.classList.add('xs'); if (j === 3 || j === 4) ce.classList.add('gap'); board.append(ce); });
-      row.append(play, info, cards, board, el('span', 'stk', (c.bb[i] / 10).toFixed(0) + ' BB'), resEl(net, EV[i] / 10));
+      row.append(play, info, cards, board, el('span', 'stk', (c.bb[i] / 10).toFixed(0) + ' BB'), resEl(net));
       list.append(row);
     });
     if (rows.length > 400) list.append(el('p', 'muted small', 'Показаны первые 400. Уточните фильтры.'));
@@ -383,9 +383,7 @@ window.__testPin = async (i, hand) => { window.__pinNet(i); await new Promise(r 
 window.__testPlay = async (row) => { document.querySelectorAll('.hp-play')[row || 0].click(); await new Promise(r => setTimeout(r, 600)); if (RP) RP.stop(); return !!RP; };
 window.__testStep = (n) => { for (let k = 0; k < n; k++) document.querySelector('.rp-ctrl .rp-btn:nth-child(4)').click(); };
 
-// итог раздачи в списке: факт, а если был олл-ин до ривера — под ним EV
-function resEl(net, ev) {
-  const d = el('span', 'res ' + (net >= 0 ? 'up' : 'down'), signed(net, 1));
-  if (Math.abs(ev - net) >= 0.05) d.append(el('small', 'res-ev ' + (ev >= 0 ? 'up' : 'down'), 'EV ' + signed(ev, 1)));
-  return d;
+// итог раздачи в списке — только факт
+function resEl(net) {
+  return el('span', 'res ' + (net >= 0 ? 'up' : 'down'), signed(net, 1));
 }

@@ -566,7 +566,7 @@ function showGroupTip(pos, label, k, z, hands, e) {
   if (!groupTip) { groupTip = el('div', 'gt'); groupTip.setAttribute('role', 'tooltip'); document.body.append(groupTip); }
   groupTip.replaceChildren();
   const h = el('div', 'gt-h'); h.append(el('b', null, pos + ' · ' + label));
-  if (z.n) h.append(el('span', z.sum >= 0 ? 'up' : 'down', wrTxt(z.sum / 10 / z.n, z.es / 10 / z.n, 2) + ' BB · ' + z.n + ' раз'));
+  if (z.n) h.append(el('span', z.sum >= 0 ? 'up' : 'down', signed(z.sum / 10 / z.n, 2) + ' BB · ' + z.n + ' раз')); // только факт
   groupTip.append(h);
   const R = 'AKQJT98765432', grid = el('div', 'gt-grid');
   const inG = []; for (let q = 0; q < 169; q++) if (handGroup(q) === k) inG.push(q);
