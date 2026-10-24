@@ -1787,8 +1787,7 @@ function openPlayerMenu() {
     const has = Object.keys(A.nicks).length + A.mine.length + A.opp.length > 0;
     const open = has && aliasOpen(A);
     const btns = [];
-    // «+» — добавить ники в этот алиас (редактор алиасов на нём); стрелка — показать или скрыть ники
-    btns.push(sbtn('+', 'pm-add', 'Добавить ники в алиас «' + A.name + '»', () => { closePlayerMenu(); if (state.tab !== 'aliases') PREV_TAB = state.tab; EDIT_A = A.k; EDIT_NEW = false; state.tab = 'aliases'; render(); }));
+    // стрелка — показать или скрыть ники алиаса
     if (has) { const t = sbtn(open ? '▾' : '▸', 'pm-tog', (open ? 'Скрыть' : 'Показать') + ' ники алиаса «' + A.name + '»', () => { setAliasOpen(A, !open); openPlayerMenu(); }); t.setAttribute('aria-expanded', open); btns.push(t); }
     // алиас без раздач ваших ников — распустить крестиком
     if (!Object.keys(A.nicks).length) btns.push(sbtn('×', '', 'Распустить алиас «' + A.name + '»', async () => { await dissolveAlias(A.k); openPlayerMenu(); }));
