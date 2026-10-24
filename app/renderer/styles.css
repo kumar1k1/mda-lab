@@ -877,7 +877,12 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .player-menu > .pm-sec:first-child{flex:0 0 auto;min-height:0;overflow-y:auto;max-height:45%}
 .pm-oth{flex:1 1 0;min-height:200px}
 .pm-row{position:relative}
-.pm-item.pm-has-x{padding-right:36px}
-.pm-x{position:absolute;top:50%;right:6px;transform:translateY(-50%);width:26px;height:26px;display:grid;place-items:center;border:none;border-radius:7px;background:transparent;color:var(--muted);font-size:17px;line-height:1;cursor:pointer}
-.pm-x:hover,.pm-x:focus-visible{background:rgba(var(--bad-rgb),.14);color:var(--bad)}
+.pm-item.pm-has-x{padding-right:40px}
+.pm-item.pm-has-x2{padding-right:68px}
+.pm-btns{position:absolute;top:50%;right:6px;transform:translateY(-50%);display:flex;gap:2px}
+.pm-x{width:26px;height:26px;display:grid;place-items:center;border:none;border-radius:7px;background:transparent;color:var(--muted);font-size:17px;line-height:1;cursor:pointer}
+.pm-x.pm-tog{font-size:13px}
+.pm-x.pm-tog:hover,.pm-x.pm-tog:focus-visible{background:var(--card2);color:var(--text)}
+.pm-x.pm-back:hover,.pm-x.pm-back:focus-visible{background:rgba(var(--amber-rgb),.14);color:var(--amber)}
+.pm-x:not(.pm-tog):not(.pm-back):hover,.pm-x:not(.pm-tog):not(.pm-back):focus-visible{background:rgba(var(--bad-rgb),.14);color:var(--bad)}
 .als-chip:disabled{cursor:default;opacity:.6}

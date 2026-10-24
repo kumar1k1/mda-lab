@@ -1774,29 +1774,41 @@ function openPlayerMenu() {
   // 1) алиасы базы, под выбранным — его ники: ваши (убранные — бледные) и игроки из базы
   const live = ALIASES.filter(A => !A.gone);
   const mine = el('div', 'pm-sec'); if (!live.length) mine.hidden = true; mine.append(el('div', 'pm-h', live.length > 1 ? 'Алиасы в базе' : 'Ваши ники'));
+  // строка с кнопками справа (свернуть ники, крестик) — кнопки не вложены в кнопку строки
+  const withBtns = (it, btns) => {
+    if (!btns.length) return it;
+    const w = el('div', 'pm-row'); it.classList.add(btns.length > 1 ? 'pm-has-x2' : 'pm-has-x'); w.append(it);
+    const box = el('span', 'pm-btns'); btns.forEach(b => box.append(b)); w.append(box); return w;
+  };
+  const sbtn = (txt, cls, title, fn) => { const b = el('button', 'pm-x' + (cls ? ' ' + cls : ''), txt); b.type = 'button'; b.title = title; b.setAttribute('aria-label', title); b.onclick = async (e) => { e.stopPropagation(); await fn(); }; return b; };
   live.forEach(A => {
     const rs = aliasRooms(A);
     const ai = item({ badge: 'ALIAS', name: A.name, sub: nicksLabel(nickCount(A)) + ' · ' + (rs.length > 1 ? 'все румы' : rs.length ? rs[0] : 'нет раздач'), count: aliasCount(A), on: !state.player && !state.nickView && state.alias === A.k && state.room == null, pick: () => choosePlayer('alias', A.k) });
-    if (Object.keys(A.nicks).length) mine.append(ai);
-    else { // алиас из чужих ников и сочетаний — крестик справа: распустить сразу
-      const w = el('div', 'pm-row'); ai.classList.add('pm-has-x'); w.append(ai);
-      const x = el('button', 'pm-x', '×'); x.type = 'button'; x.title = 'Распустить алиас «' + A.name + '»'; x.setAttribute('aria-label', 'Распустить алиас ' + A.name);
-      x.onclick = async (e) => { e.stopPropagation(); await dissolveAlias(A.k); openPlayerMenu(); }; // список остаётся открытым
-      w.append(x); mine.append(w);
-    }
-    if (A.k !== state.alias) return;
-    const sub2 = live.length > 1;
+    const has = Object.keys(A.nicks).length + A.mine.length + A.opp.length > 0;
+    const open = has && aliasOpen(A);
+    const btns = [];
+    if (has) { const t = sbtn(open ? '▾' : '▸', 'pm-tog', (open ? 'Скрыть' : 'Показать') + ' ники алиаса «' + A.name + '»', () => { setAliasOpen(A, !open); openPlayerMenu(); }); t.setAttribute('aria-expanded', open); btns.push(t); }
+    // алиас без раздач ваших ников — распустить крестиком
+    if (!Object.keys(A.nicks).length) btns.push(sbtn('×', '', 'Распустить алиас «' + A.name + '»', async () => { await dissolveAlias(A.k); openPlayerMenu(); }));
+    mine.append(withBtns(ai, btns));
+    if (!open) return;
+    const sub2 = true;
+    // у каждого ника — крестик: убрать из алиаса сразу (ваш ник остаётся бледным, игрок базы уходит в «Другие игроки»)
     Object.keys(A.nicks).sort((x, y) => (A.off.has(x) - A.off.has(y)) || (A.nickCnt[y] || 0) - (A.nickCnt[x] || 0)).forEach(n => {
       const off = A.off.has(n);
-      mine.append(item({ badge: roomCode(A.nicks[n]), cls: 'room', name: n, sub: A.nicks[n] + (off ? ' · не в алиасе' : ''), count: A.nickCnt[n] || 0, off, sub2, on: !state.player && state.nickView === n && state.nickA === A.k, pick: () => choosePlayer('nick', n, A.k) }));
+      const it = item({ badge: roomCode(A.nicks[n]), cls: 'room', name: n, sub: A.nicks[n] + (off ? ' · не в алиасе' : ''), count: A.nickCnt[n] || 0, off, sub2, on: !state.player && state.nickView === n && state.nickA === A.k, pick: () => choosePlayer('nick', n, A.k) });
+      mine.append(withBtns(it, [off ? sbtn('↺', 'pm-back', 'Вернуть ' + n + ' в алиас', () => quickAliasEdit(list => { const o = list[A.k].off = Object.assign({}, list[A.k].off); delete o[n]; }))
+        : sbtn('×', '', 'Убрать ' + n + ' из алиаса', () => quickAliasEdit(list => { list[A.k].off = Object.assign({}, list[A.k].off, { [n]: 1 }); }))]));
     });
     A.mine.forEach(m => {
       const H0 = ALIASES[m.a];
-      mine.append(item({ badge: roomCode(H0.nicks[m.n]), cls: 'room', name: m.n, sub: H0.nicks[m.n] + ' · из «' + H0.name + '»', count: H0.nickCnt[m.n] || 0, sub2, on: !state.player && state.nickView === m.n && state.nickA === m.a, pick: () => choosePlayer('nick', m.n, m.a) }));
+      const it = item({ badge: roomCode(H0.nicks[m.n]), cls: 'room', name: m.n, sub: H0.nicks[m.n] + ' · из «' + H0.name + '»', count: H0.nickCnt[m.n] || 0, sub2, on: !state.player && state.nickView === m.n && state.nickA === m.a, pick: () => choosePlayer('nick', m.n, m.a) });
+      mine.append(withBtns(it, [sbtn('×', '', 'Убрать ' + m.n + ' из алиаса', () => quickAliasEdit(list => { list[A.k].mine = (list[A.k].mine || []).filter(x => !(x.a === m.a && x.n === m.n)); }))]));
     });
     A.opp.forEach(o => {
       const ri = H.rooms.indexOf(o.r);
-      mine.append(item({ badge: roomCode(o.r), cls: 'opp', name: o.n, sub: o.r + ' · игрок базы', count: o.c, sub2, on: state.player && state.player.pid === o.pid, pick: () => { if (o.pid != null) choosePlayer('opp', { pid: o.pid, name: o.n, room: ri, count: o.c, shown: o.sh }); } }));
+      const it = item({ badge: roomCode(o.r), cls: 'opp', name: o.n, sub: o.r + ' · игрок базы', count: o.c, sub2, on: state.player && state.player.pid === o.pid, pick: () => { if (o.pid != null) choosePlayer('opp', { pid: o.pid, name: o.n, room: ri, count: o.c, shown: o.sh }); } });
+      mine.append(withBtns(it, [sbtn('×', '', 'Убрать ' + o.n + ' из алиаса', () => quickAliasEdit(list => { list[A.k].opp = (list[A.k].opp || []).filter(x => !(x.n === o.n && x.r === o.r)); }))]));
     });
   });
   const ed = el('button', 'pm-edit', 'Редактор алиасов'); ed.type = 'button';
@@ -1852,6 +1864,18 @@ function draftInfo() {
     A.own = (A.unk || 0) + Object.keys(A.nicks).filter(n => !A.off.has(n)).reduce((t, n) => t + (A.nickCnt[n] || 0), 0) + A.mine.reduce((t, m) => t + (info[m.a].nickCnt[m.n] || 0), 0);
   }
   return info;
+}
+// ники алиаса в списке игроков: раскрыты/скрыты (по умолчанию раскрыт только открытый алиас); запоминается на этом компьютере
+let ALIAS_OPEN = {};
+try { ALIAS_OPEN = JSON.parse(localStorage.getItem('mda.aliasOpen') || '{}') || {}; } catch (e) { ALIAS_OPEN = {}; }
+function aliasOpen(A) { return A.name in ALIAS_OPEN ? !!ALIAS_OPEN[A.name] : A.k === state.alias; }
+function setAliasOpen(A, v) { ALIAS_OPEN[A.name] = v ? 1 : 0; try { localStorage.setItem('mda.aliasOpen', JSON.stringify(ALIAS_OPEN)); } catch (e) { /* без запоминания */ } }
+// правка из списка игроков (крестик у ника): применяется сразу, список остаётся открытым
+async function quickAliasEdit(mut) {
+  if (!HERO_DB || EDIT_BUSY || !mda.saveAliases) return;
+  DRAFT = aliasList(HERO_DB).map(a => JSON.parse(JSON.stringify(a))); // несохранённые правки редактора не смешиваем
+  mut(DRAFT);
+  if (await saveDraftNow()) openPlayerMenu();
 }
 // крестик на алиасе: распустить сразу (вместе с уже сделанными правками), редактор остаётся открытым
 async function dissolveAlias(k) {
