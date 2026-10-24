@@ -555,9 +555,9 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .pmx-ch{font-size:12px;font-weight:700;color:var(--soft);text-align:center;padding-bottom:2px}
 .pmx-ch.tot,.pmx-rh.tot{color:var(--amber)}
 .pmx-rh{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--soft);align-self:center;text-align:right;padding-right:6px;white-space:nowrap}
-.pmx-c{--f:0;border-radius:8px;min-height:50px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;border:1px solid var(--line);background:rgba(var(--ice-rgb),calc(.05 + var(--f) * .45))}
+.pmx-c{--f:0;border-radius:8px;min-height:50px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;border:1px solid var(--line);background:rgba(var(--amber-rgb),calc(.05 + var(--f) * .45))}
 .pmx-c b{font-family:var(--mono);font-size:14px}
-.pmx-w{font-family:var(--mono);font-size:11px}
+.pmx-w{font-family:var(--mono);font-size:12.5px;font-weight:700}
 .pmx-c.tot{border-color:var(--line2);box-shadow:inset 0 0 0 1px rgba(242,181,68,.25)}
 .pmx-c.low{opacity:.5}
 .pmx-c.na{background:var(--bg);color:var(--faint)}
@@ -630,3 +630,14 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 @media (prefers-reduced-motion: reduce){.rp-bet.now{animation:none}}
 .rp-bet.fade{animation:rpFold 1.2s ease-in forwards}
 @keyframes rpFold{0%{opacity:1}65%{opacity:1}100%{opacity:0;visibility:hidden}}
+
+.card-fill{display:flex;flex-direction:column;flex:1 1 auto;gap:12px;margin-top:8px}
+.card-fill > .resp{margin-top:auto}
+.pos-strip{display:flex;flex-direction:column;gap:6px}
+.pos-strip .mini-bars{gap:5px}
+.info-note{margin-top:4px;font-size:11px;color:var(--muted)}
+.info-note summary{cursor:pointer;list-style:none;display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;color:var(--soft);padding:3px 9px;border:1px solid var(--line2);border-radius:999px}
+.info-note summary::-webkit-details-marker{display:none}
+.info-note summary::before{content:'?';display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:var(--card2);font-size:10px;color:var(--text)}
+.info-note[open] summary{color:var(--text)}
+.info-note p{margin:6px 0 0;line-height:1.45}
