@@ -1144,7 +1144,7 @@ function renderRFISummary(idx, r) {
   const sp1 = el('div'); sp1.append(el('span', 'k', 'без борьбы'), wrNode('b', unc, perEv(x.netUnc), 2), el('span', 'n', x.netUnc.n.toLocaleString('ru-RU') + ' раз'));
   const sp2 = el('div'); sp2.append(el('span', 'k', 'когда сыграли'), wrNode('b', con, perEv(x.netCon), 2), el('span', 'n', x.netCon.n.toLocaleString('ru-RU') + ' раз'));
   split.append(sp1, sp2);
-  const c8 = card(8, 'Результат открытий', wrHtml(nb == null ? null : nb / 100, perEv(x.openNet), 2) + ' <small>BB за открытие</small>', 'фактический результат и EV открытий по позициям, BB за открытие; под позицией — число открытий', netChart((LAST_NET_ITEMS = ['UTG', 'MP', 'CO', 'BTN', 'SB'].map(p => ({ p, o: x.openNetPos[p], mx: x.netMx[p], r: x.respPos[p] }))), nb == null ? null : nb / 100, 'EV открытий'));
+  const c8 = card(8, 'Результат открытий', wrHtml(nb == null ? null : nb / 100, perEv(x.openNet), 2) + ' <small>BB за открытие</small>', null, netChart((LAST_NET_ITEMS = ['UTG', 'MP', 'CO', 'BTN', 'SB'].map(p => ({ p, o: x.openNetPos[p], mx: x.netMx[p], r: x.respPos[p] }))), nb == null ? null : nb / 100, 'EV открытий'));
   c8.classList.add('wide', 'span3');
   cards.append(c8);
   // #3 — стил + ответ блайндов (CO и BTN вместе), как в #1
