@@ -200,7 +200,7 @@ const wrHtml = (f, e, d) => '<span class="' + (f >= 0 ? 'up' : 'down') + '">' + 
 
 // #8 — столбики «BB за открытие» по позициям, ноль посередине
 const RESP_COLS = ['var(--good)', 'var(--ice)', 'var(--bad)'];
-function netChart(items, avg) {
+function netChart(items, avg, evLab) {
   const hasR = items.some(it => it.r), W = 520, H = hasR ? 214 : 180, P = { l: 34, r: 10, t: 34, b: hasR ? 68 : 34 };
   const s = svgRoot(W, H, 'Результат открытий по позициям, BB за открытие, и ответ оппонентов');
   const vals = items.map(it => (it.o.n ? it.o.sum / 10 / it.o.n : null));
@@ -282,7 +282,7 @@ function netChart(items, avg) {
   s.prepend(defs);
   const box = el('div', 'net-wrap'); box.append(s);
   const evLg = el('div', 'resp-legend row net-lg ev-lg');
-  evLg.append(Object.assign(el('span'), { innerHTML: '<i class="lg-fact"></i>факт' }), Object.assign(el('span'), { innerHTML: '<i class="lg-ev"></i>EV — олл-ины до ривера по эквити' }));
+  evLg.append(Object.assign(el('span'), { innerHTML: '<i class="lg-fact"></i>факт' }), Object.assign(el('span'), { innerHTML: '<i class="lg-ev"></i>' + (evLab || 'EV') }));
   box.append(evLg);
   if (!hasR) return box;
   const lg = el('div', 'resp-legend row net-lg'); lg.append(el('span', 'net-lg-t', 'цифры под позицией — первый ответ оппонентов за спиной, % (фолд — все сбросили):'));
@@ -1144,7 +1144,7 @@ function renderRFISummary(idx, r) {
   const sp1 = el('div'); sp1.append(el('span', 'k', 'без борьбы'), wrNode('b', unc, perEv(x.netUnc), 2), el('span', 'n', x.netUnc.n.toLocaleString('ru-RU') + ' раз'));
   const sp2 = el('div'); sp2.append(el('span', 'k', 'когда сыграли'), wrNode('b', con, perEv(x.netCon), 2), el('span', 'n', x.netCon.n.toLocaleString('ru-RU') + ' раз'));
   split.append(sp1, sp2);
-  const c8 = card(8, 'Результат открытий', wrHtml(nb == null ? null : nb / 100, perEv(x.openNet), 2) + ' <small>BB за открытие</small>', 'итог раздачи после вашего открытия по позициям: факт и EV (олл-ины до ривера — по эквити); под позицией — число открытий', netChart((LAST_NET_ITEMS = ['UTG', 'MP', 'CO', 'BTN', 'SB'].map(p => ({ p, o: x.openNetPos[p], mx: x.netMx[p], r: x.respPos[p] }))), nb == null ? null : nb / 100));
+  const c8 = card(8, 'Результат открытий', wrHtml(nb == null ? null : nb / 100, perEv(x.openNet), 2) + ' <small>BB за открытие</small>', 'фактический результат и EV открытий по позициям, BB за открытие; под позицией — число открытий', netChart((LAST_NET_ITEMS = ['UTG', 'MP', 'CO', 'BTN', 'SB'].map(p => ({ p, o: x.openNetPos[p], mx: x.netMx[p], r: x.respPos[p] }))), nb == null ? null : nb / 100, 'EV открытий'));
   c8.classList.add('wide', 'span3');
   cards.append(c8);
   // #3 — стил + ответ блайндов (CO и BTN вместе), как в #1
@@ -1272,7 +1272,7 @@ function ccAllinBlock(r) {
   const items = cols.filter(k => k !== 'TOT').map(p => { const h = r.aiHands[p]; return { p, key: 'ccai' + p, o: { n: h.n, sum: h.sum, es: h.es }, mx: h.mx, ids: h.ids, sit: 2, act: 1, title: 'Колл олл-ина · ' + p, vlab: ' BB за колл', nlab: ' коллов' }; });
   const t = r.aiHands.TOT, avg = t.n ? t.sum / 10 / t.n : null;
   const chart = el('div', 'cc-ai-chart');
-  chart.append(el('span', 'resp-t', 'Винрейт колла по позициям: в среднем ' + signed(avg, 2) + ' BB, без BB'), netChart(items.filter(it => it.o.n > 0), avg));
+  chart.append(el('span', 'resp-t', 'Винрейт колла по позициям: в среднем ' + signed(avg, 2) + ' BB, без BB'), netChart(items.filter(it => it.o.n > 0), avg, 'EV колла'));
   // по стеку того, кто пошёл олл-ин
   const body = el('div');
   const stTitle = el('span', 'resp-t', 'По стеку пушера');
@@ -1467,7 +1467,7 @@ function renderCC(idx) {
   const t = r.hands.TOT, avg = t.n ? t.sum / 10 / t.n : null, avgE = t.n ? t.es / 10 / t.n : null;
   LAST_NET_ITEMS = items;
   const tb = r.hands.BB, nAll = t.n + tb.n, allF = nAll ? (t.sum + tb.sum) / 10 / nAll : null, allE = nAll ? (t.es + tb.es) / 10 / nAll : null;
-  const c8 = card(8, 'Результат колд-колла', wrHtml(avg, avgE, 2) + ' <small>BB за колд-колл</small>', 'итог раздачи после вашего колд-колла по позициям: факт и EV (олл-ины до ривера — по эквити), без BB в общем итоге; вместе с BB — ' + wrTxt(allF, allE, 2) + ' BB (' + nAll.toLocaleString('ru-RU') + ' раздач, как «ИТОГ» в Hand2Note); под позицией — число колд-коллов', netChart(items, avg));
+  const c8 = card(8, 'Результат колд-колла', wrHtml(avg, avgE, 2) + ' <small>BB за колд-колл</small>', 'фактический результат и EV колд-колла по позициям, без BB в общем итоге; вместе с BB — ' + wrTxt(allF, allE, 2) + ' BB (' + nAll.toLocaleString('ru-RU') + ' раздач, как «ИТОГ» в Hand2Note); под позицией — число колд-коллов', netChart(items, avg, 'EV колд-колла'));
   c8.classList.add('wide');
   const zone = el('div', 'summary'); const pair = el('div', 'sum-pair'); pair.append(c1, c8); zone.append(pair);
   c2.classList.add('cc-table');
