@@ -42,7 +42,7 @@ function eval7(cs) {
 function rng(seed) { let s = seed >>> 0 || 1; return () => { s ^= s << 13; s >>>= 0; s ^= s >> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; }; }
 
 // rp — ход раздачи (как для реплеера). Возвращает поправку EV к фактическому итогу героя в BB (EV = факт + поправка) или null.
-// Как в Hand2Note: каждый банк (основной и побочные) считается по эквити на тот момент, когда он «закрылся» олл-ином,
+// Только если после олл-ина торговля закончилась до ривера. Как в Hand2Note: каждый банк (основной и побочные) считается по эквити на тот момент, когда он «закрылся» олл-ином,
 // и только между игроками, которые за него борются; карты остальных игроков при этом из колоды не убираются.
 function evNet(rp, seed) {
   if (!rp || !rp.ev || !rp.hc) return null;
@@ -62,6 +62,10 @@ function evNet(rp, seed) {
     snaps.push({ st, c: contrib.slice(), ai: allin.slice() });
   }
   if (!anyAllin || folded[h]) return null;
+  // как в Hand2Note: поправка только если торговля закончилась до ривера (дальше доска просто докладывается);
+  // если после олл-ина двое с фишками ещё ходили на ривере (ставки или чеки) — EV равен факту
+  const lastStreet = Math.max(0, ...rp.ev.filter(e => ['c', 'b', 'r', 'x'].includes(e[2])).map(e => e[0]));
+  if (lastStreet >= 3) return null;
   const live = []; for (let i = 0; i < n; i++) if (!folded[i]) live.push(i);
   if (live.length < 2) return null;
   const cards = {};
