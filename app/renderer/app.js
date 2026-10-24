@@ -1932,8 +1932,8 @@ async function applyAliasEdit() {
   }
   EDIT_NEW = false; EDIT_MSG = '';
   const A = ALIASES[target];
-  // алиас без ников (только что создан) открывать нечего — остаёмся в редакторе, чтобы добавить ники
-  if (!A || A.gone || !nickCount(A)) { await refreshAliasView(); return; }
+  if (!A || A.gone) { await refreshAliasView(); return; }
+  // «ОК» всегда закрывает редактор и открывает алиас — и пустой: он появляется в шапке, ники можно добавить позже
   state.tab = PREV_TAB && PREV_TAB !== 'aliases' && TABS.some(t => t.id === PREV_TAB) ? PREV_TAB : 'rfi';
   $('content').scrollTop = 0;
   await choosePlayer('alias', target);
