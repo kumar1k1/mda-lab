@@ -196,15 +196,17 @@ function wrNode(cls, f, e, d) {
   if (f != null && e != null) s.append(el('span', 'evs ' + (e >= 0 ? 'up' : 'down'), ' / ' + signed(e, d) + ' EV'));
   return s;
 }
-const wrHtml = (f, e, d) => '<span class="' + (f >= 0 ? 'up' : 'down') + '">' + signed(f, d) + '</span>' + (f == null || e == null ? '' : '<span class="evs-big ' + (e >= 0 ? 'up' : 'down') + '"> / ' + signed(e, d) + ' <i>EV</i></span>');
+const wrHtml = (f, e, d) => f == null ? '<span class="muted">—</span>' : '<span class="' + (f >= 0 ? 'up' : 'down') + '">' + signed(f, d) + '</span>' + (f == null || e == null ? '' : '<span class="evs-big ' + (e >= 0 ? 'up' : 'down') + '"> / ' + signed(e, d) + ' <i>EV</i></span>');
 
 // #8 — столбики «BB за открытие» по позициям, ноль посередине
 const RESP_COLS = ['var(--good)', 'var(--ice)', 'var(--bad)'];
 function netChart(items, avg, evLab) {
-  const hasR = items.some(it => it.r), W = 520, H = hasR ? 214 : 180, P = { l: 34, r: 10, t: 34, b: hasR ? 68 : 34 };
+  // цифры — в отдельной полосе над графиком (факт, под ним EV): никогда не накладываются на столбики и друг на друга
+  const hasR = items.some(it => it.r), W = 520, H = hasR ? 236 : 202, P = { l: 34, r: 10, t: 54, b: hasR ? 68 : 34 };
   const s = svgRoot(W, H, 'Результат открытий по позициям, BB за открытие, и ответ оппонентов');
   const vals = items.map(it => (it.o.n ? it.o.sum / 10 / it.o.n : null));
   const evs = items.map(it => (it.o.n && it.o.es != null ? it.o.es / 10 / it.o.n : null));
+  if (vals.every(v => v == null)) { const e = el('p', 'muted small net-empty', 'В выборке нет раздач для этого графика.'); return e; }
   // масштаб — по позициям с выборкой от 30 раздач, чтобы 2–3 случайные раздачи не сжимали остальные столбики
   const both = (pick) => vals.flatMap((v, i) => (pick(i) ? [v, evs[i]] : [])).filter(v => v != null);
   const solid = both(i => vals[i] != null && items[i].o.n >= 30);
@@ -253,16 +255,12 @@ function netChart(items, avg, evLab) {
       return [top, bot];
     };
     const xf = e == null ? cx - w / 2 : cx - bwid - gap / 2;
-    const [tf, bf] = bar(v, xf, false);
-    let te = tf, be = bf;
-    if (e != null) [te, be] = bar(e, cx + gap / 2, true);
-    // подписи: сверху факт, под ним EV (над столбиками; для минуса — под ними)
-    const up = v >= 0;
-    const yTop = Math.min(tf, te), yBot = Math.max(bf, be);
-    const ly = up ? Math.max(P.t - 18, yTop - 18) : Math.min(yBot + 14, H - P.b - 16);
-    g.append(svgText(cx, ly, signed(v, 2), 'middle', 'fill:var(--text);font-weight:700'));
-    if (e != null) g.append(svgText(cx, ly + 12, 'EV ' + signed(e, 2), 'middle', 'font-size:10px;font-weight:600;fill:var(--muted)'));
-    g.append(svgEl('rect', { x: P.l + i * bw, y: P.t, width: bw, height: H - P.t - 2, rx: 6 }, 'fill:transparent'));
+    bar(v, xf, false);
+    if (e != null) bar(e, cx + gap / 2, true);
+    // подписи в полосе над графиком: факт (цвет по знаку), под ним EV
+    g.append(svgText(cx, 16, signed(v, 2), 'middle', 'font-size:13px;font-weight:700;fill:' + (v >= 0 ? 'var(--good)' : 'var(--bad)')));
+    if (e != null) g.append(svgText(cx, 31, 'EV ' + signed(e, 2), 'middle', 'font-size:10px;font-weight:600;fill:var(--muted)'));
+    g.append(svgEl('rect', { x: P.l + i * bw, y: 0, width: bw, height: H - 2, rx: 6 }, 'fill:transparent'));
     g.setAttribute('tabindex', '0'); g.setAttribute('class', 'net-bar');
     g.setAttribute('aria-label', it.p + ': ' + signed(v, 2) + ' BB' + (e == null ? '' : ', EV ' + signed(e, 2) + ' BB') + ', ' + it.o.n + ' раз');
     const show = (ev) => showHandPop(it, v, ev, g);
