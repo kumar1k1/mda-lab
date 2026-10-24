@@ -661,3 +661,5 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .sz5-t.cc-sz{grid-template-columns:auto minmax(40px,1fr) auto auto auto auto;margin-top:8px}
 .cc-ai-chart{display:flex;flex-direction:column;gap:4px;margin:12px 0 4px;max-width:760px}
 .cc-table > .resp-t{margin-top:10px}
+.sz5-r.click{cursor:pointer}
+.sz5-r.click:hover{border-color:var(--line2);background:var(--card)}

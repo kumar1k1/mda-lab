@@ -190,7 +190,7 @@
     out.hands = {}; out.resp = [0, 0, 0];
     out.mx = Array.from({ length: 169 }, () => ({ n: 0, x: 0, ai: 0, lp: 0 }));
     // против сайзинга открытия (без олл-инов) и против олл-ина: по позиции героя и TOT (TOT — без BB)
-    const szCell = () => ({ n: 0, call: 0, rz: 0, fold: 0, sum: 0, sn: 0 });
+    const szCell = () => ({ n: 0, call: 0, rz: 0, fold: 0, sum: 0, sn: 0, ids: [], mx: null });
     const hset = () => ({ n: 0, sum: 0, ids: [], mx: Array.from({ length: 169 }, () => ({ n: 0, sum: 0 })) });
     out.sz = {}; out.ai = {}; out.aiHands = {}; out.aiStk = {};
     CC_COLS.forEach(k => { out.sz[k] = CC_SZ.map(szCell); out.ai[k] = { x: 0, n: 0 }; out.aiHands[k] = hset(); out.aiStk[k] = CC_AISTK.map(szCell); });
@@ -211,7 +211,7 @@
         });
       } else if (c.osz && c.osz[i] >= 0) {
         const sk = CC_SZ.findIndex(q => c.osz[i] >= q[1] && c.osz[i] < q[2]);
-        if (sk >= 0) keys.forEach(k => { const q = out.sz[k][sk]; q.n++; if (call) { q.call++; q.sum += v0; q.sn++; } else if (a0 >= 2) q.rz++; else q.fold++; });
+        if (sk >= 0) keys.forEach(k => { const q = out.sz[k][sk]; q.n++; if (call) { q.call++; q.sum += v0; q.sn++; if (c.hc[i] >= 0) { if (!q.mx) q.mx = Array.from({ length: 169 }, () => ({ n: 0, sum: 0 })); q.ids.push(i); q.mx[c.hc[i]].n++; q.mx[c.hc[i]].sum += v0; } } else if (a0 >= 2) q.rz++; else q.fold++; });
       }
       (p === 'BB' ? [out.cc[p]] : [out.cc.TOT, out.cc[p]]).forEach(z => { z.n++; if (call) z.x++; }); // TOT — без BB
       if (c.hc[i] >= 0 && p === opt.mxPos && (!opt.mxStk || (c.bb[i] >= opt.mxStk[0] * 10 && c.bb[i] < opt.mxStk[1] * 10))) {

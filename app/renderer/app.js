@@ -1184,11 +1184,11 @@ function renderRFISummary(idx, r) {
 let CC_SZPOS = 'TOT';
 function ccSizeBlock(r) {
   const card = el('div', 'insight cc-table');
-  card.append(numTag(6), el('b', 'pm-title', 'Против сайзинга открытия'), el('span', 'sm-s', 'как вы отвечаете на открытие разного размера и какой результат дают ваши коллы; открытия олл-ином — в блоке #7'));
+  card.append(numTag(6), el('b', 'pm-title', 'Против сайзинга открытия'), el('span', 'sm-s', 'как вы отвечаете на открытие разного размера и какой результат дают ваши коллы'));
   const posList = ['TOT'].concat(r.CC_COLS.slice(1).filter(p => r.cc[p].n >= SMALL));
   const body = el('div');
   card.append(segBtns(posList.map(p => [p, p === 'TOT' ? 'Все без BB' : p]), CC_SZPOS, (k) => { CC_SZPOS = k; draw(); }), body,
-    infoNote('Размер — до скольких BB открыл соперник. Доля — какая часть всех открытий перед вами была такого размера. Колл / 3-бет / Фолд — ваш ответ. Винрейт — средний итог раздачи после вашего колла. Бледные строки — меньше 30 раздач.'));
+    infoNote('Размер — до скольких BB открыл соперник. Доля — какая часть всех открытий перед вами была такого размера. Колл / 3-бет / Фолд — ваш ответ. Винрейт — средний итог раздачи после вашего колла. Наведите на строку — матрица рук, которыми вы коллировали, в плюсе и в минусе; клик закрепит окно, клик по руке откроет раздачи и реплеер. Бледные строки — меньше 30 раздач.'));
   function draw() {
     const rows = r.sz[CC_SZPOS] || [], tot = rows.reduce((a, z) => a + z.n, 0);
     const t = el('div', 'sz5-t cc-sz');
@@ -1201,6 +1201,16 @@ function ccSizeBlock(r) {
       const v = (txt, col) => { const e = el('span', 'sz5-v', txt); e.style.color = col; return e; };
       row.append(el('b', null, r.CC_SZ[k][0]), el('span', 'sz5-sh', fmtPct(share) + '%'), v(pc(z.call), 'var(--ice)'), v(pc(z.rz), 'var(--bad)'), v(pc(z.fold), 'var(--good)'),
         el('span', 'sz5-v ' + (wr == null ? '' : wr >= 0 ? 'up' : 'down'), wr == null ? '—' : signed(wr, 2)), el('small', null, z.n.toLocaleString('ru-RU') + ' раз'), tk);
+      if (z.mx) {
+        const n = z.mx.reduce((a, m) => a + m.n, 0), sm = z.mx.reduce((a, m) => a + m.sum, 0);
+        const it = { p: CC_SZPOS === 'TOT' ? null : CC_SZPOS, key: 'ccsz ' + CC_SZPOS + k, title: 'Колд-колл · ' + (CC_SZPOS === 'TOT' ? 'все без BB' : CC_SZPOS) + ' · открытие ' + r.CC_SZ[k][0], o: { n, sum: sm }, mx: z.mx, ids: z.ids, sit: 2, act: 1, vlab: ' BB за колд-колл', nlab: ' колд-коллов' };
+        const vv = n ? sm / 10 / n : 0;
+        row.classList.add('click'); row.tabIndex = 0; row.setAttribute('role', 'button');
+        const show = (ev) => showHandPop(it, vv, ev, row);
+        row.addEventListener('mouseenter', show); row.addEventListener('mousemove', show); row.addEventListener('mouseleave', hideHandPop);
+        row.addEventListener('click', (ev) => pinHandPop(it, vv, ev, row));
+        row.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); pinHandPop(it, vv, null, row); } });
+      }
       t.append(row);
     });
     body.replaceChildren(tot ? t : el('p', 'muted small', 'Нет открытий в выборке.'));
