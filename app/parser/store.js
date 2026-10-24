@@ -178,13 +178,15 @@ class BaseDir {
     return { total: out.length, players: out.slice(0, limit || 100).map(i => ({ pid: i, name: all[i].n, room: all[i].r, count: all[i].c, shown: all[i].sh })) };
   }
   // описание «базы» одного соперника — как у вашей базы, чтобы все вкладки считали так же
+  // колонки соперников: общие со строками героя (без колонки алиаса aid — она только у ваших раздач)
+  oppCols() { return this.meta.cols.filter(c => c[0] !== 'aid'); }
   playerMeta(pid) {
     const p = this.players()[pid]; if (!p) return null;
     const room = this.meta.rooms[p.r];
-    return { format: this.meta.format, demo: false, hero: p.n, nicks: { [p.n]: room }, rooms: this.meta.rooms, types: this.meta.types, periodStart: this.meta.periodStart, count: p.c, cols: this.meta.cols, pid, opponent: true };
+    return { format: this.meta.format, demo: false, hero: p.n, nicks: { [p.n]: room }, rooms: this.meta.rooms, types: this.meta.types, periodStart: this.meta.periodStart, count: p.c, cols: this.oppCols(), pid, opponent: true };
   }
   playerCol(pid, name) {
-    const p = this.players()[pid], t = this.meta.cols.find(c => c[0] === name); if (!p || !t) return null;
+    const p = this.players()[pid], t = this.oppCols().find(c => c[0] === name); if (!p || !t) return null;
     return require('./table.js').readRange(this.og, name, t[1], p.s, p.c);
   }
   playerReplays(pid, ids) {
