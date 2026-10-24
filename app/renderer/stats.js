@@ -186,7 +186,7 @@
     for (const i of idx) {
       if (c.rz[i] !== 1) continue;
       const p = POS[c.pos[i]], call = c.act[i] === 1;
-      [out.cc.TOT, out.cc[p]].forEach(z => { z.n++; if (call) z.x++; });
+      (p === 'BB' ? [out.cc[p]] : [out.cc.TOT, out.cc[p]]).forEach(z => { z.n++; if (call) z.x++; }); // TOT — без BB
     }
     return Object.assign(out, { CC_COLS });
   }
