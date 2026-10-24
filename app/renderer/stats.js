@@ -186,7 +186,8 @@
     out.bx = { CO: BX_STK.map(() => BX_STK.map(bxCell)), BTN: BX_STK.map(() => BX_STK.map(bxCell)) }; // колд-колл с CO/BTN по стекам SB и BB
     out.vs = {}; out.vsHands = {}; // позиция героя → позиция открывающего
     out.hands = {}; out.resp = [0, 0, 0];
-    out.mx = Array.from({ length: 169 }, () => ({ n: 0, x: 0, ai: 0, lp: 0 })); // диапазон против открытия: колл / 3-бет / олл-ин / фолд // ваш ответ на открытие (без BB): фолд / колл / рейз
+    out.mx = Array.from({ length: 169 }, () => ({ n: 0, x: 0, ai: 0, lp: 0 }));
+    out.mxO = Array.from({ length: 169 }, () => ({ n: 0, x: 0, ai: 0, lp: 0 })); // то же, но по стеку открывающего // диапазон против открытия: колл / 3-бет / олл-ин / фолд // ваш ответ на открытие (без BB): фолд / колл / рейз
     CC_COLS.forEach(k => { out.cc[k] = R(); out.hands[k] = { n: 0, sum: 0, ids: [], mx: Array.from({ length: 169 }, () => ({ n: 0, sum: 0 })) }; });
     if (!c.rz) return Object.assign(out, { CC_COLS });
     for (const i of idx) {
@@ -195,6 +196,10 @@
       (p === 'BB' ? [out.cc[p]] : [out.cc.TOT, out.cc[p]]).forEach(z => { z.n++; if (call) z.x++; }); // TOT — без BB
       if (c.hc[i] >= 0 && p === opt.mxPos && (!opt.mxStk || (c.bb[i] >= opt.mxStk[0] * 10 && c.bb[i] < opt.mxStk[1] * 10))) {
         const m = out.mx[c.hc[i]], a = c.act[i]; m.n++;
+        if (a === 1) m.lp++; else if (a >= 2) { m.x++; if (a === 3) m.ai++; }
+      }
+      if (c.hc[i] >= 0 && p === opt.oPos && c.ostk && (!opt.oStk || (c.ostk[i] >= opt.oStk[0] * 10 && c.ostk[i] < opt.oStk[1] * 10))) {
+        const m = out.mxO[c.hc[i]], a = c.act[i]; m.n++;
         if (a === 1) m.lp++; else if (a >= 2) { m.x++; if (a === 3) m.ai++; }
       }
       if ((p === 'CO' || p === 'BTN') && c.sbs && c.sbs[i] >= 0 && c.bbs[i] >= 0) {

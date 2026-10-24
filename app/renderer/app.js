@@ -171,7 +171,7 @@ function block(title, note, tableNode, vizNodes) {
 
 // ---------- вкладка RFI ----------
 // ---------- сводка вкладки RFI (нумерованные элементы — чтобы удобно выбирать, что оставить) ----------
-const uiState = { mxPos: 'EP', mxStk: '20–30', mxCustom: null, ccPos: 'BTN', ccStk: '20–30', ccCustom: null };
+const uiState = { mxPos: 'EP', mxStk: '20–30', mxCustom: null, ccPos: 'BTN', ccStk: '20–30', ccCustom: null, ccOPos: 'BTN', ccOStk: '20–30', ccOCustom: null };
 const MX_STK = [['<12', '<12', [0, 12]], ['12–16', '12–16', [12, 16]], ['16–20', '16–20', [16, 20]], ['20–30', '20–30', [20, 30]], ['30–50', '30–50', [30, 50]], ['50+', '50+', [50, 1e9]]];
 function getTarget() { try { const v = parseFloat(localStorage.getItem('mdalab.rfiTarget')); return isNaN(v) ? 30 : v; } catch (e) { return 30; } }
 function setTarget(v) { try { localStorage.setItem('mdalab.rfiTarget', String(v)); } catch (e) { /* без сохранения */ } }
@@ -1181,20 +1181,21 @@ function renderRFISummary(idx, r) {
 
 // ---------- вкладка «Колд-колл» ----------
 // #4 — какими руками вы коллируете, 3-бетите и фолдите против открытия: по позиции и вашему стеку (как #13 во вкладке «Открытие»)
-function ccRangeBlock(r) {
-  const b = el('section', 'block cc-table'); b.append(numTag(4));
-  const h = el('div', 'block-head'); h.append(el('h2', null, 'Какие руки вы коллируете'), el('p', null, 'ваш ответ каждой рукой, когда перед вами был один рейз: колл, 3-бет, олл-ин или фолд'));
+function ccRangeBlock(r, o) {
+  o = o || { tag: 4, title: 'Какие руки вы коллируете', sub: 'ваш ответ каждой рукой, когда перед вами был один рейз: колл, 3-бет, олл-ин или фолд', pos: 'ccPos', stk: 'ccStk', custom: 'ccCustom', mx: r.mx, stkCap: 'Ваш стек, BB', id: 'cc' };
+  const b = el('section', 'block cc-table'); b.append(numTag(o.tag));
+  const h = el('div', 'block-head'); h.append(el('h2', null, o.title), el('p', null, o.sub));
   const seg = el('div', 'seg');
-  ['MP', 'HJ', 'CO', 'BTN', 'SB', 'BB'].filter(p => r.cc[p].n >= SMALL).forEach(p => { const bt = el('button', uiState.ccPos === p ? 'on' : '', p); bt.type = 'button'; bt.onclick = () => { uiState.ccPos = p; render(); }; seg.append(bt); });
-  const body = el('div', 'block-body'); body.append(handMatrix(r.mx, ['3-бет', 'олл-ин', 'колл', 'фолд']));
+  ['MP', 'HJ', 'CO', 'BTN', 'SB', 'BB'].filter(p => r.cc[p].n >= SMALL).forEach(p => { const bt = el('button', uiState[o.pos] === p ? 'on' : '', p); bt.type = 'button'; bt.onclick = () => { uiState[o.pos] = p; render(); }; seg.append(bt); });
+  const body = el('div', 'block-body'); body.append(handMatrix(o.mx, ['3-бет', 'олл-ин', 'колл', 'фолд']));
   const side = el('div', 'mx-side');
   const segS = el('div', 'seg');
-  MX_STK.forEach(([id, lab]) => { const bt = el('button', uiState.ccStk === id ? 'on' : '', lab); bt.type = 'button'; bt.onclick = () => { uiState.ccStk = id; render(); }; segS.append(bt); });
+  MX_STK.forEach(([id, lab]) => { const bt = el('button', uiState[o.stk] === id ? 'on' : '', lab); bt.type = 'button'; bt.onclick = () => { uiState[o.stk] = id; render(); }; segS.append(bt); });
   const cr = el('form', 'mx-range'); cr.setAttribute('aria-label', 'Свой диапазон стека');
   const mkIn = (id, ph, val) => { const i = el('input'); i.type = 'number'; i.id = id; i.min = '0'; i.max = '1000'; i.step = '0.5'; i.placeholder = ph; i.inputMode = 'decimal'; if (val != null) i.value = String(val); return i; };
-  const cur = uiState.ccStk === 'custom' && uiState.ccCustom ? uiState.ccCustom : null;
-  const inLo = mkIn('ccLo', 'от', cur ? cur[0] : null), inHi = mkIn('ccHi', 'до', cur && cur[1] < 1e8 ? cur[1] : null);
-  const lLo = el('label', 'sr', 'Стек от, BB'); lLo.htmlFor = 'ccLo'; const lHi = el('label', 'sr', 'Стек до, BB'); lHi.htmlFor = 'ccHi';
+  const cur = uiState[o.stk] === 'custom' && uiState[o.custom] ? uiState[o.custom] : null;
+  const inLo = mkIn(o.id + 'Lo', 'от', cur ? cur[0] : null), inHi = mkIn(o.id + 'Hi', 'до', cur && cur[1] < 1e8 ? cur[1] : null);
+  const lLo = el('label', 'sr', 'Стек от, BB'); lLo.htmlFor = o.id + 'Lo'; const lHi = el('label', 'sr', 'Стек до, BB'); lHi.htmlFor = o.id + 'Hi';
   const go = el('button', 'btn mx-go' + (cur ? ' on' : ''), 'Показать'); go.type = 'submit';
   const err = el('span', 'mx-err');
   cr.append(lLo, inLo, el('span', 'mx-dash', '—'), lHi, inHi, el('span', 'mx-unit', 'BB'), go, err);
@@ -1202,11 +1203,11 @@ function ccRangeBlock(r) {
     e.preventDefault();
     const lo = inLo.value === '' ? 0 : parseFloat(inLo.value), hi = inHi.value === '' ? 1e9 : parseFloat(inHi.value);
     if (isNaN(lo) || isNaN(hi) || lo < 0 || hi <= lo) { err.textContent = 'Верхняя граница должна быть больше нижней'; return; }
-    uiState.ccCustom = [lo, hi]; uiState.ccStk = 'custom'; render();
+    uiState[o.custom] = [lo, hi]; uiState[o.stk] = 'custom'; render();
   };
-  const n = r.mx.reduce((a, m) => a + m.n, 0);
+  const n = o.mx.reduce((a, m) => a + m.n, 0);
   const leg = el('div', 'resp-legend row'); [['3-бет', 'var(--mx-raise)'], ['олл-ин', 'var(--mx-push)'], ['колл', 'var(--mx-limp)'], ['фолд', 'var(--mx-empty)']].forEach(([l, col]) => { const it = el('span'); const i = el('i'); i.style.background = col; if (col === 'var(--mx-empty)') i.style.border = '1px solid var(--line2)'; it.append(i, document.createTextNode(l)); leg.append(it); });
-  side.append(leg, el('span', 'mx-cap', 'Позиция'), seg, el('span', 'mx-cap', 'Ваш стек, BB'), segS, el('span', 'mx-cap', 'Свой диапазон'), cr,
+  side.append(leg, el('span', 'mx-cap', 'Ваша позиция'), seg, el('span', 'mx-cap', o.stkCap), segS, el('span', 'mx-cap', 'Свой диапазон'), cr,
     el('span', 'muted small', (cur ? 'Стек ' + cur[0] + '–' + (cur[1] < 1e8 ? cur[1] : '∞') + ' BB: ' : '') + n.toLocaleString('ru-RU') + ' раз перед вами был один рейз'));
   side.append(infoNote('Клетка закрашена слева направо на долю ответов этой рукой: янтарная часть — 3-бет, синяя — олл-ин, зелёная — колл, тёмная — фолд. Наведите на клетку, чтобы увидеть проценты. Сверху от диагонали — одномастные, снизу — разномастные. Бледная заливка — меньше 5 раздач.'));
   body.append(side);
@@ -1258,7 +1259,8 @@ function ccTable(r) {
 }
 function renderCC(idx) {
   const ccStk = uiState.ccStk === 'custom' && uiState.ccCustom ? uiState.ccCustom : (MX_STK.find(z => z[0] === uiState.ccStk) || MX_STK[0])[2];
-  const r = Stats.cc(DB, idx, { mxPos: uiState.ccPos, mxStk: ccStk });
+  const oStk = uiState.ccOStk === 'custom' && uiState.ccOCustom ? uiState.ccOCustom : (MX_STK.find(z => z[0] === uiState.ccOStk) || MX_STK[0])[2];
+  const r = Stats.cc(DB, idx, { mxPos: uiState.ccPos, mxStk: ccStk, oPos: uiState.ccOPos, oStk });
   const page = el('div', 'page');
   const head = el('div', 'page-head');
   const h1 = el('h1'); h1.append(document.createTextNode('Колд-колл '), el('span', null, 'CC'));
@@ -1281,7 +1283,8 @@ function renderCC(idx) {
   c8.classList.add('wide');
   const zone = el('div', 'summary'); const pair = el('div', 'sum-pair'); pair.append(c1, c8); zone.append(pair);
   c2.classList.add('cc-table');
-  zone.append(c2, ccVsTable(r), ccRangeBlock(r));
+  zone.append(c2, ccVsTable(r), ccRangeBlock(r),
+    ccRangeBlock(r, { tag: 5, title: 'Ваш ответ против стека открывающего', sub: 'то же, что #4, но стек выбирается у того, кто открыл: колл, 3-бет, олл-ин или фолд каждой рукой', pos: 'ccOPos', stk: 'ccOStk', custom: 'ccOCustom', mx: r.mxO, stkCap: 'Стек открывающего, BB', id: 'cco' }));
   page.append(zone);
   return page;
 }
