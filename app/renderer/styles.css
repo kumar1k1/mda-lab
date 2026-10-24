@@ -795,3 +795,13 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 
 /* широкие таблицы (колд-колл) на узком экране — прокрутка внутри карточки, а не всей страницы */
 .cc-table{overflow-x:auto;min-width:0}
+/* окно загрузки: место для базы и оценка */
+.imp-plan{margin-top:14px;display:flex;flex-direction:column;gap:10px}
+.imp-plan h3{margin:0;font-size:15px}
+.imp-dir{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 8px 8px 12px}
+.imp-dir-path{flex:1 1 220px;min-width:0;font-family:var(--mono);font-size:12px;color:var(--soft);overflow-wrap:anywhere}
+.imp-est{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
+.imp-est > div{display:flex;flex-direction:column;gap:3px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 10px;min-width:0}
+.imp-est span{font-size:11px;color:var(--muted)}
+.imp-est b{font-family:var(--mono);font-size:15px;color:var(--text);overflow-wrap:anywhere}
+.imp-est b.bad,#estNote.bad{color:var(--bad)}

@@ -72,7 +72,7 @@
   // Сводка для вкладки RFI: тренды, стил, результат, воронка, матрица рук, календарь
   const SHOVE_STK = [['<8', 0, 8], ['8–10', 8, 10], ['10–12', 10, 12], ['12–15', 12, 15], ['15–20', 15, 20], ['20+', 20, 1e9]];
   function rfiExtra(db, idx, opt) {
-    const c = db.cols, has = (k) => Array.isArray(c[k]), EV = c.nev || c.net;
+    const c = db.cols, has = (k) => c[k] != null && c[k].length === db.count, EV = c.nev || c.net;
     const R = () => ({ x: 0, n: 0 });
     const out = {
       all: R(), month: {}, last30: R(), late: R(), latePos: { CO: R(), BTN: R() }, shove: R(), shoveStk: SHOVE_STK.map(() => R()), pko: R(), reg: R(), rooms: {}, win30: [],
@@ -125,7 +125,7 @@
   const BLIND_STK = [['≤10', 0, 10], ['10–20', 10, 20], ['20+', 20, 1e9]];
   const BX_STK = [['<15', 0, 15], ['15–35', 15, 35], ['35+', 35, 1e9]]; // стек SB и BB по отдельности, BB
   function stealExtra(db, idx) {
-    const c = db.cols, has = (k) => Array.isArray(c[k]), EV = c.nev || c.net;
+    const c = db.cols, has = (k) => c[k] != null && c[k].length === db.count, EV = c.nev || c.net;
     const R = () => ({ x: 0, n: 0 });
     const Z = () => ({ sum: 0, es: 0, n: 0, ids: [] });
     const mk = () => ({ all: R(), stk: STEAL_STK.map(R), resp: [0, 0, 0], f3b: R(), net: { sum: 0, es: 0, n: 0 }, sz: [0, 0, 0, 0], szx: {}, bx: BX_STK.map(() => BX_STK.map(() => ({ n: 0, x: 0, rn: 0, fold: 0, rr: 0, sum: 0, es: 0, sn: 0 }))), month: {}, blind: BLIND_STK.map(R),

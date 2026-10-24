@@ -7,10 +7,18 @@ const POS_NAMES = ['UTG', 'MP', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
 const handName = (k) => { const i = Math.floor(k / 13), j = k % 13; return i === j ? RANKS[i] + RANKS[j] : i < j ? RANKS[i] + RANKS[j] + 's' : RANKS[j] + RANKS[i] + 'o'; };
 let handPop = null, pinned = null, REPLAYS = null;
 
-async function loadReplays() {
-  if (REPLAYS) return REPLAYS;
-  REPLAYS = (mda.replays && await mda.replays()) || {};
-  return REPLAYS;
+// Записи реплеера — по запросу, только для нужных раздач (база может быть в гигабайты).
+// REPLAYS — кеш уже прочитанных записей; сбрасывается при смене базы.
+async function replaysFor(ids) {
+  if (!REPLAYS) REPLAYS = new Map();
+  const need = []; for (const i of ids) if (!REPLAYS.has(i)) need.push(i);
+  for (let k = 0; k < need.length; k += 20000) {
+    const part = need.slice(k, k + 20000), got = (mda.replaysFor && await mda.replaysFor(part)) || {};
+    for (const i of part) REPLAYS.set(i, got[i] || null);
+  }
+  if (REPLAYS.size > 300000) { const keep = new Set(ids); for (const key of REPLAYS.keys()) { if (REPLAYS.size <= 150000) break; if (!keep.has(key)) REPLAYS.delete(key); } }
+  const out = {}; for (const i of ids) { const r = REPLAYS.get(i); if (r) out[i] = r; }
+  return out;
 }
 
 function popEl() {
@@ -132,7 +140,7 @@ async function showHandList(it, k, cellBtn) {
   const p = POS_NAMES.indexOf(it.p), c = DB.cols;
   const all = (it.ids || CURRENT_IDX).filter(i => c.sit[i] === (it.sit || 0) && (it.act != null ? c.act[i] === it.act : c.act[i] >= 2) && (p < 0 || c.pos[i] === p) && c.hc[i] === k);
   list.hidden = false; pop.classList.add('with-list'); list.replaceChildren(el('div', 'hp-list-head', 'Загружаю раздачи…'));
-  const rp = await loadReplays();
+  const rp = await replaysFor(all);
   const reach = (i) => { const r = rp[i]; if (!r) return 0; if (r.sh && Object.keys(r.sh).length) return 4; return r.bd.length === 5 ? 3 : r.bd.length === 4 ? 2 : r.bd.length === 3 ? 1 : 0; };
   const f = { room: '', res: '', street: '', stack: '', q: '', sort: 'new' };
 
@@ -212,7 +220,7 @@ function cardEl(code, small) {
 
 let RP = null;
 async function openReplayer(i) {
-  const rp = (await loadReplays())[i]; if (!rp) return;
+  const rp = (await replaysFor([i]))[i]; if (!rp) return;
   closeReplayer();
   const fr = Replay.frames(rp);
   const bg = el('div', 'rp-bg'); bg.setAttribute('role', 'dialog'); bg.setAttribute('aria-modal', 'true'); bg.setAttribute('aria-label', 'Реплеер раздачи');
@@ -345,7 +353,7 @@ async function openIdsList(title, ids) {
   document.addEventListener('keydown', keys);
   IDS_LIST = { bg, keys };
   x.focus();
-  const rp = await loadReplays();
+  const rp = await replaysFor(ids);
   function draw() {
     let rows = ids.filter(i => (f.room === '' || String(c.room[i]) === f.room) && (f.res !== 'win' || c.net[i] > 0) && (f.res !== 'lose' || c.net[i] < 0));
     const by = { new: (a, b) => c.day[b] - c.day[a] || b - a, old: (a, b) => c.day[a] - c.day[b] || a - b, worst: (a, b) => c.net[a] - c.net[b], best: (a, b) => c.net[b] - c.net[a] };

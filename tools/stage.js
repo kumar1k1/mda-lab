@@ -18,7 +18,7 @@ fs.copyFileSync(path.join(__dirname, '..', 'build', 'icon.ico'), path.join(out, 
 
 // проверка: в папке установщика не должно быть ничьих раздач
 const bad = [];
-(function walk(d) { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name); if (e.isDirectory()) walk(p); else if (/my-base|^hands\.json$|^replays\.json$|\.off$/.test(e.name)) bad.push(p); } })(dst);
+(function walk(d) { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name); if (e.isDirectory()) walk(p); else if (/my-base|^hands\.json$|^replays\.json$|\.off$|^c_\w+\.bin$|^rp_\d+\.dat$|^rp\.idx$|^keys\.bin$/.test(e.name)) bad.push(p); } })(dst);
 // и ни одного из ников, по которым собиралась личная база
 (function walk(d) { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name); if (e.isDirectory()) walk(p); else if (/\.(js|json|html)$/.test(e.name) && /777molodoy777|77molodoy77|dzmitry pranko|easyWin777|Kumar1k|molodoy_777/.test(fs.readFileSync(p, 'utf8'))) bad.push(p + ' (ник)'); } })(dst);
 if (bad.length) { console.error('ОСТАНОВЛЕНО: в установщик попали личные данные:\n' + bad.join('\n')); process.exit(2); }

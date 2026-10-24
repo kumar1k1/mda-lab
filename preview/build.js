@@ -7,7 +7,17 @@ const read = (f) => fs.readFileSync(path.join(R, f), 'utf8');
 
 const html = read('index.html');
 const body = html.split('<body>')[1].split('<script src="stats.js"></script>')[0];
-fs.copyFileSync(path.join(__dirname, '..', 'app', 'data', 'my-base-replays.json'), path.join(__dirname, 'replays.json'));
+// база превью — папка колонок, как в программе; записи реплеера частями по 8 МБ (лимит хостинга — 15 МБ на файл)
+const { writeFromLegacy } = require('../app/parser/store.js');
+const D = path.join(__dirname, '..', 'app', 'data');
+writeFromLegacy(path.join(__dirname, 'base'), JSON.parse(fs.readFileSync(path.join(D, 'my-base.json'), 'utf8')), JSON.parse(fs.readFileSync(path.join(D, 'my-base-replays.json'), 'utf8')), 8 * 1024 * 1024);
+// хостинг артефактов не отдаёт бинарные файлы — для превью колонки и индекс как base64 в .json, записи реплеера как .txt
+const BD = path.join(__dirname, 'base');
+for (const f of fs.readdirSync(BD)) {
+  const p = path.join(BD, f);
+  if (/\.(bin|idx)$/.test(f)) { fs.writeFileSync(p + '.b64.json', JSON.stringify(fs.readFileSync(p).toString('base64'))); fs.rmSync(p); }
+  else if (/\.dat$/.test(f)) fs.renameSync(p, p.replace(/\.dat$/, '.txt'));
+}
 const icon = 'data:image/png;base64,' + fs.readFileSync(path.join(R, 'icon.png')).toString('base64');
 
 const out = [
@@ -16,7 +26,6 @@ const out = [
   '<meta name="claude:viewport-fit-sides" content="cover">',
   '<style>', read('styles.css'), fs.readFileSync(path.join(__dirname, 'preview.css'), 'utf8'), '</style>',
   body.replace('src="icon.png"', 'src="' + icon + '"'),
-  '<script type="application/json" id="myBase">', fs.readFileSync(path.join(__dirname, '..', 'app', 'data', 'my-base.json'), 'utf8'), '</script>',
   '<script>', read('demo-gen.js'), '</script>',
   '<script>', fs.readFileSync(path.join(__dirname, 'shim.js'), 'utf8'), '</script>',
   '<script>', read('stats.js'), '</script>',

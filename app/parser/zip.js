@@ -73,6 +73,17 @@ function zipRead(f) {
   if (en.method === 8) return zlib.inflateRawSync(data);
   throw new Error('сжатие этого архива не поддерживается');
 }
+// большая запись архива — потоком (без чтения целиком в память): распаковка кусками
+function zipStream(f) {
+  const { z, en } = entryOf(f);
+  const [zp] = splitPath(f);
+  const h = Buffer.alloc(30); fs.readSync(z.fd, h, 0, 30, en.off);
+  const start = en.off + 30 + h.readUInt16LE(26) + h.readUInt16LE(28);
+  const raw = fs.createReadStream(zp, { start, end: start + en.comp - 1, highWaterMark: 4 * 1024 * 1024 });
+  if (en.method === 0) return raw;
+  if (en.method === 8) return raw.pipe(zlib.createInflateRaw({ chunkSize: 4 * 1024 * 1024 }));
+  throw new Error('сжатие этого архива не поддерживается');
+}
 function closeAll() { for (const z of cache.values()) { try { fs.closeSync(z.fd); } catch (e) { /* уже закрыт */ } } cache.clear(); }
 
-module.exports = { listZip, isZipPath, zipSize, zipRead, closeAll };
+module.exports = { listZip, isZipPath, zipSize, zipRead, zipStream, closeAll };

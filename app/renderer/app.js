@@ -1693,6 +1693,22 @@ function setupPlayerMenu() {
   });
 }
 
+// База из программы: описание и колонки по одной — каждая колонка становится типизированным массивом
+// (c.net[i] читается как обычный массив). Так база в гигабайты не проходит через один огромный JSON.
+const COL_TYPES = { i8: Int8Array, i16: Int16Array, i32: Int32Array, u32: Uint32Array, f64: Float64Array };
+function typedCol(bytes, type) {
+  const A = COL_TYPES[type]; let b = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  if (b.byteOffset % A.BYTES_PER_ELEMENT) b = new Uint8Array(b); // выравнивание
+  return new A(b.buffer, b.byteOffset, Math.floor(b.byteLength / A.BYTES_PER_ELEMENT));
+}
+async function loadDb() {
+  if (!mda.dbMeta) return null;
+  const meta = await mda.dbMeta(); if (!meta) return null;
+  const cols = {};
+  for (const [name, type] of meta.cols) { const b = await mda.dbCol(name); if (b) cols[name] = typedCol(b, type); }
+  return Object.assign({}, meta, { cols });
+}
+
 function setDb(db) {
   DB = db;
   if (typeof REPLAYS !== 'undefined') REPLAYS = null; // реплеи новой базы загрузятся заново
@@ -1752,13 +1768,54 @@ function showImport(r) {
     if (!IMPORT_ROOMS.includes(n.room)) { const o = el('option', null, n.room); o.value = n.room; o.selected = true; sel.prepend(o); }
     sel.setAttribute('aria-label', 'Рум для ника ' + n.nick);
     row.append(cb, el('b', null, n.nick), sel, el('span', 'muted small', n.hits.toLocaleString('ru-RU') + ' файлов'));
-    cb.onchange = syncImportBtn;
+    cb.onchange = () => { syncImportBtn(); runEstimate(); };
     list.append(row);
   });
   if (!$('aliasName').value && nicks.length) $('aliasName').value = nicks[0].nick;
   syncImportBtn();
+  $('impPlan').hidden = !nicks.length;
+  if (nicks.length) { showBaseLocation(); runEstimate(); }
 }
 function syncImportBtn() { $('doImport').disabled = !document.querySelector('#nickList input:checked'); }
+
+// ---------- место для базы и оценка до загрузки ----------
+const fmtDur = (s) => s < 60 ? 'меньше минуты' : s < 3600 ? '≈ ' + Math.round(s / 60) + ' мин' : '≈ ' + Math.floor(s / 3600) + ' ч ' + Math.round(s % 3600 / 60) + ' мин';
+let EST = null, LOC = null, estTimer = null, estSeq = 0;
+async function showBaseLocation(loc) {
+  LOC = loc || (mda.baseLocation ? await mda.baseLocation() : null);
+  $('baseDirPath').textContent = LOC ? LOC.dir : '—'; $('baseDirPath').title = LOC ? LOC.dir : '';
+  renderEstimate();
+}
+function renderEstimate() {
+  const free = LOC && LOC.free != null ? LOC.free : null;
+  $('estFree').textContent = free == null ? '—' : fmtBytes(free);
+  if (!EST) return;
+  $('estHands').textContent = '≈ ' + EST.hands.toLocaleString('ru-RU');
+  $('estSize').textContent = '≈ ' + fmtBytes(EST.bytes);
+  $('estTime').textContent = fmtDur(EST.seconds);
+  const need = EST.bytes * 1.3 + 64 * 1024 * 1024; // запас на временные файлы при сборке
+  const short = free != null && free < need;
+  $('estFree').classList.toggle('bad', short); $('estSize').classList.toggle('bad', short);
+  $('estNote').classList.toggle('bad', short);
+  $('estNote').textContent = short
+    ? 'Не хватит места: на время загрузки нужно около ' + fmtBytes(need) + '. Выберите другую папку или диск.'
+    : 'Оценка по образцу ' + fmtBytes(EST.sampleBytes) + ' из ' + fmtBytes(EST.totalBytes) + ' ваших историй на этом компьютере (' + EST.cpus + ' ядер, EV считается в ' + EST.threads + ' потоков). Точные цифры — после загрузки.';
+  $('doImport').disabled = short || !document.querySelector('#nickList input:checked');
+}
+function runEstimate() {
+  clearTimeout(estTimer);
+  estTimer = setTimeout(async () => {
+    if (!mda.estimate) return;
+    const seq = ++estSeq; EST = null;
+    ['estHands', 'estSize', 'estTime'].forEach(id => { $(id).textContent = '…'; });
+    $('estNote').classList.remove('bad'); $('estNote').textContent = 'Оцениваю по образцу ваших историй…';
+    const nicks = [...document.querySelectorAll('#nickList input:checked')].map(x => x.dataset.nick);
+    const r = await mda.estimate(nicks);
+    if (seq !== estSeq) return;
+    EST = r; if (!r) { $('estNote').textContent = 'Оценить не удалось — загрузка всё равно сработает.'; return; }
+    renderEstimate();
+  }, 400);
+}
 
 async function runImport() {
   const nicks = {};
@@ -1767,16 +1824,22 @@ async function runImport() {
   const alias = $('aliasName').value.trim() || Object.keys(nicks)[0];
   $('doImport').disabled = true; $('impProgress').hidden = false;
   $('progFill').style.width = '0%'; $('progText').textContent = 'Начинаю разбор…';
+  const t0 = Date.now();
   mda.onProgress((m) => {
-    $('progFill').style.width = (m.done / m.total * 100).toFixed(1) + '%';
-    $('progText').textContent = 'Разобрано файлов: ' + m.done.toLocaleString('ru-RU') + ' из ' + m.total.toLocaleString('ru-RU') + ' · ваших раздач: ' + m.hands.toLocaleString('ru-RU');
+    // этапы: разбор файлов (до 70% полосы) и расчёт EV по олл-инам (оставшиеся 30%)
+    const f = m.stage === 'ev' ? 0.7 + 0.3 * m.done / Math.max(1, m.total) : 0.7 * m.done / Math.max(1, m.total);
+    $('progFill').style.width = (f * 100).toFixed(1) + '%';
+    const el2 = (Date.now() - t0) / 1000, left = f > 0.03 ? el2 / f - el2 : null;
+    $('progText').textContent = (m.stage === 'ev'
+      ? 'Считаю EV олл-инов: ' + m.done.toLocaleString('ru-RU') + ' из ' + m.total.toLocaleString('ru-RU')
+      : 'Разобрано файлов: ' + m.done.toLocaleString('ru-RU') + ' из ' + m.total.toLocaleString('ru-RU')) + ' · ваших раздач: ' + m.hands.toLocaleString('ru-RU') + (left != null ? ' · осталось ' + fmtDur(left) : '');
   });
   const res = await mda.runImport({ nicks, alias });
   if (res.type === 'error' || res.error) { $('progText').textContent = 'Ошибка: ' + (res.message || res.error); syncImportBtn(); return; }
   if (!res.hands) { $('progText').textContent = 'Раздач с выбранными никами не нашлось. Проверьте ники.'; syncImportBtn(); return; }
   $('progFill').style.width = '100%';
   $('progText').textContent = 'Готово: ' + res.hands.toLocaleString('ru-RU') + ' раздач' + (res.dup ? ', повторов пропущено: ' + res.dup.toLocaleString('ru-RU') : '') + '.';
-  setDb(await mda.db());
+  setDb(await loadDb());
   setTimeout(closeImportModal, 900);
 }
 
@@ -1791,6 +1854,7 @@ function setupImport() {
   closeImportModal = () => { modal.hidden = true; $('openImport').focus(); };
   $('openImport').onclick = openImportModal;
   $('closeImport').onclick = closeImportModal;
+  $('pickBaseDir').onclick = async () => { if (!mda.pickBaseDir) return; const loc = await mda.pickBaseDir(); if (loc) showBaseLocation(loc); };
   modal.addEventListener('click', (e) => { if (e.target === modal) closeImportModal(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !modal.hidden) closeImportModal(); });
   $('pickFolder').onclick = async () => showImport(await mda.pick('folder'));
@@ -1799,7 +1863,7 @@ function setupImport() {
   $('deleteDb').onclick = async () => {
     const b = $('deleteDb');
     if (!b.dataset.armed) { b.dataset.armed = '1'; b.textContent = 'Точно удалить? Нажмите ещё раз'; return; }
-    await mda.deleteDb(); b.hidden = true; setDb(await mda.db()); closeImportModal();
+    await mda.deleteDb(); b.hidden = true; setDb(await loadDb()); closeImportModal();
   };
   const drop = $('drop');
   ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add('over'); }));
@@ -1815,7 +1879,7 @@ window.__importDemo = () => { $('importModal').hidden = false; showImport({ sour
 
 document.addEventListener('DOMContentLoaded', async () => {
   setupImport(); setupPlayerMenu();
-  const db = await mda.db();
+  const db = await loadDb();
   setDb(db);
   if (!db) openImportModal();
 });

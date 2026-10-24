@@ -97,6 +97,20 @@
         <div class="nick-list" id="nickList"></div>
         <label class="alias-in"><span>Имя Alias — общее имя для всех ваших ников</span><input id="aliasName" type="text" maxlength="40" autocomplete="off"></label>
       </div>
+      <div class="imp-plan" id="impPlan" hidden>
+        <h3>Где хранить базу</h3>
+        <div class="imp-dir">
+          <span class="imp-dir-path" id="baseDirPath">—</span>
+          <button class="btn" id="pickBaseDir" type="button">Выбрать папку…</button>
+        </div>
+        <div class="imp-est" aria-live="polite">
+          <div><span>Раздач</span><b id="estHands">…</b></div>
+          <div><span>База займёт</span><b id="estSize">…</b></div>
+          <div><span>Свободно на диске</span><b id="estFree">…</b></div>
+          <div><span>Время загрузки</span><b id="estTime">…</b></div>
+        </div>
+        <p class="muted small" id="estNote">Оцениваю по образцу ваших историй…</p>
+      </div>
       <div class="imp-progress" id="impProgress" hidden>
         <div class="prog-track"><div class="prog-fill" id="progFill"></div></div>
         <span class="muted small" id="progText"></span>
@@ -108,7 +122,7 @@
       <span class="room-chip">PokerStars</span><span class="room-chip">GGPoker и PokerDom в формате PokerStars</span><span class="room-chip">Winamax</span><span class="room-chip">ACR / WPN</span>
     </div>
 
-    <p class="privacy small">База хранится только на этом компьютере, в папке данных программы. Программа ничего никуда не отправляет, а в установщик ничьи раздачи не попадают.</p>
+    <p class="privacy small">База хранится только на этом компьютере, в выбранной вами папке. Программа ничего никуда не отправляет, а в установщик ничьи раздачи не попадают.</p>
     <div class="modal-foot">
       <button class="btn btn-danger" id="deleteDb" hidden>Удалить базу с компьютера</button>
       <button class="btn-load" id="doImport" disabled>Импортировать</button>
