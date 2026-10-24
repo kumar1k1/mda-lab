@@ -711,6 +711,25 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .net-lgs{margin-top:6px;display:flex;justify-content:space-between;align-items:center;gap:8px 16px;flex-wrap:wrap}
 .net-lgs .net-lg{margin:0}
 .net-lg-r{margin-left:auto}
-/* 3.4: число раздач слева от полосы */
-.hg-c.hg-c34{grid-template-columns:5.5ch minmax(40px,1fr) auto}
-.hg-c34 .hg-n{text-align:left;white-space:nowrap}
+/* 3.4: число раздач слева от полосы, вплотную к группе рук; CO и BTN разделены линией — ничего не наезжает */
+.hg:has(.hg-c34){container-type:inline-size}
+.hg-row:has(.hg-c34),.hg-row.hg-head{grid-template-columns:minmax(110px,max-content) minmax(min-content,1fr) minmax(min-content,1fr);column-gap:0}
+.hg:has(.hg-c34){display:grid;row-gap:3px;grid-template-columns:minmax(110px,max-content) minmax(min-content,1fr) minmax(min-content,1fr)}
+.hg:has(.hg-c34) > .hg-row{grid-column:1 / -1;grid-template-columns:subgrid}
+.hg-row:has(.hg-c34) > :nth-child(1){padding-right:8px}
+.hg-row:has(.hg-c34) > :nth-child(2),.hg-row.hg-head > :nth-child(2){padding-right:14px}
+.hg-row:has(.hg-c34) > :nth-child(3),.hg-row.hg-head > :nth-child(3){padding-left:14px;border-left:1px solid var(--line)}
+.hg-c.hg-c34{grid-template-columns:max-content minmax(40px,1fr) max-content;column-gap:8px}
+.hg-c34 .hg-n{text-align:left;white-space:nowrap;min-width:3ch}
+.hg-c34 .hg-v{white-space:nowrap}
+.hg-l{overflow-wrap:anywhere}
+@container (max-width: 600px){.hg-c34 .hg-v .evs{display:block;font-size:10px;line-height:1.2}.hg-c34 .hg-v{line-height:1.15}}
+/* 3.4 на телефоне: CO и BTN под названием группы рук */
+@container (max-width: 470px){
+  .hg:has(.hg-c34){display:flex}
+  .hg-row:has(.hg-c34){grid-template-columns:1fr;row-gap:3px}
+  .hg-row.hg-head{display:none}
+  .hg-row:has(.hg-c34) > :nth-child(n){padding:0;border-left:none}
+  .hg-c.hg-c34{grid-template-columns:30px max-content minmax(40px,1fr) max-content}
+  .hg-c34::before{content:attr(data-pos);font-family:var(--mono);font-size:10px;font-weight:700;color:var(--muted)}
+}
