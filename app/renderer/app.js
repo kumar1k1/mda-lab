@@ -884,7 +884,8 @@ function respTiles(resp, title, labels) {
     it.append(b, el('span', null, lab)); it.title = resp[k].toLocaleString('ru-RU') + ' из ' + rt.toLocaleString('ru-RU');
     rl.append(it);
   });
-  rs.append(el('span', 'resp-t', title), rl);
+  if (title) rs.append(el('span', 'resp-t', title));
+  rs.append(rl);
   return rs;
 }
 
@@ -1026,7 +1027,6 @@ function isoCard(d) {
   });
   // ответ оппонентов: против 1 лимпера, против 2+ и всего
   const rt = el('div', 'iso-rt');
-  rt.append(el('span', 'resp-t', 'Ответ оппонентов на ваш изолейт (фолд — все сбросили)'));
   const g = el('div', 'iso-rg');
   g.append(el('span'));
   [['фолд', 'var(--good)'], ['колл', 'var(--ice)'], ['рейз', 'var(--bad)']].forEach(([l, col]) => { const hh = el('span', 'iso-rh'); const i = el('i'); i.style.background = col; hh.append(i, document.createTextNode(l)); g.append(hh); });
@@ -1138,7 +1138,7 @@ function renderRFISummary(idx, r) {
   RESP.forEach(([lab, col], k) => { const seg = el('div'); seg.style.width = (rt ? x.resp[k] / rt * 100 : 0) + '%'; seg.style.background = col; seg.title = lab + ': ' + x.resp[k] + ' из ' + rt; rbar.append(seg); });
   const rl = el('div', 'resp-tiles');
   RESP.forEach(([lab, col], k) => { const it = el('span', 'resp-tile'); const b = el('b', null, rt ? fmtPct(x.resp[k] / rt) + '%' : '—'); b.style.color = col; it.append(b, el('span', null, lab)); it.title = x.resp[k].toLocaleString('ru-RU') + ' из ' + rt.toLocaleString('ru-RU') + ' открытий'; rl.append(it); });
-  rs.append(el('span', 'resp-t', 'Первый ответ оппонентов на ваше открытие (фолд — все сбросили)'), rl);
+  rs.append(rl);
   const pos1 = ['UTG', 'MP', 'CO', 'BTN'].map(p => { const z = x.seats[p]; return [p, z && z.n ? z.x / z.n : null, p + ': ' + (z ? z.x + ' из ' + z.n : '')]; });
   cards.append(card(1, 'Открываете', '<em>' + pctTxt(x.all) + '</em>', 'рук из ' + x.all.n.toLocaleString('ru-RU') + ' возможностей, UTG–BTN', fillBox(posStrip('По позициям', pos1), rs)));
 
@@ -1158,7 +1158,7 @@ function renderRFISummary(idx, r) {
   // #3 — стил + ответ блайндов (CO и BTN вместе), как в #1
   const so = Stats.stealExtra(DB, idx);
   const sresp = [0, 1, 2].map(k => so.CO.resp[k] + so.BTN.resp[k]);
-  cards.append(card(3, 'Стил с CO и BTN', '<em>' + pctTxt(x.late) + '</em>', 'когда до вас все сбросили', fillBox(posStrip('По позициям', ['CO', 'BTN'].map(p => [p, x.latePos[p].n ? x.latePos[p].x / x.latePos[p].n : null, p + ': ' + x.latePos[p].x + ' из ' + x.latePos[p].n])), respTiles(sresp, 'Ответ блайндов на ваш стил (фолд — оба сбросили)'))));
+  cards.append(card(3, 'Стил с CO и BTN', '<em>' + pctTxt(x.late) + '</em>', 'когда до вас все сбросили', fillBox(posStrip('По позициям', ['CO', 'BTN'].map(p => [p, x.latePos[p].n ? x.latePos[p].x / x.latePos[p].n : null, p + ': ' + x.latePos[p].x + ' из ' + x.latePos[p].n])), respTiles(sresp, ''))));
 
   // #4 — доля пушей и разбивка по стеку
   const st = el('div', 'mini-bars');
@@ -1175,7 +1175,7 @@ function renderRFISummary(idx, r) {
   const pushPos = ['UTG', 'MP', 'HJ', 'CO', 'BTN', 'SB'].map((p, k) => [p, pp[k].n ? pp[k].x / pp[k].n : null, p + ': ' + pp[k].x + ' пушей из ' + pp[k].n + ' открытий']).filter(r => r[0] !== 'HJ');
   { const c = DB.cols; if (c.orsp) for (const i of idx) if (c.sit[i] === 0 && c.pos[i] <= 5 && c.act[i] === 3 && c.orsp[i] >= 0) presp[c.orsp[i] === 0 ? 0 : 1]++; }
   cards.append(card(4, 'Доля пушей среди открытий', '<em>' + pctTxt(x.shove) + '</em>', x.shove.x.toLocaleString('ru-RU') + ' пушей из ' + x.shove.n.toLocaleString('ru-RU') + ' открытий',
-    fillBox(posStrip('По позициям — доля пушей среди открытий', pushPos), respTiles(presp, 'Ответ оппонентов на ваш пуш (фолд — все сбросили)', [['фолд', 'var(--good)'], ['колл', 'var(--ice)']]))));
+    fillBox(posStrip('По позициям — доля пушей среди открытий', pushPos), respTiles(presp, '', [['фолд', 'var(--good)'], ['колл', 'var(--ice)']]))));
   const shovePanel = renderShovePanel(idx, st);
 
 
