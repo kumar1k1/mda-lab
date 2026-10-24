@@ -121,7 +121,7 @@ function buildDb(files, nicks, alias, onProgress) {
     cols.sit.push(h.sit); cols.lim.push(h.lim); cols.act.push(h.act); cols.size.push(h.size); cols.fti.push(h.fti); cols.bvb.push(h.bvb); cols.fvr.push(h.fvr);
     if (h.rp && h.hc >= 0) { delete h.rp.bb; rp[cols.room.length - 1] = h.rp; }
     // EV-итог (all-in adjusted): по эквити на момент олл-ина, если все деньги зашли до ривера
-    { const e = h.rp && h.hc >= 0 ? evNet(h.rp, cols.room.length) : null; cols.nev.push(e == null ? h.net : Math.round(e * 1000) / 100); }
+    { const e = h.rp && h.hc >= 0 ? evNet(h.rp, cols.room.length) : null; cols.nev.push(e == null ? h.net : Math.round((h.net / 10 + e) * 1000) / 100); /* EV = факт + поправка за олл-ины */ }
     cols.day.push(Math.round((Date.UTC(y, m - 1, +h.date.slice(8, 10)) - Date.UTC(sy, sm - 1, 1)) / 864e5)); cols.hc.push(h.hc); cols.net.push(h.net); cols.sto.push(h.sto); cols.f3b.push(h.f3b); cols.orsp.push(h.orsp); cols.bmin.push(h.bmin); cols.sbs.push(h.sbs); cols.bbs.push(h.bbs); cols.bh.push(h.bh); cols.bsh.push(h.bsh); cols.bmd.push(h.bmd); cols.bdp.push(h.bdp); cols.cov.push(h.cov); cols.bi.push(h.bi); cols.rz.push(h.rz); cols.cl.push(h.cl); cols.rai.push(h.rai); cols.opos.push(h.opos); cols.ostk.push(h.ostk); cols.osz.push(h.osz); cols.hpa.push(h.hpa || 0); cols.tmx.push(h.tblMax || 0); cols.np.push(h.n || 0); cols.lr.push(h.lr || 0);
   }
   const db = { format: 'mdalab-hands-v1', demo: false, hero: alias || Object.keys(nicks)[0], nicks, rooms: ROOMS, types: ['Обычный', 'PKO'], periodStart: start, count: recs.length, cols };

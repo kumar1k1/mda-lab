@@ -41,67 +41,72 @@ function eval7(cs) {
 // детерминированный генератор, чтобы EV при каждой сборке получался одинаковым
 function rng(seed) { let s = seed >>> 0 || 1; return () => { s ^= s << 13; s >>>= 0; s ^= s >> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; }; }
 
-// rp — ход раздачи (как для реплеера). Возвращает EV-итог героя в BB или null, если корректировка не нужна.
+// rp — ход раздачи (как для реплеера). Возвращает поправку EV к фактическому итогу героя в BB (EV = факт + поправка) или null.
+// Как в Hand2Note: каждый банк (основной и побочные) считается по эквити на тот момент, когда он «закрылся» олл-ином,
+// и только между игроками, которые за него борются; карты остальных игроков при этом из колоды не убираются.
 function evNet(rp, seed) {
   if (!rp || !rp.ev || !rp.hc) return null;
-  const n = rp.pl.length, contrib = new Array(n).fill(0), streetBet = new Array(n).fill(0), folded = new Array(n).fill(false);
-  let lastStreet = 0, anyAllin = false;
+  const n = rp.pl.length, h = rp.h;
+  const contrib = new Array(n).fill(0), streetBet = new Array(n).fill(0), folded = new Array(n).fill(false), allin = new Array(n).fill(false);
+  const snaps = []; // после каждого действия: улица, вложения, кто олл-ин
+  let anyAllin = false;
   for (const [st, i, t, a, ai] of rp.ev) {
     if (t === 'S') { streetBet.fill(0); continue; }
     if (t === 'A') { contrib[i] += a; continue; }
-    if (t === 'SB' || t === 'BB') { contrib[i] += a; streetBet[i] += a; continue; }
+    if (t === 'SB' || t === 'BB') { contrib[i] += a; streetBet[i] += a; if (ai) allin[i] = true; continue; }
     if (t === 'f') { folded[i] = true; continue; }
-    if (t === 'x') { lastStreet = st; continue; }
-    if (t === 'c' || t === 'b') { contrib[i] += a; streetBet[i] += a; lastStreet = st; if (ai) anyAllin = true; continue; }
-    if (t === 'r') { contrib[i] += a - streetBet[i]; streetBet[i] = a; lastStreet = st; if (ai) anyAllin = true; continue; }
-    if (t === 'U') { contrib[i] -= a; continue; }
+    if (t === 'c' || t === 'b') { contrib[i] += a; streetBet[i] += a; if (ai) { allin[i] = true; anyAllin = true; } }
+    else if (t === 'r') { contrib[i] += a - streetBet[i]; streetBet[i] = a; if (ai) { allin[i] = true; anyAllin = true; } }
+    else if (t === 'U') { contrib[i] -= a; }
+    else if (t !== 'x') continue;
+    snaps.push({ st, c: contrib.slice(), ai: allin.slice() });
   }
-  const h = rp.h;
-  if (!anyAllin || folded[h] || lastStreet >= 3) return null;
+  if (!anyAllin || folded[h]) return null;
   const live = []; for (let i = 0; i < n; i++) if (!folded[i]) live.push(i);
   if (live.length < 2) return null;
   const cards = {};
   for (const i of live) {
     const s = i === h ? rp.hc : rp.sh && rp.sh[i];
-    if (!s) return null; // карты кого-то из оставшихся неизвестны
+    if (!s) return null; // карты кого-то из дошедших до вскрытия неизвестны
     cards[i] = s.split(' ').map(cardId);
   }
-  const known = lastStreet === 0 ? 0 : lastStreet === 1 ? 3 : 4;
-  if ((rp.bd || []).length < known) return null;
-  const board0 = rp.bd.slice(0, known).map(cardId);
-  // банки: основной и побочные по уровням вложений оставшихся игроков
+  const bd = (rp.bd || []).map(cardId);
+  if (bd.length < 5) return null;
+  // банки по уровням вложений дошедших до вскрытия
   const levels = [...new Set(live.map(i => contrib[i]))].sort((a, b) => a - b);
   const pots = []; let prev = 0;
   for (const L of levels) {
     let amt = 0; for (let i = 0; i < n; i++) amt += Math.max(0, Math.min(contrib[i], L) - Math.min(contrib[i], prev));
     const elig = live.filter(i => contrib[i] >= L);
-    if (amt > 0) pots.push({ amt, elig });
+    if (amt > 0 && elig.length >= 2 && elig.includes(h)) pots.push({ amt, elig, L, lo: prev });
     prev = L;
   }
-  const used = new Set(board0); live.forEach(i => cards[i].forEach(c => used.add(c)));
-  const deck = []; for (let c = 0; c < 52; c++) if (!used.has(c)) deck.push(c);
-  const need = 5 - known;
-  let total = 0, runs = 0;
-  const score = (board) => {
-    const val = {}; for (const i of live) val[i] = eval7(cards[i].concat(board));
-    let won = 0;
-    for (const p of pots) {
-      const best = Math.max(...p.elig.map(i => val[i]));
-      const winners = p.elig.filter(i => val[i] === best);
-      if (winners.includes(h)) won += p.amt / winners.length;
+  const r = rng(seed || 12345);
+  let delta = 0;
+  for (const p of pots) {
+    // банк закрыт олл-ином, если кто-то из претендентов пошёл олл-ин ровно на его уровень (или торговаться дальше может только один);
+    // момент закрытия — когда все претенденты вложили этот уровень
+    const capped = p.elig.some(i => allin[i] && Math.abs(contrib[i] - p.L) < 1e-6);
+    const k = snaps.findIndex(sn => p.elig.every(i => sn.c[i] >= p.L - 1e-9) && (capped || p.elig.filter(i => !sn.ai[i]).length <= 1));
+    if (k < 0) continue;
+    const st = snaps[k].st; if (st >= 3) continue; // закрылся на ривере — без поправки
+    const known = st === 0 ? 0 : st === 1 ? 3 : 4;
+    const board0 = bd.slice(0, known);
+    const share = (board) => { const v = p.elig.map(i => eval7(cards[i].concat(board))); const m = Math.max(...v); const w = p.elig.filter((i, j) => v[j] === m); return w.includes(h) ? p.amt / w.length : 0; };
+    const actual = share(bd);
+    // колода: без карт претендентов этого банка и известной доски (карты остальных считаются неизвестными, как в Hand2Note)
+    const used = new Set(board0); p.elig.forEach(i => cards[i].forEach(c => used.add(c)));
+    const deck = []; for (let c = 0; c < 52; c++) if (!used.has(c)) deck.push(c);
+    const need = 5 - known; let tot = 0, runs = 0;
+    if (need === 1) for (const a of deck) { tot += share(board0.concat([a])); runs++; }
+    else if (need === 2) { for (let x = 0; x < deck.length; x++) for (let y = x + 1; y < deck.length; y++) { tot += share(board0.concat([deck[x], deck[y]])); runs++; } }
+    else { // префлоп: выборка досок
+      const N = global.EV_SAMPLES || 20000, d = deck.slice();
+      for (let q = 0; q < N; q++) { for (let j = 0; j < need; j++) { const z = j + Math.floor(r() * (d.length - j)); const tmp = d[j]; d[j] = d[z]; d[z] = tmp; } tot += share(d.slice(0, need)); runs++; }
     }
-    total += won; runs++;
-  };
-  if (need === 1) for (const a of deck) score(board0.concat([a]));
-  else if (need === 2) { for (let x = 0; x < deck.length; x++) for (let y = x + 1; y < deck.length; y++) score(board0.concat([deck[x], deck[y]])); }
-  else { // префлоп: выборка досок
-    const r = rng(seed || 12345), N = 1500, d = deck.slice();
-    for (let k = 0; k < N; k++) {
-      for (let j = 0; j < need; j++) { const q = j + Math.floor(r() * (d.length - j)); const tmp = d[j]; d[j] = d[q]; d[q] = tmp; }
-      score(board0.concat(d.slice(0, need)));
-    }
+    delta += tot / runs - actual;
   }
-  return total / runs - contrib[h];
+  return pots.length ? delta : null;
 }
 
 module.exports = { evNet, eval7, cardId };
