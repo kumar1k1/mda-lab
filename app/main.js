@@ -91,6 +91,7 @@ ipcMain.handle('aliases:save', (_e, list) => {
     gone: a.gone && !(i < cur.length && Object.keys(cur[i].nicks || {}).length) ? 1 : undefined
   }));
   for (const a of clean) if (!a.gone) a.mine = a.mine.filter(m => !clean[m.a].gone);
+  if (clean.filter(a => !a.gone).length > 9) return { error: 'Не больше 9 алиасов в базе' };
   const meta = Object.assign({}, s.meta, { aliases: clean });
   if (!DEMO) { const f = path.join(s.dir, 'meta.json'), t = f + '.tmp'; fs.writeFileSync(t, JSON.stringify(meta)); fs.renameSync(t, f); }
   s.meta = meta; // демо — только в памяти
