@@ -610,7 +610,7 @@ function handGroupTable(o) {
   HAND_GROUPS.forEach(([lab], k) => {
     const r = el('div', 'hg-row'); r.append(el('span', 'hg-l', lab));
     [[A.g[k], C_CO, 'CO', A.h, o.CO.nr.all.ids], [B.g[k], C_BTN, 'BTN', B.h, o.BTN.nr.all.ids]].forEach(([z, col, nm, hands, ids]) => {
-      const cell = el('div', 'hg-c');
+      const cell = el('div', 'hg-c hg-c34');
       if (z.n) { cell.classList.add('click'); cell.tabIndex = 0; cell.setAttribute('role', 'button'); cell.setAttribute('aria-label', nm + ', ' + lab + ': показать руки и раздачи');
         const pin = (e) => { hideGroupTip(); pinHandPop({ p: nm, key: 'grp' + nm + k, title: nm + ' · ' + lab, o: z, mx: hands, ids, only: (q) => handGroup(q) === k }, z.sum / 10 / z.n, e, cell); };
         cell.addEventListener('click', pin); cell.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pin(null); } }); }
@@ -621,7 +621,7 @@ function handGroupTable(o) {
       f.style.width = w + '%'; f.style.left = v >= 0 ? '50%' : (50 - w) + '%'; f.style.background = col; if (v < 0) f.style.opacity = '.7';
       tr.append(el('i', 'hg-zero'), f);
       const t = wrNode('hg-v', v, z.es / 10 / z.n, 2); const n = el('span', 'hg-n', String(z.n));
-      cell.append(tr, t, n); if (z.n < 30) cell.classList.add('low');
+      cell.append(n, tr, t); if (z.n < 30) cell.classList.add('low'); // число раздач — слева от полосы, не упирается в соседнюю колонку
       r.append(cell);
     });
     box.append(r);

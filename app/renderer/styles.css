@@ -711,3 +711,6 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .net-lgs{margin-top:6px;display:flex;justify-content:space-between;align-items:center;gap:8px 16px;flex-wrap:wrap}
 .net-lgs .net-lg{margin:0}
 .net-lg-r{margin-left:auto}
+/* 3.4: число раздач слева от полосы */
+.hg-c.hg-c34{grid-template-columns:5.5ch minmax(40px,1fr) auto}
+.hg-c34 .hg-n{text-align:left;white-space:nowrap}
