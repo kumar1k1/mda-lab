@@ -650,3 +650,5 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .flt-bi select{width:78px}
 #openImport{flex:0 0 auto;margin-left:auto}
 @media (max-width: 1500px){#openImport{padding:0 12px;font-size:13px}}
+.ht td.c.click{cursor:pointer}
+.ht td.c.click:hover{outline:2px solid var(--amber);outline-offset:-2px}

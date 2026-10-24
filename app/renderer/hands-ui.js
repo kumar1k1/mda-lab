@@ -58,7 +58,7 @@ function buildPop(it, v, isPinned) {
   }
   const foot = el('div', 'hp-foot');
   foot.append(el('span', null, isPinned ? 'нажмите на руку, чтобы увидеть раздачи и проиграть их' : 'в клетке — средний результат руки в BB'),
-    el('span', null, 'зелёный — плюс, красный — минус, бледная — меньше 5 раз, пустая — не открывали'));
+    el('span', null, 'зелёный — плюс, красный — минус, бледная — меньше 5 раз, пустая — не играли этой рукой'));
   const list = el('div', 'hp-list'); list.hidden = true;
   const leftCol = el('div', 'hp-left'); leftCol.append(grid, foot);
   pop.classList.remove('with-list');
@@ -128,7 +128,7 @@ async function showHandList(it, k, cellBtn) {
   const pop = handPop; const list = pop.querySelector('.hp-list');
   pop.querySelectorAll('.hp-c.sel').forEach(c => c.classList.remove('sel')); cellBtn.classList.add('sel');
   const p = POS_NAMES.indexOf(it.p), c = DB.cols;
-  const all = (it.ids || CURRENT_IDX).filter(i => c.sit[i] === (it.sit || 0) && c.act[i] >= 2 && c.pos[i] === p && c.hc[i] === k);
+  const all = (it.ids || CURRENT_IDX).filter(i => c.sit[i] === (it.sit || 0) && (it.act != null ? c.act[i] === it.act : c.act[i] >= 2) && (p < 0 || c.pos[i] === p) && c.hc[i] === k);
   list.hidden = false; pop.classList.add('with-list'); list.replaceChildren(el('div', 'hp-list-head', 'Загружаю раздачи…'));
   const rp = await loadReplays();
   const reach = (i) => { const r = rp[i]; if (!r) return 0; if (r.sh && Object.keys(r.sh).length) return 4; return r.bd.length === 5 ? 3 : r.bd.length === 4 ? 2 : r.bd.length === 3 ? 1 : 0; };
@@ -166,7 +166,7 @@ async function showHandList(it, k, cellBtn) {
     const by = { new: (a, b) => c.day[b] - c.day[a] || b - a, old: (a, b) => c.day[a] - c.day[b] || a - b, best: (a, b) => c.net[b] - c.net[a], worst: (a, b) => c.net[a] - c.net[b], pot: (a, b) => potOf(b) - potOf(a) };
     rows.sort(by[f.sort]);
     const total = rows.reduce((s, i) => s + c.net[i], 0) / 10;
-    head.replaceChildren(el('b', null, handName(k) + ' с ' + it.p), el('span', null, rows.length + (rows.length === all.length ? '' : ' из ' + all.length) + ' раздач'), el('span', total >= 0 ? 'up' : 'down', signed(total, 1) + ' BB всего'));
+    head.replaceChildren(el('b', null, handName(k) + (it.p ? ' с ' + it.p : '')), el('span', null, rows.length + (rows.length === all.length ? '' : ' из ' + all.length) + ' раздач'), el('span', total >= 0 ? 'up' : 'down', signed(total, 1) + ' BB всего'));
     box.replaceChildren();
     if (!rows.length) { box.append(el('p', 'muted small', 'Нет раздач под эти фильтры.')); return; }
     rows.forEach(i => {

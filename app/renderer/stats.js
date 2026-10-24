@@ -181,12 +181,14 @@
   const CC_COLS = ['TOT', 'EP', 'MP', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
   function cc(db, idx) {
     const c = db.cols, R = () => ({ x: 0, n: 0 }), out = { cc: {} };
-    CC_COLS.forEach(k => { out.cc[k] = R(); });
+    out.hands = {};
+    CC_COLS.forEach(k => { out.cc[k] = R(); out.hands[k] = { n: 0, sum: 0, ids: [], mx: Array.from({ length: 169 }, () => ({ n: 0, sum: 0 })) }; });
     if (!c.rz) return Object.assign(out, { CC_COLS });
     for (const i of idx) {
       if (c.rz[i] !== 1) continue;
       const p = POS[c.pos[i]], call = c.act[i] === 1;
       (p === 'BB' ? [out.cc[p]] : [out.cc.TOT, out.cc[p]]).forEach(z => { z.n++; if (call) z.x++; }); // TOT — без BB
+      if (call && c.hc[i] >= 0) (p === 'BB' ? [p] : ['TOT', p]).forEach(k => { const h = out.hands[k], m = h.mx[c.hc[i]], v = c.net ? c.net[i] : 0; h.n++; h.sum += v; h.ids.push(i); m.n++; m.sum += v; });
     }
     return Object.assign(out, { CC_COLS });
   }

@@ -80,7 +80,7 @@ function heatTable(o) {
     o.cols.forEach((c, i) => {
       if (o.groupGapBefore === i) tr.append(el('td', 'gap'));
       const cc = r.data[c], p = rate(cc);
-      const td = el('td', 'c' + (i === 0 ? ' tot' : ''));
+      const td = el('td', 'c' + (i === 0 ? ' tot' : '')); td.dataset.col = c;
       if (p == null) { td.classList.add('na'); td.textContent = '--'; td.title = 'нет раздач'; }
       else {
         td.textContent = fmtPct(p);
@@ -1157,6 +1157,21 @@ function renderRFISummary(idx, r) {
 }
 
 // ---------- вкладка «Колд-колл» ----------
+// таблица CC: наведение на ячейку — матрица рук, которыми вы коллировали, с итогом; клик — закрепить, раздачи и реплеер
+function ccTable(r) {
+  const w = heatTable({ cols: r.CC_COLS, groupGapBefore: 6, rows: [{ label: 'Колд-колл', data: r.cc }] });
+  w.querySelectorAll('td.c').forEach(td => {
+    const col = td.dataset.col, z = r.hands[col]; if (!z || !z.n) return;
+    const it = { p: col === 'TOT' ? null : col, key: 'cc ' + col, title: 'Колд-колл · ' + (col === 'TOT' ? 'все позиции без BB' : col), o: { n: z.n, sum: z.sum }, mx: z.mx, ids: z.ids, sit: 2, act: 1, vlab: ' BB за колд-колл', nlab: ' колд-коллов' };
+    const v = z.sum / 10 / z.n;
+    td.classList.add('click'); td.tabIndex = 0; td.setAttribute('role', 'button');
+    const show = (ev) => showHandPop(it, v, ev, td);
+    td.addEventListener('mouseenter', show); td.addEventListener('mousemove', show); td.addEventListener('mouseleave', hideHandPop);
+    td.addEventListener('click', (ev) => pinHandPop(it, v, ev, td));
+    td.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); pinHandPop(it, v, null, td); } });
+  });
+  return w;
+}
 function renderCC(idx) {
   const r = Stats.cc(DB, idx);
   const page = el('div', 'page');
@@ -1165,8 +1180,8 @@ function renderCC(idx) {
   head.append(h1, el('p', null, 'Как часто вы просто коллируете открытие, когда до вас был ровно один рейз и вы ещё не вкладывались в банк.'));
   page.append(head);
   page.append(block('Колд-колл по позициям', 'доля коллов от всех случаев, когда перед вами был один рейз',
-    heatTable({ cols: r.CC_COLS, groupGapBefore: 6, rows: [{ label: 'Колд-колл', data: r.cc }] })));
-  page.append(infoNote('TOT — все позиции без BB (колл из BB — защита большого блайнда, показан отдельной колонкой). В SB колл открытия считается колд-коллом. Наведите на ячейку — увидите «x из n». Бледные ячейки — меньше ' + SMALL + ' раздач.'));
+    ccTable(r)));
+  page.append(infoNote('TOT — все позиции без BB (колл из BB — защита большого блайнда, показан отдельной колонкой). В SB колл открытия считается колд-коллом. Наведите на ячейку — покажется матрица рук, которыми вы коллировали, и их итог; клик закрепит окно, клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше ' + SMALL + ' раздач.'));
   return page;
 }
 
@@ -1421,5 +1436,6 @@ window.__pinGroup = (n) => document.querySelectorAll('.hg-c')[n].click();
 window.__sz = (k) => { SZ_SIDE = k; };
 window.__bx = (k, v) => { if (k === 1) BX1.met = v; else BX2 = v; };
 window.__hoverPush = (n) => { const c = document.querySelectorAll('.pmx-c')[n]; const r = c.getBoundingClientRect(); c.dispatchEvent(new MouseEvent('mouseenter', { clientX: r.left + 20, clientY: r.top + 5 })); };
+window.__hoverCC = (col) => { const td = [...document.querySelectorAll('.ht td.c.click')].find(t => t.dataset.col === col); const r = td.getBoundingClientRect(); td.dispatchEvent(new MouseEvent('mouseenter', { clientX: r.left + 20, clientY: r.top + 10 })); };
 window.__hoverGroup = (n) => { const c = document.querySelectorAll('.hg-c')[n]; const r = c.getBoundingClientRect(); c.dispatchEvent(new MouseEvent('mouseenter', { clientX: r.left + 20, clientY: r.top + 5 })); };
 window.__hoverMx = (k) => { const c = document.querySelectorAll('.mx .mx-c')[k]; c.scrollIntoView({ block: 'center' }); const r = c.getBoundingClientRect(); c.dispatchEvent(new MouseEvent('mouseenter', { clientX: r.left + 10, clientY: r.top + 10 })); };

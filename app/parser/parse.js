@@ -262,6 +262,8 @@ function parseHand(text, fmt, heroes) {
     rec.orsp = !first ? 0 : first.a === 'calls' ? 1 : 2; // ответ соперников по первому действию (как в Hand2Note): 0 все фолд, 1 колл, 2 рейз
     if (rr >= 0) { const nx = after.slice(rr + 1).find(x => x.name === heroName); rec.f3b = nx ? (nx.a === 'folds' ? 1 : 0) : -1; }
   }
+  // колд-колл (один рейз до героя, герой коллирует): ход раздачи для реплеера
+  if (rec.rz === 1 && rec.act === 1) rec.rp = buildReplay(lines, { seatNums, seats, pos, heroName, bb, who, fmt, header, sbAmt });
   // против лимперов: блайнд против блайнда (лимпил только SB) и реакция героя на ререйз после изолейта
   if (rec.sit === 1) {
     const lset = new Set(before.filter(x => x.a === 'calls').map(x => pos[byName[x.name]]));
