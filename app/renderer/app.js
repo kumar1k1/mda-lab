@@ -1594,8 +1594,7 @@ function updatePlayer() {
   $('playerBtn').classList.toggle('is-opp', !!opp);
   $('nick').textContent = nick;
   $('handsCount').textContent = count.toLocaleString('ru-RU') + ' раздач' + (opp ? ' · соперник · ' + roomName : alias ? ' · все румы' : ' · ' + roomName);
-  $('demoTag').hidden = !(DB.demo || opp);
-  $('demoTag').textContent = opp ? 'демо-данные' : 'демо-база';
+  $('demoTag').hidden = !DB.demo;
   $('playerBtn').title = 'Выбрать игрока' + (alias && DB.nicks ? '. Alias объединяет ники: ' + Object.keys(DB.nicks).map(n => n + ' (' + DB.nicks[n] + ')').join(', ') : '');
 }
 
@@ -1651,7 +1650,7 @@ function openPlayerMenu() {
   DB.rooms.forEach((rn, r) => { if (!ROOM_COUNTS[r]) return; mine.append(item({ badge: code(r), cls: 'room', name: heroNickOf(r), sub: rn, count: ROOM_COUNTS[r], on: !state.player && state.room === r, pick: () => choosePlayer('hero', r) })); });
   // 2) другие игроки базы
   const oth = el('div', 'pm-sec pm-oth');
-  const hh = el('div', 'pm-h'); hh.append(document.createTextNode('Другие игроки в базе'), el('span', 'pm-demo', 'демо'));
+  const hh = el('div', 'pm-h', 'Другие игроки в базе');
   const q = el('input', 'pm-q'); q.type = 'search'; q.placeholder = 'Найти ник'; q.setAttribute('aria-label', 'Найти игрока по нику');
   const list = el('div', 'pm-list');
   const fill = () => {
@@ -1661,7 +1660,7 @@ function openPlayerMenu() {
     if (!rows.length) list.append(el('p', 'pm-empty', 'Никого не нашли'));
   };
   q.oninput = fill; fill();
-  oth.append(hh, q, list, el('p', 'pm-note', 'Соперники и их раздачи здесь синтетические: в вашей базе нет имён соперников. Механика выбора та же, что будет с настоящими данными.'));
+  oth.append(hh, q, list);
   m.append(mine, oth); m.hidden = false;
   const cur = m.querySelector('.pm-item.on') || m.querySelector('.pm-item'); if (cur) cur.focus();
   if (state.player) { const on = list.querySelector('.on'); if (on) on.scrollIntoView({ block: 'nearest' }); }
