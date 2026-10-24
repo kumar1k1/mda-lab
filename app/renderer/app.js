@@ -214,7 +214,7 @@ function netChart(items, avg) {
     if (rt) {
       const sw = Math.min(70, bw * 0.84), sx = cx - sw / 2, sy = yb + 37, sh = 11;
       const gr = svgEl('g'); const tt = svgEl('title');
-      tt.textContent = it.p + ', ответ оппонентов: все сбросили ' + fmtPct(rs[0] / rt) + '%, колл ' + fmtPct(rs[1] / rt) + '%, рейз ' + fmtPct(rs[2] / rt) + '% (' + rt + ' открытий)';
+      tt.textContent = it.p + ', ответ оппонентов: фолд ' + fmtPct(rs[0] / rt) + '%, колл ' + fmtPct(rs[1] / rt) + '%, рейз ' + fmtPct(rs[2] / rt) + '% (' + rt + ' открытий)';
       gr.append(tt);
       RESP_COLS.forEach((col, k) => gr.append(svgText(cx + (k - 1) * 17, sy + 7, Math.round(rs[k] / rt * 100), 'middle', 'font-size:10px;font-weight:600;font-family:var(--mono);fill:' + col)));
       s.append(gr);
@@ -237,8 +237,8 @@ function netChart(items, avg) {
   });
   s.append(svgText(P.l - 6, H - P.b + 44, '%', 'end', 'font-size:10px;fill:var(--faint)'));
   const box = el('div', 'net-wrap'); box.append(s);
-  const lg = el('div', 'resp-legend row net-lg'); lg.append(el('span', 'net-lg-t', 'цифры под позицией — первый ответ оппонентов за спиной, %:'));
-  [['все сбросили', RESP_COLS[0]], ['колл', RESP_COLS[1]], ['рейз', RESP_COLS[2]]].forEach(([l, col]) => { const it = el('span'); const i = el('i'); i.style.background = col; it.append(i, document.createTextNode(l)); lg.append(it); });
+  const lg = el('div', 'resp-legend row net-lg'); lg.append(el('span', 'net-lg-t', 'цифры под позицией — первый ответ оппонентов за спиной, % (фолд — все сбросили):'));
+  [['фолд', RESP_COLS[0]], ['колл', RESP_COLS[1]], ['рейз', RESP_COLS[2]]].forEach(([l, col]) => { const it = el('span'); const i = el('i'); i.style.background = col; it.append(i, document.createTextNode(l)); lg.append(it); });
   box.append(lg);
   return box;
 }
@@ -635,22 +635,22 @@ function sizingCard(o) {
     });
     if (other.n) rows.push(['другие', other, 'другие размеры рейза']);
     const t = el('div', 'sz5-t');
-    const hd = el('div', 'sz5-r sz5-h'); ['Размер', 'Доля', 'Сбросили', '3-бет', 'BB'].forEach(x => hd.append(el('span', null, x))); t.append(hd);
+    const hd = el('div', 'sz5-r sz5-h'); ['Размер', 'Доля', 'Фолд', 'Рейз', 'BB'].forEach(x => hd.append(el('span', null, x))); t.append(hd);
     const side = SZ_SIDE === 'both' ? 'CO + BTN' : SZ_SIDE;
     rows.forEach(([lab, z, full]) => {
       const r = el('div', 'sz5-r');
       const share = z.n / tot, fold = z.rn ? z.r[0] / z.rn : null, rr = z.rn ? z.r[2] / z.rn : null, bb = z.sn ? z.sum / 10 / z.sn : null;
       const sh = el('span', 'sz5-sh', fmtPct(share) + '%');
       r.append(el('b', null, lab), sh,
-        el('span', 'sz5-v', fold == null ? '—' : fmtPct(fold) + '%'),
-        el('span', 'sz5-v', rr == null ? '—' : fmtPct(rr) + '%'),
+        Object.assign(el('span', 'sz5-v', fold == null ? '—' : fmtPct(fold) + '%'), { style: 'color:var(--good)' }),
+        Object.assign(el('span', 'sz5-v', rr == null ? '—' : fmtPct(rr) + '%'), { style: 'color:var(--bad)' }),
         el('span', 'sz5-v ' + (bb == null ? '' : bb >= 0 ? 'up' : 'down'), bb == null ? '—' : signed(bb, 2)));
       const tk = el('span', 'sz5-tk'); const tr = el('i'); tr.style.width = Math.max(1, share * 100) + '%'; if (SZ_SIDE === 'BTN') tr.style.background = C_BTN; tk.append(tr);
       r.append(el('small', null, z.n.toLocaleString('ru-RU') + ' раз'), tk);
       if (z.n < 30) r.classList.add('low');
       t.append(r);
     });
-    body.append(t, el('p', 'sz5-note', 'Сбросили — все за вами сфолдили. 3-бет — первый ответ рейзом. BB — средний итог раздачи.'));
+    body.append(t, el('p', 'sz5-note', 'Фолд — все за вами сбросили. Рейз — первый ответ оппонентов рейзом. BB — средний итог раздачи.'));
   }
   draw();
   return m;
@@ -755,7 +755,7 @@ function bxRel(o) {
   const groups = [['Оба короткие', [[0, 0]]], ['Оба средние', [[1, 1]]], ['Оба глубокие', [[2, 2]]],
     ['SB глубже BB', [[1, 0], [2, 0], [2, 1]]], ['BB глубже SB', [[0, 1], [0, 2], [1, 2]]]];
   const t = el('div', 'bx-rel');
-  const hd = el('div', 'bx-rr bx-lh'); ['', 'Сбросили', '', 'BB'].forEach(x => hd.append(el('span', null, x))); t.append(hd);
+  const hd = el('div', 'bx-rr bx-lh'); ['', 'Фолд', '', 'BB'].forEach(x => hd.append(el('span', null, x))); t.append(hd);
   groups.forEach(([lab, cells]) => {
     const g = el('div', 'bx-rg'); g.append(el('b', 'bx-rl', lab));
     [['CO', C_CO], ['BTN', C_BTN]].forEach(([side, col]) => {
@@ -770,7 +770,7 @@ function bxRel(o) {
     });
     t.append(g);
   });
-  m.append(t, el('p', 'sz5-note', 'Сбросили — оба блайнда сфолдили на ваш стил. BB — средний итог открытия. Бледные строки — меньше 30 раздач.'));
+  m.append(t, el('p', 'sz5-note', 'Фолд — оба блайнда сбросили на ваш стил. BB — средний итог открытия. Бледные строки — меньше 30 раздач.'));
   return m;
 }
 
@@ -795,7 +795,7 @@ function respTiles(resp, title, labels) {
   const rs = el('div', 'resp');
   const rt = resp.reduce((a, b) => a + b, 0);
   const rl = el('div', 'resp-tiles');
-  (labels || [['все сбросили', 'var(--good)'], ['колл', 'var(--ice)'], ['рейз', 'var(--bad)']]).forEach(([lab, col], k) => {
+  (labels || [['фолд', 'var(--good)'], ['колл', 'var(--ice)'], ['рейз', 'var(--bad)']]).forEach(([lab, col], k) => {
     const it = el('span', 'resp-tile'); const b = el('b', null, rt ? fmtPct(resp[k] / rt) + '%' : '—'); b.style.color = col;
     it.append(b, el('span', null, lab)); it.title = resp[k].toLocaleString('ru-RU') + ' из ' + rt.toLocaleString('ru-RU');
     rl.append(it);
@@ -980,7 +980,7 @@ function isoSizing(d) {
     rows.sort((a, b) => parseFloat(a[0].replace(',', '.')) - parseFloat(b[0].replace(',', '.')));
     if (other.n) rows.push(['другие', other]);
     const t = el('div', 'sz5-t');
-    const hd = el('div', 'sz5-r sz5-h'); ['Размер', 'Доля', 'Сбросили', 'Рейз', 'Винрейт, BB'].forEach(x => hd.append(el('span', null, x))); t.append(hd);
+    const hd = el('div', 'sz5-r sz5-h'); ['Размер', 'Доля', 'Фолд', 'Рейз', 'Винрейт, BB'].forEach(x => hd.append(el('span', null, x))); t.append(hd);
     rows.forEach(([lab, z]) => {
       const r = el('div', 'sz5-r');
       const share = z.n / tot, fold = z.rn ? z.r[0] / z.rn : null, rr = z.rn ? z.r[2] / z.rn : null, bb = z.sn ? z.sum / 10 / z.sn : null;
@@ -1046,11 +1046,11 @@ function renderRFISummary(idx, r) {
   const rs = el('div', 'resp');
   const rt = x.resp[0] + x.resp[1] + x.resp[2];
   const rbar = el('div', 'resp-bar');
-  const RESP = [['все сбросили', 'var(--good)'], ['колл', 'var(--ice)'], ['рейз', 'var(--bad)']];
+  const RESP = [['фолд', 'var(--good)'], ['колл', 'var(--ice)'], ['рейз', 'var(--bad)']];
   RESP.forEach(([lab, col], k) => { const seg = el('div'); seg.style.width = (rt ? x.resp[k] / rt * 100 : 0) + '%'; seg.style.background = col; seg.title = lab + ': ' + x.resp[k] + ' из ' + rt; rbar.append(seg); });
   const rl = el('div', 'resp-tiles');
   RESP.forEach(([lab, col], k) => { const it = el('span', 'resp-tile'); const b = el('b', null, rt ? fmtPct(x.resp[k] / rt) + '%' : '—'); b.style.color = col; it.append(b, el('span', null, lab)); it.title = x.resp[k].toLocaleString('ru-RU') + ' из ' + rt.toLocaleString('ru-RU') + ' открытий'; rl.append(it); });
-  rs.append(el('span', 'resp-t', 'Первый ответ соперников на ваше открытие'), rl);
+  rs.append(el('span', 'resp-t', 'Первый ответ оппонентов на ваше открытие (фолд — все сбросили)'), rl);
   cards.append(card(1, 'Открываете', '<em>' + pctTxt(x.all) + '</em>', 'рук из ' + x.all.n.toLocaleString('ru-RU') + ' возможностей, EP–BTN', rs));
 
   const dall = x.all.n ? x.all.x / x.all.n : null;
@@ -1068,7 +1068,7 @@ function renderRFISummary(idx, r) {
   // #3 — стил + ответ блайндов (CO и BTN вместе), как в #1
   const so = Stats.stealExtra(DB, idx);
   const sresp = [0, 1, 2].map(k => so.CO.resp[k] + so.BTN.resp[k]);
-  cards.append(card(3, 'Стил с CO и BTN', '<em>' + pctTxt(x.late) + '</em>', 'CO ' + pctTxt(x.latePos.CO) + ' · BTN ' + pctTxt(x.latePos.BTN), respTiles(sresp, 'Ответ блайндов на ваш стил')));
+  cards.append(card(3, 'Стил с CO и BTN', '<em>' + pctTxt(x.late) + '</em>', 'CO ' + pctTxt(x.latePos.CO) + ' · BTN ' + pctTxt(x.latePos.BTN), respTiles(sresp, 'Ответ блайндов на ваш стил (фолд — оба сбросили)')));
 
   // #4 — доля пушей и разбивка по стеку
   const st = el('div', 'mini-bars');
@@ -1083,7 +1083,7 @@ function renderRFISummary(idx, r) {
   const presp = [0, 0];
   { const c = DB.cols; if (c.orsp) for (const i of idx) if (c.sit[i] === 0 && c.pos[i] <= 5 && c.act[i] === 3 && c.orsp[i] >= 0) presp[c.orsp[i] === 0 ? 0 : 1]++; }
   cards.append(card(4, 'Доля пушей среди открытий', '<em>' + pctTxt(x.shove) + '</em>', x.shove.x.toLocaleString('ru-RU') + ' пушей из ' + x.shove.n.toLocaleString('ru-RU') + ' открытий',
-    respTiles(presp, 'Ответ оппонентов на ваш пуш', [['все сбросили', 'var(--good)'], ['колл', 'var(--ice)']])));
+    respTiles(presp, 'Ответ оппонентов на ваш пуш (фолд — все сбросили)', [['фолд', 'var(--good)'], ['колл', 'var(--ice)']])));
   const shovePanel = renderShovePanel(idx, st);
 
 
