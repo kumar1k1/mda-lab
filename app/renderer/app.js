@@ -1588,6 +1588,8 @@ function setupFilters() {
 const ROOM_CODES = { GGPoker: 'GG', Winamax: 'WNX', PokerStars: 'PS', PokerDom: 'PDOM', WPN: 'WPN', iPoker: 'IPK', '888poker': '888', PartyPoker: 'PP' };
 let ROOM_COUNTS = [];
 const kFmt = (n) => (n >= 1000 ? Math.round(n / 1000) + 'k' : String(n));
+// подпись героя в реплеере: «Вы» или ник выбранного соперника (функция — чтобы не зависеть от локальных имён в реплеере)
+function heroLabel() { return state.player ? state.player.name : 'Вы'; }
 function heroNickOf(room) { return (DB.nicks ? Object.keys(DB.nicks).find(n => DB.nicks[n] === DB.rooms[room]) : null) || DB.hero; }
 function updatePlayer() {
   if (!DB) { $('roomBadge').textContent = 'НЕТ БАЗЫ'; $('nick').textContent = '—'; $('handsCount').textContent = ''; $('playerBtn').title = ''; $('playerBtn').disabled = true; return; }
