@@ -756,4 +756,3 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
   .bx-lr .hg-c{grid-template-columns:34px minmax(48px,1fr) 50px 48px 46px}
   .bx-lr .hg-pos{display:block}
 }
-.resp-legend i.lg-evm{width:0;height:12px;border-left:2px dotted var(--soft);border-radius:0;background:none;margin:0 4px}
