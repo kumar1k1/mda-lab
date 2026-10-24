@@ -3,7 +3,7 @@
 // Окно матрицы рук (наведение — подсказка, клик — закрепить), список раздач по руке и реплеер.
 
 const RANKS = 'AKQJT98765432';
-const POS_NAMES = ['EP', 'MP', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
+const POS_NAMES = ['UTG', 'MP', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
 const handName = (k) => { const i = Math.floor(k / 13), j = k % 13; return i === j ? RANKS[i] + RANKS[j] : i < j ? RANKS[i] + RANKS[j] + 's' : RANKS[j] + RANKS[i] + 'o'; };
 let handPop = null, pinned = null, REPLAYS = null;
 

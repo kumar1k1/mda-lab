@@ -1,8 +1,8 @@
 'use strict';
 // Расчёт статов по колонкам базы рук. Работает в окне программы.
-// pos: 0 EP, 1 MP, 2 HJ, 3 CO, 4 BTN, 5 SB, 6 BB
+// pos (как в Hand2Note): 0 UTG, 1 MP, 2 HJ — не используется, 3 CO, 4 BTN, 5 SB, 6 BB
 (function () {
-  const POS = ['EP', 'MP', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
+  const POS = ['UTG', 'MP', 'HJ', 'CO', 'BTN', 'SB', 'BB']; // позиции как в Hand2Note; HJ (2) не используется — входит в MP
 
   // Отбор раздач по фильтрам шапки и подвкладке (размер стола)
   function selectHands(db, f) {
@@ -31,8 +31,8 @@
 
   const STACKS = [['30+', 30, 1e9], ['20-30', 20, 30], ['16-20', 16, 20], ['12-16', 12, 16]];
   const SIZES = [['2-2.25', 0, 225], ['2.25-2.6', 225, 260], ['2.6-3.5', 260, 351]];
-  const RFI_COLS = ['TOT', 'EP', 'MP', 'HJ', 'CO', 'BTN'];
-  const ISO_COLS = ['TOT', 'MP', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
+  const RFI_COLS = ['TOT', 'UTG', 'MP', 'CO', 'BTN'];
+  const ISO_COLS = ['TOT', 'MP', 'CO', 'BTN', 'SB', 'BB'];
 
   function rfi(db, idx) {
     const c = db.cols;
@@ -60,7 +60,7 @@
         const bvb = c.bvb ? c.bvb[i] === 1 : false;
         const fvr = c.fvr ? c.fvr[i] : -1;
         ['TOT', POS[p]].forEach(k => {
-          if (!bvb || k === 'TOT') add(iso[one ? 'vs1' : 'vs2'][k], raised); // в колонке BB — без блайнда против блайнда, в TOT — все (как в HUD)
+          add(iso[one ? 'vs1' : 'vs2'][k], raised); // как в Hand2Note: в BB считается и лимп SB (блайнд против блайнда)
           if (fvr >= 0) add(iso[one ? 'vs1f' : 'vs2f'][k], fvr === 1); // фолд героя на лимп-рейз после изолейта
         });
       }
@@ -178,7 +178,7 @@
   }
 
   // Колд-колл: перед первым ходом героя был ровно один рейз (открытие), герой ещё не вкладывался добровольно; CC — колл этого рейза
-  const CC_COLS = ['TOT', 'EP', 'MP', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
+  const CC_COLS = ['TOT', 'UTG', 'MP', 'CO', 'BTN', 'SB', 'BB'];
   const CC_SZ = [['2 BB', 0, 205], ['2,1–2,3 BB', 205, 235], ['2,4–2,6 BB', 235, 265], ['2,7–3,4 BB', 265, 345], ['3,5 BB и больше', 345, 1e9]];
   const CC_AISTK = [['< 8 BB', 0, 8], ['8–12 BB', 8, 12], ['12–20 BB', 12, 20], ['20+ BB', 20, 1e9]];
   function cc(db, idx, opt) {

@@ -171,7 +171,7 @@ function block(title, note, tableNode, vizNodes) {
 
 // ---------- вкладка RFI ----------
 // ---------- сводка вкладки RFI (нумерованные элементы — чтобы удобно выбирать, что оставить) ----------
-const uiState = { mxPos: 'EP', mxStk: '20–30', mxCustom: null, ccPos: 'BTN', ccStk: '20–30', ccCustom: null, ccOPos: 'BTN', ccOStkR: null, ccOMyR: null, ccOOpen: [] };
+const uiState = { mxPos: 'UTG', mxStk: '20–30', mxCustom: null, ccPos: 'BTN', ccStk: '20–30', ccCustom: null, ccOPos: 'BTN', ccOStkR: null, ccOMyR: null, ccOOpen: [] };
 const MX_STK = [['<12', '<12', [0, 12]], ['12–16', '12–16', [12, 16]], ['16–20', '16–20', [16, 20]], ['20–30', '20–30', [20, 30]], ['30–50', '30–50', [30, 50]], ['50+', '50+', [50, 1e9]]];
 function getTarget() { try { const v = parseFloat(localStorage.getItem('mdalab.rfiTarget')); return isNaN(v) ? 30 : v; } catch (e) { return 30; } }
 function setTarget(v) { try { localStorage.setItem('mdalab.rfiTarget', String(v)); } catch (e) { /* без сохранения */ } }
@@ -920,7 +920,7 @@ function hidePushTip() { if (pushTip) pushTip.hidden = true; }
 
 // ---------- #4+ — пуши подробно ----------
 function renderShovePanel(idx, stackBars) {
-  const c = DB.cols, P = ['EP', 'MP', 'HJ', 'CO', 'BTN', 'SB'];
+  const c = DB.cols, P = ['UTG', 'MP', 'HJ', 'CO', 'BTN', 'SB']; // индекс = позиция; HJ не бывает (как в Hand2Note) и не показывается
   const EV = EVcol(), pos = P.map(() => ({ x: 0, n: 0 })), netPos = P.map(() => ({ sum: 0, n: 0 })), resp = [0, 0, 0], net = { sum: 0, es: 0, n: 0 }, netStk = [[], [], [], [], [], []].map(() => ({ sum: 0, n: 0 }));
   const SB = [['<8', 0, 8], ['8–10', 8, 10], ['10–12', 10, 12], ['12–15', 12, 15], ['15–20', 15, 20], ['20+', 20, 1e9]];
   const opp = SB.map(() => ({ x: 0, n: 0 }));
@@ -951,8 +951,9 @@ function renderShovePanel(idx, stackBars) {
     if (push) { const z = M[k][p]; z.ids.push(i); if (hc >= 0) { if (!z.mx) z.mx = Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })); z.mx[hc].n++; if (c.net) { z.mx[hc].sum += c.net[i]; z.mx[hc].es += EV[i]; } } }
   }
   const tb = el('div', 'pmx');
+  tb.style.gridTemplateColumns = 'auto repeat(' + P.filter(p => p !== 'HJ').length + ', minmax(0, 1fr))';
   const corner = el('span', 'pmx-corner', 'стек, BB'); tb.append(corner);
-  P.forEach(nm => tb.append(el('span', 'pmx-ch', nm)));
+  P.forEach(nm => { if (nm !== 'HJ') tb.append(el('span', 'pmx-ch', nm)); });
   const maxF = Math.max(0.01, ...M.flat().filter(z => z.x >= 5).map(z => z.x / z.o));
   const put = (z, lab, tot) => {
     const d = el('div', 'pmx-c' + (tot ? ' tot' : ''));
@@ -975,14 +976,14 @@ function renderShovePanel(idx, stackBars) {
   };
   SB.forEach((z0, k) => {
     tb.append(el('span', 'pmx-rh', z0[0]));
-    P.forEach((nm, p) => tb.append(put(M[k][p], nm + ', ' + z0[0] + ' BB')));
+    P.forEach((nm, p) => { if (nm !== 'HJ') tb.append(put(M[k][p], nm + ', ' + z0[0] + ' BB')); });
   });
   m.append(tb, infoNote('В клетке: сверху — частота пуша (как часто вы идёте олл-ин от всех возможностей открыться), снизу — винрейт за пуш в BB. Чем ярче клетка, тем чаще пуш. Бледные клетки — меньше 10 пушей. Наведите на клетку — покажутся руки, которыми вы пушили, и их итог; клик закрепит окно, а клик по руке откроет раздачи и реплеер.'));
   return card;
 }
 
 // ---------- #5 / #5+ — изоляция лимперов ----------
-const ISO_POS = ['MP', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
+const ISO_POS = ['MP', 'HJ', 'CO', 'BTN', 'SB', 'BB']; // индекс = позиция − 1; HJ не показывается
 function isoData(idx) {
   const c = DB.cols, EV = EVcol(), cell = () => ({ o: 0, x: 0, sum: 0, es: 0, n: 0, f: 0, fn: 0, ids: [], mx: null });
   const M = [ISO_POS.map(cell), ISO_POS.map(cell)], tot = [cell(), cell()], resp = [0, 0, 0], respL = [[0, 0, 0], [0, 0, 0]], szx = [{}, {}];
@@ -991,7 +992,7 @@ function isoData(idx) {
     const r = c.lim[i] === 1 ? 0 : 1, z = M[r][p - 1], t = tot[r];
     const bvb = c.bvb ? c.bvb[i] === 1 : false, raised = c.act[i] >= 2;
     t.o++; if (raised) t.x++;
-    if (!bvb) { z.o++; if (raised) z.x++; } // в колонке BB — без блайнда против блайнда, как в HUD
+    z.o++; if (raised) z.x++; // как в Hand2Note: в BB считается и лимп SB
     if (!raised) continue;
     if (c.orsp && c.orsp[i] >= 0) { resp[c.orsp[i]]++; respL[r][c.orsp[i]]++; }
     if (c.act[i] === 2 && c.bb[i] / 10 - c.size[i] / 100 >= 0.5) { // сайзинг изолейта с точностью до 0.5 BB, без олл-инов
@@ -1031,7 +1032,7 @@ function isoCard(d) {
   });
   rt.append(g);
   const isoPos = ISO_POS.map((nm, p) => { const z1 = d.M[0][p], z2 = d.M[1][p]; const x = z1.x + z2.x, n = z1.o + z2.o; return [nm, n ? x / n : null, nm + ': изолейт ' + x + ' из ' + n]; });
-  box.append(sub, posStrip('По позициям', isoPos), rt);
+  box.append(sub, posStrip('По позициям', isoPos.filter(r => r[0] !== 'HJ')), rt);
   return card(5, 'Изолейт лимперов', '<em>' + pctTxt(all) + '</em>', null, box);
 }
 
@@ -1082,12 +1083,14 @@ function isoPanel(d) {
   const nAll = d.M.flat().reduce((a, z) => a + z.n, 0), sAll = d.M.flat().reduce((a, z) => a + z.sum, 0), eAll = d.M.flat().reduce((a, z) => a + z.es, 0);
   card.append(el('b', 'pm-title', 'Изолейт по позициям'), el('span', 'sm-s', 'ваш рейз поверх лимпа: частота и винрейт; в среднем ' + wrTxt(nAll ? sAll / 10 / nAll : null, nAll ? eAll / 10 / nAll : null, 2) + ' BB за изолейт, ' + nAll.toLocaleString('ru-RU') + ' изолейтов'));
   const tb = el('div', 'pmx iso');
+  tb.style.gridTemplateColumns = 'auto repeat(' + ISO_POS.filter(p => p !== 'HJ').length + ', minmax(0, 1fr))';
   tb.append(el('span', 'pmx-corner', 'лимперов'));
-  ISO_POS.forEach(nm => tb.append(el('span', 'pmx-ch', nm)));
+  ISO_POS.forEach(nm => { if (nm !== 'HJ') tb.append(el('span', 'pmx-ch', nm)); });
   const maxF = Math.max(0.01, ...d.M.flat().filter(z => z.o >= 20).map(z => z.x / z.o));
   [['1', 0], ['2+', 1]].forEach(([lab, r]) => {
     tb.append(el('span', 'pmx-rh', lab));
     ISO_POS.forEach((nm, p) => {
+      if (nm === 'HJ') return;
       const z = d.M[r][p], c = el('div', 'pmx-c');
       if (!z.o) { c.classList.add('na'); c.append(el('b', null, '—')); tb.append(c); return; }
       const f = z.x / z.o, w = z.n ? z.sum / 10 / z.n : null;
@@ -1109,7 +1112,7 @@ function isoPanel(d) {
       tb.append(c);
     });
   });
-  card.append(tb, infoNote('В клетке: частота изолейта (как часто вы рейзите, когда перед вами лимпили), и винрейт за изолейт в BB. В колонке BB — без ситуаций блайнд против блайнда. Чем ярче клетка, тем чаще изолейт; бледные — меньше 20 возможностей. Наведите на клетку — покажутся руки, клик закрепит окно, клик по руке откроет раздачи и реплеер.'), isoSizing(d));
+  card.append(tb, infoNote('В клетке: частота изолейта (как часто вы рейзите, когда перед вами лимпили), и винрейт за изолейт в BB. Чем ярче клетка, тем чаще изолейт; бледные — меньше 20 возможностей. Наведите на клетку — покажутся руки, клик закрепит окно, клик по руке откроет раздачи и реплеер.'), isoSizing(d));
   return card;
 }
 
@@ -1128,8 +1131,8 @@ function renderRFISummary(idx, r) {
   const rl = el('div', 'resp-tiles');
   RESP.forEach(([lab, col], k) => { const it = el('span', 'resp-tile'); const b = el('b', null, rt ? fmtPct(x.resp[k] / rt) + '%' : '—'); b.style.color = col; it.append(b, el('span', null, lab)); it.title = x.resp[k].toLocaleString('ru-RU') + ' из ' + rt.toLocaleString('ru-RU') + ' открытий'; rl.append(it); });
   rs.append(el('span', 'resp-t', 'Первый ответ оппонентов на ваше открытие (фолд — все сбросили)'), rl);
-  const pos1 = ['EP', 'MP', 'HJ', 'CO', 'BTN'].map(p => { const z = x.seats[p]; return [p, z && z.n ? z.x / z.n : null, p + ': ' + (z ? z.x + ' из ' + z.n : '')]; });
-  cards.append(card(1, 'Открываете', '<em>' + pctTxt(x.all) + '</em>', 'рук из ' + x.all.n.toLocaleString('ru-RU') + ' возможностей, EP–BTN', fillBox(posStrip('По позициям', pos1), rs)));
+  const pos1 = ['UTG', 'MP', 'CO', 'BTN'].map(p => { const z = x.seats[p]; return [p, z && z.n ? z.x / z.n : null, p + ': ' + (z ? z.x + ' из ' + z.n : '')]; });
+  cards.append(card(1, 'Открываете', '<em>' + pctTxt(x.all) + '</em>', 'рук из ' + x.all.n.toLocaleString('ru-RU') + ' возможностей, UTG–BTN', fillBox(posStrip('По позициям', pos1), rs)));
 
   const dall = x.all.n ? x.all.x / x.all.n : null;
   // #8 — результат открытий: столбики по позициям вокруг нуля
@@ -1141,7 +1144,7 @@ function renderRFISummary(idx, r) {
   const sp1 = el('div'); sp1.append(el('span', 'k', 'без борьбы'), wrNode('b', unc, perEv(x.netUnc), 2), el('span', 'n', x.netUnc.n.toLocaleString('ru-RU') + ' раз'));
   const sp2 = el('div'); sp2.append(el('span', 'k', 'когда сыграли'), wrNode('b', con, perEv(x.netCon), 2), el('span', 'n', x.netCon.n.toLocaleString('ru-RU') + ' раз'));
   split.append(sp1, sp2);
-  const c8 = card(8, 'Результат открытий', wrHtml(nb == null ? null : nb / 100, perEv(x.openNet), 2) + ' <small>BB за открытие</small>', 'итог раздачи после вашего открытия по позициям: факт и EV (олл-ины до ривера — по эквити); под позицией — число открытий', netChart((LAST_NET_ITEMS = ['EP', 'MP', 'HJ', 'CO', 'BTN', 'SB'].map(p => ({ p, o: x.openNetPos[p], mx: x.netMx[p], r: x.respPos[p] }))), nb == null ? null : nb / 100));
+  const c8 = card(8, 'Результат открытий', wrHtml(nb == null ? null : nb / 100, perEv(x.openNet), 2) + ' <small>BB за открытие</small>', 'итог раздачи после вашего открытия по позициям: факт и EV (олл-ины до ривера — по эквити); под позицией — число открытий', netChart((LAST_NET_ITEMS = ['UTG', 'MP', 'CO', 'BTN', 'SB'].map(p => ({ p, o: x.openNetPos[p], mx: x.netMx[p], r: x.respPos[p] }))), nb == null ? null : nb / 100));
   c8.classList.add('wide', 'span3');
   cards.append(c8);
   // #3 — стил + ответ блайндов (CO и BTN вместе), как в #1
@@ -1159,9 +1162,9 @@ function renderRFISummary(idx, r) {
     r.append(el('span', 'mb-l', lab + ' BB'), tr, el('span', 'mb-v', v == null ? '—' : fmtPct(v) + '%'));
     st.append(r);
   });
-  const presp = [0, 0], pp = ['EP', 'MP', 'HJ', 'CO', 'BTN', 'SB'].map(() => ({ x: 0, n: 0 }));
+  const presp = [0, 0], pp = ['UTG', 'MP', 'HJ', 'CO', 'BTN', 'SB'].map(() => ({ x: 0, n: 0 }));
   { const c = DB.cols; for (const i of idx) if (c.sit[i] === 0 && c.pos[i] <= 5 && c.act[i] >= 2) { pp[c.pos[i]].n++; if (c.act[i] === 3) pp[c.pos[i]].x++; } }
-  const pushPos = ['EP', 'MP', 'HJ', 'CO', 'BTN', 'SB'].map((p, k) => [p, pp[k].n ? pp[k].x / pp[k].n : null, p + ': ' + pp[k].x + ' пушей из ' + pp[k].n + ' открытий']);
+  const pushPos = ['UTG', 'MP', 'HJ', 'CO', 'BTN', 'SB'].map((p, k) => [p, pp[k].n ? pp[k].x / pp[k].n : null, p + ': ' + pp[k].x + ' пушей из ' + pp[k].n + ' открытий']).filter(r => r[0] !== 'HJ');
   { const c = DB.cols; if (c.orsp) for (const i of idx) if (c.sit[i] === 0 && c.pos[i] <= 5 && c.act[i] === 3 && c.orsp[i] >= 0) presp[c.orsp[i] === 0 ? 0 : 1]++; }
   cards.append(card(4, 'Доля пушей среди открытий', '<em>' + pctTxt(x.shove) + '</em>', x.shove.x.toLocaleString('ru-RU') + ' пушей из ' + x.shove.n.toLocaleString('ru-RU') + ' открытий',
     fillBox(posStrip('По позициям — доля пушей среди открытий', pushPos), respTiles(presp, 'Ответ оппонентов на ваш пуш (фолд — все сбросили)', [['фолд', 'var(--good)'], ['колл', 'var(--ice)']]))));
@@ -1185,7 +1188,7 @@ function renderRFISummary(idx, r) {
   const b13 = el('section', 'block'); b13.append(numTag(13));
   const h13 = el('div', 'block-head'); h13.append(el('h2', null, 'Какие руки вы открываете'), el('p', null, 'процент открытия каждой руки, когда до вас все сбросили'));
   const seg = el('div', 'seg');
-  ['EP', 'MP', 'HJ', 'CO', 'BTN', 'SB'].forEach(p => { const b = el('button', uiState.mxPos === p ? 'on' : '', p); b.type = 'button'; b.onclick = () => { uiState.mxPos = p; render(); }; seg.append(b); });
+  ['UTG', 'MP', 'CO', 'BTN', 'SB'].forEach(p => { const b = el('button', uiState.mxPos === p ? 'on' : '', p); b.type = 'button'; b.onclick = () => { uiState.mxPos = p; render(); }; seg.append(b); });
   const mxBody = el('div', 'block-body'); mxBody.append(handMatrix(x.mx));
   const mxSide = el('div', 'mx-side');
   const segS = el('div', 'seg');
@@ -1319,10 +1322,10 @@ function ccOppBlock(r) {
   const b = el('section', 'block cc-table'); b.append(numTag(5));
   const h = el('div', 'block-head'); h.append(el('h2', null, 'Ваш ответ против стека открывающего'), el('p', null, 'колл, 3-бет, олл-ин или фолд каждой рукой, когда перед вами был один рейз; стеки задаёте сами'));
   const seg = el('div', 'seg');
-  ['MP', 'HJ', 'CO', 'BTN', 'SB', 'BB'].filter(p => r.cc[p].n >= SMALL).forEach(p => { const bt = el('button', uiState.ccOPos === p ? 'on' : '', p); bt.type = 'button'; bt.onclick = () => { uiState.ccOPos = p; uiState.ccOOpen = []; render(); }; seg.append(bt); });
+  ['MP', 'CO', 'BTN', 'SB', 'BB'].filter(p => r.cc[p].n >= SMALL).forEach(p => { const bt = el('button', uiState.ccOPos === p ? 'on' : '', p); bt.type = 'button'; bt.onclick = () => { uiState.ccOPos = p; uiState.ccOOpen = []; render(); }; seg.append(bt); });
   // позиция открывающего: можно выбрать одну или несколько — ответ считается суммарно против них
   const segO = el('div', 'seg seg-multi');
-  const opts = ['EP', 'MP', 'HJ', 'CO', 'BTN', 'SB'].filter(op => r.vs[uiState.ccOPos] && r.vs[uiState.ccOPos][op] && r.vs[uiState.ccOPos][op].n > 0);
+  const opts = ['UTG', 'MP', 'CO', 'BTN', 'SB'].filter(op => r.vs[uiState.ccOPos] && r.vs[uiState.ccOPos][op] && r.vs[uiState.ccOPos][op].n > 0);
   const sel = uiState.ccOOpen.filter(op => opts.includes(op));
   const ball = el('button', sel.length ? '' : 'on', 'Все'); ball.type = 'button'; ball.setAttribute('aria-pressed', String(!sel.length)); ball.onclick = () => { uiState.ccOOpen = []; render(); }; segO.append(ball);
   opts.forEach(op => { const on = sel.includes(op); const bt = el('button', on ? 'on' : '', op); bt.type = 'button'; bt.setAttribute('aria-pressed', String(on)); bt.onclick = () => { uiState.ccOOpen = on ? sel.filter(x => x !== op) : sel.concat([op]); render(); }; segO.append(bt); });
@@ -1371,7 +1374,7 @@ function ccRangeBlock(r, o) {
   const b = el('section', 'block cc-table'); b.append(numTag(o.tag));
   const h = el('div', 'block-head'); h.append(el('h2', null, o.title), el('p', null, o.sub));
   const seg = el('div', 'seg');
-  ['MP', 'HJ', 'CO', 'BTN', 'SB', 'BB'].filter(p => r.cc[p].n >= SMALL).forEach(p => { const bt = el('button', uiState[o.pos] === p ? 'on' : '', p); bt.type = 'button'; bt.onclick = () => { uiState[o.pos] = p; render(); }; seg.append(bt); });
+  ['MP', 'CO', 'BTN', 'SB', 'BB'].filter(p => r.cc[p].n >= SMALL).forEach(p => { const bt = el('button', uiState[o.pos] === p ? 'on' : '', p); bt.type = 'button'; bt.onclick = () => { uiState[o.pos] = p; render(); }; seg.append(bt); });
   const body = el('div', 'block-body'); body.append(handMatrix(o.mx, ['3-бет', 'олл-ин', 'колл', 'фолд']));
   const side = el('div', 'mx-side');
   const segS = el('div', 'seg');
@@ -1404,7 +1407,7 @@ let CC_BX = 'bb';
 // таблица «позиция против позиции»: строки — ваша позиция, колонки — кто открыл
 function ccVsTable(r) {
   const heroPos = r.CC_COLS.slice(1).filter(p => r.cc[p].n >= SMALL);
-  const opCols = ['EP', 'MP', 'HJ', 'CO', 'BTN', 'SB'].filter(op => heroPos.some(p => r.vs[p] && r.vs[p][op] && r.vs[p][op].n >= SMALL));
+  const opCols = ['UTG', 'MP', 'CO', 'BTN', 'SB'].filter(op => heroPos.some(p => r.vs[p] && r.vs[p][op] && r.vs[p][op].n >= SMALL));
   const rows = heroPos.map(p => ({ key: p, label: p, data: r.vs[p] || {} }));
   const w = heatTable({ cols: opCols, rows, noTot: true });
   w.querySelectorAll('td.c').forEach(td => {
@@ -1427,7 +1430,7 @@ function ccVsTable(r) {
 
 // таблица CC: наведение на ячейку — матрица рук, которыми вы коллировали, с итогом; клик — закрепить, раздачи и реплеер
 function ccTable(r) {
-  // позиции, где такой ситуации почти не бывает (EP за 8-max), не показываем
+  // позиции, где такой ситуации почти не бывает (UTG), не показываем
   const cols = r.CC_COLS.filter(k => k === 'TOT' || r.cc[k].n >= SMALL);
   const w = heatTable({ cols, groupGapBefore: cols.indexOf('SB') >= 0 ? cols.indexOf('SB') : cols.indexOf('BB'), rows: [{ label: 'Колд-колл', data: r.cc }] });
   w.querySelectorAll('td.c').forEach(td => {
@@ -1451,7 +1454,7 @@ function renderCC(idx) {
   head.append(h1, el('p', null, 'Как в Hand2Note: перед вами ровно один рейз без коллеров («1 Raise»), вы ещё не вкладывались в банк. Частота — по вашему первому ходу; винрейт, руки и раздачи — только когда колл был вашим единственным ходом на префлопе («Префлоп: C»).'));
   page.append(head);
   // #1 — общий колд-колл, по позициям и ваш ответ на открытие; #2 — таблица по позициям (в стиле вкладки RFI)
-  const posRows = ['EP', 'MP', 'HJ', 'CO', 'BTN', 'SB'].filter(p => r.cc[p].n >= SMALL).map(p => { const z = r.cc[p]; return [p, z.n ? z.x / z.n : null, p + ': ' + z.x + ' из ' + z.n]; });
+  const posRows = ['UTG', 'MP', 'CO', 'BTN', 'SB'].filter(p => r.cc[p].n >= SMALL).map(p => { const z = r.cc[p]; return [p, z.n ? z.x / z.n : null, p + ': ' + z.x + ' из ' + z.n]; });
   const c1 = card(1, 'Колд-коллите', '<em>' + pctTxt(r.cc.TOT) + '</em>', 'из ' + r.cc.TOT.n.toLocaleString('ru-RU') + ' открытий перед вами, без BB',
     fillBox(posStrip('По позициям', posRows), respTiles(r.resp, 'Ваш ответ на открытие', [['фолд', 'var(--good)'], ['колл', 'var(--ice)'], ['3-бет', 'var(--bad)']])));
   const c2 = el('div', 'insight');

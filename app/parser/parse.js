@@ -4,7 +4,7 @@
 
 const HEADERS = /^(?:PokerStars Hand #|Winamax Poker - Tournament "|Game Hand #)/m;
 const SPLIT = /\r?\n(?=(?:PokerStars Hand #|Winamax Poker - Tournament "|Game Hand #))/;
-const POS_IDX = { EP: 0, MP: 1, HJ: 2, CO: 3, BTN: 4, SB: 5, BB: 6 };
+const POS_IDX = { UTG: 0, MP: 1, CO: 3, BTN: 4, SB: 5, BB: 6 }; // 2 (HJ) не используется — в Hand2Note он входит в MP
 
 const num = (s) => parseFloat(String(s).replace(/,/g, ''));
 
@@ -37,18 +37,16 @@ function detectFormat(head) {
 }
 
 // Позиции по порядку хода префлоп: места между BB и баттоном (не включая) + BTN, SB, BB.
-// Отсчёт от баттона: CO, HJ, MP; при 5+ местах перед баттоном MP занимает два места; остальные — EP (как в Hand2Note).
-function assignPositions(order, btnSeat, sbSeat, bbSeat) {
-  // order — номера мест по часовой стрелке, начиная с первого после BB
+function assignPositions(order, btnSeat, sbSeat, bbSeat, tblMax) {
+  // как в Hand2Note: позиции считаются по игрокам назад от BB — SB, BTN, CO (кто реально поставил блайнд и где фишка дилера, не важно);
+  // UTG — первый ход префлоп, только если стол полный; все остальные ранние места — MP
+  // order — номера мест по часовой стрелке, начиная с первого после BB (без BB)
   const pos = {};
   if (bbSeat != null) pos[bbSeat] = 'BB';
-  if (sbSeat != null) pos[sbSeat] = 'SB';
-  const early = order.filter(s => s !== sbSeat && s !== bbSeat);
-  if (early.length && early[early.length - 1] === btnSeat) { pos[btnSeat] = 'BTN'; early.pop(); }
-  const k = early.length;
-  early.forEach((s, i) => {
+  const k = order.length;
+  order.forEach((s, i) => {
     const fromEnd = k - 1 - i;
-    pos[s] = fromEnd === 0 ? 'CO' : fromEnd === 1 ? 'HJ' : fromEnd === 2 || (fromEnd === 3 && k >= 5) ? 'MP' : 'EP';
+    pos[s] = fromEnd === 0 ? 'SB' : fromEnd === 1 ? 'BTN' : fromEnd === 2 ? 'CO' : (i === 0 && tblMax && k + 1 === tblMax ? 'UTG' : 'MP');
   });
   return pos;
 }
@@ -201,7 +199,7 @@ function parseHand(text, fmt, heroes) {
   const order = [];
   for (let i = 1; i <= seatNums.length; i++) order.push(seatNums[(startI + i) % seatNums.length]);
   // order: от первого после BB по кругу до BB включительно
-  const pos = assignPositions(order.slice(0, -1).concat([]), btnSeat, sbSeat, bbSeat);
+  const pos = assignPositions(order.slice(0, -1), btnSeat, sbSeat, bbSeat, tblMax);
 
   // префлоп-действия
   let inPre = false; const acts = [];
