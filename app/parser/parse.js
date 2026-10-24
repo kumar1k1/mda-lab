@@ -223,7 +223,7 @@ function parseHand(text, fmt, heroes) {
   const dealt = lines.find(l => l.startsWith('Dealt to ' + heroName + ' ['));
   rec.hc = dealt ? handClass(dealt.slice(dealt.indexOf('['))) : -1;
   rec.net = Math.round(heroNet(lines, heroName, fmt) / bb * 10); // ×10 BB
-  rec.sto = -1; rec.f3b = -1; rec.orsp = -1; rec.rz = 0; rec.cl = 0; rec.rai = 0; rec.opos = -1; rec.ostk = -1; rec.osz = -1;
+  rec.hpa = 0; rec.sto = -1; rec.f3b = -1; rec.orsp = -1; rec.rz = 0; rec.cl = 0; rec.rai = 0; rec.opos = -1; rec.ostk = -1; rec.osz = -1;
   // самый короткий стек среди блайндов (кроме героя), BB×10 — для стила против коротких/глубоких блайндов
   const bl = [sbSeat, bbSeat].filter(sn => sn != null && sn !== heroSeat && seats[sn]).map(sn => seats[sn].stack);
   rec.bmin = bl.length ? Math.round(Math.min(...bl) / bb * 10) : -1;
@@ -237,6 +237,7 @@ function parseHand(text, fmt, heroes) {
     rec.bsh = beh.filter(v => v < 12).length; rec.bmd = beh.filter(v => v >= 12 && v < 25).length; rec.bdp = beh.filter(v => v >= 25).length;
     rec.cov = beh.length ? (seats[heroSeat].stack / bb >= Math.max(...beh) ? 1 : 0) : -1;
   }
+  rec.hpa = acts.filter(x => x.name === heroName).length; // сколько раз герой ходил префлоп («C» в Hand2Note — ровно один ход-колл)
   if (hi < 0) return rec; // герой не действовал префлоп (все сбросили до BB)
   const before = acts.slice(0, hi);
   const raises = before.filter(x => x.a === 'raises' || x.a === 'bets').length;

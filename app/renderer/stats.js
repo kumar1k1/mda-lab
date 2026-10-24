@@ -198,20 +198,22 @@
     CC_COLS.forEach(k => { out.cc[k] = R(); out.hands[k] = { n: 0, sum: 0, es: 0, ids: [], mx: Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })) }; });
     if (!c.rz) return Object.assign(out, { CC_COLS, CC_SZ, CC_AISTK });
     for (const i of idx) {
-      if (c.rz[i] !== 1) continue;
+      // как в Hand2Note: «перед игроком 1 Raise» — ровно один рейз и никто его не коллировал
+      if (c.rz[i] !== 1 || (c.cl && c.cl[i] !== 0)) continue;
       const p = POS[c.pos[i]], call = c.act[i] === 1;
+      const c1 = call && (!c.hpa || c.hpa[i] === 1); // «Префлоп: C» — колл был единственным ходом героя на префлопе (для винрейта и рук)
       const keys = p === 'BB' ? [p] : ['TOT', p], v0 = c.net ? c.net[i] : 0, e0 = c.net ? EV[i] : 0, a0 = c.act[i];
       const shove = c.rai && (c.rai[i] === 1 || (c.osz && c.ostk && c.osz[i] >= 0 && c.osz[i] / 100 >= c.ostk[i] / 10 - 0.5)); // открытие олл-ином (или почти всем стеком)
       if (shove) {
         keys.forEach(k => {
           const z = out.ai[k]; z.n++; if (call) z.x++;
           const sk = CC_AISTK.findIndex(q => c.ostk[i] / 10 >= q[1] && c.ostk[i] / 10 < q[2]);
-          if (sk >= 0) { const q = out.aiStk[k][sk]; q.n++; if (call) { q.call++; q.sum += v0; q.es += e0; q.sn++; } else if (a0 >= 2) q.rz++; else q.fold++; }
-          if (call && c.hc[i] >= 0) { const h = out.aiHands[k], m = h.mx[c.hc[i]]; h.n++; h.sum += v0; h.es += e0; h.ids.push(i); m.n++; m.sum += v0; m.es += e0; }
+          if (sk >= 0) { const q = out.aiStk[k][sk]; q.n++; if (call) { q.call++; if (c1) { q.sum += v0; q.es += e0; q.sn++; } } else if (a0 >= 2) q.rz++; else q.fold++; }
+          if (c1 && c.hc[i] >= 0) { const h = out.aiHands[k], m = h.mx[c.hc[i]]; h.n++; h.sum += v0; h.es += e0; h.ids.push(i); m.n++; m.sum += v0; m.es += e0; }
         });
       } else if (c.osz && c.osz[i] >= 0) {
         const sk = CC_SZ.findIndex(q => c.osz[i] >= q[1] && c.osz[i] < q[2]);
-        if (sk >= 0) keys.forEach(k => { const q = out.sz[k][sk]; q.n++; if (call) { q.call++; q.sum += v0; q.es += e0; q.sn++; if (c.hc[i] >= 0) { if (!q.mx) q.mx = Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })); q.ids.push(i); q.mx[c.hc[i]].n++; q.mx[c.hc[i]].sum += v0; q.mx[c.hc[i]].es += e0; } } else if (a0 >= 2) q.rz++; else q.fold++; });
+        if (sk >= 0) keys.forEach(k => { const q = out.sz[k][sk]; q.n++; if (call) { q.call++; if (c1) { q.sum += v0; q.es += e0; q.sn++; } if (c1 && c.hc[i] >= 0) { if (!q.mx) q.mx = Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })); q.ids.push(i); q.mx[c.hc[i]].n++; q.mx[c.hc[i]].sum += v0; q.mx[c.hc[i]].es += e0; } } else if (a0 >= 2) q.rz++; else q.fold++; });
       }
       (p === 'BB' ? [out.cc[p]] : [out.cc.TOT, out.cc[p]]).forEach(z => { z.n++; if (call) z.x++; }); // TOT — без BB
       if (c.hc[i] >= 0 && p === opt.mxPos && (!opt.mxStk || (c.bb[i] >= opt.mxStk[0] * 10 && c.bb[i] < opt.mxStk[1] * 10))) {
@@ -225,15 +227,15 @@
       if ((p === 'CO' || p === 'BTN') && c.sbs && c.sbs[i] >= 0 && c.bbs[i] >= 0) {
         const f = (v) => BX_STK.findIndex(z => v / 10 >= z[1] && v / 10 < z[2]);
         const z = out.bx[p][f(c.sbs[i])][f(c.bbs[i])]; z.n++;
-        if (call) { z.x++; if (c.net) { z.sum += c.net[i]; z.es += EV[i]; z.sn++; } }
+        if (call) { z.x++; if (c.net && c1) { z.sum += c.net[i]; z.es += EV[i]; z.sn++; } }
       }
       if (c.opos && c.opos[i] >= 0) {
         const op = POS[c.opos[i]], row = out.vs[p] || (out.vs[p] = {}), z = row[op] || (row[op] = { x: 0, n: 0 });
         z.n++; if (call) z.x++;
-        if (call && c.hc[i] >= 0) { const hr = out.vsHands[p] || (out.vsHands[p] = {}), h = hr[op] || (hr[op] = { n: 0, sum: 0, es: 0, ids: [], mx: Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })) }), v = c.net ? c.net[i] : 0, e = c.net ? EV[i] : 0; h.n++; h.sum += v; h.es += e; h.ids.push(i); h.mx[c.hc[i]].n++; h.mx[c.hc[i]].sum += v; h.mx[c.hc[i]].es += e; }
+        if (c1 && c.hc[i] >= 0) { const hr = out.vsHands[p] || (out.vsHands[p] = {}), h = hr[op] || (hr[op] = { n: 0, sum: 0, es: 0, ids: [], mx: Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })) }), v = c.net ? c.net[i] : 0, e = c.net ? EV[i] : 0; h.n++; h.sum += v; h.es += e; h.ids.push(i); h.mx[c.hc[i]].n++; h.mx[c.hc[i]].sum += v; h.mx[c.hc[i]].es += e; }
       }
       if (p !== 'BB') out.resp[c.act[i] === 0 ? 0 : c.act[i] === 1 ? 1 : 2]++;
-      if (call && c.hc[i] >= 0) (p === 'BB' ? [p] : ['TOT', p]).forEach(k => { const h = out.hands[k], m = h.mx[c.hc[i]], v = c.net ? c.net[i] : 0, e = c.net ? EV[i] : 0; h.n++; h.sum += v; h.es += e; h.ids.push(i); m.n++; m.sum += v; m.es += e; });
+      if (c1 && c.hc[i] >= 0) (p === 'BB' ? [p] : ['TOT', p]).forEach(k => { const h = out.hands[k], m = h.mx[c.hc[i]], v = c.net ? c.net[i] : 0, e = c.net ? EV[i] : 0; h.n++; h.sum += v; h.es += e; h.ids.push(i); m.n++; m.sum += v; m.es += e; });
     }
     return Object.assign(out, { CC_COLS, CC_SZ, CC_AISTK });
   }

@@ -213,7 +213,7 @@ function netChart(items, avg) {
   const abs = sv.map(Math.abs).sort((a, b) => b - a);
   const cap = abs.length > 1 ? Math.min(abs[0], Math.max(abs[1] * 2, 1)) : (abs[0] || 0.5);
   const ext = Math.max(0.5, cap) * 1.2;
-  const lo = Math.min(0, ...sv) < 0 ? -ext : 0, hi = ext;
+  const mn = Math.min(0, ...sv), lo = mn < 0 ? -Math.min(ext, Math.max(0.5, -mn * 1.2)) : 0, hi = ext; // минус — только на глубину самого большого минуса
   const clipped = (v) => v > hi || v < lo;
   const y = (v) => P.t + (1 - (Math.max(lo, Math.min(hi, v)) - lo) / (hi - lo)) * (H - P.t - P.b);
   const step = [0.5, 1, 2, 5, 10, 20, 50, 100].find(v => (hi - lo) / v <= 4) || 100; // 2–4 линии сетки при любом размахе
@@ -1448,7 +1448,7 @@ function renderCC(idx) {
   const page = el('div', 'page');
   const head = el('div', 'page-head');
   const h1 = el('h1'); h1.append(document.createTextNode('Колд-колл '), el('span', null, 'CC'));
-  head.append(h1, el('p', null, 'Как часто вы просто коллируете открытие, когда до вас был ровно один рейз и вы ещё не вкладывались в банк.'));
+  head.append(h1, el('p', null, 'Как в Hand2Note: перед вами ровно один рейз без коллеров («1 Raise»), вы ещё не вкладывались в банк. Частота — по вашему первому ходу; винрейт, руки и раздачи — только когда колл был вашим единственным ходом на префлопе («Префлоп: C»).'));
   page.append(head);
   // #1 — общий колд-колл, по позициям и ваш ответ на открытие; #2 — таблица по позициям (в стиле вкладки RFI)
   const posRows = ['EP', 'MP', 'HJ', 'CO', 'BTN', 'SB'].filter(p => r.cc[p].n >= SMALL).map(p => { const z = r.cc[p]; return [p, z.n ? z.x / z.n : null, p + ': ' + z.x + ' из ' + z.n]; });
@@ -1463,7 +1463,8 @@ function renderCC(idx) {
   const items = ccPos.map(p => { const h = r.hands[p]; return { p, key: 'cc' + p, o: { n: h.n, sum: h.sum, es: h.es }, mx: h.mx, ids: h.ids, sit: 2, act: 1, title: 'Колд-колл · ' + p, vlab: ' BB за колд-колл', nlab: ' колд-коллов' }; });
   const t = r.hands.TOT, avg = t.n ? t.sum / 10 / t.n : null, avgE = t.n ? t.es / 10 / t.n : null;
   LAST_NET_ITEMS = items;
-  const c8 = card(8, 'Результат колд-колла', wrHtml(avg, avgE, 2) + ' <small>BB за колд-колл</small>', 'итог раздачи после вашего колд-колла по позициям: факт и EV (олл-ины до ривера — по эквити), без BB в общем итоге; под позицией — число колд-коллов', netChart(items, avg));
+  const tb = r.hands.BB, nAll = t.n + tb.n, allF = nAll ? (t.sum + tb.sum) / 10 / nAll : null, allE = nAll ? (t.es + tb.es) / 10 / nAll : null;
+  const c8 = card(8, 'Результат колд-колла', wrHtml(avg, avgE, 2) + ' <small>BB за колд-колл</small>', 'итог раздачи после вашего колд-колла по позициям: факт и EV (олл-ины до ривера — по эквити), без BB в общем итоге; вместе с BB — ' + wrTxt(allF, allE, 2) + ' BB (' + nAll.toLocaleString('ru-RU') + ' раздач, как «ИТОГ» в Hand2Note); под позицией — число колд-коллов', netChart(items, avg));
   c8.classList.add('wide');
   const zone = el('div', 'summary'); const pair = el('div', 'sum-pair'); pair.append(c1, c8); zone.append(pair);
   c2.classList.add('cc-table');
