@@ -651,7 +651,7 @@ function stealResultCard(o) {
   const m = el('div', 'sm res34');
   const h = el('div', 'sm-h'); h.append(el('span', 'num-tag sm-tag', '#3.4'), el('b', null, 'Результат стила'));
   m.append(h, el('span', 'sm-s', 'BB за открытие: всего и по группам рук'));
-  const lg = el('div', 'resp-legend row sm-lg'); [['CO', C_CO], ['BTN', C_BTN]].forEach(([lab, col]) => { const it = el('span'); const i = el('i'); i.style.background = col; it.append(i, document.createTextNode(lab)); lg.append(it); }); m.append(lg);
+  const lg = el('div', 'resp-legend row sm-lg'); [['CO', C_CO], ['BTN', C_BTN]].forEach(([lab, col]) => { const it = el('span'); const i = el('i'); i.style.background = col; it.append(i, document.createTextNode(lab)); lg.append(it); }); const evIt = el('span'); evIt.append(el('i', 'lg-evm'), document.createTextNode('EV на полосе')); lg.append(evIt); m.append(lg);
   // крупные цифры
   const top = el('div', 'r34-top');
   [['CO', o.CO.nr.all, C_CO], ['BTN', o.BTN.nr.all, C_BTN]].forEach(([nm, z, col]) => {
