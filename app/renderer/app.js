@@ -1822,13 +1822,13 @@ function openPlayerMenu() {
 // и выбранный алиас открывается во вкладках. Раздачи не трогаются — меняется только состав алиаса.
 let EDIT_A = null, EDIT_BUSY = false, EDIT_NEW = false, EDIT_MSG = '', DRAFT = null;
 let PREV_TAB = 'rfi'; // вкладка, с которой открыли редактор: «ОК» возвращает на неё
-function editAliasEdit(mut) {
+function editAliasEdit(mut, quiet) {
   if (!HERO_DB) return;
   if (!DRAFT) DRAFT = aliasList(HERO_DB).map(a => JSON.parse(JSON.stringify(a)));
-  EDIT_MSG = '';
+  if (!quiet) EDIT_MSG = '';
   const pick = mut(DRAFT);
   if (typeof pick === 'number') EDIT_A = pick;
-  render();
+  if (!quiet) render(); // имя алиаса пишется в черновик без перерисовки — иначе первый клик по «ОК» терялся
 }
 // алиасы черновика для показа: числа раздач — из уже посчитанных ников
 function draftInfo() {
@@ -1848,6 +1848,13 @@ function draftInfo() {
 async function applyAliasEdit() {
   if (!HERO_DB || EDIT_BUSY) return;
   const target = EDIT_A;
+  // имя алиаса: пустое — прежнее, занятое другим алиасом — не применяем
+  if (DRAFT && DRAFT[target]) {
+    const nm = String(DRAFT[target].name || '').trim(), old = (ALIASES[target] || {}).name || nm;
+    if (!nm) DRAFT[target].name = old;
+    else if (DRAFT.some((B, k) => k !== target && !B.gone && String(B.name).trim().toLowerCase() === nm.toLowerCase())) { EDIT_MSG = 'Алиас «' + nm + '» уже есть — выберите другое имя'; render(); return; }
+    else DRAFT[target].name = nm;
+  }
   if (DRAFT) {
     if (!mda.saveAliases) return;
     EDIT_BUSY = true; render();
@@ -1904,12 +1911,12 @@ function renderAliasEditor() {
   const button = (label, cls, fn) => { const b = el('button', 'btn small' + (cls ? ' ' + cls : ''), label); b.type = 'button'; b.onclick = fn; b.disabled = EDIT_BUSY; return b; };
   // имя
   const nameRow = el('label', 'als-name'); const nin = el('input'); nin.value = A.name; nin.maxLength = 40;
-  nin.onchange = () => { const v = nin.value.trim(); if (!v || v === A.name) { nin.value = A.name; return; } if (AL.some(B => !B.gone && B !== A && B.name.toLowerCase() === v.toLowerCase())) { EDIT_MSG = 'Алиас «' + v + '» уже есть'; render(); return; } editAliasEdit(list => { list[A.k].name = v; }); };
+  nin.oninput = () => editAliasEdit(list => { list[A.k].name = nin.value; }, true);
+  nin.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); applyAliasEdit(); } };
   nameRow.append(el('span', null, 'Имя алиаса'), nin);
   const top = el('div', 'als-top'); top.append(nameRow);
-  // «ОК» — применить изменения (всех алиасов) и открыть этот алиас во вкладках; «Отменить» — вернуть как было
+  // «ОК» — применить изменения (всех алиасов), закрыть редактор и открыть этот алиас во вкладках
   const acts = el('div', 'als-acts');
-  if (DRAFT) acts.append(button('Отменить изменения', '', () => { DRAFT = null; EDIT_MSG = ''; render(); }));
   const ok = button(EDIT_BUSY ? 'Применяю…' : 'ОК', 'primary als-ok', () => applyAliasEdit());
   ok.title = DRAFT ? 'Применить изменения, закрыть редактор и открыть алиас' : 'Закрыть редактор и открыть алиас';
   acts.append(ok); top.append(acts);
