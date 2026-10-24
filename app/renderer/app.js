@@ -640,7 +640,8 @@ function stealResultCard(o) {
     const v = z.n ? z.sum / 10 / z.n : null, e = z.n ? z.es / 10 / z.n : null;
     const b = el('div', 'r34-big'); b.style.borderColor = col;
     const big = el('b'); big.innerHTML = wrHtml(v, e, 2);
-    b.append(el('span', 'nm', nm), big, el('span', 's', 'BB за открытие · ' + z.n.toLocaleString('ru-RU') + ' раз · всего ' + signed(z.sum / 10, 0) + ' / ' + signed(z.es / 10, 0) + ' EV BB'));
+    b.append(el('span', 'nm', nm), big);
+    b.title = z.n.toLocaleString('ru-RU') + ' открытий · всего ' + signed(z.sum / 10, 0) + ' / ' + signed(z.es / 10, 0) + ' EV BB';
     top.append(b);
   });
   m.append(top);
