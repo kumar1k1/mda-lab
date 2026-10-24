@@ -706,3 +706,8 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .hg-v{white-space:nowrap}
 .pmx-w{text-align:center}
 .pmx-w .evs{font-size:10.5px}
+
+/* #8: легенды в одну строку — факт/EV слева, ответ оппонентов справа */
+.net-lgs{margin-top:6px;display:flex;justify-content:space-between;align-items:center;gap:8px 16px;flex-wrap:wrap}
+.net-lgs .net-lg{margin:0}
+.net-lg-r{margin-left:auto}

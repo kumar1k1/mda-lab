@@ -281,11 +281,12 @@ function netChart(items, avg, evLab) {
   const box = el('div', 'net-wrap'); box.append(s);
   const evLg = el('div', 'resp-legend row net-lg ev-lg');
   evLg.append(Object.assign(el('span'), { innerHTML: '<i class="lg-fact"></i>факт' }), Object.assign(el('span'), { innerHTML: '<i class="lg-ev"></i>' + (evLab || 'EV') }));
-  box.append(evLg);
+  const lgRow = el('div', 'net-lgs'); lgRow.append(evLg); box.append(lgRow);
   if (!hasR) return box;
-  const lg = el('div', 'resp-legend row net-lg'); lg.append(el('span', 'net-lg-t', 'цифры под позицией — первый ответ оппонентов за спиной, % (фолд — все сбросили):'));
+  // справа — цвета ответа оппонентов (цифры под позициями), без пояснительной подписи
+  const lg = el('div', 'resp-legend row net-lg net-lg-r'); lg.title = 'Цифры под позицией — первый ответ оппонентов за спиной, %';
   [['фолд', RESP_COLS[0]], ['колл', RESP_COLS[1]], ['рейз', RESP_COLS[2]]].forEach(([l, col]) => { const it = el('span'); const i = el('i'); i.style.background = col; it.append(i, document.createTextNode(l)); lg.append(it); });
-  box.append(lg);
+  lgRow.append(lg);
   return box;
 }
 
