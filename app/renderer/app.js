@@ -1213,7 +1213,7 @@ function ccSizeBlock(r) {
 let CC_AIPOS = 'TOT';
 function ccAllinBlock(r) {
   const card = el('div', 'insight cc-table');
-  card.append(numTag(7), el('b', 'pm-title', 'Колл против олл-ина'), el('span', 'sm-s', 'перед вами открылись олл-ином (или почти всем стеком), а вы коллировали; TOT — все позиции без BB'));
+  card.append(numTag(7), el('b', 'pm-title', 'Колл против олл-ина'), el('span', 'sm-s', 'перед вами открылись олл-ином (или почти всем стеком), а вы коллировали'));
   // таблица частоты колла пуша по позициям: наведение — руки, клик — раздачи и реплеер
   const cols = r.CC_COLS.filter(k => k === 'TOT' || r.ai[k].n >= SMALL);
   const w = heatTable({ cols, groupGapBefore: cols.indexOf('SB') >= 0 ? cols.indexOf('SB') : cols.indexOf('BB'), rows: [{ label: 'Колл пуша', data: r.ai }] });
@@ -1251,8 +1251,8 @@ function ccAllinBlock(r) {
     });
     body.replaceChildren(tb);
   };
-  card.append(w, chart, stTitle, segBtns(posList.map(p => [p, p === 'TOT' ? 'Все без BB' : p]), CC_AIPOS, (k) => { CC_AIPOS = k; draw(); }), body,
-    infoNote('Колл пуша — доля коллов, когда перед вами был один олл-ин (открытие на весь стек или почти на весь — за спиной меньше 0,5 BB). Наведите на ячейку или столбик — руки, которыми вы коллировали, и их итог; клик закрепит окно, клик по руке откроет раздачи и реплеер. Бледные строки и ячейки — меньше 30 и ' + SMALL + ' раздач.'));
+  card.append(stTitle, segBtns(posList.map(p => [p, p === 'TOT' ? 'Все без BB' : p]), CC_AIPOS, (k) => { CC_AIPOS = k; draw(); }), body,
+    infoNote('Олл-ин — открытие на весь стек или почти на весь (за спиной меньше 0,5 BB). Колл / 3-бет / олл-ин / фолд — ваш ответ, винрейт — средний итог раздачи после вашего колла. Выберите вашу позицию; «Все без BB» — все позиции, кроме BB. Бледные строки — меньше 30 раздач.'));
   draw();
   return card;
 }
