@@ -188,16 +188,27 @@ function card(n, k, vHtml, sub, extra) {
 const pctTxt = (c) => (c && c.n ? fmtPct(c.x / c.n) + '%' : '—');
 const bb100 = (sum10, n) => (n ? (sum10 / 10 / n * 100) : null);
 const signed = (v, d) => (v == null ? '—' : (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(d == null ? 1 : d));
+// винрейт «факт / EV»: EV — с поправкой на олл-ины до ривера (по эквити)
+const EVcol = () => DB.cols.nev || DB.cols.net;
+const wrTxt = (f, e, d) => (f == null ? '—' : signed(f, d) + ' / ' + signed(e, d) + ' EV');
+function wrNode(cls, f, e, d) {
+  const s = el('span', (cls ? cls + ' ' : '') + (f == null ? '' : f >= 0 ? 'up' : 'down'), f == null ? '—' : signed(f, d));
+  if (f != null && e != null) s.append(el('span', 'evs ' + (e >= 0 ? 'up' : 'down'), ' / ' + signed(e, d) + ' EV'));
+  return s;
+}
+const wrHtml = (f, e, d) => '<span class="' + (f >= 0 ? 'up' : 'down') + '">' + signed(f, d) + '</span>' + (f == null || e == null ? '' : '<span class="evs-big ' + (e >= 0 ? 'up' : 'down') + '"> / ' + signed(e, d) + ' <i>EV</i></span>');
 
 // #8 — столбики «BB за открытие» по позициям, ноль посередине
 const RESP_COLS = ['var(--good)', 'var(--ice)', 'var(--bad)'];
 function netChart(items, avg) {
-  const hasR = items.some(it => it.r), W = 520, H = hasR ? 204 : 170, P = { l: 34, r: 10, t: 22, b: hasR ? 68 : 34 };
+  const hasR = items.some(it => it.r), W = 520, H = hasR ? 214 : 180, P = { l: 34, r: 10, t: 34, b: hasR ? 68 : 34 };
   const s = svgRoot(W, H, 'Результат открытий по позициям, BB за открытие, и ответ оппонентов');
   const vals = items.map(it => (it.o.n ? it.o.sum / 10 / it.o.n : null));
+  const evs = items.map(it => (it.o.n && it.o.es != null ? it.o.es / 10 / it.o.n : null));
   // масштаб — по позициям с выборкой от 30 раздач, чтобы 2–3 случайные раздачи не сжимали остальные столбики
-  const solid = vals.filter((v, i) => v != null && items[i].o.n >= 30);
-  const sv = solid.length >= 2 ? solid : vals.filter(v => v != null); // если надёжных позиций меньше двух — масштаб по всем
+  const both = (pick) => vals.flatMap((v, i) => (pick(i) ? [v, evs[i]] : [])).filter(v => v != null);
+  const solid = both(i => vals[i] != null && items[i].o.n >= 30);
+  const sv = solid.length >= 3 ? solid : both(() => true); // если надёжных позиций меньше двух — масштаб по всем
   // устойчивый масштаб: одна позиция с огромным плюсом/минусом не сжимает остальные — её столбик обрезается с изломом
   const abs = sv.map(Math.abs).sort((a, b) => b - a);
   const cap = abs.length > 1 ? Math.min(abs[0], Math.max(abs[1] * 2, 1)) : (abs[0] || 0.5);
@@ -227,18 +238,33 @@ function netChart(items, avg) {
       s.append(gr);
     }
     if (v == null) return;
-    const top = y(Math.max(v, 0)), bot = y(Math.min(v, 0));
-    const col = v >= 0 ? 'var(--good)' : 'var(--bad)', few = it.o.n < 30;
-    const g = svgEl('g');
-    g.append(svgEl('rect', { x: cx - w / 2, y: top, width: w, height: Math.max(1.5, bot - top), rx: 5 }, 'fill:' + col + ';opacity:' + (few ? 0.25 : 0.4 + 0.6 * Math.min(1, Math.abs(v) / (ext / 1.2))).toFixed(2) + (few ? ';stroke:' + col + ';stroke-dasharray:3 3' : '')));
-    if (clipped(v)) { // излом на обрезанном столбике
-      const yb = v >= 0 ? top + 10 : bot - 10;
-      g.append(svgEl('path', { d: 'M' + (cx - w / 2 - 2) + ' ' + (yb + 3) + ' L' + (cx + w / 2 + 2) + ' ' + (yb - 3) + ' M' + (cx - w / 2 - 2) + ' ' + (yb + 8) + ' L' + (cx + w / 2 + 2) + ' ' + (yb + 2) }, 'stroke:var(--panel);stroke-width:3'));
-    }
-    g.append(svgText(cx, v >= 0 ? Math.max(P.t - 4, top - 6) : Math.min(bot + 14, H - P.b - 4), signed(v, 2), 'middle', 'fill:var(--text);font-weight:700'));
+    const e = evs[i], few = it.o.n < 30, g = svgEl('g');
+    // два столбика рядом: слева — факт (заливка), справа — EV (контур со штриховкой)
+    const bwid = e == null ? w : Math.min(24, bw * 0.3), gap = 3;
+    const bar = (val, x0, isEv) => {
+      const top = y(Math.max(val, 0)), bot = y(Math.min(val, 0)), col = val >= 0 ? 'var(--good)' : 'var(--bad)';
+      const op = few ? 0.25 : 0.4 + 0.6 * Math.min(1, Math.abs(val) / (ext / 1.2));
+      if (isEv) g.append(svgEl('rect', { x: x0 + 0.75, y: top + 0.75, width: bwid - 1.5, height: Math.max(1.5, bot - top - 1.5), rx: 4 }, 'fill:url(#evHatch' + (val >= 0 ? 'G' : 'R') + ');stroke:' + col + ';stroke-width:1.5' + (few ? ';stroke-dasharray:3 3;opacity:.6' : '')));
+      else g.append(svgEl('rect', { x: x0, y: top, width: bwid, height: Math.max(1.5, bot - top), rx: 4 }, 'fill:' + col + ';opacity:' + op.toFixed(2) + (few ? ';stroke:' + col + ';stroke-dasharray:3 3' : '')));
+      if (clipped(val)) { // излом на обрезанном столбике
+        const yb = val >= 0 ? top + 10 : bot - 10;
+        g.append(svgEl('path', { d: 'M' + (x0 - 2) + ' ' + (yb + 3) + ' L' + (x0 + bwid + 2) + ' ' + (yb - 3) + ' M' + (x0 - 2) + ' ' + (yb + 8) + ' L' + (x0 + bwid + 2) + ' ' + (yb + 2) }, 'stroke:var(--panel);stroke-width:3'));
+      }
+      return [top, bot];
+    };
+    const xf = e == null ? cx - w / 2 : cx - bwid - gap / 2;
+    const [tf, bf] = bar(v, xf, false);
+    let te = tf, be = bf;
+    if (e != null) [te, be] = bar(e, cx + gap / 2, true);
+    // подписи: сверху факт, под ним EV (над столбиками; для минуса — под ними)
+    const up = v >= 0;
+    const yTop = Math.min(tf, te), yBot = Math.max(bf, be);
+    const ly = up ? Math.max(P.t - 18, yTop - 18) : Math.min(yBot + 14, H - P.b - 16);
+    g.append(svgText(cx, ly, signed(v, 2), 'middle', 'fill:var(--text);font-weight:700'));
+    if (e != null) g.append(svgText(cx, ly + 12, 'EV ' + signed(e, 2), 'middle', 'font-size:10px;font-weight:600;fill:var(--muted)'));
     g.append(svgEl('rect', { x: P.l + i * bw, y: P.t, width: bw, height: H - P.t - 2, rx: 6 }, 'fill:transparent'));
     g.setAttribute('tabindex', '0'); g.setAttribute('class', 'net-bar');
-    g.setAttribute('aria-label', it.p + ': ' + signed(v, 2) + ' BB за открытие, ' + it.o.n + ' открытий');
+    g.setAttribute('aria-label', it.p + ': ' + signed(v, 2) + ' BB' + (e == null ? '' : ', EV ' + signed(e, 2) + ' BB') + ', ' + it.o.n + ' раз');
     const show = (ev) => showHandPop(it, v, ev, g);
     g.addEventListener('mouseenter', show); g.addEventListener('mousemove', show); g.addEventListener('focus', show);
     g.addEventListener('mouseleave', hideHandPop); g.addEventListener('blur', hideHandPop);
@@ -247,7 +273,17 @@ function netChart(items, avg) {
     s.append(g);
   });
   if (hasR) s.append(svgText(P.l - 6, H - P.b + 44, '%', 'end', 'font-size:10px;fill:var(--faint)'));
+  const defs = svgEl('defs');
+  [['G', 'var(--good)'], ['R', 'var(--bad)']].forEach(([k, col]) => {
+    const pt = svgEl('pattern', { id: 'evHatch' + k, width: 5, height: 5, patternUnits: 'userSpaceOnUse', patternTransform: 'rotate(45)' });
+    pt.append(svgEl('rect', { width: 5, height: 5 }, 'fill:' + col + ';opacity:.12'), svgEl('line', { x1: 0, y1: 0, x2: 0, y2: 5 }, 'stroke:' + col + ';stroke-width:1.6;opacity:.55'));
+    defs.append(pt);
+  });
+  s.prepend(defs);
   const box = el('div', 'net-wrap'); box.append(s);
+  const evLg = el('div', 'resp-legend row net-lg ev-lg');
+  evLg.append(Object.assign(el('span'), { innerHTML: '<i class="lg-fact"></i>факт' }), Object.assign(el('span'), { innerHTML: '<i class="lg-ev"></i>EV — олл-ины до ривера по эквити' }));
+  box.append(evLg);
   if (!hasR) return box;
   const lg = el('div', 'resp-legend row net-lg'); lg.append(el('span', 'net-lg-t', 'цифры под позицией — первый ответ оппонентов за спиной, % (фолд — все сбросили):'));
   [['фолд', RESP_COLS[0]], ['колл', RESP_COLS[1]], ['рейз', RESP_COLS[2]]].forEach(([l, col]) => { const it = el('span'); const i = el('i'); i.style.background = col; it.append(i, document.createTextNode(l)); lg.append(it); });
@@ -530,7 +566,7 @@ function showGroupTip(pos, label, k, z, hands, e) {
   if (!groupTip) { groupTip = el('div', 'gt'); groupTip.setAttribute('role', 'tooltip'); document.body.append(groupTip); }
   groupTip.replaceChildren();
   const h = el('div', 'gt-h'); h.append(el('b', null, pos + ' · ' + label));
-  if (z.n) h.append(el('span', z.sum >= 0 ? 'up' : 'down', signed(z.sum / 10 / z.n, 2) + ' BB · ' + z.n + ' раз'));
+  if (z.n) h.append(el('span', z.sum >= 0 ? 'up' : 'down', wrTxt(z.sum / 10 / z.n, z.es / 10 / z.n, 2) + ' BB · ' + z.n + ' раз'));
   groupTip.append(h);
   const R = 'AKQJT98765432', grid = el('div', 'gt-grid');
   const inG = []; for (let q = 0; q < 169; q++) if (handGroup(q) === k) inG.push(q);
@@ -566,7 +602,7 @@ function hideGroupTip() { if (groupTip) groupTip.hidden = true; }
 
 function handGroupTable(o) {
   const c = DB.cols;
-  const agg = (ids) => { const g = HAND_GROUPS.map(() => ({ sum: 0, n: 0 })), h = Array.from({ length: 169 }, () => ({ sum: 0, n: 0 })); let skipped = 0; ids.forEach(i => { if (c.hc[i] < 0) { skipped++; return; } const z = g[handGroup(c.hc[i])]; z.sum += c.net[i]; z.n++; const y = h[c.hc[i]]; y.sum += c.net[i]; y.n++; }); return { g, h, skipped }; };
+  const agg = (ids) => { const g = HAND_GROUPS.map(() => ({ sum: 0, es: 0, n: 0 })), h = Array.from({ length: 169 }, () => ({ sum: 0, es: 0, n: 0 })), EV = EVcol(); let skipped = 0; ids.forEach(i => { if (c.hc[i] < 0) { skipped++; return; } const z = g[handGroup(c.hc[i])]; z.sum += c.net[i]; z.es += EV[i]; z.n++; const y = h[c.hc[i]]; y.sum += c.net[i]; y.es += EV[i]; y.n++; }); return { g, h, skipped }; };
   const A = agg(o.CO.nr.all.ids), B = agg(o.BTN.nr.all.ids);
   const vals = A.g.concat(B.g).filter(z => z.n >= 5).map(z => Math.abs(z.sum / 10 / z.n));
   const max = Math.max(0.5, ...vals);
@@ -585,7 +621,7 @@ function handGroupTable(o) {
       const tr = el('div', 'hg-track'); const f = el('div', 'hg-fill'); const w = Math.min(50, Math.abs(v) / max * 50);
       f.style.width = w + '%'; f.style.left = v >= 0 ? '50%' : (50 - w) + '%'; f.style.background = col; if (v < 0) f.style.opacity = '.7';
       tr.append(el('i', 'hg-zero'), f);
-      const t = el('span', 'hg-v ' + (v >= 0 ? 'up' : 'down'), signed(v, 2)); const n = el('span', 'hg-n', String(z.n));
+      const t = wrNode('hg-v', v, z.es / 10 / z.n, 2); const n = el('span', 'hg-n', String(z.n));
       cell.append(tr, t, n); if (z.n < 30) cell.classList.add('low');
       r.append(cell);
     });
@@ -602,9 +638,10 @@ function stealResultCard(o) {
   // крупные цифры
   const top = el('div', 'r34-top');
   [['CO', o.CO.nr.all, C_CO], ['BTN', o.BTN.nr.all, C_BTN]].forEach(([nm, z, col]) => {
-    const v = z.n ? z.sum / 10 / z.n : null;
+    const v = z.n ? z.sum / 10 / z.n : null, e = z.n ? z.es / 10 / z.n : null;
     const b = el('div', 'r34-big'); b.style.borderColor = col;
-    b.append(el('span', 'nm', nm), el('b', v == null ? '' : v >= 0 ? 'up' : 'down', signed(v, 2)), el('span', 's', 'BB за открытие · ' + z.n.toLocaleString('ru-RU') + ' раз · всего ' + signed(z.sum / 10, 0) + ' BB'));
+    const big = el('b'); big.innerHTML = wrHtml(v, e, 2);
+    b.append(el('span', 'nm', nm), big, el('span', 's', 'BB за открытие · ' + z.n.toLocaleString('ru-RU') + ' раз · всего ' + signed(z.sum / 10, 0) + ' / ' + signed(z.es / 10, 0) + ' EV BB'));
     top.append(b);
   });
   m.append(top);
@@ -633,8 +670,8 @@ function sizingCard(o) {
   function merged() {
     const src = SZ_SIDE === 'both' ? [o.CO.szx, o.BTN.szx] : [o[SZ_SIDE].szx], out = {};
     src.forEach(map => Object.entries(map).forEach(([k, z]) => {
-      const t = out[k] || (out[k] = { n: 0, r: [0, 0, 0], rn: 0, sum: 0, sn: 0, ids: [] });
-      t.n += z.n; t.rn += z.rn; t.sum += z.sum; t.sn += z.sn; z.r.forEach((v, j) => { t.r[j] += v; }); t.ids = t.ids.concat(z.ids);
+      const t = out[k] || (out[k] = { n: 0, r: [0, 0, 0], rn: 0, sum: 0, es: 0, sn: 0, ids: [] });
+      t.n += z.n; t.rn += z.rn; t.sum += z.sum; t.es += z.es; t.sn += z.sn; z.r.forEach((v, j) => { t.r[j] += v; }); t.ids = t.ids.concat(z.ids);
     }));
     return out;
   }
@@ -642,14 +679,14 @@ function sizingCard(o) {
     const map = merged(); delete map.AI; const tot = Object.values(map).reduce((a, z) => a + z.n, 0);
     body.replaceChildren();
     if (!tot) { body.append(el('p', 'muted small', 'Нет открытий в выборке.')); return; }
-    const rows = [], other = { n: 0, r: [0, 0, 0], rn: 0, sum: 0, sn: 0, ids: [] };
+    const rows = [], other = { n: 0, r: [0, 0, 0], rn: 0, sum: 0, es: 0, sn: 0, ids: [] };
     Object.entries(map).filter(([k]) => k !== 'AI').sort((a, b) => b[1].n - a[1].n).forEach(([k, z], j) => {
       if (j < 4 && z.n / tot >= 0.01) rows.push([k.replace('.', ',') + ' BB', z, 'рейз ' + k.replace('.', ',') + ' BB']);
-      else { other.n += z.n; other.rn += z.rn; other.sum += z.sum; other.sn += z.sn; z.r.forEach((v, q) => { other.r[q] += v; }); other.ids = other.ids.concat(z.ids); }
+      else { other.n += z.n; other.rn += z.rn; other.sum += z.sum; other.es += z.es; other.sn += z.sn; z.r.forEach((v, q) => { other.r[q] += v; }); other.ids = other.ids.concat(z.ids); }
     });
     if (other.n) rows.push(['другие', other, 'другие размеры рейза']);
     const t = el('div', 'sz5-t');
-    const hd = el('div', 'sz5-r sz5-h'); ['Размер', 'Доля', 'Фолд', 'Рейз', 'BB'].forEach(x => hd.append(el('span', null, x))); t.append(hd);
+    const hd = el('div', 'sz5-r sz5-h'); ['Размер', 'Доля', 'Фолд', 'Рейз', 'BB / EV'].forEach(x => hd.append(el('span', null, x))); t.append(hd);
     const side = SZ_SIDE === 'both' ? 'CO + BTN' : SZ_SIDE;
     rows.forEach(([lab, z, full]) => {
       const r = el('div', 'sz5-r');
@@ -658,7 +695,7 @@ function sizingCard(o) {
       r.append(el('b', null, lab), sh,
         Object.assign(el('span', 'sz5-v', fold == null ? '—' : fmtPct(fold) + '%'), { style: 'color:var(--good)' }),
         Object.assign(el('span', 'sz5-v', rr == null ? '—' : fmtPct(rr) + '%'), { style: 'color:var(--bad)' }),
-        el('span', 'sz5-v ' + (bb == null ? '' : bb >= 0 ? 'up' : 'down'), bb == null ? '—' : signed(bb, 2)));
+        wrNode('sz5-v', bb, z.sn ? z.es / 10 / z.sn : null, 2));
       const tk = el('span', 'sz5-tk'); const tr = el('i'); tr.style.width = Math.max(1, share * 100) + '%'; if (SZ_SIDE === 'BTN') tr.style.background = C_BTN; tk.append(tr);
       r.append(el('small', null, z.n.toLocaleString('ru-RU') + ' раз'), tk);
       if (z.n < 30) r.classList.add('low');
@@ -672,11 +709,11 @@ function sizingCard(o) {
 
 // ---------- 3.7: стил против разных стеков SB и BB — три варианта показа ----------
 const BX_NAMES = ['короткий', 'средний', 'глубокий'];
-const bxSum = (cells) => cells.reduce((t, z) => { for (const k in t) t[k] += z[k]; return t; }, { n: 0, x: 0, rn: 0, fold: 0, rr: 0, sum: 0, sn: 0 });
+const bxSum = (cells) => cells.reduce((t, z) => { for (const k in t) t[k] += z[k]; return t; }, { n: 0, x: 0, rn: 0, fold: 0, rr: 0, sum: 0, es: 0, sn: 0 });
 const bxCell = (o, side, i, j) => (side === 'both' ? bxSum([o.CO.bx[i][j], o.BTN.bx[i][j]]) : o[side].bx[i][j]);
 const BX_MET = {
   fold: { t: 'Фолд оппонентов', v: (z) => (z.rn ? z.fold / z.rn : null), f: (v) => fmtPct(v) + '%', n: (z) => z.rn },
-  bb: { t: 'BB за открытие', v: (z) => (z.sn ? z.sum / 10 / z.sn : null), f: (v) => signed(v, 2), n: (z) => z.sn },
+  bb: { t: 'BB за открытие', v: (z) => (z.sn ? z.sum / 10 / z.sn : null), e: (z) => (z.sn ? z.es / 10 / z.sn : null), f: (v) => signed(v, 2), n: (z) => z.sn },
   freq: { t: 'Частота открытия', v: (z) => (z.n ? z.x / z.n : null), f: (v) => fmtPct(v) + '%', n: (z) => z.n },
 };
 function segBtns(opts, cur, on) {
@@ -760,7 +797,7 @@ function bxListCore(o, opt) {
         if (BX2 === 'bb') { tr.append(el('div', 'hg-zero')); const w = v == null ? 0 : Math.min(50, Math.abs(v) / max * 50); f.style.width = w + '%'; f.style.left = v >= 0 ? '50%' : (50 - w) + '%'; }
         else { f.style.left = '0'; f.style.width = (v == null ? 0 : Math.min(100, v / max * 100)) + '%'; }
         f.style.background = col; tr.append(f);
-        cell.append(tr, el('span', 'hg-v ' + (BX2 === 'bb' && v != null ? (v >= 0 ? 'up' : 'down') : ''), v == null ? '—' : M.f(v)), el('span', 'hg-n', n ? String(n) : ''));
+        cell.append(tr, M.e ? wrNode('hg-v', v, M.e(z), 2) : el('span', 'hg-v', v == null ? '—' : M.f(v)), el('span', 'hg-n', n ? String(n) : ''));
         if (n < 30) cell.classList.add('low');
         row.append(cell);
       });
@@ -845,11 +882,11 @@ function respTiles(resp, title, labels) {
 
 // всплывающее окно над клеткой 4.1: диапазон пуша — какие руки и как часто вы пушили
 let pushTip = null;
-function showPushTip(lab, z, f, w, e) {
+function showPushTip(lab, z, f, w, e, we) {
   if (!pushTip) { pushTip = el('div', 'gt'); pushTip.setAttribute('role', 'tooltip'); document.body.append(pushTip); }
   pushTip.replaceChildren();
   const h = el('div', 'gt-h'); h.append(el('b', null, lab));
-  h.append(el('span', null, 'пуш ' + fmtPct(f) + '% · ' + z.x + ' из ' + z.o + (w == null ? '' : ' · ' + signed(w, 2) + ' BB за пуш')));
+  h.append(el('span', null, 'пуш ' + fmtPct(f) + '% · ' + z.x + ' из ' + z.o + (w == null ? '' : ' · ' + wrTxt(w, we, 2) + ' BB за пуш')));
   pushTip.append(h);
   const R = 'AKQJT98765432', grid = el('div', 'gt-grid');
   let any = 0, scale = 1;
@@ -884,7 +921,7 @@ function hidePushTip() { if (pushTip) pushTip.hidden = true; }
 // ---------- #4+ — пуши подробно ----------
 function renderShovePanel(idx, stackBars) {
   const c = DB.cols, P = ['EP', 'MP', 'HJ', 'CO', 'BTN', 'SB'];
-  const pos = P.map(() => ({ x: 0, n: 0 })), netPos = P.map(() => ({ sum: 0, n: 0 })), resp = [0, 0, 0], net = { sum: 0, n: 0 }, netStk = [[], [], [], [], [], []].map(() => ({ sum: 0, n: 0 }));
+  const EV = EVcol(), pos = P.map(() => ({ x: 0, n: 0 })), netPos = P.map(() => ({ sum: 0, n: 0 })), resp = [0, 0, 0], net = { sum: 0, es: 0, n: 0 }, netStk = [[], [], [], [], [], []].map(() => ({ sum: 0, n: 0 }));
   const SB = [['<8', 0, 8], ['8–10', 8, 10], ['10–12', 10, 12], ['12–15', 12, 15], ['15–20', 15, 20], ['20+', 20, 1e9]];
   const opp = SB.map(() => ({ x: 0, n: 0 }));
   for (const i of idx) {
@@ -895,23 +932,23 @@ function renderShovePanel(idx, stackBars) {
     pos[p].n++; if (c.act[i] === 3) pos[p].x++;
     if (c.act[i] !== 3) continue;
     if (c.orsp && c.orsp[i] >= 0) resp[c.orsp[i]]++;
-    if (c.net) { net.sum += c.net[i]; net.n++; netPos[p].sum += c.net[i]; netPos[p].n++; if (k >= 0) { netStk[k].sum += c.net[i]; netStk[k].n++; } }
+    if (c.net) { net.sum += c.net[i]; net.es += EV[i]; net.n++; netPos[p].sum += c.net[i]; netPos[p].n++; if (k >= 0) { netStk[k].sum += c.net[i]; netStk[k].n++; } }
   }
   const card = el('div', 'insight steal-panel pm-card');
   card.append(numTag('4+'));
   const m = card;
-  m.append(el('b', 'pm-title', 'Где и как вы пушите'), el('span', 'sm-s', 'first-in пуш (до вас все сбросили): частота и винрейт по каждой позиции и стеку; в среднем ' + signed(net.n ? net.sum / 10 / net.n : null, 2) + ' BB за пуш, ' + net.n.toLocaleString('ru-RU') + ' пушей'));
+  m.append(el('b', 'pm-title', 'Где и как вы пушите'), el('span', 'sm-s', 'first-in пуш (до вас все сбросили): частота и винрейт по каждой позиции и стеку; в среднем ' + wrTxt(net.n ? net.sum / 10 / net.n : null, net.n ? net.es / 10 / net.n : null, 2) + ' BB за пуш, ' + net.n.toLocaleString('ru-RU') + ' пушей'));
   // матрица: строки — стек, колонки — позиции; в клетке частота пуша и винрейт за пуш
-  const cell = () => ({ o: 0, x: 0, sum: 0, n: 0, ho: null, hx: null, ids: [], mx: null });
+  const cell = () => ({ o: 0, x: 0, sum: 0, es: 0, n: 0, ho: null, hx: null, ids: [], mx: null });
   const M = SB.map(() => P.map(cell)), rowT = SB.map(cell), colT = P.map(cell), allT = cell();
   for (const i of idx) {
     const p = c.pos[i]; if (c.sit[i] !== 0 || p > 5) continue;
     const bb = c.bb[i] / 10, k = SB.findIndex(z => bb >= z[1] && bb < z[2]); if (k < 0) continue;
     const push = c.act[i] === 3;
-    [M[k][p], rowT[k], colT[p], allT].forEach(z => { z.o++; if (push) { z.x++; if (c.net) { z.sum += c.net[i]; z.n++; } } });
+    [M[k][p], rowT[k], colT[p], allT].forEach(z => { z.o++; if (push) { z.x++; if (c.net) { z.sum += c.net[i]; z.es += EV[i]; z.n++; } } });
     const hc = c.hc ? c.hc[i] : -1;
     if (hc >= 0) { const z = M[k][p]; if (!z.ho) { z.ho = new Uint32Array(169); z.hx = new Uint32Array(169); z.hs = new Float64Array(169); } z.ho[hc]++; if (push) { z.hx[hc]++; if (c.net) z.hs[hc] += c.net[i]; } }
-    if (push) { const z = M[k][p]; z.ids.push(i); if (hc >= 0) { if (!z.mx) z.mx = Array.from({ length: 169 }, () => ({ n: 0, sum: 0 })); z.mx[hc].n++; if (c.net) z.mx[hc].sum += c.net[i]; } }
+    if (push) { const z = M[k][p]; z.ids.push(i); if (hc >= 0) { if (!z.mx) z.mx = Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })); z.mx[hc].n++; if (c.net) { z.mx[hc].sum += c.net[i]; z.mx[hc].es += EV[i]; } } }
   }
   const tb = el('div', 'pmx');
   const corner = el('span', 'pmx-corner', 'стек, BB'); tb.append(corner);
@@ -920,13 +957,13 @@ function renderShovePanel(idx, stackBars) {
   const put = (z, lab, tot) => {
     const d = el('div', 'pmx-c' + (tot ? ' tot' : ''));
     if (!z.o) { d.classList.add('na'); d.append(el('b', null, '—')); return d; }
-    const f = z.x / z.o, w = z.n ? z.sum / 10 / z.n : null;
+    const f = z.x / z.o, w = z.n ? z.sum / 10 / z.n : null, we = z.n ? z.es / 10 / z.n : null;
     d.style.setProperty('--f', Math.min(1, f / maxF).toFixed(3));
-    d.append(el('b', null, fmtPct(f) + '%'), el('span', 'pmx-w ' + (w == null ? '' : w >= 0 ? 'up' : 'down'), w == null ? '—' : signed(w, 2)));
+    d.append(el('b', null, fmtPct(f) + '%'), wrNode('pmx-w', w, we, 2));
     if (z.n < 10) d.classList.add('low');
     if (z.mx) {
-      const mxN = z.mx.reduce((a, q) => a + q.n, 0), mxS = z.mx.reduce((a, q) => a + q.sum, 0);
-      const it = { p: lab.split(',')[0], key: 'push ' + lab, title: lab + ' · пуш ' + fmtPct(f) + '%', o: { n: mxN, sum: mxS }, mx: z.mx, ids: z.ids, vlab: ' BB за пуш', nlab: ' пушей с картами' };
+      const mxN = z.mx.reduce((a, q) => a + q.n, 0), mxS = z.mx.reduce((a, q) => a + q.sum, 0), mxE = z.mx.reduce((a, q) => a + q.es, 0);
+      const it = { p: lab.split(',')[0], key: 'push ' + lab, title: lab + ' · пуш ' + fmtPct(f) + '%', o: { n: mxN, sum: mxS, es: mxE }, mx: z.mx, ids: z.ids, vlab: ' BB за пуш', nlab: ' пушей с картами' };
       const v = mxN ? mxS / 10 / mxN : 0;
       d.tabIndex = 0; d.setAttribute('role', 'button'); d.setAttribute('aria-label', lab + ': показать руки и раздачи'); d.classList.add('click');
       const show = (ev) => showHandPop(it, v, ev, d);
@@ -947,7 +984,7 @@ function renderShovePanel(idx, stackBars) {
 // ---------- #5 / #5+ — изоляция лимперов ----------
 const ISO_POS = ['MP', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
 function isoData(idx) {
-  const c = DB.cols, cell = () => ({ o: 0, x: 0, sum: 0, n: 0, f: 0, fn: 0, ids: [], mx: null });
+  const c = DB.cols, EV = EVcol(), cell = () => ({ o: 0, x: 0, sum: 0, es: 0, n: 0, f: 0, fn: 0, ids: [], mx: null });
   const M = [ISO_POS.map(cell), ISO_POS.map(cell)], tot = [cell(), cell()], resp = [0, 0, 0], respL = [[0, 0, 0], [0, 0, 0]], szx = [{}, {}];
   for (const i of idx) {
     const p = c.pos[i]; if (c.sit[i] !== 1 || p < 1) continue;
@@ -959,14 +996,14 @@ function isoData(idx) {
     if (c.orsp && c.orsp[i] >= 0) { resp[c.orsp[i]]++; respL[r][c.orsp[i]]++; }
     if (c.act[i] === 2 && c.bb[i] / 10 - c.size[i] / 100 >= 0.5) { // сайзинг изолейта с точностью до 0.5 BB, без олл-инов
       const key = String(Math.round(c.size[i] / 50) / 2);
-      const q = szx[r][key] || (szx[r][key] = { n: 0, r: [0, 0, 0], rn: 0, sum: 0, sn: 0 });
-      q.n++; if (c.orsp && c.orsp[i] >= 0) { q.r[c.orsp[i]]++; q.rn++; } if (c.net) { q.sum += c.net[i]; q.sn++; }
+      const q = szx[r][key] || (szx[r][key] = { n: 0, r: [0, 0, 0], rn: 0, sum: 0, es: 0, sn: 0 });
+      q.n++; if (c.orsp && c.orsp[i] >= 0) { q.r[c.orsp[i]]++; q.rn++; } if (c.net) { q.sum += c.net[i]; q.es += EV[i]; q.sn++; }
     }
     if (c.fvr && c.fvr[i] >= 0) { z.fn++; if (c.fvr[i] === 1) z.f++; }
-    if (c.net) { z.sum += c.net[i]; z.n++; }
+    if (c.net) { z.sum += c.net[i]; z.es += EV[i]; z.n++; }
     z.ids.push(i);
     const hc = c.hc ? c.hc[i] : -1;
-    if (hc >= 0) { if (!z.mx) z.mx = Array.from({ length: 169 }, () => ({ n: 0, sum: 0 })); z.mx[hc].n++; if (c.net) z.mx[hc].sum += c.net[i]; }
+    if (hc >= 0) { if (!z.mx) z.mx = Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })); z.mx[hc].n++; if (c.net) { z.mx[hc].sum += c.net[i]; z.mx[hc].es += EV[i]; } }
   }
   return { M, tot, resp, respL, szx };
 }
@@ -1008,19 +1045,19 @@ function isoSizing(d) {
   box.append(head, body);
   function draw() {
     const src = ISO_SZ === 'all' ? [d.szx[0], d.szx[1]] : [d.szx[+ISO_SZ]], map = {};
-    src.forEach(m => Object.entries(m).forEach(([k, z]) => { const t = map[k] || (map[k] = { n: 0, r: [0, 0, 0], rn: 0, sum: 0, sn: 0 }); t.n += z.n; t.rn += z.rn; t.sum += z.sum; t.sn += z.sn; z.r.forEach((v, j) => { t.r[j] += v; }); }));
+    src.forEach(m => Object.entries(m).forEach(([k, z]) => { const t = map[k] || (map[k] = { n: 0, r: [0, 0, 0], rn: 0, sum: 0, es: 0, sn: 0 }); t.n += z.n; t.rn += z.rn; t.sum += z.sum; t.es += z.es; t.sn += z.sn; z.r.forEach((v, j) => { t.r[j] += v; }); }));
     const tot = Object.values(map).reduce((a, z) => a + z.n, 0);
     body.replaceChildren();
     if (!tot) { body.append(el('p', 'muted small', 'Нет изолейтов в выборке.')); return; }
-    const rows = [], other = { n: 0, r: [0, 0, 0], rn: 0, sum: 0, sn: 0 };
+    const rows = [], other = { n: 0, r: [0, 0, 0], rn: 0, sum: 0, es: 0, sn: 0 };
     Object.entries(map).sort((a, b) => b[1].n - a[1].n).forEach(([k, z], j) => {
       if (j < 5 && z.n / tot >= 0.03) rows.push([k.replace('.', ',') + ' BB', z]);
-      else { other.n += z.n; other.rn += z.rn; other.sum += z.sum; other.sn += z.sn; z.r.forEach((v, q) => { other.r[q] += v; }); }
+      else { other.n += z.n; other.rn += z.rn; other.sum += z.sum; other.es += z.es; other.sn += z.sn; z.r.forEach((v, q) => { other.r[q] += v; }); }
     });
     rows.sort((a, b) => parseFloat(a[0].replace(',', '.')) - parseFloat(b[0].replace(',', '.')));
     if (other.n) rows.push(['другие', other]);
     const t = el('div', 'sz5-t');
-    const hd = el('div', 'sz5-r sz5-h'); ['Размер', 'Доля', 'Фолд', 'Рейз', 'Винрейт, BB'].forEach(x => hd.append(el('span', null, x))); t.append(hd);
+    const hd = el('div', 'sz5-r sz5-h'); ['Размер', 'Доля', 'Фолд', 'Рейз', 'Винрейт, BB / EV'].forEach(x => hd.append(el('span', null, x))); t.append(hd);
     rows.forEach(([lab, z]) => {
       const r = el('div', 'sz5-r');
       const share = z.n / tot, fold = z.rn ? z.r[0] / z.rn : null, rr = z.rn ? z.r[2] / z.rn : null, bb = z.sn ? z.sum / 10 / z.sn : null;
@@ -1028,7 +1065,7 @@ function isoSizing(d) {
       const fv = el('span', 'sz5-v', fold == null ? '—' : fmtPct(fold) + '%'); fv.style.color = 'var(--good)';
       const rv = el('span', 'sz5-v', rr == null ? '—' : fmtPct(rr) + '%'); rv.style.color = 'var(--bad)';
       r.append(el('b', null, lab), el('span', 'sz5-sh', fmtPct(share) + '%'), fv, rv,
-        el('span', 'sz5-v ' + (bb == null ? '' : bb >= 0 ? 'up' : 'down'), bb == null ? '—' : signed(bb, 2)),
+        wrNode('sz5-v', bb, z.sn ? z.es / 10 / z.sn : null, 2),
         el('small', null, z.n.toLocaleString('ru-RU') + ' раз'), tk);
       if (z.n < 30) r.classList.add('low');
       t.append(r);
@@ -1042,8 +1079,8 @@ function isoSizing(d) {
 function isoPanel(d) {
   const card = el('div', 'insight steal-panel pm-card');
   card.append(numTag('5+'));
-  const nAll = d.M.flat().reduce((a, z) => a + z.n, 0), sAll = d.M.flat().reduce((a, z) => a + z.sum, 0);
-  card.append(el('b', 'pm-title', 'Изолейт по позициям'), el('span', 'sm-s', 'ваш рейз поверх лимпа: частота и винрейт; в среднем ' + signed(nAll ? sAll / 10 / nAll : null, 2) + ' BB за изолейт, ' + nAll.toLocaleString('ru-RU') + ' изолейтов'));
+  const nAll = d.M.flat().reduce((a, z) => a + z.n, 0), sAll = d.M.flat().reduce((a, z) => a + z.sum, 0), eAll = d.M.flat().reduce((a, z) => a + z.es, 0);
+  card.append(el('b', 'pm-title', 'Изолейт по позициям'), el('span', 'sm-s', 'ваш рейз поверх лимпа: частота и винрейт; в среднем ' + wrTxt(nAll ? sAll / 10 / nAll : null, nAll ? eAll / 10 / nAll : null, 2) + ' BB за изолейт, ' + nAll.toLocaleString('ru-RU') + ' изолейтов'));
   const tb = el('div', 'pmx iso');
   tb.append(el('span', 'pmx-corner', 'лимперов'));
   ISO_POS.forEach(nm => tb.append(el('span', 'pmx-ch', nm)));
@@ -1056,12 +1093,12 @@ function isoPanel(d) {
       const f = z.x / z.o, w = z.n ? z.sum / 10 / z.n : null;
       c.style.setProperty('--f', Math.min(1, f / maxF).toFixed(3));
       c.style.background = 'rgba(var(--amber-rgb),calc(.05 + var(--f) * .45))';
-      c.append(el('b', null, fmtPct(f) + '%'), el('span', 'pmx-w ' + (w == null ? '' : w >= 0 ? 'up' : 'down'), w == null ? '—' : signed(w, 2)));
+      c.append(el('b', null, fmtPct(f) + '%'), wrNode('pmx-w', w, z.n ? z.es / 10 / z.n : null, 2));
       if (z.o < 20) c.classList.add('low');
       const title = nm + ', vs ' + lab + ' лимпер' + (r ? 'а' : '');
       if (z.mx) {
-        const n = z.mx.reduce((a, q) => a + q.n, 0), s = z.mx.reduce((a, q) => a + q.sum, 0);
-        const it = { p: nm, key: 'iso ' + title, title: title + ' · изолейт ' + fmtPct(f) + '%', o: { n, sum: s }, mx: z.mx, ids: z.ids, sit: 1, vlab: ' BB за изолейт', nlab: ' изолейтов с картами' };
+        const n = z.mx.reduce((a, q) => a + q.n, 0), s = z.mx.reduce((a, q) => a + q.sum, 0), es = z.mx.reduce((a, q) => a + q.es, 0);
+        const it = { p: nm, key: 'iso ' + title, title: title + ' · изолейт ' + fmtPct(f) + '%', o: { n, sum: s, es }, mx: z.mx, ids: z.ids, sit: 1, vlab: ' BB за изолейт', nlab: ' изолейтов с картами' };
         const v = n ? s / 10 / n : 0;
         c.tabIndex = 0; c.setAttribute('role', 'button'); c.setAttribute('aria-label', title + ': показать руки и раздачи'); c.classList.add('click');
         const show = (ev) => showHandPop(it, v, ev, c);
@@ -1098,12 +1135,13 @@ function renderRFISummary(idx, r) {
   // #8 — результат открытий: столбики по позициям вокруг нуля
   const nb = bb100(x.openNet.sum, x.openNet.n);
   const perOpen = (o) => (o.n ? o.sum / 10 / o.n : null);
+  const perEv = (o) => (o.n ? o.es / 10 / o.n : null);
   const unc = perOpen(x.netUnc), con = perOpen(x.netCon);
   const split = el('div', 'net-split');
-  const sp1 = el('div'); sp1.append(el('span', 'k', 'без борьбы'), el('b', unc == null ? '' : unc >= 0 ? 'up' : 'down', signed(unc, 2)), el('span', 'n', x.netUnc.n.toLocaleString('ru-RU') + ' раз'));
-  const sp2 = el('div'); sp2.append(el('span', 'k', 'когда сыграли'), el('b', con == null ? '' : con >= 0 ? 'up' : 'down', signed(con, 2)), el('span', 'n', x.netCon.n.toLocaleString('ru-RU') + ' раз'));
+  const sp1 = el('div'); sp1.append(el('span', 'k', 'без борьбы'), wrNode('b', unc, perEv(x.netUnc), 2), el('span', 'n', x.netUnc.n.toLocaleString('ru-RU') + ' раз'));
+  const sp2 = el('div'); sp2.append(el('span', 'k', 'когда сыграли'), wrNode('b', con, perEv(x.netCon), 2), el('span', 'n', x.netCon.n.toLocaleString('ru-RU') + ' раз'));
   split.append(sp1, sp2);
-  const c8 = card(8, 'Результат открытий', '<span class="' + (nb >= 0 ? 'up' : 'down') + '">' + signed(nb == null ? null : nb / 100, 2) + '</span> <small>BB за открытие</small>', 'фактический итог раздачи после вашего открытия по позициям; под позицией — число открытий', netChart((LAST_NET_ITEMS = ['EP', 'MP', 'HJ', 'CO', 'BTN', 'SB'].map(p => ({ p, o: x.openNetPos[p], mx: x.netMx[p], r: x.respPos[p] }))), nb == null ? null : nb / 100));
+  const c8 = card(8, 'Результат открытий', wrHtml(nb == null ? null : nb / 100, perEv(x.openNet), 2) + ' <small>BB за открытие</small>', 'итог раздачи после вашего открытия по позициям: факт и EV (олл-ины до ривера — по эквити); под позицией — число открытий', netChart((LAST_NET_ITEMS = ['EP', 'MP', 'HJ', 'CO', 'BTN', 'SB'].map(p => ({ p, o: x.openNetPos[p], mx: x.netMx[p], r: x.respPos[p] }))), nb == null ? null : nb / 100));
   c8.classList.add('wide', 'span3');
   cards.append(c8);
   // #3 — стил + ответ блайндов (CO и BTN вместе), как в #1
@@ -1192,15 +1230,15 @@ function ccSizeBlock(r) {
   function draw() {
     const rows = r.sz[CC_SZPOS] || [], tot = rows.reduce((a, z) => a + z.n, 0);
     const t = el('div', 'sz5-t cc-sz');
-    const hd = el('div', 'sz5-r sz5-h'); ['Размер', 'Доля', 'Колл', '3-бет', 'Фолд', 'Винрейт колла, BB'].forEach(x => hd.append(el('span', null, x))); t.append(hd);
+    const hd = el('div', 'sz5-r sz5-h'); ['Размер', 'Доля', 'Колл', '3-бет', 'Фолд', 'Винрейт колла, BB / EV'].forEach(x => hd.append(el('span', null, x))); t.append(hd);
     rows.forEach((z, k) => {
       if (!z.n) return;
       const row = el('div', 'sz5-r'); if (z.n < 30) row.classList.add('low');
-      const pc = (v) => fmtPct(v / z.n) + '%', wr = z.sn ? z.sum / 10 / z.sn : null;
+      const pc = (v) => fmtPct(v / z.n) + '%', wr = z.sn ? z.sum / 10 / z.sn : null, we = z.sn ? z.es / 10 / z.sn : null;
       const share = z.n / tot, tk = el('span', 'sz5-tk'); const tr = el('i'); tr.style.width = Math.max(1, share * 100) + '%'; tk.append(tr);
       const v = (txt, col) => { const e = el('span', 'sz5-v', txt); e.style.color = col; return e; };
       row.append(el('b', null, r.CC_SZ[k][0]), el('span', 'sz5-sh', fmtPct(share) + '%'), v(pc(z.call), 'var(--ice)'), v(pc(z.rz), 'var(--bad)'), v(pc(z.fold), 'var(--good)'),
-        el('span', 'sz5-v ' + (wr == null ? '' : wr >= 0 ? 'up' : 'down'), wr == null ? '—' : signed(wr, 2)), el('small', null, z.n.toLocaleString('ru-RU') + ' раз'), tk);
+        wrNode('sz5-v', wr, we, 2), el('small', null, z.n.toLocaleString('ru-RU') + ' раз'), tk);
       t.append(row);
     });
     body.replaceChildren(tot ? t : el('p', 'muted small', 'Нет открытий в выборке.'));
@@ -1219,7 +1257,7 @@ function ccAllinBlock(r) {
   const w = heatTable({ cols, groupGapBefore: cols.indexOf('SB') >= 0 ? cols.indexOf('SB') : cols.indexOf('BB'), rows: [{ label: 'Колл пуша', data: r.ai }] });
   w.querySelectorAll('td.c').forEach(td => {
     const col = td.dataset.col, z = r.aiHands[col]; if (!z || !z.n) return;
-    const it = { p: col === 'TOT' ? null : col, key: 'ccai ' + col, title: 'Колл олл-ина · ' + (col === 'TOT' ? 'все позиции без BB' : col), o: { n: z.n, sum: z.sum }, mx: z.mx, ids: z.ids, sit: 2, act: 1, vlab: ' BB за колл', nlab: ' коллов' };
+    const it = { p: col === 'TOT' ? null : col, key: 'ccai ' + col, title: 'Колл олл-ина · ' + (col === 'TOT' ? 'все позиции без BB' : col), o: { n: z.n, sum: z.sum, es: z.es }, mx: z.mx, ids: z.ids, sit: 2, act: 1, vlab: ' BB за колл', nlab: ' коллов' };
     const v = z.sum / 10 / z.n;
     td.classList.add('click'); td.tabIndex = 0; td.setAttribute('role', 'button');
     const show = (ev) => showHandPop(it, v, ev, td);
@@ -1228,7 +1266,7 @@ function ccAllinBlock(r) {
     td.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); pinHandPop(it, v, null, td); } });
   });
   // винрейт колла пуша по позициям — график как #8
-  const items = cols.filter(k => k !== 'TOT').map(p => { const h = r.aiHands[p]; return { p, key: 'ccai' + p, o: { n: h.n, sum: h.sum }, mx: h.mx, ids: h.ids, sit: 2, act: 1, title: 'Колл олл-ина · ' + p, vlab: ' BB за колл', nlab: ' коллов' }; });
+  const items = cols.filter(k => k !== 'TOT').map(p => { const h = r.aiHands[p]; return { p, key: 'ccai' + p, o: { n: h.n, sum: h.sum, es: h.es }, mx: h.mx, ids: h.ids, sit: 2, act: 1, title: 'Колл олл-ина · ' + p, vlab: ' BB за колл', nlab: ' коллов' }; });
   const t = r.aiHands.TOT, avg = t.n ? t.sum / 10 / t.n : null;
   const chart = el('div', 'cc-ai-chart');
   chart.append(el('span', 'resp-t', 'Винрейт колла по позициям: в среднем ' + signed(avg, 2) + ' BB, без BB'), netChart(items.filter(it => it.o.n > 0), avg));
@@ -1239,14 +1277,14 @@ function ccAllinBlock(r) {
   const draw = () => {
     const rows = r.aiStk[CC_AIPOS] || [];
     const tb = el('div', 'sz5-t cc-sz');
-    const hd = el('div', 'sz5-r sz5-h'); ['Стек пушера', 'Случаев', 'Колл', '3-бет / олл-ин', 'Фолд', 'Винрейт колла, BB'].forEach(x => hd.append(el('span', null, x))); tb.append(hd);
+    const hd = el('div', 'sz5-r sz5-h'); ['Стек пушера', 'Случаев', 'Колл', '3-бет / олл-ин', 'Фолд', 'Винрейт колла, BB / EV'].forEach(x => hd.append(el('span', null, x))); tb.append(hd);
     rows.forEach((z, k) => {
       if (!z.n) return;
       const row = el('div', 'sz5-r'); if (z.n < 30) row.classList.add('low');
-      const pc = (x) => fmtPct(x / z.n) + '%', wr = z.sn ? z.sum / 10 / z.sn : null;
+      const pc = (x) => fmtPct(x / z.n) + '%', wr = z.sn ? z.sum / 10 / z.sn : null, we = z.sn ? z.es / 10 / z.sn : null;
       const v = (txt, col) => { const e = el('span', 'sz5-v', txt); e.style.color = col; return e; };
       row.append(el('b', null, r.CC_AISTK[k][0]), el('span', 'sz5-sh', z.n.toLocaleString('ru-RU')), v(pc(z.call), 'var(--ice)'), v(pc(z.rz), 'var(--bad)'), v(pc(z.fold), 'var(--good)'),
-        el('span', 'sz5-v ' + (wr == null ? '' : wr >= 0 ? 'up' : 'down'), wr == null ? '—' : signed(wr, 2)));
+        wrNode('sz5-v', wr, we, 2));
       tb.append(row);
     });
     body.replaceChildren(tb);
@@ -1373,7 +1411,7 @@ function ccVsTable(r) {
     const p = td.dataset.row, op = td.dataset.col;
     const z = op === 'TOT' ? r.hands[p] : r.vsHands[p] && r.vsHands[p][op];
     if (!z || !z.n) return;
-    const it = { p, key: 'ccvs ' + p + op, title: 'Колд-колл · ' + p + (op === 'TOT' ? '' : ' против ' + op), o: { n: z.n, sum: z.sum }, mx: z.mx, ids: z.ids, sit: 2, act: 1, vlab: ' BB за колд-колл', nlab: ' колд-коллов' };
+    const it = { p, key: 'ccvs ' + p + op, title: 'Колд-колл · ' + p + (op === 'TOT' ? '' : ' против ' + op), o: { n: z.n, sum: z.sum, es: z.es }, mx: z.mx, ids: z.ids, sit: 2, act: 1, vlab: ' BB за колд-колл', nlab: ' колд-коллов' };
     const v = z.sum / 10 / z.n;
     td.classList.add('click'); td.tabIndex = 0; td.setAttribute('role', 'button');
     const show = (ev) => showHandPop(it, v, ev, td);
@@ -1394,7 +1432,7 @@ function ccTable(r) {
   const w = heatTable({ cols, groupGapBefore: cols.indexOf('SB') >= 0 ? cols.indexOf('SB') : cols.indexOf('BB'), rows: [{ label: 'Колд-колл', data: r.cc }] });
   w.querySelectorAll('td.c').forEach(td => {
     const col = td.dataset.col, z = r.hands[col]; if (!z || !z.n) return;
-    const it = { p: col === 'TOT' ? null : col, key: 'cc ' + col, title: 'Колд-колл · ' + (col === 'TOT' ? 'все позиции без BB' : col), o: { n: z.n, sum: z.sum }, mx: z.mx, ids: z.ids, sit: 2, act: 1, vlab: ' BB за колд-колл', nlab: ' колд-коллов' };
+    const it = { p: col === 'TOT' ? null : col, key: 'cc ' + col, title: 'Колд-колл · ' + (col === 'TOT' ? 'все позиции без BB' : col), o: { n: z.n, sum: z.sum, es: z.es }, mx: z.mx, ids: z.ids, sit: 2, act: 1, vlab: ' BB за колд-колл', nlab: ' колд-коллов' };
     const v = z.sum / 10 / z.n;
     td.classList.add('click'); td.tabIndex = 0; td.setAttribute('role', 'button');
     const show = (ev) => showHandPop(it, v, ev, td);
@@ -1422,10 +1460,10 @@ function renderCC(idx) {
   c2.append(note);
   // #8 — винрейт колд-колла по позициям, как в RFI: наведение — руки, клик — закрепить, раздачи и реплеер
   const ccPos = r.CC_COLS.slice(1).filter(k => r.cc[k].n >= SMALL);
-  const items = ccPos.map(p => { const h = r.hands[p]; return { p, key: 'cc' + p, o: { n: h.n, sum: h.sum }, mx: h.mx, ids: h.ids, sit: 2, act: 1, title: 'Колд-колл · ' + p, vlab: ' BB за колд-колл', nlab: ' колд-коллов' }; });
-  const t = r.hands.TOT, avg = t.n ? t.sum / 10 / t.n : null;
+  const items = ccPos.map(p => { const h = r.hands[p]; return { p, key: 'cc' + p, o: { n: h.n, sum: h.sum, es: h.es }, mx: h.mx, ids: h.ids, sit: 2, act: 1, title: 'Колд-колл · ' + p, vlab: ' BB за колд-колл', nlab: ' колд-коллов' }; });
+  const t = r.hands.TOT, avg = t.n ? t.sum / 10 / t.n : null, avgE = t.n ? t.es / 10 / t.n : null;
   LAST_NET_ITEMS = items;
-  const c8 = card(8, 'Результат колд-колла', '<span class="' + (avg >= 0 ? 'up' : 'down') + '">' + signed(avg, 2) + '</span> <small>BB за колд-колл</small>', 'фактический итог раздачи после вашего колд-колла по позициям, без BB в общем итоге; под позицией — число колд-коллов', netChart(items, avg));
+  const c8 = card(8, 'Результат колд-колла', wrHtml(avg, avgE, 2) + ' <small>BB за колд-колл</small>', 'итог раздачи после вашего колд-колла по позициям: факт и EV (олл-ины до ривера — по эквити), без BB в общем итоге; под позицией — число колд-коллов', netChart(items, avg));
   c8.classList.add('wide');
   const zone = el('div', 'summary'); const pair = el('div', 'sum-pair'); pair.append(c1, c8); zone.append(pair);
   c2.classList.add('cc-table');
@@ -1558,13 +1596,6 @@ function setDb(db) {
   unpin();
   document.querySelector('.filters').hidden = !db;
   if (!db) { $('demoTag').hidden = true; updatePlayer(); render(); return; }
-  // винрейт: факт или EV (all-in adjusted) — подменяем колонку итога, все расчёты берут её
-  if (!db.cols.netF) db.cols.netF = db.cols.net;
-  const hasEv = Array.isArray(db.cols.nev);
-  $('fEv').hidden = !hasEv;
-  if (!hasEv) state.ev = false;
-  db.cols.net = state.ev && hasEv ? db.cols.nev : db.cols.netF;
-  $('fEv').querySelectorAll('button').forEach(b => { const on = (b.dataset.v === 'ev') === !!state.ev; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); b.onclick = () => { state.ev = b.dataset.v === 'ev'; DB.cols.net = state.ev ? DB.cols.nev : DB.cols.netF; $('fEv').querySelectorAll('button').forEach(x => { const o = x === b; x.classList.toggle('on', o); x.setAttribute('aria-pressed', String(o)); }); render(); }; });
   ROOM_COUNTS = db.rooms.map(() => 0);
   db.cols.room.forEach(r => { if (r >= 0) ROOM_COUNTS[r]++; });
   $('demoTag').hidden = !db.demo;
