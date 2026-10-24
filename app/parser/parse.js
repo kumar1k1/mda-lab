@@ -223,7 +223,7 @@ function parseHand(text, fmt, heroes) {
   const dealt = lines.find(l => l.startsWith('Dealt to ' + heroName + ' ['));
   rec.hc = dealt ? handClass(dealt.slice(dealt.indexOf('['))) : -1;
   rec.net = Math.round(heroNet(lines, heroName, fmt) / bb * 10); // ×10 BB
-  rec.sto = -1; rec.f3b = -1; rec.orsp = -1;
+  rec.sto = -1; rec.f3b = -1; rec.orsp = -1; rec.rz = 0; rec.cl = 0; rec.rai = 0;
   // самый короткий стек среди блайндов (кроме героя), BB×10 — для стила против коротких/глубоких блайндов
   const bl = [sbSeat, bbSeat].filter(sn => sn != null && sn !== heroSeat && seats[sn]).map(sn => seats[sn].stack);
   rec.bmin = bl.length ? Math.round(Math.min(...bl) / bb * 10) : -1;
@@ -241,6 +241,9 @@ function parseHand(text, fmt, heroes) {
   const before = acts.slice(0, hi);
   const raises = before.filter(x => x.a === 'raises' || x.a === 'bets').length;
   const calls = before.filter(x => x.a === 'calls').length;
+  // для колд-колла: сколько рейзов было до первого хода героя, сколько коллеров после первого рейза, был ли первый рейз олл-ином
+  rec.rz = raises;
+  { const fr = before.findIndex(x => x.a === 'raises' || x.a === 'bets'); rec.cl = fr < 0 ? 0 : before.slice(fr + 1).filter(x => x.a === 'calls').length; rec.rai = fr < 0 ? 0 : (before[fr].allin ? 1 : 0); }
   if (raises) rec.sit = 2;
   else if (calls) { rec.sit = 1; rec.lim = new Set(before.filter(x => x.a === 'calls').map(x => x.name)).size; }
   else rec.sit = 0;

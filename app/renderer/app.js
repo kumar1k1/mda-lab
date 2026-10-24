@@ -13,7 +13,7 @@ const state = { tab: 'rfi', sub: 'TOT', room: null, type: null, from: null, to: 
 const GROUPS = [
   { title: 'Префлоп', tabs: [
     { id: 'rfi', code: 'RFI', label: 'Открытие', render: renderRFI },
-    { id: 'cc', code: 'CC', label: 'Колд-колл', plan: 'Колд-колл против открытия по позициям, сайзингам открытия и стеку.' },
+    { id: 'cc', code: 'CC', label: 'Колд-колл', render: renderCC, plan: 'Колд-колл против открытия по позициям, сайзингам открытия и стеку.' },
     { id: '3bet', code: '3B', label: '3-бет', plan: '3-бет по позициям против позиции открывающего, сайзинги 3-бета, олл-ин 3-беты по стеку.' },
     { id: 'vs3bet', code: 'v3B', label: 'Против 3-бета', plan: 'Фолд / колл / 4-бет против 3-бета по позициям и стеку.' },
     { id: 'sqz', code: 'SQZ', label: 'Сквиз', plan: 'Сквиз после открытия и колла, по позициям и числу коллеров.' },
@@ -1154,6 +1154,20 @@ function renderRFISummary(idx, r) {
   zone.insertBefore(sec('Диапазон открытия', 'какие руки и как вы открываете'), zone.children[1]);
   zone.insertBefore(b13, zone.children[2]); // матрица рук сразу под строкой #1 / #8
   return zone;
+}
+
+// ---------- вкладка «Колд-колл» ----------
+function renderCC(idx) {
+  const r = Stats.cc(DB, idx);
+  const page = el('div', 'page');
+  const head = el('div', 'page-head');
+  const h1 = el('h1'); h1.append(document.createTextNode('Колд-колл '), el('span', null, 'CC'));
+  head.append(h1, el('p', null, 'Как часто вы просто коллируете открытие, когда до вас был ровно один рейз и вы ещё не вкладывались в банк.'));
+  page.append(head);
+  page.append(block('Колд-колл по позициям', 'доля коллов от всех случаев, когда перед вами был один рейз',
+    heatTable({ cols: r.CC_COLS, groupGapBefore: 6, rows: [{ label: 'Колд-колл', data: r.cc }] })));
+  page.append(infoNote('TOT — все позиции вместе, включая блайнды. В SB и BB колл открытия тоже считается колд-коллом. Наведите на ячейку — увидите «x из n». Бледные ячейки — меньше ' + SMALL + ' раздач.'));
+  return page;
 }
 
 function renderRFI(idx) {

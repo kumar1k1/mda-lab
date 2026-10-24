@@ -111,7 +111,7 @@ function buildDb(files, nicks, alias, onProgress) {
   recs.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
   const start = recs[0].date.slice(0, 7);
   const [sy, sm] = start.split('-').map(Number);
-  const cols = { room: [], type: [], month: [], tbl: [], pos: [], bb: [], sit: [], lim: [], act: [], size: [], fti: [], bvb: [], fvr: [], day: [], hc: [], net: [], sto: [], f3b: [], orsp: [], bmin: [], sbs: [], bbs: [], bh: [], bsh: [], bmd: [], bdp: [], cov: [], bi: [] };
+  const cols = { room: [], type: [], month: [], tbl: [], pos: [], bb: [], sit: [], lim: [], act: [], size: [], fti: [], bvb: [], fvr: [], day: [], hc: [], net: [], sto: [], f3b: [], orsp: [], bmin: [], sbs: [], bbs: [], bh: [], bsh: [], bmd: [], bdp: [], cov: [], bi: [], rz: [], cl: [], rai: [] };
   const rp = {};
   for (const h of recs) {
     const [y, m] = h.date.split('-').map(Number);
@@ -119,7 +119,7 @@ function buildDb(files, nicks, alias, onProgress) {
     cols.tbl.push(h.tblMax && h.tblMax <= 6 ? 6 : 9); cols.pos.push(h.pos); cols.bb.push(h.bb);
     cols.sit.push(h.sit); cols.lim.push(h.lim); cols.act.push(h.act); cols.size.push(h.size); cols.fti.push(h.fti); cols.bvb.push(h.bvb); cols.fvr.push(h.fvr);
     if (h.rp && h.hc >= 0) { delete h.rp.bb; rp[cols.room.length - 1] = h.rp; }
-    cols.day.push(Math.round((Date.UTC(y, m - 1, +h.date.slice(8, 10)) - Date.UTC(sy, sm - 1, 1)) / 864e5)); cols.hc.push(h.hc); cols.net.push(h.net); cols.sto.push(h.sto); cols.f3b.push(h.f3b); cols.orsp.push(h.orsp); cols.bmin.push(h.bmin); cols.sbs.push(h.sbs); cols.bbs.push(h.bbs); cols.bh.push(h.bh); cols.bsh.push(h.bsh); cols.bmd.push(h.bmd); cols.bdp.push(h.bdp); cols.cov.push(h.cov); cols.bi.push(h.bi);
+    cols.day.push(Math.round((Date.UTC(y, m - 1, +h.date.slice(8, 10)) - Date.UTC(sy, sm - 1, 1)) / 864e5)); cols.hc.push(h.hc); cols.net.push(h.net); cols.sto.push(h.sto); cols.f3b.push(h.f3b); cols.orsp.push(h.orsp); cols.bmin.push(h.bmin); cols.sbs.push(h.sbs); cols.bbs.push(h.bbs); cols.bh.push(h.bh); cols.bsh.push(h.bsh); cols.bmd.push(h.bmd); cols.bdp.push(h.bdp); cols.cov.push(h.cov); cols.bi.push(h.bi); cols.rz.push(h.rz); cols.cl.push(h.cl); cols.rai.push(h.rai);
   }
   const db = { format: 'mdalab-hands-v1', demo: false, hero: alias || Object.keys(nicks)[0], nicks, rooms: ROOMS, types: ['Обычный', 'PKO'], periodStart: start, count: recs.length, cols };
   return { db, rp, hands: recs.length, dup, errors };

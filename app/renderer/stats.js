@@ -177,5 +177,19 @@
     return out;
   }
 
-  window.Stats = { POS, selectHands, rfi, rfiExtra, stealExtra };
+  // Колд-колл: перед первым ходом героя был ровно один рейз (открытие), герой ещё не вкладывался добровольно; CC — колл этого рейза
+  const CC_COLS = ['TOT', 'EP', 'MP', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
+  function cc(db, idx) {
+    const c = db.cols, R = () => ({ x: 0, n: 0 }), out = { cc: {} };
+    CC_COLS.forEach(k => { out.cc[k] = R(); });
+    if (!c.rz) return Object.assign(out, { CC_COLS });
+    for (const i of idx) {
+      if (c.rz[i] !== 1) continue;
+      const p = POS[c.pos[i]], call = c.act[i] === 1;
+      [out.cc.TOT, out.cc[p]].forEach(z => { z.n++; if (call) z.x++; });
+    }
+    return Object.assign(out, { CC_COLS });
+  }
+
+  window.Stats = { POS, selectHands, rfi, rfiExtra, stealExtra, cc };
 })();
