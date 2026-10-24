@@ -1829,6 +1829,7 @@ function openPlayerMenu() {
 // Правки копятся в черновике (DRAFT) и применяются кнопкой «ОК»: тогда пишутся в meta.json базы
 // и выбранный алиас открывается во вкладках. Раздачи не трогаются — меняется только состав алиаса.
 let EDIT_A = null, EDIT_BUSY = false, EDIT_NEW = false, EDIT_MSG = '', DRAFT = null;
+let NEW_INPUT = null; // поле имени нового алиаса: «ОК» внизу тоже создаёт алиас из него
 let PREV_TAB = 'rfi'; // вкладка, с которой открыли редактор: «ОК» возвращает на неё
 function editAliasEdit(mut, quiet) {
   if (!HERO_DB) return;
@@ -1876,6 +1877,17 @@ async function saveDraftNow() {
 // «ОК»: применить черновик, закрыть редактор (вернуться на прежнюю вкладку) и открыть алиас
 async function applyAliasEdit() {
   if (!HERO_DB || EDIT_BUSY) return;
+  // открыта форма нового алиаса и имя вписано — «ОК» создаёт его (даже пустым) и остаётся в редакторе
+  const pend = EDIT_NEW && NEW_INPUT && NEW_INPUT.isConnected ? NEW_INPUT.value.trim() : '';
+  if (pend) {
+    if (draftInfo().some(A => !A.gone && A.name.toLowerCase() === pend.toLowerCase())) { EDIT_MSG = 'Алиас «' + pend + '» уже есть'; render(); return; }
+    if (draftInfo().filter(A => !A.gone).length >= MAX_ALIASES) { EDIT_MSG = 'Больше ' + MAX_ALIASES + ' алиасов создать нельзя'; render(); return; }
+    EDIT_NEW = false;
+    if (!DRAFT) DRAFT = aliasList(HERO_DB).map(a => JSON.parse(JSON.stringify(a)));
+    DRAFT.push({ name: pend, nicks: {}, off: {}, mine: [], opp: [] }); EDIT_A = DRAFT.length - 1;
+    await saveDraftNow(); return;
+  }
+  EDIT_NEW = false;
   const target = EDIT_A;
   // имя алиаса: пустое — прежнее, занятое другим алиасом — не применяем
   if (DRAFT && DRAFT[target]) {
@@ -1928,7 +1940,7 @@ function renderAliasEditor() {
     chips.append(w);
   });
   if (EDIT_NEW) {
-    const f = el('form', 'als-newform'); const ni = el('input'); ni.placeholder = 'Имя нового алиаса'; ni.maxLength = 40; ni.setAttribute('aria-label', 'Имя нового алиаса');
+    const f = el('form', 'als-newform'); const ni = el('input'); NEW_INPUT = ni; ni.placeholder = 'Имя нового алиаса'; ni.maxLength = 40; ni.setAttribute('aria-label', 'Имя нового алиаса');
     const ok = el('button', 'btn small primary', 'ОК'); ok.type = 'submit';
     const no = el('button', 'btn small', 'Отмена'); no.type = 'button'; no.onclick = () => { EDIT_NEW = false; render(); };
     f.onsubmit = (e) => { e.preventDefault(); const name = ni.value.trim(); if (!name) { ni.focus(); return; } if (AL.some(A => !A.gone && A.name.toLowerCase() === name.toLowerCase())) { EDIT_MSG = 'Алиас «' + name + '» уже есть'; render(); return; } EDIT_NEW = false;
