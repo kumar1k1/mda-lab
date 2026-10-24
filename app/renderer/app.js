@@ -1777,7 +1777,7 @@ function openPlayerMenu() {
   // строка с кнопками справа (свернуть ники, крестик) — кнопки не вложены в кнопку строки
   const withBtns = (it, btns) => {
     if (!btns.length) return it;
-    const w = el('div', 'pm-row'); it.classList.add(btns.length > 1 ? 'pm-has-x2' : 'pm-has-x'); w.append(it);
+    const w = el('div', 'pm-row'); it.classList.add(btns.length > 2 ? 'pm-has-x3' : btns.length > 1 ? 'pm-has-x2' : 'pm-has-x'); w.append(it);
     const box = el('span', 'pm-btns'); btns.forEach(b => box.append(b)); w.append(box); return w;
   };
   const sbtn = (txt, cls, title, fn) => { const b = el('button', 'pm-x' + (cls ? ' ' + cls : ''), txt); b.type = 'button'; b.title = title; b.setAttribute('aria-label', title); b.onclick = async (e) => { e.stopPropagation(); await fn(); }; return b; };
@@ -1787,6 +1787,8 @@ function openPlayerMenu() {
     const has = Object.keys(A.nicks).length + A.mine.length + A.opp.length > 0;
     const open = has && aliasOpen(A);
     const btns = [];
+    // «+» — добавить ники в этот алиас (редактор алиасов на нём); стрелка — показать или скрыть ники
+    btns.push(sbtn('+', 'pm-add', 'Добавить ники в алиас «' + A.name + '»', () => { closePlayerMenu(); if (state.tab !== 'aliases') PREV_TAB = state.tab; EDIT_A = A.k; EDIT_NEW = false; state.tab = 'aliases'; render(); }));
     if (has) { const t = sbtn(open ? '▾' : '▸', 'pm-tog', (open ? 'Скрыть' : 'Показать') + ' ники алиаса «' + A.name + '»', () => { setAliasOpen(A, !open); openPlayerMenu(); }); t.setAttribute('aria-expanded', open); btns.push(t); }
     // алиас без раздач ваших ников — распустить крестиком
     if (!Object.keys(A.nicks).length) btns.push(sbtn('×', '', 'Распустить алиас «' + A.name + '»', async () => { await dissolveAlias(A.k); openPlayerMenu(); }));

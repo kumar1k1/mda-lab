@@ -881,8 +881,12 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .pm-item.pm-has-x2{padding-right:68px}
 .pm-btns{position:absolute;top:50%;right:6px;transform:translateY(-50%);display:flex;gap:2px}
 .pm-x{width:26px;height:26px;display:grid;place-items:center;border:none;border-radius:7px;background:transparent;color:var(--muted);font-size:17px;line-height:1;cursor:pointer}
+.pm-item.pm-has-x3{padding-right:96px}
+.pm-x.pm-tog,.pm-x.pm-add{border:1px solid var(--line2);color:var(--soft);font-weight:700}
 .pm-x.pm-tog{font-size:13px}
+.pm-x.pm-add{font-size:16px}
+.pm-x.pm-add:hover,.pm-x.pm-add:focus-visible{background:rgba(var(--amber-rgb),.14);border-color:var(--amber);color:var(--amber)}
 .pm-x.pm-tog:hover,.pm-x.pm-tog:focus-visible{background:var(--card2);color:var(--text)}
 .pm-x.pm-back:hover,.pm-x.pm-back:focus-visible{background:rgba(var(--amber-rgb),.14);color:var(--amber)}
-.pm-x:not(.pm-tog):not(.pm-back):hover,.pm-x:not(.pm-tog):not(.pm-back):focus-visible{background:rgba(var(--bad-rgb),.14);color:var(--bad)}
+.pm-x:not(.pm-tog):not(.pm-back):not(.pm-add):hover,.pm-x:not(.pm-tog):not(.pm-back):not(.pm-add):focus-visible{background:rgba(var(--bad-rgb),.14);color:var(--bad)}
 .als-chip:disabled{cursor:default;opacity:.6}
