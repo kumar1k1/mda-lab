@@ -1458,14 +1458,14 @@ function renderCC(idx) {
   const page = el('div', 'page');
   const head = el('div', 'page-head');
   const h1 = el('h1'); h1.append(document.createTextNode('Колд-колл '), el('span', null, 'CC'));
-  head.append(h1, el('p', null, 'Как в Hand2Note: перед вами ровно один рейз без коллеров («1 Raise»), вы ещё не вкладывались в банк. Частота — по вашему первому ходу; винрейт, руки и раздачи — только когда колл был вашим единственным ходом на префлопе («Префлоп: C»).'));
+  head.append(h1, el('p', null, 'Как часто вы вступаете в игру коллом, когда до вас был один рейзер.'));
   page.append(head);
   // #1 — общий колд-колл, по позициям и ваш ответ на открытие; #2 — таблица по позициям (в стиле вкладки RFI)
   const posRows = ['UTG', 'MP', 'CO', 'BTN', 'SB'].filter(p => r.cc[p].n >= SMALL).map(p => { const z = r.cc[p]; return [p, z.n ? z.x / z.n : null, p + ': ' + z.x + ' из ' + z.n]; });
   const c1 = card(1, 'Колд-коллите', '<em>' + pctTxt(r.cc.TOT) + '</em>', 'из ' + r.cc.TOT.n.toLocaleString('ru-RU') + ' открытий перед вами, без BB',
     fillBox(posStrip('По позициям', posRows), respTiles(r.resp, 'Ваш ответ на открытие', [['фолд', 'var(--good)'], ['колл', 'var(--ice)'], ['3-бет', 'var(--bad)']])));
   const c2 = el('div', 'insight');
-  c2.append(numTag(2), el('span', 'k', 'Колд-колл по позициям'), el('span', 's', 'доля коллов от всех случаев, когда перед вами был один рейз; BB — отдельно'), ccTable(r));
+  c2.append(numTag(2), el('span', 'k', 'Колд-колл по позициям'), ccTable(r));
   const note = infoNote('TOT — все позиции без BB (колл из BB — защита большого блайнда, показан отдельной колонкой). В SB колл открытия считается колд-коллом. Наведите на ячейку — покажется матрица рук, которыми вы коллировали, и их итог; клик закрепит окно, клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше ' + SMALL + ' раздач.');
   c2.append(note);
   // #8 — винрейт колд-колла по позициям, как в RFI: наведение — руки, клик — закрепить, раздачи и реплеер
@@ -1474,7 +1474,7 @@ function renderCC(idx) {
   const t = r.hands.TOT, avg = t.n ? t.sum / 10 / t.n : null, avgE = t.n ? t.es / 10 / t.n : null;
   LAST_NET_ITEMS = items;
   const tb = r.hands.BB, nAll = t.n + tb.n, allF = nAll ? (t.sum + tb.sum) / 10 / nAll : null, allE = nAll ? (t.es + tb.es) / 10 / nAll : null;
-  const c8 = card(8, 'Результат колд-колла', wrHtml(avg, avgE, 2) + ' <small>BB за колд-колл</small>', 'фактический результат и EV колд-колла по позициям, без BB в общем итоге; вместе с BB — ' + wrTxt(allF, allE, 2) + ' BB (' + nAll.toLocaleString('ru-RU') + ' раздач, как «ИТОГ» в Hand2Note); под позицией — число колд-коллов', netChart(items, avg, 'EV колд-колла'));
+  const c8 = card(8, 'Результат колд-колла', wrHtml(avg, avgE, 2) + ' <small>BB за колд-колл</small>', null, netChart(items, avg, 'EV колд-колла'));
   c8.classList.add('wide');
   const zone = el('div', 'summary'); const pair = el('div', 'sum-pair'); pair.append(c1, c8); zone.append(pair);
   c2.classList.add('cc-table');
