@@ -1779,9 +1779,30 @@ function showImport(r) {
   if (!$('aliasName').value && nicks.length) $('aliasName').value = nicks[0].nick;
   syncImportBtn();
   $('impPlan').hidden = !nicks.length;
-  if (nicks.length) { showBaseLocation(); runEstimate(); }
+  if (nicks.length) { setupImportMode(); showBaseLocation(); runEstimate(); }
 }
 function syncImportBtn() { $('doImport').disabled = !document.querySelector('#nickList input:checked'); }
+
+// ---------- режим: дописать к базе или заменить ----------
+let DBINFO = null;
+const importMode = () => (DBINFO && DBINFO.stored && DBINFO.canAppend && (document.querySelector('input[name=impMode]:checked') || {}).value === 'append') ? 'append' : 'replace';
+async function setupImportMode() {
+  DBINFO = mda.dbInfo ? await mda.dbInfo() : null;
+  const box = $('impMode'), has = !!(DBINFO && DBINFO.stored);
+  box.hidden = !has;
+  if (!has) return;
+  const ap = box.querySelector('input[value=append]');
+  ap.disabled = !DBINFO.canAppend;
+  if (!DBINFO.canAppend) { box.querySelector('input[value=replace]').checked = true; $('impModeAppendSub').textContent = 'текущая база старого формата — чтобы дописывать в неё и видеть соперников, её нужно один раз собрать заново'; }
+  else $('impModeAppendSub').textContent = 'сейчас в базе ' + DBINFO.count.toLocaleString('ru-RU') + ' раздач — новые допишутся, повторы пропустятся';
+  box.querySelectorAll('input').forEach(i => { i.onchange = () => { syncModeUi(); }; });
+  syncModeUi();
+}
+function syncModeUi() {
+  const app = importMode() === 'append';
+  $('pickBaseDir').hidden = app; // дописываем туда, где база уже лежит
+  renderEstimate();
+}
 
 // ---------- место для базы и оценка до загрузки ----------
 const fmtDur = (s) => s < 60 ? 'меньше минуты' : s < 3600 ? '≈ ' + Math.round(s / 60) + ' мин' : '≈ ' + Math.floor(s / 3600) + ' ч ' + Math.round(s % 3600 / 60) + ' мин';
@@ -1795,8 +1816,9 @@ function renderEstimate() {
   const free = LOC && LOC.free != null ? LOC.free : null;
   $('estFree').textContent = free == null ? '—' : fmtBytes(free);
   if (!EST) return;
-  $('estHands').textContent = '≈ ' + EST.hands.toLocaleString('ru-RU');
-  $('estSize').textContent = '≈ ' + fmtBytes(EST.bytes);
+  const app = importMode() === 'append';
+  $('estHands').textContent = (app ? '+ ' : '≈ ') + EST.hands.toLocaleString('ru-RU');
+  $('estSize').textContent = (app ? '+ ' : '≈ ') + fmtBytes(EST.bytes);
   $('estTime').textContent = fmtDur(EST.seconds);
   const need = EST.bytes * 1.3 + 64 * 1024 * 1024; // запас на временные файлы при сборке
   const short = free != null && free < need;
@@ -1804,7 +1826,7 @@ function renderEstimate() {
   $('estNote').classList.toggle('bad', short);
   $('estNote').textContent = short
     ? 'Не хватит места: на время загрузки нужно около ' + fmtBytes(need) + '. Выберите другую папку или диск.'
-    : 'Оценка по образцу ' + fmtBytes(EST.sampleBytes) + ' из ' + fmtBytes(EST.totalBytes) + ' ваших историй на этом компьютере (' + EST.cpus + ' ядер, EV считается в ' + EST.threads + ' потоков). Точные цифры — после загрузки.';
+    : 'Оценка по образцу ' + fmtBytes(EST.sampleBytes) + ' из ' + fmtBytes(EST.totalBytes) + ' ваших историй на этом компьютере (' + EST.cpus + ' ядер, разбор и EV — в ' + EST.threads + ' потоков)' + (EST.opp ? '; вместе с вашими раздачами сохранятся ≈ ' + EST.opp.toLocaleString('ru-RU') + ' раздач соперников' : '') + '.' + (app ? ' Повторы уже лежащих в базе раздач отсеются — добавится не больше.' : ' Точные цифры — после загрузки.');
   $('doImport').disabled = short || !document.querySelector('#nickList input:checked');
 }
 function runEstimate() {
@@ -1832,18 +1854,22 @@ async function runImport() {
   const t0 = Date.now();
   mda.onProgress((m) => {
     // этапы: разбор файлов (до 70% полосы) и расчёт EV по олл-инам (оставшиеся 30%)
-    const f = m.stage === 'ev' ? 0.7 + 0.3 * m.done / Math.max(1, m.total) : 0.7 * m.done / Math.max(1, m.total);
+    const f = m.stage === 'ev' ? 0.75 + 0.25 * m.done / Math.max(1, m.total) : m.stage === 'merge' ? 0.65 + 0.1 * m.done / Math.max(1, m.total) : 0.65 * m.done / Math.max(1, m.total);
     $('progFill').style.width = (f * 100).toFixed(1) + '%';
     const el2 = (Date.now() - t0) / 1000, left = f > 0.03 ? el2 / f - el2 : null;
     $('progText').textContent = (m.stage === 'ev'
       ? 'Считаю EV олл-инов: ' + m.done.toLocaleString('ru-RU') + ' из ' + m.total.toLocaleString('ru-RU')
+      : m.stage === 'merge' ? 'Раскладываю раздачи по базе'
       : 'Разобрано файлов: ' + m.done.toLocaleString('ru-RU') + ' из ' + m.total.toLocaleString('ru-RU')) + ' · ваших раздач: ' + m.hands.toLocaleString('ru-RU') + (left != null ? ' · осталось ' + fmtDur(left) : '');
   });
-  const res = await mda.runImport({ nicks, alias });
+  const mode = importMode();
+  const res = await mda.runImport({ nicks, alias, mode });
   if (res.type === 'error' || res.error) { $('progText').textContent = 'Ошибка: ' + (res.message || res.error); syncImportBtn(); return; }
   if (!res.hands) { $('progText').textContent = 'Раздач с выбранными никами не нашлось. Проверьте ники.'; syncImportBtn(); return; }
   $('progFill').style.width = '100%';
-  $('progText').textContent = 'Готово: ' + res.hands.toLocaleString('ru-RU') + ' раздач' + (res.dup ? ', повторов пропущено: ' + res.dup.toLocaleString('ru-RU') : '') + '.';
+  $('progText').textContent = mode === 'append'
+    ? (res.added ? 'Добавлено ' + res.added.toLocaleString('ru-RU') + ' раздач' : 'Новых раздач нет') + (res.dup ? ', повторов пропущено: ' + res.dup.toLocaleString('ru-RU') : '') + '. Всего в базе: ' + res.hands.toLocaleString('ru-RU') + ' раздач, соперников: ' + (res.players || 0).toLocaleString('ru-RU') + '.'
+    : 'Готово: ' + res.hands.toLocaleString('ru-RU') + ' раздач' + (res.players ? ', соперников: ' + res.players.toLocaleString('ru-RU') : '') + (res.dup ? ', повторов пропущено: ' + res.dup.toLocaleString('ru-RU') : '') + '.';
   setDb(await loadDb());
   setTimeout(closeImportModal, 900);
 }

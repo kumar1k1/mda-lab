@@ -98,6 +98,11 @@
         <label class="alias-in"><span>Имя Alias — общее имя для всех ваших ников</span><input id="aliasName" type="text" maxlength="40" autocomplete="off"></label>
       </div>
       <div class="imp-plan" id="impPlan" hidden>
+        <fieldset class="imp-mode" id="impMode" hidden>
+          <legend>Что сделать с базой</legend>
+          <label class="imp-mode-opt"><input type="radio" name="impMode" value="append" checked><span><b>Добавить к текущей базе</b><small id="impModeAppendSub">новые раздачи допишутся, повторы пропустятся</small></span></label>
+          <label class="imp-mode-opt"><input type="radio" name="impMode" value="replace"><span><b>Заменить базу</b><small>собрать базу заново только из выбранных файлов</small></span></label>
+        </fieldset>
         <h3>Где хранить базу</h3>
         <div class="imp-dir">
           <span class="imp-dir-path" id="baseDirPath">—</span>

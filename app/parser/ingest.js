@@ -126,7 +126,7 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
   rpw.close();
   for (const c of Object.values(H)) c.close();
   for (const c of Object.values(O)) c.close();
-  if (!nH) { fs.rmSync(tmp, { recursive: true, force: true }); if (!old) fs.rmSync(dir, { recursive: true, force: true }); return { hands: 0, added: 0, dup, errors, rooms, opp: 0, players: players.length }; }
+  if (!nH) { fs.rmSync(tmp, { recursive: true, force: true }); if (!old) fs.rmSync(dir, { recursive: true, force: true }); return { hands: old ? old.heroN : 0, added: 0, dup, errors, rooms, opp: old ? old.oppN : 0, oppAdded: 0, players: old ? old.players.length : 0 }; }
 
   // начало периода: самый ранний месяц среди старых и новых раздач
   const dayNew = H.day.readAll();

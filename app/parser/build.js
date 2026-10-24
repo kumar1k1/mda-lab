@@ -123,39 +123,47 @@ const buildBase = (...a) => require('./ingest.js').buildBase(...a);
 const appendBase = (files, nicks, alias, dir, onProgress, opts) => require('./ingest.js').ingest(files, nicks, alias, dir, onProgress, opts);
 
 // ---------- оценка до загрузки ----------
-// Прогоняет образец историй (по умолчанию ~16 МБ, равномерно по списку файлов) тем же разбором и расчётом EV,
-// что и загрузка, и пересчитывает на весь объём: сколько раздач, сколько места займёт база и сколько времени уйдёт
-// на этом компьютере (EV — параллельно по ядрам).
-const BYTES_PER_HAND = 87 + 8 + 12; // колонки + ключ дубля + индекс реплеера (см. store.js)
+// Прогоняет образец историй (~16 МБ, равномерно по списку файлов) тем же разбором (вы + все соперники)
+// и тем же расчётом EV, что и загрузка, и пересчитывает на весь объём: сколько раздач, сколько места
+// займёт база и сколько времени уйдёт на этом компьютере (разбор и EV — параллельно по ядрам).
+const HERO_ROW = 87 + 12 + 8, OPP_ROW = 87 + 4 + 1 + 12 + 8; // колонки + ссылка на реплеер + отпечаток (+ игрок и место)
 async function estimate(files, heroNicks, opts) {
   opts = opts || {};
-  const os = require('os'), { evNet } = require('./ev.js');
+  const os = require('os'), zlib = require('zlib'), { evNet } = require('./ev.js'), { parseTextAll } = require('./parse.js'), { asSeat } = require('./store.js');
   const heroes = new Set(heroNicks);
   const sizes = files.map(f => { try { return fileSize(f); } catch (e) { return 0; } });
   const total = sizes.reduce((a, b) => a + b, 0);
   const budget = opts.sampleBytes || 16 * 1024 * 1024;
-  // образец: файлы через равные промежутки, пока не наберём budget байт
   const order = []; const step = Math.max(1, Math.floor(files.length / Math.max(1, Math.min(files.length, 400))));
-  for (let i = 0; i < files.length && order.length < files.length; i += step) order.push(i);
-  let sBytes = 0, sHands = 0, rps = [], rpBytes = 0; const t0 = Date.now();
+  for (let i = 0; i < files.length; i += step) order.push(i);
+  let sBytes = 0, sHands = 0, sOpp = 0, rpN = 0, rpBytes = 0; const evRecs = []; const t0 = Date.now();
   for (const i of order) {
     if (sBytes >= budget) break;
-    try { await eachText(files[i], (text) => { const r = parseText(text, heroes); for (const h of r.hands) { sHands++; if (h.rp && h.hc >= 0) { rps.push(h.rp); rpBytes += JSON.stringify(h.rp).length; } } }); } catch (e) { /* пропуск */ }
+    try {
+      await eachText(files[i], (text) => {
+        const r = parseTextAll(text, heroes);
+        for (const h of r.hands) {
+          sHands++; sOpp += h.opps.length;
+          if (h.rp) { rpN++; rpBytes += zlib.deflateRawSync(Buffer.from(JSON.stringify(h.rp))).length; }
+          if (h.hero.rp && h.hero.hc >= 0) evRecs.push([h.rp, -1]);
+          for (const o of h.opps) if (o.needRp && o.hc >= 0 && h.rp) evRecs.push([h.rp, o.seatIdx]);
+        }
+      });
+    } catch (e) { /* пропуск */ }
     sBytes += sizes[i];
   }
   closeAll();
   const parseMs = Date.now() - t0;
-  // EV: замер на образце олл-инов и прочих записей (не дольше ~3 с)
   let evMs = 0, evN = 0; const tE = Date.now();
-  for (let k = 0; k < rps.length && Date.now() - tE < 3000; k++) { evNet(rps[k], k + 1); evN++; }
+  for (let k = 0; k < evRecs.length && Date.now() - tE < 4000; k++) { evNet(asSeat(evRecs[k][0], evRecs[k][1]), k + 1); evN++; }
   evMs = Date.now() - tE;
-  const threads = Math.max(1, Math.min(8, (os.cpus() || []).length - 1));
+  const cpus = (os.cpus() || []).length, threads = Math.max(1, Math.min(8, cpus - 1));
   const scale = sBytes ? total / sBytes : 0;
-  const hands = Math.round(sHands * scale), rpHands = Math.round(rps.length * scale);
-  const evPerRec = evN ? evMs / evN : 0;
-  const seconds = (parseMs * scale + rpHands * evPerRec / threads) / 1000 * 1.1 + 2; // +10% на запись и сортировку
-  const bytes = Math.round(hands * BYTES_PER_HAND + (rps.length ? rpBytes / rps.length : 0) * rpHands);
-  return { totalBytes: total, sampleBytes: sBytes, hands, bytes, seconds: Math.round(seconds), threads, cpus: (os.cpus() || []).length, exact: sBytes >= total };
+  const hands = Math.round(sHands * scale), opp = Math.round(sOpp * scale);
+  const evJobs = evRecs.length * scale, evPer = evN ? evMs / evN : 0;
+  const seconds = (parseMs * scale / threads * 1.25 + evJobs * evPer / threads) / 1000 + (hands + opp) * 2e-6 * 10 + 3; // +25% на раздачу потокам, слияние ~20 мкс на строку
+  const bytes = Math.round(hands * HERO_ROW + opp * OPP_ROW + (rpN ? rpBytes / rpN : 0) * rpN * scale + hands * 8);
+  return { totalBytes: total, sampleBytes: sBytes, hands, opp, bytes, seconds: Math.round(seconds), threads, cpus, exact: sBytes >= total };
 }
 
 module.exports = { ROOM_SIGNS, SUPPORTED, walk, addFile, scan, buildBase, appendBase, eachText, estimate };

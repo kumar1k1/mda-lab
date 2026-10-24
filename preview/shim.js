@@ -101,10 +101,10 @@
     },
     demoDb: async () => generateDemoHands(),
     // в превью — примерная оценка по объёму (в программе — замер на образце ваших историй)
-    estimate: async () => { const b = LAST_BYTES || 1; const cpus = navigator.hardwareConcurrency || 4, threads = Math.max(1, Math.min(8, cpus - 1)); const hands = Math.round(b / 1411); return { totalBytes: b, sampleBytes: Math.min(b, 16777216), hands, bytes: Math.round(hands * 230), seconds: Math.round(b / 14e6 + hands * 0.22 * 4.2 / 1000 / threads + 2), threads, cpus }; },
+    estimate: async () => { const b = LAST_BYTES || 1; const cpus = navigator.hardwareConcurrency || 4, threads = Math.max(1, Math.min(8, cpus - 1)); const hands = Math.round(b / 1411), opp = Math.round(hands * 5.46); return { totalBytes: b, sampleBytes: Math.min(b, 16777216), hands, opp, bytes: Math.round(hands * 985), seconds: Math.round(b / 5.2e6 / threads * 1.25 + hands * 0.55 * 3.4 / 1000 / threads + 3), threads, cpus }; },
     baseLocation: async () => ({ dir: 'C:\\Users\\Игрок\\AppData\\Roaming\\MDA Lab\\base', free: 412e9 }),
     pickBaseDir: async () => ({ dir: 'D:\\Poker\\MDA Lab база', free: 1.6e12 }),
-    dbInfo: async () => ({ stored: false }),
+    dbInfo: async () => { const m = await window.mda.dbMeta(); return { stored: !!m, canAppend: !!(m && m.format === 'mdalab-cols-v3'), count: m ? m.count : 0 }; },
     deleteDb: async () => true,
     runImport: async () => ({ error: 'в онлайн-превью загрузка не работает' }),
     onProgress: () => {},
