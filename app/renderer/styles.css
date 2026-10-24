@@ -749,3 +749,8 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .pmx-c b{font-size:clamp(9px, 3.6cqi, 14px)}
 .pmx-wf{font-size:clamp(8px, 3.3cqi, 12.5px)}
 .pmx-we{font-size:clamp(7px, 2.35cqi, 10px)}
+/* #5: плитки ответа как в #4 — процент и под ним действие */
+.iso-rv.resp-tile{padding:6px 8px;text-align:left}
+.iso-rv.resp-tile b{font-size:16px}
+.iso-rv.resp-tile.tot b{font-size:18px}
+.iso-rv.resp-tile span{font-size:10.5px}

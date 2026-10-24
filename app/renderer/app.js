@@ -1028,14 +1028,13 @@ function isoCard(d) {
   // ответ оппонентов: против 1 лимпера, против 2+ и всего
   const rt = el('div', 'iso-rt');
   const g = el('div', 'iso-rg');
-  g.append(el('span'));
-  [['фолд', 'var(--good)'], ['колл', 'var(--ice)'], ['рейз', 'var(--bad)']].forEach(([l, col]) => { const hh = el('span', 'iso-rh'); const i = el('i'); i.style.background = col; hh.append(i, document.createTextNode(l)); g.append(hh); });
+  // как в #4: в плитке процент, под ним действие
   [['vs 1 лимпер', d.respL[0], ''], ['vs 2+', d.respL[1], ''], ['Всего', d.resp, 'tot']].forEach(([lab, a, cls]) => {
     const n = a[0] + a[1] + a[2];
     g.append(el('span', 'iso-rl ' + cls, lab));
-    ['var(--good)', 'var(--ice)', 'var(--bad)'].forEach((col, k) => {
-      const v = el('b', 'iso-rv ' + cls, n ? fmtPct(a[k] / n) + '%' : '—'); v.style.color = col;
-      v.title = lab + ': ' + a[k] + ' из ' + n; g.append(v);
+    [['фолд', 'var(--good)'], ['колл', 'var(--ice)'], ['рейз', 'var(--bad)']].forEach(([act, col], k) => {
+      const v = el('span', 'resp-tile iso-rv ' + cls); const num = el('b', null, n ? fmtPct(a[k] / n) + '%' : '—'); num.style.color = col;
+      v.append(num, el('span', null, act)); v.title = lab + ', ' + act + ': ' + a[k] + ' из ' + n; g.append(v);
     });
   });
   rt.append(g);
