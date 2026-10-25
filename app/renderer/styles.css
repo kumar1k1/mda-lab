@@ -969,3 +969,15 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .qd-tip b{font-size:13px}
 .qd-tip span{color:var(--soft);font-family:var(--mono);font-size:11.5px}
 .qd-tip em{font-style:normal;color:var(--faint);font-size:11px}
+
+/* обновление базы */
+.mig-bg{z-index:60}
+.mig{width:min(520px,100%)}
+.mig h2{margin:0;font-family:var(--display);font-size:19px}
+.mig p{margin:0;line-height:1.5}
+.qd-pt.sm{fill-opacity:.35;stroke:none}
+.qd-pt.sm:hover{fill-opacity:1;stroke:var(--text);stroke-width:1}
+.qd-view{margin-bottom:8px}
+.qd-dlg{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted);margin-top:6px;flex-wrap:wrap}
+.qd-dlg i{width:110px;height:8px;border-radius:4px;background:linear-gradient(90deg,rgba(var(--ice-rgb),.12),rgba(var(--ice-rgb),1))}
+.qd-dlg em{font-style:normal;color:var(--faint)}

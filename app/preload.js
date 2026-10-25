@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld('mda', {
   estimate: (nicks) => ipcRenderer.invoke('import:estimate', nicks),
   baseLocation: () => ipcRenderer.invoke('base:location'),
   pickBaseDir: () => ipcRenderer.invoke('base:pick'),
+  onMigrate: (cb) => { ipcRenderer.removeAllListeners('db:migrate'); ipcRenderer.on('db:migrate', (_e, m) => cb(m)); },
   onProgress: (cb) => { ipcRenderer.removeAllListeners('import:progress'); ipcRenderer.on('import:progress', (_e, m) => cb(m)); },
   pick: (mode) => ipcRenderer.invoke('import:pick', mode),
   // путь перетащенного файла или папки: File нельзя передать списком (FileList через contextBridge приходит пустым),

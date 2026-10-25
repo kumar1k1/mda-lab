@@ -1593,6 +1593,7 @@ function ccGroupBlock(r) {
 // #9 — квадрант «Колд-колл × Фолд на контбет флопа»: где находится каждый игрок базы и вы
 let CC_QUAD = null; // { db, rows } — таблица по игрокам базы (считается в программе один раз)
 let CC_QPOS = 'TOT'; // позиция в квадранте #9
+let CC_QVIEW = 'auto'; // вид #9: auto (много игроков — плотность), dens, dots
 const QPOS = { TOT: 0, UTG: 1, MP: 2, CO: 4, BTN: 5, SB: 6, BB: 7 }; // номер в таблице игроков (HJ в базе входит в MP)
 let qdTip = null;
 function ccQuadBlock(r, idx) {
@@ -1609,10 +1610,10 @@ function ccQuadBlock(r, idx) {
     const c = DB.cols; let fo = 0, fn = 0;
     // фолд на контбет — на выбранной позиции («Все без BB» — все позиции, кроме BB), как и у игроков базы
     const qp = qi - 1; // номер позиции в базе (0 UTG … 6 BB)
-    let an = 0, as = 0; // ориентир равновесия: средняя доля α = ставка / (банк + ставка) по контбетам против вас (1 − MDF)
-    if (c.fcb) for (const i of idx) { const v = c.fcb[i]; if (v < 0) continue; const ps = c.pos[i]; if (P0 === 'TOT' ? ps === 6 : ps !== qp) continue; fn++; if (v === 1) fo++; const z = c.cbs ? c.cbs[i] : -1; if (z >= 0) { an++; as += z / (100 + z); } }
+    const zs = []; let an = 0, as = 0; // ориентир равновесия: средняя доля α = ставка / (банк + ставка) по контбетам против вас (1 − MDF)
+    if (c.fcb) for (const i of idx) { const v = c.fcb[i]; if (v < 0) continue; const ps = c.pos[i]; if (P0 === 'TOT' ? ps === 6 : ps !== qp) continue; fn++; if (v === 1) fo++; const z = c.cbs ? c.cbs[i] : -1; if (z >= 0) { an++; as += z / (100 + z); zs.push(z); } }
     const zc = r.cc[P0] || { n: 0, x: 0 };
-    const me = { name: state.player ? state.player.name : (curAlias() ? curAlias().name : 'Вы'), cc: zc.n ? zc.x / zc.n : null, ccN: zc.n, fcb: fn ? fo / fn : null, fcbN: fn, eq: an >= 10 ? as / an : null, pid: state.player ? state.player.pid : null };
+    const me = { name: state.player ? state.player.name : (curAlias() ? curAlias().name : 'Вы'), cc: zc.n ? zc.x / zc.n : null, ccN: zc.n, fcb: fn ? fo / fn : null, fcbN: fn, eq: an >= 10 ? as / an : null, cbMed: zs.length >= 10 ? zs.sort((a, b) => a - b)[zs.length >> 1] : null, pid: state.player ? state.player.pid : null };
     if (!data || !data.ok) { body.append(el('p', 'muted small', 'В базе нет данных о фолде на контбет — их начала сохранять версия 0.6. Загрузите базу заново («Заменить базу»), чтобы появился график.')); return; }
     // ваша точка — строго по выбранной позиции (≥ 20 контбетов, иначе не выводится).
     // У игроков базы по одной позиции (кроме BB) контбетов единицы, поэтому их фолд на контбет — по всем позициям без BB, на BB — по BB.
@@ -1638,19 +1639,45 @@ function ccQuadBlock(r, idx) {
     s.append(svgText((P.l + W - P.r) / 2, H - 6, 'Колд-колл, % →', 'middle', 'font-size:11px;fill:var(--soft)'));
     const yl = svgText(14, (P.t + H - P.b) / 2, 'Фолд на контбет флопа, % →', 'middle', 'font-size:11px;fill:var(--soft)'); yl.setAttribute('transform', 'rotate(-90 14 ' + (P.t + H - P.b) / 2 + ')'); s.append(yl);
     // подписи зон
-    const zl = (x, y, t, anchor) => s.append(svgText(x, y, t, anchor, 'font-family:var(--sans);font-size:11px;font-weight:700;fill:var(--muted)'));
-    zl(P.l + 8, P.t + 16, 'Узкий CC · сдаётся', 'start'); zl(W - P.r - 8, P.t + 16, 'Широкий CC · сдаётся', 'end');
-    zl(P.l + 8, H - P.b - 8, 'Узкий CC · цепляется', 'start'); zl(W - P.r - 8, H - P.b - 8, 'Широкий CC · «телефон»', 'end');
-    // точки
+    const HALO = ';paint-order:stroke;stroke:var(--panel);stroke-width:4px;stroke-linejoin:round';
+    const zl = (x, y, t, anchor) => s.append(svgText(x, y, t, anchor, 'font-family:var(--sans);font-size:11px;font-weight:700;fill:var(--muted)' + HALO));
+    // доля игроков в каждой зоне
+    const zn = [0, 0, 0, 0]; pts.forEach(p => { zn[(p.fcb < my ? 2 : 0) + (p.cc >= mx ? 1 : 0)]++; });
+    const zp = (k) => ' · ' + Math.round(zn[k] / pts.length * 100) + '%';
+    zl(P.l + 8, P.t + 16, 'Узкий CC · сдаётся' + zp(0), 'start'); zl(W - P.r - 8, P.t + 16, 'Широкий CC · сдаётся' + zp(1), 'end');
+    zl(P.l + 8, H - P.b - 8, 'Узкий CC · цепляется' + zp(2), 'start'); zl(W - P.r - 8, H - P.b - 8, 'Широкий CC · «телефон»' + zp(3), 'end');
+    // точки или плотность: когда игроков много, точки сливаются в сплошное пятно — тогда карта плотности
+    const dens = CC_QVIEW === 'dens' || (CC_QVIEW === 'auto' && pts.length > 300);
     const tip = (e, p) => {
       if (!qdTip) { qdTip = el('div', 'qd-tip'); qdTip.setAttribute('role', 'tooltip'); document.body.append(qdTip); }
       qdTip.replaceChildren(el('b', null, p.name), el('span', null, (p.room != null && HERO_DB ? HERO_DB.rooms[p.room] + ' · ' : '') + 'колд-колл ' + fmtPct(p.cc) + '% (' + p.ccN + ') · фолд на контбет ' + fmtPct(p.fcb) + '% (' + p.fcbN + ')'), el('em', null, p.isMe ? 'текущий выбор' : 'клик — открыть игрока'));
       qdTip.hidden = false; const w = qdTip.offsetWidth; qdTip.style.left = Math.min(e.clientX + 14, window.innerWidth - w - 8) + 'px'; qdTip.style.top = (e.clientY + 14) + 'px';
     };
     const hide = () => { if (qdTip) qdTip.hidden = true; };
+    if (dens) {
+      // сетка 40 × 25 клеток: яркость — сколько игроков в клетке (корень, чтобы редкие клетки тоже было видно)
+      const NX = 40, NY = 25, cnt = new Array(NX * NY).fill(0);
+      pts.forEach(p => { const ix = Math.min(NX - 1, Math.floor(Math.min(1, p.cc / xMax) * NX)), iy = Math.min(NY - 1, Math.floor(p.fcb * NY)); cnt[iy * NX + ix]++; });
+      const top = Math.max(...cnt), cw = (W - P.l - P.r) / NX, ch = (H - P.t - P.b) / NY;
+      for (let iy = 0; iy < NY; iy++) for (let ix = 0; ix < NX; ix++) {
+        const n = cnt[iy * NX + ix]; if (!n) continue;
+        const a = 0.12 + 0.88 * Math.sqrt(n / top);
+        const rc = svgEl('rect', { x: P.l + ix * cw + 0.5, y: P.t + (NY - 1 - iy) * ch + 0.5, width: cw - 1, height: ch - 1, rx: 2 }, 'fill:rgba(var(--ice-rgb),' + a.toFixed(3) + ')');
+        const x0 = ix / NX * xMax, x1 = (ix + 1) / NX * xMax, y0 = iy / NY, y1 = (iy + 1) / NY;
+        const cellTip = (e) => {
+          if (!qdTip) { qdTip = el('div', 'qd-tip'); qdTip.setAttribute('role', 'tooltip'); document.body.append(qdTip); }
+          qdTip.replaceChildren(el('b', null, n.toLocaleString('ru-RU') + ' ' + (n % 10 === 1 && n % 100 !== 11 ? 'игрок' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 'игрока' : 'игроков')), el('span', null, 'колд-колл ' + Math.round(x0 * 100) + '–' + Math.round(x1 * 100) + '% · фолд на контбет ' + Math.round(y0 * 100) + '–' + Math.round(y1 * 100) + '%'), el('em', null, 'переключите на «Точки», чтобы открыть конкретного игрока'));
+          qdTip.hidden = false; const w = qdTip.offsetWidth; qdTip.style.left = Math.min(e.clientX + 14, window.innerWidth - w - 8) + 'px'; qdTip.style.top = (e.clientY + 14) + 'px';
+        };
+        rc.addEventListener('mouseenter', cellTip); rc.addEventListener('mousemove', cellTip); rc.addEventListener('mouseleave', hide);
+        s.append(rc);
+      }
+    }
     pts.forEach(p => {
       const cur = state.player && state.player.pid === p.pid;
-      const d = svgEl('circle', { cx: X(p.cc), cy: Y(p.fcb), r: cur ? 6 : 3.4, class: 'qd-pt' + (cur ? ' cur' : ''), tabindex: '-1' });
+      if (dens && !cur) return; // в плотности — только выбранный игрок отдельной точкой
+      const many = pts.length > 300;
+      const d = svgEl('circle', { cx: X(p.cc), cy: Y(p.fcb), r: cur ? 6 : many ? 2.2 : 3.4, class: 'qd-pt' + (cur ? ' cur' : '') + (many && !cur ? ' sm' : ''), tabindex: '-1' });
       d.addEventListener('mouseenter', (e) => tip(e, p)); d.addEventListener('mousemove', (e) => tip(e, p)); d.addEventListener('mouseleave', hide);
       d.addEventListener('click', () => { hide(); choosePlayer('opp', { pid: p.pid, name: p.name, room: p.room, count: p.count, shown: p.shown }); });
       s.append(d);
@@ -1658,21 +1685,27 @@ function ccQuadBlock(r, idx) {
     // ориентир равновесия (MDF) — горизонталь и «идеальная» точка на вашем колд-колле
     if (!meLow && me.eq != null) {
       s.append(svgEl('line', { x1: P.l, x2: W - P.r, y1: Y(me.eq), y2: Y(me.eq) }, 'stroke:var(--good);stroke-width:1.5;stroke-dasharray:2 4'));
-      s.append(svgText(W - P.r - 6, Y(me.eq) - 6, 'равновесие (MDF) ' + fmtPct(me.eq) + '%', 'end', 'font-family:var(--sans);font-size:11px;font-weight:700;fill:var(--good)'));
+      s.append(svgText(W - P.r - 6, Y(me.eq) - 6, 'равновесие (MDF) ' + (me.eq * 100).toFixed(1).replace('.', ',') + '%', 'end', 'font-family:var(--sans);font-size:11px;font-weight:700;fill:var(--good)' + HALO));
       s.append(svgEl('line', { x1: X(me.cc), x2: X(me.cc), y1: Y(me.fcb), y2: Y(me.eq) }, 'stroke:var(--good);stroke-width:1.5;stroke-dasharray:3 3'));
       s.append(svgEl('circle', { cx: X(me.cc), cy: Y(me.eq), r: 7 }, 'fill:none;stroke:var(--good);stroke-width:2.2'));
     }
     if (!meLow && !state.player) {
       const p = Object.assign({ isMe: true }, me);
       const g = svgEl('g', { class: 'qd-me' });
-      g.append(svgEl('circle', { cx: X(me.cc), cy: Y(me.fcb), r: 8 }), svgText(X(me.cc) + 12, Y(me.fcb) + 4, me.name, 'start', 'font-family:var(--sans);font-size:12px;font-weight:800;fill:var(--amber)'));
+      g.append(svgEl('circle', { cx: X(me.cc), cy: Y(me.fcb), r: 8 }), svgText(X(me.cc) + 12, Y(me.fcb) + 4, me.name, 'start', 'font-family:var(--sans);font-size:12px;font-weight:800;fill:var(--amber)' + HALO));
       g.addEventListener('mouseenter', (e) => tip(e, p)); g.addEventListener('mousemove', (e) => tip(e, p)); g.addEventListener('mouseleave', hide);
       s.append(g);
     }
     const wrap = el('div', 'qd-chart'); wrap.append(s);
+    // переключатель вида — когда игроков столько, что точки сливаются
+    if (pts.length > 300) {
+      const vseg = segBtns([['dens', 'Плотность'], ['dots', 'Точки']], dens ? 'dens' : 'dots', (k) => { CC_QVIEW = k; draw(LAST); });
+      vseg.classList.add('bx-seg', 'qd-view'); wrap.prepend(vseg);
+      if (dens) { const lg = el('div', 'qd-dlg'); const bar = el('i'); lg.append(el('span', null, '1 игрок'), bar, el('span', null, 'много игроков'), el('em', null, '· клетка — сколько игроков базы с такими цифрами')); wrap.append(lg); }
+    }
     const at = P0 === 'TOT' ? '' : ' на ' + P0;
     const meTxt = meLow ? 'Мало данных' + at + ' для точки «' + me.name + '»: ' + (me.fcbN || 0) + ' контбет' + (me.fcbN === 1 ? '' : me.fcbN >= 2 && me.fcbN <= 4 ? 'а' : 'ов') + ' после колд-колла (нужно ≥ ' + MIN_ME + '). Игроки базы показаны.'
-      : 'Колд-колл' + (P0 === 'TOT' ? '' : ' на ' + P0) + ' ' + fmtPct(me.cc) + '% (' + me.ccN + '), фолд на контбет ' + fmtPct(me.fcb) + '% (' + me.fcbN + ')' + (me.eq != null ? ' · равновесие ' + fmtPct(me.eq) + '% — ' + (Math.abs(me.fcb - me.eq) < 0.03 ? 'в норме' : me.fcb > me.eq ? 'перефолд на ' + fmtPct(me.fcb - me.eq) + ' п.п.' : 'недофолд на ' + fmtPct(me.eq - me.fcb) + ' п.п.') : '') + ' · игроков на графике: ' + pts.length + '.';
+      : 'Колд-колл' + (P0 === 'TOT' ? '' : ' на ' + P0) + ' ' + fmtPct(me.cc) + '% (' + me.ccN + '), фолд на контбет ' + fmtPct(me.fcb) + '% (' + me.fcbN + ')' + (me.eq != null ? ' · равновесие ' + (me.eq * 100).toFixed(1).replace('.', ',') + '%' + (me.cbMed != null ? ' (контбет против вас обычно ' + me.cbMed + '% банка)' : '') + ' — ' + (Math.abs(me.fcb - me.eq) < 0.03 ? 'в норме' : me.fcb > me.eq ? 'перефолд на ' + fmtPct(me.fcb - me.eq) + ' п.п.' : 'недофолд на ' + fmtPct(me.eq - me.fcb) + ' п.п.') : '') + ' · игроков на графике: ' + pts.length + '.';
     const legend = el('div', 'qd-legend');
     [['Верхний левый', 'Узкий CC, легко сдаётся на флопе', 'идеальная мишень для контбета', 'var(--good)'],
      ['Нижний левый', 'Узкий CC, цепляется за флоп', 'играет только по сильной карте', 'var(--ice)'],
@@ -2368,8 +2401,23 @@ function typedCol(bytes, type) {
   if (b.byteOffset % A.BYTES_PER_ELEMENT) b = new Uint8Array(b); // выравнивание
   return new A(b.buffer, b.byteOffset, Math.floor(b.byteLength / A.BYTES_PER_ELEMENT));
 }
+// окно «Обновляю базу»: новая версия программы досчитывает данные из уже загруженных рук (без перезаливки)
+let migBox = null;
+function onMigrate(m) {
+  if (m.end) { if (migBox) { migBox.remove(); migBox = null; } return; }
+  if (!migBox) {
+    migBox = el('div', 'modal-bg mig-bg'); const box = el('div', 'modal mig');
+    box.append(el('h2', null, 'Обновляю базу до новой версии'), el('p', 'muted', 'Новая версия программы считает больше статистики. Недостающие данные досчитываются из уже загруженных раздач — перезаливать руки не нужно. Это делается один раз.'),
+      (() => { const t = el('div', 'prog-track'); t.append(el('div', 'prog-fill')); return t; })(), el('p', 'small muted mig-t', 'Подготовка…'));
+    migBox.append(box); document.body.append(migBox);
+  }
+  const pct = m.total ? Math.min(100, Math.round(m.done / m.total * 100)) : 0;
+  migBox.querySelector('.prog-fill').style.width = pct + '%';
+  migBox.querySelector('.mig-t').textContent = m.total ? 'Раздач обработано: ' + m.done.toLocaleString('ru-RU') + ' из ' + m.total.toLocaleString('ru-RU') + ' (' + pct + '%)' : 'Подготовка…';
+}
 async function loadDb() {
   if (!mda.dbMeta) return null;
+  if (mda.onMigrate) mda.onMigrate(onMigrate);
   const meta = await mda.dbMeta(); if (!meta) return null;
   const cols = {};
   for (const [name, type] of meta.cols) { const b = await mda.dbCol(name); if (b) cols[name] = typedCol(b, type); }
@@ -2571,7 +2619,7 @@ async function runImport() {
     $('progText').textContent = (m.groups > 1 && m.stage !== 'parse' ? 'Часть ' + m.group + ' из ' + m.groups + ' · ' : '') + (m.stage === 'ev'
       ? 'Считаю EV олл-инов: ' + m.done.toLocaleString('ru-RU') + ' из ' + m.total.toLocaleString('ru-RU')
       : m.stage === 'merge' ? 'Раскладываю раздачи по базе'
-      : 'Разобрано файлов: ' + m.done.toLocaleString('ru-RU') + ' из ' + m.total.toLocaleString('ru-RU')) + ' · ваших раздач: ' + m.hands.toLocaleString('ru-RU') + (left != null ? ' · осталось ' + fmtDur(left) : '');
+      : 'Разобрано файлов: ' + m.done.toLocaleString('ru-RU') + ' из ' + m.total.toLocaleString('ru-RU') + ' · раздач: ' + m.hands.toLocaleString('ru-RU')) + (left != null ? ' · осталось ' + fmtDur(left) : ''); // на разборе — все раздачи (ваши и датамайнинг)
   });
   const mode = importMode();
   const res = await mda.runImport({ nicks, alias, mode });

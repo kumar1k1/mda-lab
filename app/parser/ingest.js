@@ -276,7 +276,9 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
   const meta = {
     format: FORMAT, demo: false, hero: aliases.length ? aliases[0].name : '', nicks: nicksAll, aliases: aliases.map((a, i) => Object.assign({}, a, { count: a.count + addedBy[i] })), heroNicks, rooms, types: ['Обычный', 'PKO'],
     periodStart: Math.floor(m0 / 12) + '-' + String(m0 % 12 + 1).padStart(2, '0'), count: (old ? old.heroN : 0) + nH,
-    cols: SCHEMA.concat([['aid', 'i16'], ['nk', 'i16']]), colDir: 'g' + gen, opp: { rows: (old ? old.oppN : 0) + nO, players: plist.length }, rpParts: rpw.parts, rpz: 1
+    cols: SCHEMA.concat([['aid', 'i16'], ['nk', 'i16']]), colDir: 'g' + gen,
+    // обновления базы (parser/migrate.js): новая база посчитана целиком; при дозагрузке — как было у старой (её строки досчитаются при открытии)
+    mig: old ? (old.meta.mig || []) : require('./migrate.js').ALL_IDS, opp: { rows: (old ? old.oppN : 0) + nO, players: plist.length }, rpParts: rpw.parts, rpz: 1
   };
   const mt = path.join(dir, 'meta.json.tmp'); fs.writeFileSync(mt, JSON.stringify(meta)); fs.renameSync(mt, path.join(dir, 'meta.json'));
   if (old) fs.rmSync(old.g, { recursive: true, force: true });

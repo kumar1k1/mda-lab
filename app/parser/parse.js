@@ -442,4 +442,4 @@ function parseTextAll(text, heroes, observer, exclude) {
   return { fmt, hands: out, errors };
 }
 
-module.exports = { parseText, parseTextAll, parseHand, parseHandAll, assignPositions, handClass, heroNet, POS_IDX };
+module.exports = { parseText, parseTextAll, parseHand, parseHandAll, assignPositions, handClass, heroNet, POS_IDX, cbetPct };

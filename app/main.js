@@ -66,7 +66,22 @@ function source() {
   return null;
 }
 
-ipcMain.handle('db:meta', () => { const s = source(); return s ? s.meta : null; });
+// Открытие базы: если новая версия программы считает то, чего в базе ещё нет, — досчитать из записей реплеера
+// (parser/migrate.js) в фоне, с прогрессом в окне; руки перезаливать не нужно.
+let MIGRATING = null;
+ipcMain.handle('db:meta', async () => {
+  let s = source(); if (!s) return null;
+  const mig = require('./parser/migrate.js');
+  if (!DEMO && mig.pending(s.meta).length) {
+    if (!MIGRATING) {
+      const send = (m) => { if (win && !win.isDestroyed()) win.webContents.send('db:migrate', m); };
+      send({ done: 0, total: 0 });
+      MIGRATING = mig.run(s.dir, send).catch((e) => { console.error('migrate', e); }).finally(() => { send({ end: true }); MIGRATING = null; SRC = null; });
+    }
+    await MIGRATING; s = source(); if (!s) return null;
+  }
+  return s.meta;
+});
 ipcMain.handle('db:col', (_e, name) => { const s = source(); return s ? s.colBytes(name) : null; });
 ipcMain.handle('db:replays', (_e, ids) => { const s = source(); return s && Array.isArray(ids) ? s.replays(ids) : {}; });
 // соперники (база v3): список с поиском, описание и колонки одного игрока, записи реплеера с его позиции
