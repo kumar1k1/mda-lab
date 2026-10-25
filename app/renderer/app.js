@@ -1288,17 +1288,24 @@ function drawSzMx(title, z, pinned) {
   if (!pinned) m.append(el('div', 'szmx-hint', 'Клик по строке — закрепить окно и показать результат по рукам'));
   m.hidden = false;
 }
-function placeSzMx(row) {
+function placeSzMx(row, e) {
   const m = szMx, rr = row.getBoundingClientRect(), w = m.offsetWidth, hh = m.offsetHeight;
+  // как во всём проекте: окно сбоку от курсора (справа, а если не влезает — слева)
+  if (e && e.clientX != null) {
+    let x = e.clientX + 16, y = e.clientY - hh / 2;
+    if (x + w > window.innerWidth - 8) x = e.clientX - w - 16;
+    x = Math.max(8, x); y = Math.max(8, Math.min(y, window.innerHeight - hh - 8));
+    m.style.left = x + 'px'; m.style.top = y + 'px'; return;
+  }
   let x = rr.right + 12, y = rr.top + rr.height / 2 - hh / 2;
   if (x + w > window.innerWidth - 8) { x = Math.max(8, Math.min(rr.left + 40, window.innerWidth - w - 8)); y = rr.bottom + 8; if (y + hh > window.innerHeight - 8) y = rr.top - hh - 8; }
   y = Math.max(8, Math.min(y, window.innerHeight - hh - 8));
   m.style.left = x + 'px'; m.style.top = y + 'px';
 }
-function showSzMx(title, z, row) { if (SZMX_PIN) return; drawSzMx(title, z, false); placeSzMx(row); }
-function pinSzMx(title, z, row) {
+function showSzMx(title, z, row, e) { if (SZMX_PIN) return; drawSzMx(title, z, false); placeSzMx(row, e); }
+function pinSzMx(title, z, row, e) {
   if (SZMX_PIN && SZMX_PIN.row === row) { unpinSzMx(); return; }
-  SZMX_PIN = { row }; drawSzMx(title, z, true); placeSzMx(row);
+  SZMX_PIN = { row }; drawSzMx(title, z, true); placeSzMx(row, e);
 }
 function unpinSzMx() { SZMX_PIN = null; if (szMx) szMx.hidden = true; }
 function hideSzMx() { if (szMx && !SZMX_PIN) szMx.hidden = true; }
@@ -1326,9 +1333,9 @@ function ccSizeBlock(r) {
       if (z.rmx) {
         const title = (CC_SZPOS === 'TOT' ? 'Все без BB' : CC_SZPOS) + ' · открытие ' + r.CC_SZ[k][0];
         row.classList.add('has-mx'); row.tabIndex = 0;
-        row.addEventListener('mouseenter', () => showSzMx(title, z, row)); row.addEventListener('mouseleave', hideSzMx);
+        row.addEventListener('mouseenter', (e) => showSzMx(title, z, row, e)); row.addEventListener('mousemove', (e) => { if (!SZMX_PIN && szMx && !szMx.hidden) placeSzMx(row, e); }); row.addEventListener('mouseleave', hideSzMx);
         row.addEventListener('focus', () => showSzMx(title, z, row)); row.addEventListener('blur', hideSzMx);
-        row.addEventListener('click', () => pinSzMx(title, z, row));
+        row.addEventListener('click', (e) => pinSzMx(title, z, row, e));
         row.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pinSzMx(title, z, row); } });
       }
       t.append(row);
