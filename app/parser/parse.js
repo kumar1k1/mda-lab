@@ -392,9 +392,28 @@ function parseHandAll(text, fmt, heroes, observer, exclude) {
   // запись реплеера — у каждой вашей раздачи (не только в спотах вкладок): раздачи любой ячейки открываются в реплеере
   if (!rp && (hero || opps.some(r => r.needRp))) rp = buildReplay(c.lines, { seatNums: c.seatNums, seats: c.seats, pos: c.pos, heroName: c.heroName, bb: c.bb, who: c.who, fmt: c.fmt, header: c.header, sbAmt: c.sbAmt });
   if (hero && rp && !hero.rp) hero.rp = rp;
+  // размер контбета (% банка флопа) — для ориентира равновесия (MDF) в #9
+  if (rp) { const cs = cbetPct(rp); for (const r of [hero, ...opps]) if (r && r.fcb >= 0) r.cbs = cs; }
   return { hero, opps, rp, id: c.id, tour: c.tour, room: c.room };
 }
 const EMPTY = new Set();
+// банк к флопу и первая ставка на флопе по записи реплеера → ставка в % банка (-1, если не вышло)
+function cbetPct(rp) {
+  let pot = 0; const cur = {};
+  for (const e of rp.ev) {
+    if (e[0] !== 0) break;
+    const [, i, t, v] = e;
+    if (t === 'A') pot += v;
+    else if (t === 'SB' || t === 'BB') cur[i] = (cur[i] || 0) + v;
+    else if (t === 'c') cur[i] = (cur[i] || 0) + v;
+    else if (t === 'r') cur[i] = v;
+    else if (t === 'U') cur[i] = (cur[i] || 0) - v;
+  }
+  for (const k in cur) pot += cur[k];
+  const b = rp.ev.find(e => e[0] === 1 && e[2] === 'b');
+  if (!b || !(pot > 0)) return -1;
+  return Math.max(0, Math.min(30000, Math.round(b[3] / pot * 100)));
+}
 
 function parseText(text, heroes) {
   text = text.replace(/^﻿/, '').replace(/^\s+/, '');

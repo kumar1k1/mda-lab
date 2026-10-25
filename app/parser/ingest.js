@@ -38,7 +38,7 @@ function rowVals(h, roomIdx) {
     sit: h.sit, lim: h.lim, act: h.act, size: h.size, fti: h.fti, bvb: h.bvb, fvr: h.fvr, day: Math.round(Date.UTC(y, m - 1, d) / 864e5),
     hc: h.hc, net: h.net, sto: h.sto, f3b: h.f3b, orsp: h.orsp, bmin: h.bmin, sbs: h.sbs, bbs: h.bbs, bh: h.bh, bsh: h.bsh, bmd: h.bmd,
     bdp: h.bdp, cov: h.cov, bi: h.bi, rz: h.rz, cl: h.cl, rai: h.rai, opos: h.opos, ostk: h.ostk, osz: h.osz, nev: h.net,
-    hpa: h.hpa || 0, tmx: h.tblMax || 0, np: h.n || 0, lr: h.lr || 0, ant: h.ant == null ? -1 : h.ant, fcb: h.fcb == null ? -1 : h.fcb
+    hpa: h.hpa || 0, tmx: h.tblMax || 0, np: h.n || 0, lr: h.lr || 0, ant: h.ant == null ? -1 : h.ant, fcb: h.fcb == null ? -1 : h.fcb, cbs: h.cbs == null ? -1 : h.cbs
   };
 }
 const monthOfDay = (day) => { const d = new Date(day * 864e5); return d.getUTCFullYear() * 12 + d.getUTCMonth(); };
@@ -219,7 +219,7 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
   for (const [nm, t] of HERO_SCHEMA) {
     const a = nm === 'day' ? permute(dayNew, hPerm) : permute(H[nm].readAll(), hPerm);
     const [fo, fn] = fix(nm);
-    mergeColumn(old && old.g, old ? old.heroN : 0, nm, t, a, hPlan, gdir, fo, fn, nm === 'nk' || nm === 'ant' || nm === 'fcb' ? -1 : 0); // ник, анте и фолд на контбет старых строк неизвестны (-1)
+    mergeColumn(old && old.g, old ? old.heroN : 0, nm, t, a, hPlan, gdir, fo, fn, nm === 'nk' || nm === 'ant' || nm === 'fcb' || nm === 'cbs' ? -1 : 0); // ник, анте и фолд на контбет старых строк неизвестны (-1)
   }
   // 3б. соперники: по игроку, затем по дате
   prog('merge', 1, 2, nH);
@@ -236,7 +236,7 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
   for (const [nm, t] of OPP_SCHEMA) {
     const a = nm === 'pid' ? permute(pidNew, oPerm) : nm === 'day' ? permute(odayNew, oPerm) : permute(O[nm].readAll(), oPerm);
     const [fo, fn] = fix(nm);
-    mergeColumn(old && old.og, old ? old.oppN : 0, nm, t, a, oPlan, godir, fo, fn, nm === 'ant' || nm === 'fcb' ? -1 : 0);
+    mergeColumn(old && old.og, old ? old.oppN : 0, nm, t, a, oPlan, godir, fo, fn, nm === 'ant' || nm === 'fcb' || nm === 'cbs' ? -1 : 0);
   }
 
   // 4. EV для новых строк — по их местам после слияния. Колонки читаются кусками по порядку строк
