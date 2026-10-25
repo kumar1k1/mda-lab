@@ -3223,11 +3223,9 @@ function ccQuadBlock(r, idx) {
     // зоны
     const zones = [[P.l, P.t, X(mx), Y(my), 'rgba(var(--good-rgb),.07)'], [X(mx), P.t, W - P.r, Y(my), 'rgba(var(--amber-rgb),.08)'], [P.l, Y(my), X(mx), H - P.b, 'rgba(var(--ice-rgb),.07)'], [X(mx), Y(my), W - P.r, H - P.b, 'rgba(var(--bad-rgb),.08)']];
     zones.forEach(([x1, y1, x2, y2, f]) => s.append(svgEl('rect', { x: x1, y: y1, width: Math.max(0, x2 - x1), height: Math.max(0, y2 - y1) }, 'fill:' + f)));
-    for (let v = 0; v <= 1.0001; v += 0.25) { s.append(svgEl('line', { x1: P.l, x2: W - P.r, y1: Y(v), y2: Y(v) }, 'stroke:var(--line);stroke-width:1')); s.append(svgText(P.l - 6, Y(v) + 4, Math.round(v * 100) + '%', 'end', 'font-size:10px')); }
+    for (let v = 0; v <= 1.0001; v += 0.25) { s.append(svgEl('line', { x1: P.l, x2: W - P.r, y1: Y(v), y2: Y(v) }, 'stroke:var(--line);stroke-width:1')); s.append(svgText(P.l - 6, Y(v) + 4, Math.round(v * 100) + '%', 'end', 'font-size:11px;fill:var(--soft)')); }
     const step = xMax > 0.3 ? 0.1 : 0.05;
-    for (let v = 0; v <= xMax + 1e-9; v += step) { s.append(svgEl('line', { x1: X(v), x2: X(v), y1: P.t, y2: H - P.b }, 'stroke:var(--line);stroke-width:1')); s.append(svgText(X(v), H - P.b + 15, Math.round(v * 100) + '%', 'middle', 'font-size:10px')); }
-    s.append(svgEl('line', { x1: X(mx), x2: X(mx), y1: P.t, y2: H - P.b }, 'stroke:var(--soft);stroke-width:1.2;stroke-dasharray:5 4'));
-    s.append(svgEl('line', { x1: P.l, x2: W - P.r, y1: Y(my), y2: Y(my) }, 'stroke:var(--soft);stroke-width:1.2;stroke-dasharray:5 4'));
+    for (let v = 0; v <= xMax + 1e-9; v += step) { s.append(svgEl('line', { x1: X(v), x2: X(v), y1: P.t, y2: H - P.b }, 'stroke:var(--line);stroke-width:1')); s.append(svgText(X(v), H - P.b + 15, Math.round(v * 100) + '%', 'middle', 'font-size:11px;fill:var(--soft)')); }
     s.append(svgText((P.l + W - P.r) / 2, H - 6, 'Колд-колл, % →', 'middle', 'font-size:11px;fill:var(--soft)'));
     const yl = svgText(14, (P.t + H - P.b) / 2, 'Фолд на контбет флопа, % →', 'middle', 'font-size:11px;fill:var(--soft)'); yl.setAttribute('transform', 'rotate(-90 14 ' + (P.t + H - P.b) / 2 + ')'); s.append(yl);
     // подписи зон
@@ -3274,12 +3272,22 @@ function ccQuadBlock(r, idx) {
       d.addEventListener('click', () => { hide(); choosePlayer('opp', { pid: p.pid, name: p.name, room: p.room, count: p.count, shown: p.shown }); });
       s.append(d);
     });
+    // медианы игроков базы — поверх точек: тёмная подложка + светлый пунктир, чтобы линии читались на любом фоне
+    const hair = (x1, y1, x2, y2) => { s.append(svgEl('line', { x1, y1, x2, y2 }, 'stroke:var(--bg);stroke-width:4;stroke-opacity:.75')); s.append(svgEl('line', { x1, y1, x2, y2 }, 'stroke:var(--text);stroke-width:1.6;stroke-dasharray:6 4;stroke-opacity:.9')); };
+    hair(X(mx), P.t, X(mx), H - P.b); hair(P.l, Y(my), W - P.r, Y(my));
+    // подписи медиан у краёв
+    s.append(svgText(X(mx), P.t - 4, 'медиана ' + Math.round(mx * 100) + '%', 'middle', 'font-family:var(--sans);font-size:10px;font-weight:700;fill:var(--soft)' + HALO));
     // ориентир равновесия (MDF) — горизонталь и «идеальная» точка на вашем колд-колле
     if (!meLow && me.eq != null) {
-      s.append(svgEl('line', { x1: P.l, x2: W - P.r, y1: Y(me.eq), y2: Y(me.eq) }, 'stroke:var(--good);stroke-width:1.5;stroke-dasharray:2 4'));
-      s.append(svgText(W - P.r - 6, Y(me.eq) - 6, 'равновесие (MDF) ' + (me.eq * 100).toFixed(1).replace('.', ',') + '%', 'end', 'font-family:var(--sans);font-size:11px;font-weight:700;fill:var(--good)' + HALO));
-      s.append(svgEl('line', { x1: X(me.cc), x2: X(me.cc), y1: Y(me.fcb), y2: Y(me.eq) }, 'stroke:var(--good);stroke-width:1.5;stroke-dasharray:3 3'));
-      s.append(svgEl('circle', { cx: X(me.cc), cy: Y(me.eq), r: 7 }, 'fill:none;stroke:var(--good);stroke-width:2.2'));
+      const ye = Y(me.eq);
+      s.append(svgEl('line', { x1: P.l, x2: W - P.r, y1: ye, y2: ye }, 'stroke:var(--bg);stroke-width:5;stroke-opacity:.8'));
+      s.append(svgEl('line', { x1: P.l, x2: W - P.r, y1: ye, y2: ye }, 'stroke:var(--good);stroke-width:2.2;stroke-dasharray:8 5'));
+      // подпись — плашкой, чтобы не терялась среди точек
+      const lt = 'равновесие (MDF) ' + (me.eq * 100).toFixed(1).replace('.', ',') + '%', lw = lt.length * 6.3 + 14;
+      s.append(svgEl('rect', { x: W - P.r - lw - 4, y: ye - 22, width: lw, height: 18, rx: 9 }, 'fill:var(--good)'));
+      s.append(svgText(W - P.r - 4 - lw / 2, ye - 9, lt, 'middle', 'font-family:var(--sans);font-size:11px;font-weight:800;fill:#0B1F14'));
+      s.append(svgEl('line', { x1: X(me.cc), x2: X(me.cc), y1: Y(me.fcb), y2: ye }, 'stroke:var(--good);stroke-width:2;stroke-dasharray:3 3'));
+      s.append(svgEl('circle', { cx: X(me.cc), cy: ye, r: 7 }, 'fill:var(--bg);fill-opacity:.6;stroke:var(--good);stroke-width:2.5'));
     }
     if (!meLow && !state.player) {
       const p = Object.assign({ isMe: true }, me);
@@ -3306,7 +3314,7 @@ function ccQuadBlock(r, idx) {
       const it = el('div', 'qd-z'); it.style.borderLeftColor = col; it.append(el('span', null, z), el('b', null, t), el('em', null, d)); legend.append(it);
     });
     body.append(el('p', 'qd-me-txt', meTxt), wrap, legend,
-      infoNote('Точка — игрок базы, у которого не меньше ' + MIN_CC + ' возможностей колд-колла' + (P0 === 'TOT' ? '' : ' на ' + P0) + ' и ' + MIN_CB + ' контбетов на флопе после колд-колла (показано ' + pts.length.toLocaleString('ru-RU') + ' игроков). Переключатель сверху — позиция: «Все без BB» — все позиции, кроме BB, как в #1; BB — защита большого блайнда. Ваши колд-колл и фолд на контбет считаются строго на выбранной позиции; ваша точка выводится, если на ней ≥ ' + MIN_ME + ' контбетов. У игроков базы колд-колл — на выбранной позиции, а фолд на контбет — по всем позициям без BB (на BB — по BB): на одной позиции у соперников всего несколько контбетов. Колд-колл — как в #1: рейз перед игроком, без лимперов и коллеров. Фолд на контбет — только банк с одним рейзером, где последним словом префлоп был колл игрока (без 3-бета и сквиза после него); на флопе первым ставит префлоп-рейзер: в позиции игрок ходит после него и сбрасывает, без позиции — сначала чек, потом фолд. Пунктир — медианы игроков базы: делят график на четыре зоны. Зелёная линия и зелёное кольцо — равновесный ориентир фолда на контбет по MDF: при ставке b в банк P защищаться нужно не реже P / (P + b), то есть фолдить не чаще b / (P + b); ориентир — среднее этой доли по реальным размерам контбетов против вас на выбранной позиции (контбет в треть банка — 25%, в полбанка — 33%, в банк — 50%). Кольцо стоит на вашем колд-колле: расстояние от жёлтой точки до кольца — ваш перефолд или недофолд. Это теоретический минимум защиты без учёта карт борда и силы диапазонов, точное равновесие на конкретном флопе может отличаться на несколько пунктов. Жёлтая точка — текущий выбор (вы или ваш алиас) по текущим фильтрам; игроки базы — по всей базе. Наведите на точку — ник и цифры, клик — открыть этого игрока во всех вкладках.'));
+      infoNote('Точка — игрок базы, у которого не меньше ' + MIN_CC + ' возможностей колд-колла' + (P0 === 'TOT' ? '' : ' на ' + P0) + ' и ' + MIN_CB + ' контбетов на флопе после колд-колла (показано ' + pts.length.toLocaleString('ru-RU') + ' игроков). Переключатель сверху — позиция: «Все без BB» — все позиции, кроме BB, как в #1; BB — защита большого блайнда. Ваши колд-колл и фолд на контбет считаются строго на выбранной позиции; ваша точка выводится, если на ней ≥ ' + MIN_ME + ' контбетов. У игроков базы колд-колл — на выбранной позиции, а фолд на контбет — по всем позициям без BB (на BB — по BB): на одной позиции у соперников всего несколько контбетов. Колд-колл — как в #1: рейз перед игроком, без лимперов и коллеров. Фолд на контбет — только банк с одним рейзером, где последним словом префлоп был колл игрока (без 3-бета и сквиза после него); на флопе первым ставит префлоп-рейзер: в позиции игрок ходит после него и сбрасывает, без позиции — сначала чек, потом фолд. Пунктир — медианы игроков базы: делят график на четыре зоны. Зелёная линия и зелёное кольцо — равновесный ориентир фолда на контбет по MDF: при ставке b в банк P защищаться нужно не реже P / (P + b), то есть фолдить не чаще b / (P + b); ориентир — среднее этой доли по реальным размерам контбетов против вас на выбранной позиции (контбет в треть банка — 25%, в полбанка — 33%, в банк — 50%). Кольцо стоит на вашем колд-колле: расстояние от жёлтой точки до кольца — ваш перефолд или недофолд. Это теоретический минимум защиты без учёта карт борда и силы диапазонов, точное равновесие на конкретном флопе может отличаться на несколько пунктов. Жёлтая точка — текущий выбор (вы или ваш алиас) по текущим фильтрам; игроки базы — по всей базе. Наведите на точку — ник и цифры, клик — открыть этого игрока во всех вкладках. Когда игроков на графике больше 300, точки сливаются — тогда по умолчанию показывается плотность: клетка тем ярче, чем больше в ней игроков; переключатель «Точки» возвращает отдельные точки (их можно открыть кликом). Процент у подписи зоны — доля игроков базы в этой зоне.'));
   };
   if (CC_QUAD && CC_QUAD.db === HERO_DB) draw(CC_QUAD.rows);
   else if (mda.playersCc) { const db = HERO_DB; mda.playersCc().then(rows => { CC_QUAD = { db, rows }; if (card.isConnected) draw(rows); }); }
@@ -3546,7 +3554,7 @@ async function buildView(key, heroPick, members, onProg) {
   // доля полосы — по числу раздач участников (крупный игрок грузится дольше)
   const live = members.filter(o => o.pid != null && o.c), tot = live.reduce((a, o) => a + o.c, 0) || 1; let doneC = 0;
   for (const o of live) {
-    const pdb = await loadPlayerDb(o.pid, onProg ? (f) => onProg((doneC + f * o.c) / tot) : null); doneC += o.c; if (!pdb) continue;
+    let pdb = null; try { pdb = await loadPlayerDb(o.pid, onProg ? (f) => onProg((doneC + f * o.c) / tot) : null); } catch (e) { console.error('loadPlayerDb', e); } doneC += o.c; if (!pdb) continue;
     segs.push({ pid: o.pid, start: n, n: pdb.count, name: o.n }); mcols.push(pdb.cols); n += pdb.count;
   }
   const cols = {};
@@ -3625,10 +3633,14 @@ async function loadPlayerDb(pid, onProg) {
 }
 let PICK_SEQ = 0;
 // полоса загрузки под ником в шапке: подпись + процент; null — убрать
+// полоса появляется только если загрузка идёт дольше 0,5 с — быстрые открытия проходят без мелькания
+let LOAD_T0 = 0;
 function loadProg(label, f, seq) {
   if (seq != null && seq !== PICK_SEQ) return;
   const bar = $('loadBar'); if (!bar) return;
-  if (label == null) { bar.hidden = true; return; }
+  if (label == null) { bar.hidden = true; LOAD_T0 = 0; return; }
+  if (!LOAD_T0) LOAD_T0 = Date.now();
+  if (Date.now() - LOAD_T0 < 500) { $('handsCount').textContent = label + '…'; return; }
   bar.hidden = false; bar.firstChild.style.width = Math.round((f || 0) * 100) + '%';
   $('handsCount').textContent = label + '… ' + Math.round((f || 0) * 100) + '%';
 }
@@ -3639,7 +3651,7 @@ async function choosePlayer(kind, v, a) {
   if (kind === 'opp') {
     $('nick').textContent = v.name; $('roomBadge').textContent = roomCode((HERO_DB || DB).rooms[v.room]); $('roomBadge').classList.remove('room'); $('roomBadge').classList.add('opp');
     loadProg('загружаю раздачи', 0, seq);
-    const odb = await loadPlayerDb(v.pid, (f) => loadProg('загружаю раздачи', f, seq));
+    let odb = null; try { odb = await loadPlayerDb(v.pid, (f) => loadProg('загружаю раздачи', f, seq)); } catch (e) { console.error('loadPlayerDb', e); } // ошибка чтения не должна вешать шапку
     loadProg(null, null, seq);
     if (seq !== PICK_SEQ) return; // пока грузили, выбрали другого
     if (!odb) { updatePlayer(); return; }

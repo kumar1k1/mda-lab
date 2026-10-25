@@ -1631,11 +1631,9 @@ function ccQuadBlock(r, idx) {
     // зоны
     const zones = [[P.l, P.t, X(mx), Y(my), 'rgba(var(--good-rgb),.07)'], [X(mx), P.t, W - P.r, Y(my), 'rgba(var(--amber-rgb),.08)'], [P.l, Y(my), X(mx), H - P.b, 'rgba(var(--ice-rgb),.07)'], [X(mx), Y(my), W - P.r, H - P.b, 'rgba(var(--bad-rgb),.08)']];
     zones.forEach(([x1, y1, x2, y2, f]) => s.append(svgEl('rect', { x: x1, y: y1, width: Math.max(0, x2 - x1), height: Math.max(0, y2 - y1) }, 'fill:' + f)));
-    for (let v = 0; v <= 1.0001; v += 0.25) { s.append(svgEl('line', { x1: P.l, x2: W - P.r, y1: Y(v), y2: Y(v) }, 'stroke:var(--line);stroke-width:1')); s.append(svgText(P.l - 6, Y(v) + 4, Math.round(v * 100) + '%', 'end', 'font-size:10px')); }
+    for (let v = 0; v <= 1.0001; v += 0.25) { s.append(svgEl('line', { x1: P.l, x2: W - P.r, y1: Y(v), y2: Y(v) }, 'stroke:var(--line);stroke-width:1')); s.append(svgText(P.l - 6, Y(v) + 4, Math.round(v * 100) + '%', 'end', 'font-size:11px;fill:var(--soft)')); }
     const step = xMax > 0.3 ? 0.1 : 0.05;
-    for (let v = 0; v <= xMax + 1e-9; v += step) { s.append(svgEl('line', { x1: X(v), x2: X(v), y1: P.t, y2: H - P.b }, 'stroke:var(--line);stroke-width:1')); s.append(svgText(X(v), H - P.b + 15, Math.round(v * 100) + '%', 'middle', 'font-size:10px')); }
-    s.append(svgEl('line', { x1: X(mx), x2: X(mx), y1: P.t, y2: H - P.b }, 'stroke:var(--soft);stroke-width:1.2;stroke-dasharray:5 4'));
-    s.append(svgEl('line', { x1: P.l, x2: W - P.r, y1: Y(my), y2: Y(my) }, 'stroke:var(--soft);stroke-width:1.2;stroke-dasharray:5 4'));
+    for (let v = 0; v <= xMax + 1e-9; v += step) { s.append(svgEl('line', { x1: X(v), x2: X(v), y1: P.t, y2: H - P.b }, 'stroke:var(--line);stroke-width:1')); s.append(svgText(X(v), H - P.b + 15, Math.round(v * 100) + '%', 'middle', 'font-size:11px;fill:var(--soft)')); }
     s.append(svgText((P.l + W - P.r) / 2, H - 6, 'Колд-колл, % →', 'middle', 'font-size:11px;fill:var(--soft)'));
     const yl = svgText(14, (P.t + H - P.b) / 2, 'Фолд на контбет флопа, % →', 'middle', 'font-size:11px;fill:var(--soft)'); yl.setAttribute('transform', 'rotate(-90 14 ' + (P.t + H - P.b) / 2 + ')'); s.append(yl);
     // подписи зон
@@ -1682,12 +1680,22 @@ function ccQuadBlock(r, idx) {
       d.addEventListener('click', () => { hide(); choosePlayer('opp', { pid: p.pid, name: p.name, room: p.room, count: p.count, shown: p.shown }); });
       s.append(d);
     });
+    // медианы игроков базы — поверх точек: тёмная подложка + светлый пунктир, чтобы линии читались на любом фоне
+    const hair = (x1, y1, x2, y2) => { s.append(svgEl('line', { x1, y1, x2, y2 }, 'stroke:var(--bg);stroke-width:4;stroke-opacity:.75')); s.append(svgEl('line', { x1, y1, x2, y2 }, 'stroke:var(--text);stroke-width:1.6;stroke-dasharray:6 4;stroke-opacity:.9')); };
+    hair(X(mx), P.t, X(mx), H - P.b); hair(P.l, Y(my), W - P.r, Y(my));
+    // подписи медиан у краёв
+    s.append(svgText(X(mx), P.t - 4, 'медиана ' + Math.round(mx * 100) + '%', 'middle', 'font-family:var(--sans);font-size:10px;font-weight:700;fill:var(--soft)' + HALO));
     // ориентир равновесия (MDF) — горизонталь и «идеальная» точка на вашем колд-колле
     if (!meLow && me.eq != null) {
-      s.append(svgEl('line', { x1: P.l, x2: W - P.r, y1: Y(me.eq), y2: Y(me.eq) }, 'stroke:var(--good);stroke-width:1.5;stroke-dasharray:2 4'));
-      s.append(svgText(W - P.r - 6, Y(me.eq) - 6, 'равновесие (MDF) ' + (me.eq * 100).toFixed(1).replace('.', ',') + '%', 'end', 'font-family:var(--sans);font-size:11px;font-weight:700;fill:var(--good)' + HALO));
-      s.append(svgEl('line', { x1: X(me.cc), x2: X(me.cc), y1: Y(me.fcb), y2: Y(me.eq) }, 'stroke:var(--good);stroke-width:1.5;stroke-dasharray:3 3'));
-      s.append(svgEl('circle', { cx: X(me.cc), cy: Y(me.eq), r: 7 }, 'fill:none;stroke:var(--good);stroke-width:2.2'));
+      const ye = Y(me.eq);
+      s.append(svgEl('line', { x1: P.l, x2: W - P.r, y1: ye, y2: ye }, 'stroke:var(--bg);stroke-width:5;stroke-opacity:.8'));
+      s.append(svgEl('line', { x1: P.l, x2: W - P.r, y1: ye, y2: ye }, 'stroke:var(--good);stroke-width:2.2;stroke-dasharray:8 5'));
+      // подпись — плашкой, чтобы не терялась среди точек
+      const lt = 'равновесие (MDF) ' + (me.eq * 100).toFixed(1).replace('.', ',') + '%', lw = lt.length * 6.3 + 14;
+      s.append(svgEl('rect', { x: W - P.r - lw - 4, y: ye - 22, width: lw, height: 18, rx: 9 }, 'fill:var(--good)'));
+      s.append(svgText(W - P.r - 4 - lw / 2, ye - 9, lt, 'middle', 'font-family:var(--sans);font-size:11px;font-weight:800;fill:#0B1F14'));
+      s.append(svgEl('line', { x1: X(me.cc), x2: X(me.cc), y1: Y(me.fcb), y2: ye }, 'stroke:var(--good);stroke-width:2;stroke-dasharray:3 3'));
+      s.append(svgEl('circle', { cx: X(me.cc), cy: ye, r: 7 }, 'fill:var(--bg);fill-opacity:.6;stroke:var(--good);stroke-width:2.5'));
     }
     if (!meLow && !state.player) {
       const p = Object.assign({ isMe: true }, me);
