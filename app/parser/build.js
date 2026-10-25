@@ -173,12 +173,13 @@ async function estimate(files, heroNicks, opts) {
   const hands = Math.round(sHands * scale), opp = Math.round(sOpp * scale);
   const evJobs = evRecs.length * scale, evPer = evN ? evMs / evN : 0;
   // потоки дают не линейное ускорение (логические ядра, общая память): берём ~60% от числа потоков.
-  // Разбор не быстрее, чем основной поток успевает раскладывать строки по колонкам (~60 мкс на вашу раздачу, ~45 мкс на строку соперника) —
+  // Разбор не быстрее, чем основной поток успевает раскладывать строки по колонкам (~30 мкс на вашу раздачу, ~20 мкс на строку соперника) —
   // в датамайнинге строк соперников в 6–8 раз больше раздач, и это главный предел (сверено на загрузке 1,3 ГБ Winamax: 6,7 млн строк).
   const eff = Math.max(1, threads * 0.6);
-  const parseSec = Math.max(parseMs * scale / eff * 1.25 / 1000, hands * 60e-6 + opp * 45e-6);
+  // (сверено на загрузке 1,7 ГБ Winamax в 0.6.2: ~28 мкс на строку соперника; в 0.6.3 строки приходят готовыми числами — ~20 мкс)
+  const parseSec = Math.max(parseMs * scale / eff * 1.25 / 1000, hands * 30e-6 + opp * 20e-6);
   // EV олл-инов считается в фоне уже после загрузки (раздачи доступны сразу) — отдельной цифрой
-  const seconds = parseSec + (hands + opp) * 2e-5 + 3, evSeconds = evJobs * evPer / eff / 1000;
+  const seconds = parseSec + (hands + opp) * 7e-6 + 3, evSeconds = evJobs * evPer / eff / 1000;
   const bytes = Math.round(hands * HERO_ROW + opp * OPP_ROW + (rpN ? rpBytes / rpN : 0) * rpN * scale + hands * 8);
   return { totalBytes: total, sampleBytes: sBytes, hands, mined: Math.round(sMined * scale), opp, bytes, seconds: Math.round(seconds), evSeconds: Math.round(evSeconds), threads, cpus, exact: sBytes >= total };
 }

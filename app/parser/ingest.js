@@ -77,7 +77,7 @@ async function parseParallel(files, heroes, onHand, onFile, threads, po) {
     const take = (m, w) => {
       errors += m.errors;
       const rb = m.rpzBuf;
-      for (const h of m.hands) { h.rpz = h.rpzOff >= 0 ? Buffer.from(rb.buffer, rb.byteOffset + h.rpzOff, h.rpzLen) : null; onHand(h); }
+      for (const h of m.hands) { h.rpz = h.rpzOff >= 0 ? Buffer.from(rb.buffer, rb.byteOffset + h.rpzOff, h.rpzLen) : null; h.vals = m.vals; onHand(h); }
       w.postMessage({ type: 'ack' });
       if (m.done) { ahead -= size[m.fi]; w.load--; want++; if (onFile) onFile(want, files.length); }
     };
@@ -187,38 +187,40 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
   let dup = 0, nH = 0, nO = 0, nD = 0;
 
   // 1–2. разбор и раскладка по колонкам
+  // строки приходят из потоков разбора готовыми числами (h.vals — по колонкам SCHEMA, h.vi — номер строки героя или первой строки соперника)
+  const NC = SCHEMA.length, RC = SCHEMA.findIndex(c => c[0] === 'room'), HC = SCHEMA.map(c => H[c[0]]), OC = SCHEMA.map(c => O[c[0]]);
+  const pushRow = (cols, vals, row, roomIdx) => { const o = row * NC; for (let c = 0; c < NC; c++) cols[c].push(c === RC ? roomIdx : vals[o + c]); };
   const errors = await parseParallel(files, heroes, (h) => {
-    if (!h.hero) { // раздача без героя: только соперники, если такой раздачи ещё нет в базе
+    if (!h.hn) { // раздача без героя: только соперники, если такой раздачи ещё нет в базе
       if (!handSeen.add(h.k)) { dup++; return; }
       let ri = rooms.indexOf(h.room); if (ri < 0) { rooms.push(h.room); ri = rooms.length - 1; }
-      const ref = h.rpz && h.opps.some(o => o.needRp) ? rpw.addRaw(h.rpz) : null;
-      addOpps(h, ri, ref); nD++;
+      const ref = h.rpz && h.onr.some(x => x) ? rpw.addRaw(h.rpz) : null;
+      addOpps(h, ri, ref, h.vi); nD++;
       return;
     }
     const aid = target;
-    const po = prevOwners.get(h.hero.hero);
+    const po = prevOwners.get(h.hn);
     if (po && po.some(a => seen.has(hk2(h.k, a)))) { dup++; return; }
     if (!seen.add(hk2(h.k, aid))) { dup++; return; }
     const newHand = handSeen.add(h.k); // раздачи ещё не было в базе (ни у одного алиаса)
-    const roomIdx = rooms.indexOf(nicksAll[h.hero.hero]);
-    const needRef = h.rpz && (h.heroRp || (newHand && h.opps.some(o => o.needRp)));
+    const roomIdx = rooms.indexOf(nicksAll[h.hn]);
+    const needRef = h.rpz && (h.heroRp || (newHand && h.onr.some(x => x)));
     const ref = needRef ? rpw.addRaw(h.rpz) : null;
-    const hv = rowVals(h.hero, roomIdx);
-    for (const [nm] of SCHEMA) H[nm].push(hv[nm]);
-    const hr = h.heroRp && ref && h.hero.hc >= 0; // запись реплеера у каждой вашей раздачи с вашими картами
-    H.rpp.push(hr ? ref[0] : -1); H.rpo.push(hr ? ref[1] : 0); H.rpl.push(hr ? ref[2] : 0); H.key.push(h.k); H.aid.push(aid); H.nk.push(nkOf.has(h.hero.hero) ? nkOf.get(h.hero.hero) : -1);
+    pushRow(HC, h.vals, h.vi, roomIdx);
+    const hr = h.heroRp && ref && h.hhc >= 0; // запись реплеера у каждой вашей раздачи с вашими картами
+    H.rpp.push(hr ? ref[0] : -1); H.rpo.push(hr ? ref[1] : 0); H.rpl.push(hr ? ref[2] : 0); H.key.push(h.k); H.aid.push(aid); H.nk.push(nkOf.has(h.hn) ? nkOf.get(h.hn) : -1);
     nH++; addedBy[aid]++;
-    if (newHand) addOpps(h, roomIdx, ref);
+    if (newHand) addOpps(h, roomIdx, ref, h.vi + 1);
   }, (d, t) => prog('parse', d, t, nH + nD), opts.parseThreads, { observer, exclude: others });
-  function addOpps(h, roomIdx, ref) {
-    for (const o of h.opps) {
-      if (others.has(o.hero)) continue; // другой ваш алиас за тем же столом — у него свои раздачи
-      const pk = roomIdx + '\u0001' + o.hero;
-      let pid = pmap.get(pk); if (pid == null) { pid = players.length; players.push({ n: o.hero, r: roomIdx, c: 0, sh: 0 }); pmap.set(pk, pid); }
-      const ov = rowVals(o, roomIdx);
-      for (const [nm] of SCHEMA) O[nm].push(ov[nm]);
-      const orr = o.needRp && ref;
-      O.pid.push(pid); O.seat.push(o.seatIdx); O.rpp.push(orr ? ref[0] : -1); O.rpo.push(orr ? ref[1] : 0); O.rpl.push(orr ? ref[2] : 0); O.key.push(h.k);
+  function addOpps(h, roomIdx, ref, row0) {
+    for (let j = 0; j < h.on.length; j++) {
+      const name = h.on[j];
+      if (others.has(name)) continue; // другой ваш алиас за тем же столом — у него свои раздачи
+      const pk = roomIdx + '\u0001' + name;
+      let pid = pmap.get(pk); if (pid == null) { pid = players.length; players.push({ n: name, r: roomIdx, c: 0, sh: 0 }); pmap.set(pk, pid); }
+      pushRow(OC, h.vals, row0 + j, roomIdx);
+      const orr = h.onr[j] && ref;
+      O.pid.push(pid); O.seat.push(h.os[j]); O.rpp.push(orr ? ref[0] : -1); O.rpo.push(orr ? ref[1] : 0); O.rpl.push(orr ? ref[2] : 0); O.key.push(h.k);
       nO++;
     }
   }
@@ -340,4 +342,4 @@ async function buildBase(files, nicks, alias, outDir, onProgress, opts) {
   return ingestGrouped(files, nicks, alias, outDir, onProgress, opts);
 }
 
-module.exports = { ingest, ingestGrouped, buildBase, FORMAT, HERO_SCHEMA, OPP_SCHEMA, oppSeed, pendingEv, finishEv };
+module.exports = { ingest, ingestGrouped, buildBase, FORMAT, HERO_SCHEMA, OPP_SCHEMA, oppSeed, pendingEv, finishEv, rowVals };
