@@ -1643,7 +1643,7 @@ function ccQuadBlock(r, idx) {
     }
     const wrap = el('div', 'qd-chart'); wrap.append(s);
     const meTxt = me.cc == null || me.fcb == null ? 'Для текущего выбора мало данных (нет контбетов после колд-колла в выборке).'
-      : (state.player ? me.name : 'Вы') + ': колд-колл ' + fmtPct(me.cc) + '% (' + me.ccN + '), фолд на контбет ' + fmtPct(me.fcb) + '% (' + me.fcbN + ').';
+      : me.name + ': колд-колл ' + fmtPct(me.cc) + '% (' + me.ccN + '), фолд на контбет ' + fmtPct(me.fcb) + '% (' + me.fcbN + ').';
     const legend = el('div', 'qd-legend');
     [['Верхний левый', 'Узкий CC, легко сдаётся на флопе', 'идеальная мишень для контбета', 'var(--good)'],
      ['Нижний левый', 'Узкий CC, цепляется за флоп', 'играет только по сильной карте', 'var(--ice)'],
