@@ -2227,6 +2227,20 @@ function closePlayerMenu(focusBtn) {
   $('playerMenu').hidden = true; $('playerBtn').setAttribute('aria-expanded', 'false');
   if (focusBtn) $('playerBtn').focus();
 }
+// всплывающие окна при наведении (матрица рук, группа рук, ячейка матрицы, пуши, размер открытия) прячутся,
+// если страницу прокрутили, не двигая мышь, больше чем на 60 px — иначе окно «едет» вместе с прокруткой до конца страницы.
+// Закреплённые окна (клик) остаются.
+function setupHoverScrollHide() {
+  let base = null; // прокрутка в момент последнего движения мыши
+  const pos = () => { const c = $('content'); return (c ? c.scrollTop : 0) + window.scrollY; };
+  document.addEventListener('mousemove', () => { base = pos(); }, { passive: true });
+  document.addEventListener('scroll', () => {
+    if (base == null) base = pos();
+    if (Math.abs(pos() - base) <= 60) return;
+    hideHandPop(); hideMxTip(); hideGroupTip(); hidePushTip(); hideSzMx();
+    base = pos();
+  }, { capture: true, passive: true });
+}
 function setupPlayerMenu() {
   $('playerBtn').onclick = () => (PM_OPEN ? closePlayerMenu() : openPlayerMenu());
   document.addEventListener('mousedown', (e) => { if (PM_OPEN && !e.target.closest('.player-wrap')) closePlayerMenu(); });
@@ -2519,7 +2533,7 @@ window.__go = (tab, sub) => { $('importModal').hidden = true; state.tab = tab; i
 window.__importDemo = () => { $('importModal').hidden = false; showImport({ source: 'D:\\HH\\Tournaments', files: 18432, bytes: 214e6, estHands: 142700, unknown: 3, rooms: { GGPoker: { files: 11204, bytes: 131e6 }, PokerStars: { files: 5120, bytes: 61e6 }, Winamax: { files: 2105, bytes: 22e6 } } }); };
 
 document.addEventListener('DOMContentLoaded', async () => {
-  setupImport(); setupPlayerMenu();
+  setupImport(); setupPlayerMenu(); setupHoverScrollHide();
   const db = await loadDb();
   setDb(db);
   if (!db) openImportModal();
