@@ -235,7 +235,8 @@ body{display:flex;flex-direction:column}
 .net-bar{cursor:pointer;outline:none}
 .net-bar:focus-visible rect:first-child{stroke:var(--amber);stroke-width:2}
 .hand-pop{position:fixed;z-index:30;width:452px;max-width:calc(100vw - 24px);background:var(--top);border:1px solid var(--line2);border-radius:14px;padding:14px;box-shadow:0 18px 50px rgba(0,0,0,.55);pointer-events:none;display:flex;flex-direction:column;gap:10px}
-.hp-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.hp-head{display:flex;align-items:baseline;gap:4px 10px;flex-wrap:wrap}
+.hp-sub{flex:1 0 100%;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
 .hp-head b{font-family:var(--display);font-size:18px}
 .hp-head span{font-family:var(--mono);font-size:13px}
 .hp-grid{display:grid;grid-template-columns:repeat(13,1fr);gap:2px}

@@ -45,7 +45,8 @@ function buildPop(it, v, isPinned) {
   const head = el('div', 'hp-head');
   if (isPinned) { const grip = el('span', 'hp-grip', '⠿'); grip.setAttribute('aria-hidden', 'true'); head.append(grip); }
   // при наведении — фактический винрейт; в закреплённом окне — факт или EV по переключателю
-  head.append(el('b', null, it.title || it.p), el('span', v >= 0 ? 'up' : 'down', signed(v, 2) + (ev ? ' EV' : '') + (it.vlab || ' BB за открытие')), el('span', 'muted', it.o.n.toLocaleString('ru-RU') + (it.nlab || ' открытий')));
+  // заголовок всегда в две строки: название, под ним винрейт и число раздач — одинаково для любой ячейки
+  head.append(el('b', null, it.title || it.p));
   if (isPinned) {
     const x = el('button', 'hp-close'); x.type = 'button'; x.setAttribute('aria-label', 'Закрыть окно');
     x.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
@@ -53,6 +54,9 @@ function buildPop(it, v, isPinned) {
     head.append(x);
     enableDrag(pop, head);
   } else head.append(el('span', 'hp-hint', 'клик — закрепить окно'));
+  const sub = el('div', 'hp-sub');
+  sub.append(el('span', v >= 0 ? 'up' : 'down', signed(v, 2) + (ev ? ' EV' : '') + (it.vlab || ' BB за открытие')), el('span', 'muted', it.o.n.toLocaleString('ru-RU') + (it.nlab || ' открытий')));
+  head.append(sub);
   const inSet = (k) => it.only == null || it.only(k);
   const vals = it.mx.filter((m, k) => inSet(k) && m.n >= 3).map(m => Math.abs(sumOf(m) / 10 / m.n)).sort((a, b) => a - b);
   const scale = Math.max(1, ...vals.slice(0, Math.ceil(vals.length * 0.9)));
