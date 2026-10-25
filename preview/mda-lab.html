@@ -985,6 +985,8 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .qd-dlg{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted);margin-top:6px;flex-wrap:wrap}
 .qd-dlg i{width:110px;height:8px;border-radius:4px;background:linear-gradient(90deg,rgba(var(--ice-rgb),.12),rgba(var(--ice-rgb),1))}
 .qd-dlg em{font-style:normal;color:var(--faint)}
+.ld-bar{display:block;width:160px;max-width:100%;height:4px;border-radius:2px;background:var(--line);overflow:hidden;margin-top:3px}
+.ld-bar i{display:block;height:100%;width:0;background:var(--amber);border-radius:2px;transition:width .15s}
 
 /* Дополнения только для онлайн-превью: тёмная тема и узкие экраны */
 :root{color-scheme:dark}
@@ -1029,6 +1031,7 @@ body{padding-left:max(0px, env(safe-area-inset-left, 0px));padding-right:max(0px
         <span class="player-txt">
           <span class="nick" id="nick">—</span>
           <span class="hands" id="handsCount">—</span>
+          <span class="ld-bar" id="loadBar" hidden><i></i></span>
         </span>
         <span class="demo" id="demoTag" hidden>демо-база</span>
         <svg class="player-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
@@ -3536,13 +3539,14 @@ function aliasRooms(A) { const s = new Set(Object.keys(A.nicks).filter(n => !A.o
 // База алиаса или одного вашего ника: ваши строки + строки игроков-участников, те же колонки.
 // Простой алиас — без копирования: общая база и отбор по aid в currentIdx.
 const VIEW_CACHE = new Map();
-async function buildView(key, heroPick, members) {
+async function buildView(key, heroPick, members, onProg) {
   if (VIEW_CACHE.has(key)) return VIEW_CACHE.get(key);
   const H = HERO_DB, hero = []; for (let i = 0; i < H.count; i++) if (heroPick(i)) hero.push(i);
   const segs = [], mcols = []; let n = hero.length;
-  for (const o of members) {
-    if (o.pid == null || !o.c) continue;
-    const pdb = await loadPlayerDb(o.pid); if (!pdb) continue;
+  // доля полосы — по числу раздач участников (крупный игрок грузится дольше)
+  const live = members.filter(o => o.pid != null && o.c), tot = live.reduce((a, o) => a + o.c, 0) || 1; let doneC = 0;
+  for (const o of live) {
+    const pdb = await loadPlayerDb(o.pid, onProg ? (f) => onProg((doneC + f * o.c) / tot) : null); doneC += o.c; if (!pdb) continue;
     segs.push({ pid: o.pid, start: n, n: pdb.count, name: o.n }); mcols.push(pdb.cols); n += pdb.count;
   }
   const cols = {};
@@ -3558,10 +3562,10 @@ async function buildView(key, heroPick, members) {
   VIEW_CACHE.set(key, v); if (VIEW_CACHE.size > 4) VIEW_CACHE.delete(VIEW_CACHE.keys().next().value);
   return v;
 }
-async function aliasDb(a) {
+async function aliasDb(a, onProg) {
   const A = ALIASES[a]; if (isSimple(A)) return HERO_DB;
   const aid = HERO_DB.cols.aid, borrow = new Set(A.mine.map(m => m.a + '\u0001' + HERO_NICKS.indexOf(m.n)));
-  return buildView('a' + a, (i) => { const ai = aid ? aid[i] : 0; return ai === a ? !(ROW_NICK[i] >= 0 && A.off.has(HERO_NICKS[ROW_NICK[i]])) : borrow.size > 0 && borrow.has(ai + '\u0001' + ROW_NICK[i]); }, A.opp);
+  return buildView('a' + a, (i) => { const ai = aid ? aid[i] : 0; return ai === a ? !(ROW_NICK[i] >= 0 && A.off.has(HERO_NICKS[ROW_NICK[i]])) : borrow.size > 0 && borrow.has(ai + '\u0001' + ROW_NICK[i]); }, A.opp, onProg);
 }
 function nickDb(a, nick) {
   const aid = HERO_DB.cols.aid, ni = HERO_NICKS.indexOf(nick);
@@ -3612,20 +3616,31 @@ function updatePlayer() {
 // Соперник — настоящий игрок из ваших раздач: у него своя «база» (его строки, по тем же колонкам),
 // поэтому все вкладки, окна матрицы, списки раздач и реплеер считаются по его игре теми же функциями.
 let HERO_DB = null; // ваша база; DB указывает на неё, на собранную базу алиаса/ника или на базу соперника
-async function loadPlayerDb(pid) {
+// загрузка раздач игрока по колонкам; onProg(доля 0…1) — для полосы в шапке
+async function loadPlayerDb(pid, onProg) {
   const meta = await mda.playerMeta(pid); if (!meta) return null;
-  const cols = {};
-  for (const [name, type] of meta.cols) { const b = await mda.playerCol(pid, name); if (b) cols[name] = typedCol(b, type); }
+  const cols = {}; let k = 0;
+  for (const [name, type] of meta.cols) { const b = await mda.playerCol(pid, name); if (b) cols[name] = typedCol(b, type); k++; if (onProg) onProg(k / meta.cols.length); }
   return Object.assign({}, meta, { cols });
 }
 let PICK_SEQ = 0;
+// полоса загрузки под ником в шапке: подпись + процент; null — убрать
+function loadProg(label, f, seq) {
+  if (seq != null && seq !== PICK_SEQ) return;
+  const bar = $('loadBar'); if (!bar) return;
+  if (label == null) { bar.hidden = true; return; }
+  bar.hidden = false; bar.firstChild.style.width = Math.round((f || 0) * 100) + '%';
+  $('handsCount').textContent = label + '… ' + Math.round((f || 0) * 100) + '%';
+}
 // kind: 'alias' (v — номер алиаса), 'hero' (v — рум в фильтре внутри алиаса), 'nick' (v — ваш ник, a — алиас, где лежат его раздачи), 'opp' (v — игрок базы)
 async function choosePlayer(kind, v, a) {
   const seq = ++PICK_SEQ;
   closePlayerMenu();
   if (kind === 'opp') {
-    $('nick').textContent = v.name; $('handsCount').textContent = 'загружаю раздачи…';
-    const odb = await loadPlayerDb(v.pid);
+    $('nick').textContent = v.name; $('roomBadge').textContent = roomCode((HERO_DB || DB).rooms[v.room]); $('roomBadge').classList.remove('room'); $('roomBadge').classList.add('opp');
+    loadProg('загружаю раздачи', 0, seq);
+    const odb = await loadPlayerDb(v.pid, (f) => loadProg('загружаю раздачи', f, seq));
+    loadProg(null, null, seq);
     if (seq !== PICK_SEQ) return; // пока грузили, выбрали другого
     if (!odb) { updatePlayer(); return; }
     state.player = { pid: v.pid, name: v.name, room: v.room, count: v.count, shown: v.shown };
@@ -3633,9 +3648,10 @@ async function choosePlayer(kind, v, a) {
   } else {
     if (kind === 'alias' && v != null && ALIASES[v] && !ALIASES[v].gone) { if (state.alias !== v) OPEN_K = null; state.alias = v; }
     const A = curAlias();
-    if (kind === 'nick' || !isSimple(A)) { $('nick').textContent = kind === 'nick' ? v : A.name; $('handsCount').textContent = 'собираю раздачи…'; }
+    if (kind === 'nick' || !isSimple(A)) { $('nick').textContent = kind === 'nick' ? v : A.name; loadProg('собираю раздачи', 0, seq); }
     const na = kind === 'nick' ? (a != null ? a : state.nickA != null ? state.nickA : state.alias) : null;
-    const ndb = !HERO_DB ? null : kind === 'nick' ? await nickDb(na, v) : await aliasDb(state.alias);
+    const ndb = !HERO_DB ? null : kind === 'nick' ? await nickDb(na, v) : await aliasDb(state.alias, (f) => loadProg('собираю раздачи', f, seq));
+    loadProg(null, null, seq);
     if (seq !== PICK_SEQ) return;
     state.player = null; state.nickView = kind === 'nick' ? v : null; state.nickA = na;
     state.room = kind === 'hero' ? v : null;

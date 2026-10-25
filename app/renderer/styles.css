@@ -981,3 +981,5 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .qd-dlg{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted);margin-top:6px;flex-wrap:wrap}
 .qd-dlg i{width:110px;height:8px;border-radius:4px;background:linear-gradient(90deg,rgba(var(--ice-rgb),.12),rgba(var(--ice-rgb),1))}
 .qd-dlg em{font-style:normal;color:var(--faint)}
+.ld-bar{display:block;width:160px;max-width:100%;height:4px;border-radius:2px;background:var(--line);overflow:hidden;margin-top:3px}
+.ld-bar i{display:block;height:100%;width:0;background:var(--amber);border-radius:2px;transition:width .15s}

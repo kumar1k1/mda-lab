@@ -210,7 +210,8 @@ class BaseDir {
     return (list || []).map(([n, r]) => { const i = idx.get(r + '\u0001' + n); return i == null ? null : { pid: i, name: all[i].n, room: all[i].r, count: all[i].c, shown: all[i].sh }; });
   }
   // колонки соперников: общие со строками героя (без колонки алиаса aid — она только у ваших раздач)
-  oppCols() { return this.meta.cols.filter(c => c[0] !== 'aid'); }
+  // (и без nk — номер вашего ника; файла колонки у соперников нет: такая колонка вешала загрузку игрока)
+  oppCols() { return this.meta.cols.filter(c => c[0] !== 'aid' && c[0] !== 'nk' && fs.existsSync(path.join(this.og, 'c_' + c[0] + '.bin'))); }
   playerMeta(pid) {
     const p = this.players()[pid]; if (!p) return null;
     const room = this.meta.rooms[p.r];
@@ -218,6 +219,7 @@ class BaseDir {
   }
   playerCol(pid, name) {
     const p = this.players()[pid], t = this.oppCols().find(c => c[0] === name); if (!p || !t) return null;
+    if (!fs.existsSync(path.join(this.og, 'c_' + name + '.bin'))) return null;
     return require('./table.js').readRange(this.og, name, t[1], p.s, p.c);
   }
   playerReplays(pid, ids) {
