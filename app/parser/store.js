@@ -182,20 +182,23 @@ class BaseDir {
   }
   // описание «базы» одного соперника — как у вашей базы, чтобы все вкладки считали так же
   // колд-колл и фолд на контбет флопа после колд-колла по каждому игроку базы (для квадранта во вкладке «Колд-колл»):
-  // [pid, ник, рум, раздач, вскрытий, возможностей CC, CC, контбетов после колд-колла, фолдов на них] — только у кого есть хоть что-то; считается один раз
+  // [pid, ник, рум, раздач, вскрытий, [по позициям: возможностей CC, CC, контбетов после колд-колла, фолдов на них]×8] — только у кого есть хоть что-то; считается один раз
   playersCc() {
     if (this._cc) return this._cc;
     const pl = this.players(), n = pl.reduce((a, p) => a + p.c, 0), out = [];
     if (!n || !this.meta.cols.some(c => c[0] === 'fcb')) return (this._cc = { ok: false, rows: [] });
     const { readRange } = require('./table.js'), T = (nm, t) => typedFrom(readRange(this.og, nm, t, 0, n), t);
     const rz = T('rz', 'i8'), cl = T('cl', 'i8'), lr = T('lr', 'i8'), pos = T('pos', 'i8'), act = T('act', 'i8'), fcb = T('fcb', 'i8');
+    // по позициям: 0 — все без BB (как «Колд-колл» в #1), 1+pos — UTG, MP, HJ, CO, BTN, SB, BB (номера позиций базы 0…6)
     for (let pid = 0; pid < pl.length; pid++) {
-      const p = pl[pid]; let o = 0, x = 0, cb = 0, f = 0;
+      const p = pl[pid], st = new Array(8 * 4).fill(0); let any = false;
       for (let i = p.s; i < p.s + p.c; i++) {
-        if (rz[i] === 1 && cl[i] === 0 && lr[i] === 0 && pos[i] !== 6) { o++; if (act[i] === 1) x++; } // как «Колд-колл» в #1: без BB
-        if (fcb[i] >= 0) { cb++; if (fcb[i] === 1) f++; }
+        // колд-колл «все» — без BB (как в #1); фолд на контбет «все» — со всех позиций, включая защиту BB (иначе у игроков мало данных)
+        const ps = pos[i], kc = ps === 6 ? [7] : [0, 1 + ps], kf = [0, 1 + ps];
+        if (rz[i] === 1 && cl[i] === 0 && lr[i] === 0) { any = true; for (const k of kc) { st[k * 4]++; if (act[i] === 1) st[k * 4 + 1]++; } }
+        if (fcb[i] >= 0) { any = true; for (const k of kf) { st[k * 4 + 2]++; if (fcb[i] === 1) st[k * 4 + 3]++; } }
       }
-      if (o || cb) out.push([pid, p.n, p.r, p.c, p.sh || 0, o, x, cb, f]);
+      if (any) out.push([pid, p.n, p.r, p.c, p.sh || 0, st]);
     }
     return (this._cc = { ok: true, rows: out });
   }
