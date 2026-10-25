@@ -83,6 +83,7 @@
       out.sort((a, b) => P[b][2] - P[a][2] || (P[a][0] < P[b][0] ? -1 : 1));
       return { total: out.length, players: out.slice(0, limit || 100).map(i => ({ pid: i, name: P[i][0], room: P[i][1], count: P[i][2], shown: P[i][3] })) };
     },
+    playersCc: async () => { try { const r = await fetch(BASE + 'cc.json'); return r.ok ? await r.json() : { ok: false, rows: [] }; } catch (e) { return { ok: false, rows: [] }; } },
     playersFind: async (list) => {
       const P = await players(), m = await window.mda.dbMeta(), idx = new Map(); P.forEach((p, i) => idx.set(m.rooms[p[1]] + '\u0001' + p[0], i));
       return (list || []).map(([n, r]) => { const i = idx.get(r + '\u0001' + n); return i == null ? null : { pid: i, name: P[i][0], room: P[i][1], count: P[i][2], shown: P[i][3] }; });

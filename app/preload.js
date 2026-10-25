@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('mda', {
   playersList: (q, limit) => ipcRenderer.invoke('players:list', q, limit),
   playerMeta: (pid) => ipcRenderer.invoke('player:meta', pid),
   playerCol: (pid, name) => ipcRenderer.invoke('player:col', pid, name),
+  playersCc: () => ipcRenderer.invoke('players:cc'),
   playersFind: (list) => ipcRenderer.invoke('players:find', list),
   saveAliases: (list) => ipcRenderer.invoke('aliases:save', list),
   playerReplays: (pid, ids) => ipcRenderer.invoke('player:replays', pid, Array.from(ids)),

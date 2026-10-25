@@ -58,6 +58,8 @@ function pack(baseDir, out) {
   const m2 = Object.assign({}, meta, { rpParts: part, oppChunks: chunk, oppCols: OPP_SCHEMA.filter(([n]) => C[n]) });
   delete m2.colDir;
   fs.writeFileSync(path.join(out, 'meta.json'), JSON.stringify(m2));
+  // колд-колл и фолд на контбет по игрокам — готовой таблицей (в превью не читать все куски соперников)
+  fs.writeFileSync(path.join(out, 'cc.json'), JSON.stringify(new (require('../app/parser/store.js').BaseDir)(baseDir).playersCc()));
   return { files: fs.readdirSync(out).length, rpParts: part, oppChunks: chunk };
 }
 

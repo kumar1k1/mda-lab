@@ -243,7 +243,18 @@ function parseCtx(text, fmt, heroes, observer) {
     if (!am) continue;
     acts.push({ name: n, a: am[1], amt: am[3] ? num(am[3]) : am[2] ? num(am[2]) : 0, allin: /all-in/.test(rest) });
   }
-  return { lines, header, fmt, bb, sbAmt, tour, id, date, tblMax, isPdom, bounty, seats, byName, seatNums, order, pos, acts, who, sbSeat, bbSeat, heroName, anteTot, observer: obs, room: obs ? roomOf(fmt, lines) : null };
+  // действия на флопе (для фолда на контбет)
+  const facts = []; let inFlop = false;
+  for (const l of lines) {
+    if (/^\*\*\* FLOP/.test(l)) { inFlop = true; continue; }
+    if (!inFlop) continue;
+    if (/^\*\*\* /.test(l)) break;
+    const n = who(l); if (!n) continue;
+    const rest = l.slice(n.length).replace(/^:/, '').trim();
+    const am = rest.match(/^(folds|checks|calls|bets|raises)/);
+    if (am) facts.push({ name: n, a: am[1] });
+  }
+  return { lines, header, fmt, bb, sbAmt, tour, id, date, tblMax, isPdom, bounty, seats, byName, seatNums, order, pos, acts, who, sbSeat, bbSeat, heroName, anteTot, facts, observer: obs, room: obs ? roomOf(fmt, lines) : null };
 }
 
 // Запись одного игрока раздачи (те же правила, что для героя). opp — соперник: карты — только если показаны,
@@ -303,6 +314,16 @@ function playerRec(c, heroName, opp) {
   }
   // колд-колл (один рейз до героя, герой коллирует): ход раздачи для реплеера
   if (rec.rz === 1 && rec.act === 1) rec.rp = mkRp();
+  // фолд на контбет флопа после колд-колла: префлоп-рейзер первым ставит на флопе, герой отвечает (1 — фолд, 0 — колл/рейз, -1 — не было)
+  rec.fcb = -1;
+  if (rec.rz === 1 && rec.act === 1 && !acts.slice(hi + 1).some(x => x.a === 'raises' || x.a === 'bets')) {
+    const raiser = (before.find(x => x.a === 'raises' || x.a === 'bets') || {}).name, F = c.facts || [];
+    const jb = F.findIndex(x => x.a === 'bets' || x.a === 'raises');
+    if (raiser && jb >= 0 && F[jb].name === raiser && F[jb].a === 'bets') {
+      const nxt = F.slice(jb + 1).find(x => x.name === heroName || x.a === 'raises' || x.a === 'bets');
+      if (nxt && nxt.name === heroName) rec.fcb = nxt.a === 'folds' ? 1 : 0;
+    }
+  }
   // против лимперов: блайнд против блайнда (лимпил только SB) и реакция героя на ререйз после изолейта
   if (rec.sit === 1) {
     const lset = new Set(before.filter(x => x.a === 'calls').map(x => pos[byName[x.name]]));

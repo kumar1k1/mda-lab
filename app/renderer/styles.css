@@ -950,3 +950,22 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .szv-c.click,.szmx .mx-c.click{cursor:pointer}
 .szv-c.click:hover,.szv-c.click:focus-visible,.szmx .mx-c.click:hover,.szmx .mx-c.click:focus-visible{box-shadow:inset 0 0 0 2px var(--text)}
 .hp-seg{align-self:flex-start;margin-bottom:6px}
+
+/* ---------- #9 квадрант: колд-колл × фолд на контбет ---------- */
+.qd-body{display:flex;flex-direction:column;gap:10px;margin-top:4px}
+.qd-me-txt{margin:0;font-size:13px;color:var(--soft)}
+.qd-chart{overflow-x:auto}
+.qd-chart svg{display:block;width:100%;max-width:900px;min-width:520px;height:auto}
+.qd-pt{fill:var(--ice);fill-opacity:.55;stroke:var(--bg);stroke-width:.6;cursor:pointer}
+.qd-pt:hover{fill-opacity:1;stroke:var(--text);stroke-width:1.2}
+.qd-pt.cur{fill:var(--amber);fill-opacity:1;stroke:var(--text)}
+.qd-me circle{fill:var(--amber);stroke:var(--top);stroke-width:2}
+.qd-legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px}
+.qd-z{display:flex;flex-direction:column;gap:2px;padding:8px 10px;border-radius:9px;background:var(--bg);border:1px solid var(--line);border-left:3px solid}
+.qd-z span{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.qd-z b{font-size:13px}
+.qd-z em{font-style:normal;font-size:12px;color:var(--soft);line-height:1.4}
+.qd-tip{position:fixed;z-index:70;max-width:300px;padding:8px 10px;border-radius:9px;background:var(--top);border:1px solid var(--line2);box-shadow:0 12px 32px rgba(0,0,0,.5);pointer-events:none;display:flex;flex-direction:column;gap:2px;font-size:12px}
+.qd-tip b{font-size:13px}
+.qd-tip span{color:var(--soft);font-family:var(--mono);font-size:11.5px}
+.qd-tip em{font-style:normal;color:var(--faint);font-size:11px}

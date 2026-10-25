@@ -27,7 +27,8 @@ const SCHEMA = [
   ['sto', 'i8'], ['f3b', 'i8'], ['orsp', 'i8'], ['bmin', 'i32'], ['sbs', 'i32'], ['bbs', 'i32'], ['bh', 'i32'], ['bsh', 'i8'],
   ['bmd', 'i8'], ['bdp', 'i8'], ['cov', 'i8'], ['bi', 'i32'], ['rz', 'i8'], ['cl', 'i8'], ['rai', 'i8'], ['opos', 'i8'],
   ['ostk', 'i32'], ['osz', 'i32'], ['nev', 'f64'], ['hpa', 'i8'], ['tmx', 'i8'], ['np', 'i8'], ['lr', 'i8'],
-  ['ant', 'i16'] // все анте раздачи, BB×100 (-1 — неизвестно: базы, собранные до этой колонки)
+  ['ant', 'i16'], // все анте раздачи, BB×100 (-1 — неизвестно: базы, собранные до этой колонки)
+  ['fcb', 'i8'] // после колд-колла: фолд на контбет флопа (1), продолжил (0), не было (-1)
 ];
 const TYPES = {
   i8: { A: Int8Array, min: -128, max: 127 },
@@ -180,6 +181,24 @@ class BaseDir {
     return { total: out.length, players: out.slice(0, limit || 100).map(i => ({ pid: i, name: all[i].n, room: all[i].r, count: all[i].c, shown: all[i].sh })) };
   }
   // описание «базы» одного соперника — как у вашей базы, чтобы все вкладки считали так же
+  // колд-колл и фолд на контбет флопа после колд-колла по каждому игроку базы (для квадранта во вкладке «Колд-колл»):
+  // [pid, ник, рум, раздач, вскрытий, возможностей CC, CC, контбетов после колд-колла, фолдов на них] — только у кого есть хоть что-то; считается один раз
+  playersCc() {
+    if (this._cc) return this._cc;
+    const pl = this.players(), n = pl.reduce((a, p) => a + p.c, 0), out = [];
+    if (!n || !this.meta.cols.some(c => c[0] === 'fcb')) return (this._cc = { ok: false, rows: [] });
+    const { readRange } = require('./table.js'), T = (nm, t) => typedFrom(readRange(this.og, nm, t, 0, n), t);
+    const rz = T('rz', 'i8'), cl = T('cl', 'i8'), lr = T('lr', 'i8'), pos = T('pos', 'i8'), act = T('act', 'i8'), fcb = T('fcb', 'i8');
+    for (let pid = 0; pid < pl.length; pid++) {
+      const p = pl[pid]; let o = 0, x = 0, cb = 0, f = 0;
+      for (let i = p.s; i < p.s + p.c; i++) {
+        if (rz[i] === 1 && cl[i] === 0 && lr[i] === 0 && pos[i] !== 6) { o++; if (act[i] === 1) x++; } // как «Колд-колл» в #1: без BB
+        if (fcb[i] >= 0) { cb++; if (fcb[i] === 1) f++; }
+      }
+      if (o || cb) out.push([pid, p.n, p.r, p.c, p.sh || 0, o, x, cb, f]);
+    }
+    return (this._cc = { ok: true, rows: out });
+  }
   memberKeys() { const m = new Set(); for (const a of this.meta.aliases || []) if (!a.gone) for (const o of a.opp || []) m.add(o.r + '\u0001' + o.n); return m; }
   // игроки базы по нику и руму (для участников алиасов): [{pid, count, shown} | null]
   playersFind(list) {

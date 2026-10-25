@@ -73,6 +73,7 @@ ipcMain.handle('db:replays', (_e, ids) => { const s = source(); return s && Arra
 ipcMain.handle('players:list', (_e, q, limit) => { const s = source(); return s && s.v3 ? s.playerList(q, limit) : { total: 0, players: [] }; });
 ipcMain.handle('player:meta', (_e, pid) => { const s = source(); return s && s.v3 ? s.playerMeta(pid) : null; });
 ipcMain.handle('player:col', (_e, pid, name) => { const s = source(); return s && s.v3 ? s.playerCol(pid, name) : null; });
+ipcMain.handle('players:cc', () => { const s = source(); return s && s.v3 ? s.playersCc() : { ok: false, rows: [] }; });
 ipcMain.handle('players:find', (_e, list) => { const s = source(); return s && s.v3 && Array.isArray(list) ? s.playersFind(list) : []; });
 // Редактор алиасов: новый список алиасов — в meta.json базы (одной записью). Раздачи не трогаются:
 // алиас — это набор ников (ваших и игроков базы), статистика собирается из них при выборе.

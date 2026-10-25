@@ -1583,6 +1583,83 @@ function ccGroupBlock(r) {
   return card;
 }
 
+// #9 — квадрант «Колд-колл × Фолд на контбет флопа»: где находится каждый игрок базы и вы
+let CC_QUAD = null; // { db, rows } — таблица по игрокам базы (считается в программе один раз)
+let qdTip = null;
+function ccQuadBlock(r, idx) {
+  const card = el('div', 'insight cc-table qd');
+  card.append(numTag(9), el('b', 'pm-title', 'Колд-колл × Фолд на контбет флопа'), el('span', 'sm-s', 'каждая точка — игрок базы: по горизонтали как часто он колд-коллит, по вертикали как часто сдаётся на контбет флопа после колд-колла'));
+  const body = el('div', 'qd-body'); body.append(el('p', 'muted small', 'Считаю игроков базы…')); card.append(body);
+  // текущий игрок (вы, ваш алиас или выбранный соперник) — по текущей выборке
+  const c = DB.cols; let fo = 0, fn = 0;
+  if (c.fcb) for (const i of idx) { const v = c.fcb[i]; if (v >= 0) { fn++; if (v === 1) fo++; } }
+  const me = { name: state.player ? state.player.name : (curAlias() ? curAlias().name : 'Вы'), cc: r.cc.TOT.n ? r.cc.TOT.x / r.cc.TOT.n : null, ccN: r.cc.TOT.n, fcb: fn ? fo / fn : null, fcbN: fn, pid: state.player ? state.player.pid : null };
+  const draw = (data) => {
+    body.replaceChildren();
+    if (!data || !data.ok) { body.append(el('p', 'muted small', 'В базе нет данных о фолде на контбет — их начала сохранять версия 0.6. Загрузите базу заново («Заменить базу»), чтобы появился график.')); return; }
+    const MIN_CC = 50, MIN_CB = 10;
+    const pts = data.rows.filter(x => x[5] >= MIN_CC && x[7] >= MIN_CB).map(x => ({ pid: x[0], name: x[1], room: x[2], count: x[3], shown: x[4], cc: x[6] / x[5], ccN: x[5], fcb: x[8] / x[7], fcbN: x[7] }));
+    if (pts.length < 5) { body.append(el('p', 'muted small', 'Мало игроков с достаточной выборкой (нужно ≥ ' + MIN_CC + ' возможностей колд-колла и ≥ ' + MIN_CB + ' контбетов после него).')); return; }
+    const med = (a) => { const b = a.slice().sort((x, y) => x - y); return b[Math.floor(b.length / 2)]; };
+    const mx = med(pts.map(p => p.cc)), my = med(pts.map(p => p.fcb));
+    const ccs = pts.map(p => p.cc).sort((a, b) => a - b), xMax = Math.min(1, Math.max(0.1, Math.ceil((ccs[Math.floor(ccs.length * 0.99)] || 0.3) * 20) / 20, me.cc || 0));
+    const W = 720, H = 460, P = { l: 52, r: 16, t: 16, b: 44 };
+    const s = svgRoot(W, H, 'Колд-колл и фолд на контбет флопа по игрокам базы');
+    const X = (v) => P.l + Math.min(1, v / xMax) * (W - P.l - P.r), Y = (v) => P.t + (1 - v) * (H - P.t - P.b);
+    // зоны
+    const zones = [[P.l, P.t, X(mx), Y(my), 'rgba(var(--good-rgb),.07)'], [X(mx), P.t, W - P.r, Y(my), 'rgba(var(--amber-rgb),.08)'], [P.l, Y(my), X(mx), H - P.b, 'rgba(var(--ice-rgb),.07)'], [X(mx), Y(my), W - P.r, H - P.b, 'rgba(var(--bad-rgb),.08)']];
+    zones.forEach(([x1, y1, x2, y2, f]) => s.append(svgEl('rect', { x: x1, y: y1, width: Math.max(0, x2 - x1), height: Math.max(0, y2 - y1) }, 'fill:' + f)));
+    for (let v = 0; v <= 1.0001; v += 0.25) { s.append(svgEl('line', { x1: P.l, x2: W - P.r, y1: Y(v), y2: Y(v) }, 'stroke:var(--line);stroke-width:1')); s.append(svgText(P.l - 6, Y(v) + 4, Math.round(v * 100) + '%', 'end', 'font-size:10px')); }
+    const step = xMax > 0.3 ? 0.1 : 0.05;
+    for (let v = 0; v <= xMax + 1e-9; v += step) { s.append(svgEl('line', { x1: X(v), x2: X(v), y1: P.t, y2: H - P.b }, 'stroke:var(--line);stroke-width:1')); s.append(svgText(X(v), H - P.b + 15, Math.round(v * 100) + '%', 'middle', 'font-size:10px')); }
+    s.append(svgEl('line', { x1: X(mx), x2: X(mx), y1: P.t, y2: H - P.b }, 'stroke:var(--soft);stroke-width:1.2;stroke-dasharray:5 4'));
+    s.append(svgEl('line', { x1: P.l, x2: W - P.r, y1: Y(my), y2: Y(my) }, 'stroke:var(--soft);stroke-width:1.2;stroke-dasharray:5 4'));
+    s.append(svgText((P.l + W - P.r) / 2, H - 6, 'Колд-колл, % →', 'middle', 'font-size:11px;fill:var(--soft)'));
+    const yl = svgText(14, (P.t + H - P.b) / 2, 'Фолд на контбет флопа, % →', 'middle', 'font-size:11px;fill:var(--soft)'); yl.setAttribute('transform', 'rotate(-90 14 ' + (P.t + H - P.b) / 2 + ')'); s.append(yl);
+    // подписи зон
+    const zl = (x, y, t, anchor) => s.append(svgText(x, y, t, anchor, 'font-family:var(--sans);font-size:11px;font-weight:700;fill:var(--muted)'));
+    zl(P.l + 8, P.t + 16, 'Узкий CC · сдаётся', 'start'); zl(W - P.r - 8, P.t + 16, 'Широкий CC · сдаётся', 'end');
+    zl(P.l + 8, H - P.b - 8, 'Узкий CC · цепляется', 'start'); zl(W - P.r - 8, H - P.b - 8, 'Широкий CC · «телефон»', 'end');
+    // точки
+    const tip = (e, p) => {
+      if (!qdTip) { qdTip = el('div', 'qd-tip'); qdTip.setAttribute('role', 'tooltip'); document.body.append(qdTip); }
+      qdTip.replaceChildren(el('b', null, p.name), el('span', null, (p.room != null && HERO_DB ? HERO_DB.rooms[p.room] + ' · ' : '') + 'колд-колл ' + fmtPct(p.cc) + '% (' + p.ccN + ') · фолд на контбет ' + fmtPct(p.fcb) + '% (' + p.fcbN + ')'), el('em', null, p.isMe ? 'текущий выбор' : 'клик — открыть игрока'));
+      qdTip.hidden = false; const w = qdTip.offsetWidth; qdTip.style.left = Math.min(e.clientX + 14, window.innerWidth - w - 8) + 'px'; qdTip.style.top = (e.clientY + 14) + 'px';
+    };
+    const hide = () => { if (qdTip) qdTip.hidden = true; };
+    pts.forEach(p => {
+      const cur = state.player && state.player.pid === p.pid;
+      const d = svgEl('circle', { cx: X(p.cc), cy: Y(p.fcb), r: cur ? 6 : 3.4, class: 'qd-pt' + (cur ? ' cur' : ''), tabindex: '-1' });
+      d.addEventListener('mouseenter', (e) => tip(e, p)); d.addEventListener('mousemove', (e) => tip(e, p)); d.addEventListener('mouseleave', hide);
+      d.addEventListener('click', () => { hide(); choosePlayer('opp', { pid: p.pid, name: p.name, room: p.room, count: p.count, shown: p.shown }); });
+      s.append(d);
+    });
+    if (me.cc != null && me.fcb != null && !state.player) {
+      const p = Object.assign({ isMe: true }, me);
+      const g = svgEl('g', { class: 'qd-me' });
+      g.append(svgEl('circle', { cx: X(me.cc), cy: Y(me.fcb), r: 8 }), svgText(X(me.cc) + 12, Y(me.fcb) + 4, me.name, 'start', 'font-family:var(--sans);font-size:12px;font-weight:800;fill:var(--amber)'));
+      g.addEventListener('mouseenter', (e) => tip(e, p)); g.addEventListener('mousemove', (e) => tip(e, p)); g.addEventListener('mouseleave', hide);
+      s.append(g);
+    }
+    const wrap = el('div', 'qd-chart'); wrap.append(s);
+    const meTxt = me.cc == null || me.fcb == null ? 'Для текущего выбора мало данных (нет контбетов после колд-колла в выборке).'
+      : (state.player ? me.name : 'Вы') + ': колд-колл ' + fmtPct(me.cc) + '% (' + me.ccN + '), фолд на контбет ' + fmtPct(me.fcb) + '% (' + me.fcbN + ').';
+    const legend = el('div', 'qd-legend');
+    [['Верхний левый', 'Узкий CC, легко сдаётся на флопе', 'идеальная мишень для контбета', 'var(--good)'],
+     ['Нижний левый', 'Узкий CC, цепляется за флоп', 'играет только по сильной карте', 'var(--ice)'],
+     ['Верхний правый', 'Широкий CC, легко сдаётся на флопе', 'фиш-автоответчик на префлопе, у которого «фолд-эквити вагон» на флопе', 'var(--amber)'],
+     ['Нижний правый', 'Широкий CC, не сдаётся на флопе', 'самый неприятный «телефон», против которого нельзя блефовать, только велью-бетить', 'var(--bad)']].forEach(([z, t, d, col]) => {
+      const it = el('div', 'qd-z'); it.style.borderLeftColor = col; it.append(el('span', null, z), el('b', null, t), el('em', null, d)); legend.append(it);
+    });
+    body.append(el('p', 'qd-me-txt', meTxt), wrap, legend,
+      infoNote('Точка — игрок базы, у которого не меньше ' + MIN_CC + ' возможностей колд-колла и ' + MIN_CB + ' контбетов на флопе после его колд-колла (показано ' + pts.length.toLocaleString('ru-RU') + ' игроков). Колд-колл — как в #1: рейз перед игроком, без лимперов и коллеров, без BB. Фолд на контбет — префлоп-рейзер первым ставит на флопе, игрок после колд-колла сбрасывает. Пунктир — медианы игроков базы: делят график на четыре зоны. Жёлтая точка — текущий выбор (вы или ваш алиас) по текущим фильтрам; игроки базы — по всей базе. Наведите на точку — ник и цифры, клик — открыть этого игрока во всех вкладках.'));
+  };
+  if (CC_QUAD && CC_QUAD.db === HERO_DB) draw(CC_QUAD.rows);
+  else if (mda.playersCc) { const db = HERO_DB; mda.playersCc().then(rows => { CC_QUAD = { db, rows }; if (card.isConnected) draw(rows); }); }
+  else draw(null);
+  return card;
+}
+
 function ccVsTable(r) {
   const heroPos = r.CC_COLS.slice(1).filter(p => r.cc[p].n >= SMALL);
   const opCols = ['UTG', 'MP', 'CO', 'BTN', 'SB'].filter(op => heroPos.some(p => r.vs[p] && r.vs[p][op] && r.vs[p][op].n >= SMALL));
@@ -1649,7 +1726,7 @@ function renderCC(idx) {
   c8.classList.add('wide');
   const zone = el('div', 'summary'); const pair = el('div', 'sum-pair'); pair.append(c1, c8); zone.append(pair);
   c2.classList.add('cc-table');
-  zone.append(c2, ccGroupBlock(r), ccVsTable(r), ccOppBlock(r), ccSizeBlock(r), bbDefendBlock(r), ccAllinBlock(r));
+  zone.append(c2, ccGroupBlock(r), ccVsTable(r), ccOppBlock(r), ccSizeBlock(r), bbDefendBlock(r), ccAllinBlock(r), ccQuadBlock(r, idx));
   page.append(zone);
   return page;
 }
@@ -1692,7 +1769,7 @@ function currentIdx() {
 }
 
 function render() {
-  hideHandPop(); hideMxTip(); hideGroupTip(); hidePushTip(); unpinSzMx();
+  hideHandPop(); hideMxTip(); hideGroupTip(); hidePushTip(); unpinSzMx(); if (qdTip) qdTip.hidden = true;
   const rail = $('rail'); rail.replaceChildren();
   GROUPS.forEach(g => {
     const box = el('div', 'rgroup');
@@ -2237,7 +2314,7 @@ function setupHoverScrollHide() {
   document.addEventListener('scroll', () => {
     if (base == null) base = pos();
     if (Math.abs(pos() - base) <= 60) return;
-    hideHandPop(); hideMxTip(); hideGroupTip(); hidePushTip(); hideSzMx();
+    hideHandPop(); hideMxTip(); hideGroupTip(); hidePushTip(); hideSzMx(); if (qdTip) qdTip.hidden = true;
     base = pos();
   }, { capture: true, passive: true });
 }
