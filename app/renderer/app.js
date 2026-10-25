@@ -571,7 +571,7 @@ function handGroup(k) {
 }
 // всплывающее окно над ячейкой 3.4: какие руки входят в группу и их результат с позиции
 let groupTip = null;
-function showGroupTip(pos, label, k, z, hands, e) {
+function showGroupTip(pos, label, k, z, hands, e, verb) {
   if (!groupTip) { groupTip = el('div', 'gt'); groupTip.setAttribute('role', 'tooltip'); document.body.append(groupTip); }
   groupTip.replaceChildren();
   const h = el('div', 'gt-h'); h.append(el('b', null, pos + ' · ' + label));
@@ -596,7 +596,7 @@ function showGroupTip(pos, label, k, z, hands, e) {
     }
     grid.append(cell);
   }
-  groupTip.append(grid, el('div', 'gt-f', 'Выделены руки группы; в клетке — результат руки с ' + pos + ' в BB. Серые — руки группы, которыми не открывались. Клик — закрепить окно и открыть раздачи.'));
+  groupTip.append(grid, el('div', 'gt-f', 'Выделены руки группы; в клетке — результат руки с ' + pos + ' в BB. Серые — руки группы, которыми ' + (verb || 'не открывались') + '. Клик — закрепить окно и открыть раздачи.'));
   groupTip.hidden = false; moveGroupTip(e);
 }
 function moveGroupTip(e) {
@@ -1415,6 +1415,51 @@ function ccRangeBlock(r, o) {
 
 let CC_BX = 'bb';
 // таблица «позиция против позиции»: строки — ваша позиция, колонки — кто открыл
+// #2.1 — результат колд-колла по группам рук и позициям (как #3.4 во вкладке RFI): факт / EV, наведение — руки группы,
+// клик — закрепить окно с раздачами и реплеером
+function ccGroupBlock(r) {
+  const pos = r.CC_COLS.slice(1).filter(p => r.hands[p] && r.hands[p].n);
+  const c = DB.cols, EV = EVcol(), agg = {};
+  pos.forEach(p => {
+    const g = HAND_GROUPS.map(() => ({ sum: 0, es: 0, n: 0 })), h = Array.from({ length: 169 }, () => ({ sum: 0, es: 0, n: 0 }));
+    r.hands[p].ids.forEach(i => { const k = c.hc[i]; if (k < 0) return; const z = g[handGroup(k)]; z.sum += c.net[i]; z.es += EV[i]; z.n++; const y = h[k]; y.sum += c.net[i]; y.es += EV[i]; y.n++; });
+    agg[p] = { g, h };
+  });
+  const card = el('div', 'insight cc-table ccg');
+  card.append(numTag('2.1'), el('span', 'k', 'Результат колд-колла по группам рук'), el('span', 's', 'BB за колд-колл: всего и по группам рук, факт / EV'));
+  if (!pos.length) { card.append(el('p', 'muted', 'Нет колд-коллов в выборке.')); return card; }
+  // крупные цифры по позициям
+  const top = el('div', 'ccg-top');
+  pos.forEach(p => { const z = r.hands[p]; const b = el('div', 'ccg-big'); const big = el('b'); big.innerHTML = wrHtml(z.sum / 10 / z.n, z.es / 10 / z.n, 2); b.append(el('span', 'nm', p), big, el('span', 'cnt', z.n.toLocaleString('ru-RU') + ' колд-коллов')); top.append(b); });
+  card.append(top);
+  // таблица: группа рук × позиция
+  const vals = []; pos.forEach(p => agg[p].g.forEach(z => { if (z.n >= 5) vals.push(Math.abs(z.sum / 10 / z.n)); }));
+  vals.sort((a, b) => a - b); const scale = Math.max(0.5, vals[Math.floor(vals.length * 0.9)] || 0.5);
+  const tbl = el('div', 'ccg-t'); tbl.style.setProperty('--ncol', pos.length);
+  const hd = el('div', 'ccg-r ccg-head'); hd.append(el('span', null, 'Группа рук')); pos.forEach(p => hd.append(el('span', null, p))); tbl.append(hd);
+  HAND_GROUPS.forEach(([lab], k) => {
+    const row = el('div', 'ccg-r'); row.append(el('span', 'ccg-l', lab));
+    pos.forEach(p => {
+      const z = agg[p].g[k], hands = agg[p].h, cell = el('div', 'ccg-c');
+      cell.addEventListener('mouseenter', (e) => showGroupTip(p, lab, k, z, hands, e, 'не коллировали')); cell.addEventListener('mousemove', moveGroupTip); cell.addEventListener('mouseleave', hideGroupTip);
+      if (!z.n) { cell.append(el('span', 'hg-na', '—')); row.append(cell); return; }
+      const v = z.sum / 10 / z.n, t = Math.min(1, Math.abs(v) / scale);
+      cell.style.background = 'rgba(' + (v >= 0 ? 'var(--good-rgb)' : 'var(--bad-rgb)') + ',' + (0.08 + 0.32 * t).toFixed(2) + ')';
+      const f = el('b', v >= 0 ? 'up' : 'down', signed(v, 2)), ev = z.es / 10 / z.n;
+      cell.append(f, el('span', 'ccg-ev ' + (ev >= 0 ? 'up' : 'down'), signed(ev, 2) + ' EV'), el('span', 'ccg-n', String(z.n)));
+      if (z.n < 30) cell.classList.add('low');
+      cell.classList.add('click'); cell.tabIndex = 0; cell.setAttribute('role', 'button'); cell.setAttribute('aria-label', p + ', ' + lab + ': ' + signed(v, 2) + ' BB, ' + z.n + ' колд-коллов — показать руки и раздачи');
+      const pin = (e) => { hideGroupTip(); pinHandPop({ p, key: 'ccg' + p + k, title: 'Колд-колл · ' + p + ' · ' + lab, o: z, mx: hands, ids: r.hands[p].ids, only: (q) => handGroup(q) === k, sit: 2, act: 1, vlab: ' BB за колд-колл', nlab: ' колд-коллов' }, v, e, cell); };
+      cell.addEventListener('click', pin); cell.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pin(null); } });
+      row.append(cell);
+    });
+    tbl.append(row);
+  });
+  const wrap = el('div', 'ccg-wrap'); wrap.append(tbl); card.append(wrap);
+  card.append(infoNote('В ячейке — результат колд-колла группой рук с этой позиции в BB: сверху факт, под ним EV, справа мелко — число колд-коллов. Цвет — плюс или минус. Наведите — матрица рук группы и их итог; клик закрепит окно, клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше 30 раздач.'));
+  return card;
+}
+
 function ccVsTable(r) {
   const heroPos = r.CC_COLS.slice(1).filter(p => r.cc[p].n >= SMALL);
   const opCols = ['UTG', 'MP', 'CO', 'BTN', 'SB'].filter(op => heroPos.some(p => r.vs[p] && r.vs[p][op] && r.vs[p][op].n >= SMALL));
@@ -1481,7 +1526,7 @@ function renderCC(idx) {
   c8.classList.add('wide');
   const zone = el('div', 'summary'); const pair = el('div', 'sum-pair'); pair.append(c1, c8); zone.append(pair);
   c2.classList.add('cc-table');
-  zone.append(c2, ccVsTable(r), ccOppBlock(r), ccSizeBlock(r), ccAllinBlock(r));
+  zone.append(c2, ccGroupBlock(r), ccVsTable(r), ccOppBlock(r), ccSizeBlock(r), ccAllinBlock(r));
   page.append(zone);
   return page;
 }
