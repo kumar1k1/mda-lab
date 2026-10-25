@@ -366,7 +366,9 @@ function parseHandAll(text, fmt, heroes, observer, exclude) {
   }
   if (c.observer && !opps.length) return null;
   let rp = (hero && hero.rp) || null;
-  if (!rp && opps.some(r => r.needRp)) rp = buildReplay(c.lines, { seatNums: c.seatNums, seats: c.seats, pos: c.pos, heroName: c.heroName, bb: c.bb, who: c.who, fmt: c.fmt, header: c.header, sbAmt: c.sbAmt });
+  // запись реплеера — у каждой вашей раздачи (не только в спотах вкладок): раздачи любой ячейки открываются в реплеере
+  if (!rp && (hero || opps.some(r => r.needRp))) rp = buildReplay(c.lines, { seatNums: c.seatNums, seats: c.seats, pos: c.pos, heroName: c.heroName, bb: c.bb, who: c.who, fmt: c.fmt, header: c.header, sbAmt: c.sbAmt });
+  if (hero && rp && !hero.rp) hero.rp = rp;
   return { hero, opps, rp, id: c.id, tour: c.tour, room: c.room };
 }
 const EMPTY = new Set();

@@ -32,7 +32,7 @@ async function work(fi) {
       const r = parseTextAll(text, heroes, observer, exclude); errors += r.errors;
       for (const h of r.hands) {
         const rp = h.rp; if (rp) delete rp.bb;
-        const heroRp = !!(h.hero && h.hero.rp); if (h.hero) delete h.hero.rp; // у героя — запись реплеера только в его спотах (как раньше)
+        const heroRp = !!(h.hero && h.hero.rp); if (h.hero) delete h.hero.rp; // запись реплеера — у каждой вашей раздачи
         hands.push({ k: hash53(h.id + '|' + h.tour), room: h.room, hero: h.hero, opps: h.opps, heroRp, rpz: rp ? zlib.deflateRawSync(Buffer.from(JSON.stringify(rp), 'utf8')) : null });
       }
       if (hands.length >= BATCH) await flush(false);

@@ -1239,12 +1239,14 @@ let szMx = null, SZMX_PIN = null, SZMX_MODE = 'rng';
 function szMxEl() {
   if (!szMx) {
     szMx = el('div', 'szmx'); szMx.setAttribute('role', 'dialog'); szMx.hidden = true; document.body.append(szMx);
-    document.addEventListener('mousedown', (e) => { if (SZMX_PIN && !szMx.contains(e.target) && !e.target.closest('.sz5-r.has-mx')) unpinSzMx(); });
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && SZMX_PIN) unpinSzMx(); });
+    document.addEventListener('mousedown', (e) => { if (SZMX_PIN && !szMx.contains(e.target) && !e.target.closest('.sz5-r.has-mx, .il-bg, .rp-bg, [role=dialog]')) unpinSzMx(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && SZMX_PIN && !document.querySelector('.il-bg')) unpinSzMx(); });
   }
   return szMx;
 }
-function szValGrid(mx, mode) {
+// раздачи одной руки из строки #6 — список с реплеером
+function szHandList(title, z, k, name) { const hc = DB.cols.hc; openIdsList(title + ' · ' + name, (z.rids || []).filter(i => hc[i] === k)); }
+function szValGrid(mx, mode, onPick) {
   const R = 'AKQJT98765432', wrap = el('div', 'szv');
   const vals = mx.filter(c => c.n >= 3).map(c => Math.abs((mode === 'ev' ? c.es : c.sum) / 10 / c.n)).sort((a, b) => a - b);
   const scale = Math.max(1, vals[Math.floor(vals.length * 0.9)] || 1); // крайние 10% не растягивают шкалу цвета
@@ -1257,7 +1259,8 @@ function szValGrid(mx, mode) {
       cell.style.background = 'rgba(' + (v >= 0 ? 'var(--good-rgb)' : 'var(--bad-rgb)') + ',' + (0.18 + 0.6 * t).toFixed(2) + ')';
       cell.append(el('span', 'v', (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(Math.abs(v) >= 10 ? 0 : 1)));
       if (c.n < 5) cell.classList.add('low');
-      cell.title = name + ': ' + signed(c.sum / 10 / c.n, 2) + ' BB факт · ' + signed(c.es / 10 / c.n, 2) + ' BB EV · ' + c.n + ' раз';
+      cell.title = name + ': ' + signed(c.sum / 10 / c.n, 2) + ' BB факт · ' + signed(c.es / 10 / c.n, 2) + ' BB EV · ' + c.n + ' раз — нажмите, чтобы открыть раздачи';
+      if (onPick) { const k = i * 13 + j; cell.classList.add('click'); cell.tabIndex = 0; cell.setAttribute('role', 'button'); cell.onclick = () => onPick(k, name); cell.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPick(k, name); } }; }
     }
     wrap.append(cell);
   }
@@ -1276,9 +1279,11 @@ function drawSzMx(title, z, pinned) {
   }
   if (mode === 'rng') {
     const leg = el('div', 'resp-legend row'); [['колл', 'var(--mx-limp)'], ['3-бет', 'var(--mx-raise)'], ['олл-ин', 'var(--mx-push)'], ['фолд', 'var(--mx-empty)']].forEach(([l, col]) => { const it = el('span'); const i = el('i'); i.style.background = col; if (col === 'var(--mx-empty)') i.style.border = '1px solid var(--line2)'; it.append(i, document.createTextNode(l)); leg.append(it); });
-    m.append(leg, handMatrix(z.rmx, ['3-бет', 'олл-ин', 'колл', 'фолд']));
+    const mxEl = handMatrix(z.rmx, ['3-бет', 'олл-ин', 'колл', 'фолд']);
+    if (pinned) [...mxEl.children].forEach((cell, k) => { if (!z.rmx[k].n) return; const nm = cell.querySelector('.h').textContent; cell.classList.add('click'); cell.tabIndex = 0; cell.setAttribute('role', 'button'); cell.setAttribute('aria-label', nm + ' — открыть раздачи'); cell.onclick = () => szHandList(title, z, k, nm); cell.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); szHandList(title, z, k, nm); } }; });
+    m.append(leg, mxEl);
   } else {
-    m.append(el('div', 'szmx-cap', (mode === 'ev' ? 'EV' : 'Фактический результат') + ' с каждой рукой в BB за раздачу — все ответы (колл, 3-бет, фолд)'), szValGrid(z.rmx, mode));
+    m.append(el('div', 'szmx-cap', (mode === 'ev' ? 'EV' : 'Фактический результат') + ' с каждой рукой в BB за раздачу — все ответы (колл, 3-бет, фолд). Нажмите на руку — раздачи и реплеер.'), szValGrid(z.rmx, mode, pinned ? (k, nm) => szHandList(title, z, k, nm) : null));
   }
   if (!pinned) m.append(el('div', 'szmx-hint', 'Клик по строке — закрепить окно и показать результат по рукам'));
   m.hidden = false;

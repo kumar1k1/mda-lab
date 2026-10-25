@@ -174,7 +174,7 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
     const ref = needRef ? rpw.addRaw(h.rpz) : null;
     const hv = rowVals(h.hero, roomIdx);
     for (const [nm] of SCHEMA) H[nm].push(hv[nm]);
-    const hr = h.heroRp && ref && h.hero.hc >= 0; // как раньше: запись реплеера у вашей раздачи — в ваших спотах и с вашими картами
+    const hr = h.heroRp && ref && h.hero.hc >= 0; // запись реплеера у каждой вашей раздачи с вашими картами
     H.rpp.push(hr ? ref[0] : -1); H.rpo.push(hr ? ref[1] : 0); H.rpl.push(hr ? ref[2] : 0); H.key.push(h.k); H.aid.push(aid); H.nk.push(nkOf.has(h.hero.hero) ? nkOf.get(h.hero.hero) : -1);
     nH++; addedBy[aid]++;
     if (newHand) addOpps(h, roomIdx, ref);
