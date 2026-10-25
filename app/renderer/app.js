@@ -1430,7 +1430,7 @@ function ccGroupBlock(r) {
   if (!pos.length) { card.append(el('p', 'muted', 'Нет колд-коллов в выборке.')); return card; }
   // крупные цифры по позициям
   const top = el('div', 'ccg-top');
-  pos.forEach(p => { const z = r.hands[p]; const b = el('div', 'ccg-big'); const big = el('b'); big.innerHTML = wrHtml(z.sum / 10 / z.n, z.es / 10 / z.n, 2); b.append(el('span', 'nm', p), big, el('span', 'cnt', z.n.toLocaleString('ru-RU') + ' колд-коллов')); top.append(b); });
+  pos.forEach(p => { const z = r.hands[p]; const b = el('div', 'ccg-big'); const big = el('b'); big.innerHTML = wrHtml(z.sum / 10 / z.n, z.es / 10 / z.n, 2); b.append(el('span', 'nm', p), big, el('span', 'cnt', z.n.toLocaleString('ru-RU'))); top.append(b); });
   card.append(top);
   // таблица: группа рук × позиция
   const vals = []; pos.forEach(p => agg[p].g.forEach(z => { if (z.n >= 5) vals.push(Math.abs(z.sum / 10 / z.n)); }));
