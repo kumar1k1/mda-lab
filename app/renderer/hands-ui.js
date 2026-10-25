@@ -114,6 +114,7 @@ function showHandPop(it, v, ev, anchor) {
 function pinHandPop(it, v, ev, anchor) {
   const was = pinned && handPop ? { left: handPop.style.left, top: handPop.style.top } : null;
   pinned = { pos: it.key || it.p };
+  POP_MODE = 'net'; // каждое новое закрепление — сначала фактический результат
   const pop = buildPop(it, v, true);
   pop.hidden = false;
   if (was) { pop.style.left = was.left; pop.style.top = was.top; } else placeNear(pop, ev, anchor);
