@@ -1233,6 +1233,24 @@ function renderRFISummary(idx, r) {
 // ---------- вкладка «Колд-колл» ----------
 // #6 — колд-колл против разных сайзингов открытия (без олл-инов): частоты ответа и винрейт колла
 let CC_SZPOS = 'TOT';
+// окно с матрицей ответа на открытие одного размера (строка #6): руки цветом действия, без винрейтов
+let szMx = null;
+function showSzMx(title, z, row) {
+  if (!szMx) { szMx = el('div', 'szmx'); szMx.setAttribute('role', 'tooltip'); document.body.append(szMx); }
+  szMx.replaceChildren();
+  const h = el('div', 'szmx-h'); h.append(el('b', null, title), el('span', null, z.n.toLocaleString('ru-RU') + ' раз'));
+  const leg = el('div', 'resp-legend row'); [['колл', 'var(--mx-limp)'], ['3-бет', 'var(--mx-raise)'], ['олл-ин', 'var(--mx-push)'], ['фолд', 'var(--mx-empty)']].forEach(([l, col]) => { const it = el('span'); const i = el('i'); i.style.background = col; if (col === 'var(--mx-empty)') i.style.border = '1px solid var(--line2)'; it.append(i, document.createTextNode(l)); leg.append(it); });
+  szMx.append(h, leg, handMatrix(z.rmx, ['3-бет', 'олл-ин', 'колл', 'фолд']));
+  szMx.hidden = false;
+  // справа от таблицы, если помещается, иначе под строкой
+  const rr = row.getBoundingClientRect(), w = szMx.offsetWidth, hh = szMx.offsetHeight;
+  let x = rr.right + 12, y = rr.top + rr.height / 2 - hh / 2;
+  if (x + w > window.innerWidth - 8) { x = Math.max(8, Math.min(rr.left, window.innerWidth - w - 8)); y = rr.bottom + 8; if (y + hh > window.innerHeight - 8) y = rr.top - hh - 8; }
+  y = Math.max(8, Math.min(y, window.innerHeight - hh - 8));
+  szMx.style.left = x + 'px'; szMx.style.top = y + 'px';
+}
+function hideSzMx() { if (szMx) szMx.hidden = true; }
+
 function ccSizeBlock(r) {
   const card = el('div', 'insight cc-table');
   card.append(numTag(6), el('b', 'pm-title', 'Против сайзинга открытия'), el('span', 'sm-s', 'как вы отвечаете на открытие разного размера и какой результат дают ваши коллы'));
@@ -1252,6 +1270,13 @@ function ccSizeBlock(r) {
       const v = (txt, col) => { const e = el('span', 'sz5-v', txt); e.style.color = col; return e; };
       row.append(el('b', null, r.CC_SZ[k][0]), el('span', 'sz5-sh', fmtPct(share) + '%'), v(pc(z.call), 'var(--ice)'), v(pc(z.rz), 'var(--bad)'), v(pc(z.fold), 'var(--good)'),
         wrNode('sz5-v', wr, we, 2), el('small', null, z.n.toLocaleString('ru-RU') + ' раз'), tk);
+      // наведение на строку — матрица рук: колл / 3-бет / олл-ин / фолд против этого размера
+      if (z.rmx) {
+        const title = (CC_SZPOS === 'TOT' ? 'Все без BB' : CC_SZPOS) + ' · открытие ' + r.CC_SZ[k][0];
+        row.classList.add('has-mx'); row.tabIndex = 0;
+        row.addEventListener('mouseenter', () => showSzMx(title, z, row)); row.addEventListener('mouseleave', hideSzMx);
+        row.addEventListener('focus', () => showSzMx(title, z, row)); row.addEventListener('blur', hideSzMx);
+      }
       t.append(row);
     });
     body.replaceChildren(tot ? t : el('p', 'muted small', 'Нет открытий в выборке.'));
@@ -1613,7 +1638,7 @@ function currentIdx() {
 }
 
 function render() {
-  hideHandPop(); hideMxTip(); hideGroupTip(); hidePushTip();
+  hideHandPop(); hideMxTip(); hideGroupTip(); hidePushTip(); hideSzMx();
   const rail = $('rail'); rail.replaceChildren();
   GROUPS.forEach(g => {
     const box = el('div', 'rgroup');
