@@ -214,7 +214,10 @@
         });
       } else if (c.osz && c.osz[i] >= 0) {
         const sk = CC_SZ.findIndex(q => c.osz[i] >= q[1] && c.osz[i] < q[2]);
-        if (sk >= 0) keys.forEach(k => { const q = out.sz[k][sk]; q.n++; if (call) { q.call++; if (c1) { q.sum += v0; q.es += e0; q.sn++; } if (c1 && c.hc[i] >= 0) { if (!q.mx) q.mx = Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })); q.ids.push(i); q.mx[c.hc[i]].n++; q.mx[c.hc[i]].sum += v0; q.mx[c.hc[i]].es += e0; } } else if (a0 >= 2) q.rz++; else q.fold++; });
+        // защита BB: минимальная частота защиты (MDF) для этой раздачи — банк до открытия / (банк + ставка открывающего);
+        // анте в истории не записано в колонках — считаем BB-анте = 1 BB (обычные анте стола дают почти столько же)
+        const mdf = p === 'BB' ? (() => { const S = c.osz[i] / 100, bvb = POS[c.opos[i]] === 'SB', pot = (bvb ? 1 : 1.5) + 1, bet = bvb ? S - 0.5 : S; return pot / (pot + bet); })() : 0;
+        if (sk >= 0) keys.forEach(k => { const q = out.sz[k][sk]; q.n++; q.mdf = (q.mdf || 0) + mdf; if (call) { q.call++; if (c1) { q.sum += v0; q.es += e0; q.sn++; } if (c1 && c.hc[i] >= 0) { if (!q.mx) q.mx = Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })); q.ids.push(i); q.mx[c.hc[i]].n++; q.mx[c.hc[i]].sum += v0; q.mx[c.hc[i]].es += e0; } } else if (a0 >= 2) q.rz++; else q.fold++; });
       }
       (p === 'BB' ? [out.cc[p]] : [out.cc.TOT, out.cc[p]]).forEach(z => { z.n++; if (call) z.x++; }); // TOT — без BB
       if (c.hc[i] >= 0 && p === opt.mxPos && (!opt.mxStk || (c.bb[i] >= opt.mxStk[0] * 10 && c.bb[i] < opt.mxStk[1] * 10))) {

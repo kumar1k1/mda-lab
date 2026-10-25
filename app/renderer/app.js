@@ -1262,6 +1262,50 @@ function ccSizeBlock(r) {
 
 // #7 — колд-колл против олл-ина: частота колла пуша, винрейт по позициям и по стеку пушера
 let CC_AIPOS = 'TOT';
+// #6.1 — защита BB по размеру открытия против минимальной частоты защиты (MDF)
+function bbDefendBlock(r) {
+  const card = el('div', 'insight cc-table bbd');
+  card.append(numTag('6.1'), el('b', 'pm-title', 'Защита BB по размеру открытия'), el('span', 'sm-s', 'как часто вы защищаете BB (колл + 3-бет) против открытия каждого размера и сколько нужно по шансам банка'));
+  const rows = (r.sz.BB || []).map((z, k) => ({ z, k, lab: r.CC_SZ[k][0] })).filter(x => x.z.n);
+  if (!rows.length) { card.append(el('p', 'muted small', 'Нет открытий против вашего BB в выборке.')); return card; }
+  const W = 640, H = 230, P = { l: 38, r: 12, t: 22, b: 44 };
+  const s = svgRoot(W, H, 'Защита BB по размеру открытия');
+  const y = (v) => P.t + (1 - v) * (H - P.t - P.b);
+  const gw = (W - P.l - P.r) / rows.length, bw = Math.min(56, gw * 0.5);
+  [0, 0.25, 0.5, 0.75, 1].forEach(v => { s.append(svgEl('line', { x1: P.l, x2: W - P.r, y1: y(v), y2: y(v) }, 'stroke:var(--line);stroke-width:1')); s.append(svgText(P.l - 6, y(v) + 4, Math.round(v * 100) + '%', 'end', 'font-size:10px')); });
+  const mdfPts = [];
+  rows.forEach((x, i) => {
+    const z = x.z, cx = P.l + i * gw + gw / 2, call = z.call / z.n, rz = z.rz / z.n, def = call + rz, mdf = z.mdf / z.n;
+    const g = svgEl('g', { class: z.n < 30 ? 'low' : '' });
+    g.append(svgEl('rect', { x: cx - bw / 2, y: y(call), width: bw, height: y(0) - y(call), rx: 3 }, 'fill:var(--ice)'));
+    g.append(svgEl('rect', { x: cx - bw / 2, y: y(def), width: bw, height: Math.max(0, y(call) - y(def)), rx: 3 }, 'fill:var(--bad)'));
+    const t = svgEl('title'); t.textContent = x.lab + ': защита ' + fmtPct(def) + '% (колл ' + fmtPct(call) + '%, 3-бет ' + fmtPct(rz) + '%), нужно по шансам банка ' + fmtPct(mdf) + '%, ' + z.n + ' раз'; g.append(t);
+    s.append(g);
+    s.append(svgText(cx, y(def) - 6, fmtPct(def) + '%', 'middle', 'font-size:11px;font-weight:700;fill:' + (def < mdf ? 'var(--bad)' : 'var(--good)')));
+    s.append(svgText(cx, H - P.b + 16, x.lab, 'middle', 'font-size:10px;fill:var(--soft)'));
+    s.append(svgText(cx, H - P.b + 30, String(z.n), 'middle', 'font-size:9px;fill:var(--faint)'));
+    mdfPts.push([cx, y(mdf)]);
+  });
+  s.append(svgEl('polyline', { points: mdfPts.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' '), fill: 'none' }, 'stroke:var(--amber);stroke-width:2;stroke-dasharray:6 4'));
+  mdfPts.forEach(p => s.append(svgEl('circle', { cx: p[0], cy: p[1], r: 3.5 }, 'fill:var(--amber)')));
+  const lg = el('div', 'resp-legend row sm-lg');
+  [['колл', 'var(--ice)'], ['3-бет', 'var(--bad)'], ['нужно по шансам банка (MDF)', 'var(--amber)']].forEach(([lab, col]) => { const it = el('span'); const i = el('i'); i.style.background = col; it.append(i, document.createTextNode(lab)); lg.append(it); });
+  const chart = el('div', 'bbd-chart'); chart.append(s);
+  // таблица под графиком: защита, нужно, разница, винрейт коллов
+  const t = el('div', 'sz5-t bbd-t');
+  const hd = el('div', 'sz5-r sz5-h'); ['Размер', 'Защита', 'Нужно (MDF)', 'Разница', 'Винрейт колла, BB / EV'].forEach(x => hd.append(el('span', null, x))); t.append(hd);
+  rows.forEach(x => {
+    const z = x.z, def = (z.call + z.rz) / z.n, mdf = z.mdf / z.n, d = (def - mdf) * 100;
+    const row = el('div', 'sz5-r'); if (z.n < 30) row.classList.add('low');
+    const dd = el('span', 'sz5-v ' + (d >= 0 ? 'up' : 'down'), (d >= 0 ? '+' : '−') + Math.abs(d).toFixed(1) + ' п.п.');
+    row.append(el('b', null, x.lab), el('span', 'sz5-v', fmtPct(def) + '%'), el('span', 'sz5-v', fmtPct(mdf) + '%'), dd, wrNode('sz5-v', z.sn ? z.sum / 10 / z.sn : null, z.sn ? z.es / 10 / z.sn : null, 2));
+    t.append(row);
+  });
+  const tw = el('div', 'bbd-wrap'); tw.append(t);
+  card.append(lg, chart, tw, infoNote('Защита — доля раздач, где вы на BB ответили на открытие коллом или 3-бетом (открытия олл-ином — в блоке #7). Жёлтая линия — минимальная частота защиты (MDF): банк до открытия ÷ (банк + ставка открывающего), с анте 1 BB; если открыл SB — с учётом его малого блайнда. Защита ниже линии — вы перефолживаете против такого размера, соперник выигрывает открытием в лоб. Это ориентир: с плохими руками защищаться не обязательно, но сильно ниже линии — повод расширить защиту. Бледные столбики и строки — меньше 30 раздач.'));
+  return card;
+}
+
 function ccAllinBlock(r) {
   const card = el('div', 'insight cc-table');
   card.append(numTag(7), el('b', 'pm-title', 'Колл против олл-ина'), el('span', 'sm-s', 'перед вами открылись олл-ином (или почти всем стеком), а вы коллировали'));
@@ -1526,7 +1570,7 @@ function renderCC(idx) {
   c8.classList.add('wide');
   const zone = el('div', 'summary'); const pair = el('div', 'sum-pair'); pair.append(c1, c8); zone.append(pair);
   c2.classList.add('cc-table');
-  zone.append(c2, ccGroupBlock(r), ccVsTable(r), ccOppBlock(r), ccSizeBlock(r), ccAllinBlock(r));
+  zone.append(c2, ccGroupBlock(r), ccVsTable(r), ccOppBlock(r), ccSizeBlock(r), bbDefendBlock(r), ccAllinBlock(r));
   page.append(zone);
   return page;
 }

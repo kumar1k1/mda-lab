@@ -912,3 +912,13 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .ccg-c.click{cursor:pointer}
 .ccg-c.click:hover,.ccg-c.click:focus-visible{box-shadow:inset 0 0 0 1.5px var(--line2)}
 @media (max-width:600px){.ccg-t{grid-template-columns:minmax(104px,max-content) repeat(var(--ncol),minmax(84px,1fr))}.ccg-l{font-size:12px}}
+
+/* ---------- #6.1 защита BB по размеру открытия ---------- */
+.bbd-chart{margin-top:6px}
+.bbd-chart svg{display:block;width:100%;max-width:760px;height:auto}
+.bbd-chart g.low{opacity:.45}
+.sz5-t.bbd-t{grid-template-columns:minmax(120px,max-content) repeat(4,max-content);column-gap:clamp(14px,4cqi,40px);justify-content:start;margin-top:8px}
+.bbd-t .sz5-h span:nth-child(2){text-align:right}
+.bbd-chart,.bbd-wrap{overflow-x:auto}
+.bbd-chart svg{min-width:520px}
+.bbd-wrap .sz5-t{min-width:max-content}
