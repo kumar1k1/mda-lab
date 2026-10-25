@@ -2033,10 +2033,14 @@ async function loadPlayerDb(pid, onProg) {
 }
 let PICK_SEQ = 0;
 // полоса загрузки под ником в шапке: подпись + процент; null — убрать
+// полоса появляется только если загрузка идёт дольше 0,5 с — быстрые открытия проходят без мелькания
+let LOAD_T0 = 0;
 function loadProg(label, f, seq) {
   if (seq != null && seq !== PICK_SEQ) return;
   const bar = $('loadBar'); if (!bar) return;
-  if (label == null) { bar.hidden = true; return; }
+  if (label == null) { bar.hidden = true; LOAD_T0 = 0; return; }
+  if (!LOAD_T0) LOAD_T0 = Date.now();
+  if (Date.now() - LOAD_T0 < 500) { $('handsCount').textContent = label + '…'; return; }
   bar.hidden = false; bar.firstChild.style.width = Math.round((f || 0) * 100) + '%';
   $('handsCount').textContent = label + '… ' + Math.round((f || 0) * 100) + '%';
 }
