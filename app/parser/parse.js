@@ -207,6 +207,9 @@ function parseCtx(text, fmt, heroes, observer) {
     else if (/posts (the )?big blind/.test(l) && bbSeat == null) bbSeat = byName[n];
   }
   if (obs) { if (bbSeat == null || !seats[bbSeat]) return null; heroName = seats[bbSeat].name; }
+  // анте: сумма всех анте раздачи (обычные анте каждого игрока или одно анте большого блайнда)
+  let anteTot = 0;
+  for (const l of lines) { if (/^\*\*\* (HOLE CARDS|PRE-FLOP)/.test(l)) break; const am = l.match(/posts (?:the )?ante ([\d.,]+)/); if (am) anteTot += num(am[1]); }
   const seatedAll = Object.keys(seats).length; // все, кто сидит за столом (для UTG «стол полный»)
   // как в Hand2Note: в раздаче только те, кто поставил анте/блайнд или ходил на префлопе; севший за стол «в ожидании» (без анте и без хода) не считается
   {
@@ -240,7 +243,7 @@ function parseCtx(text, fmt, heroes, observer) {
     if (!am) continue;
     acts.push({ name: n, a: am[1], amt: am[3] ? num(am[3]) : am[2] ? num(am[2]) : 0, allin: /all-in/.test(rest) });
   }
-  return { lines, header, fmt, bb, sbAmt, tour, id, date, tblMax, isPdom, bounty, seats, byName, seatNums, order, pos, acts, who, sbSeat, bbSeat, heroName, observer: obs, room: obs ? roomOf(fmt, lines) : null };
+  return { lines, header, fmt, bb, sbAmt, tour, id, date, tblMax, isPdom, bounty, seats, byName, seatNums, order, pos, acts, who, sbSeat, bbSeat, heroName, anteTot, observer: obs, room: obs ? roomOf(fmt, lines) : null };
 }
 
 // Запись одного игрока раздачи (те же правила, что для героя). opp — соперник: карты — только если показаны,
@@ -254,6 +257,7 @@ function playerRec(c, heroName, opp) {
   const hpos = pos[heroSeat];
   if (!hpos) return null;
   rec = { id, hero: heroName, date, tour, tblMax, n: seatNums.length, pos: POS_IDX[hpos], bb: Math.round(seats[heroSeat].stack / bb * 10), pko: bounty ? 1 : 0, pdom: isPdom, bi: buyInCents(header, fmt), sit: 3, lim: 0, act: 0, size: 0, fti: -1, bvb: 0, fvr: -1 };
+  rec.ant = c.anteTot > 0 && bb ? Math.min(32000, Math.round(c.anteTot / bb * 100)) : 0; // анте раздачи в BB×100
   const dealt = opp ? null : lines.find(l => l.startsWith('Dealt to ' + heroName + ' ['));
   rec.hc = dealt ? handClass(dealt.slice(dealt.indexOf('['))) : opp ? shownClass(lines, heroName) : -1;
   rec.net = Math.round(heroNet(lines, heroName, fmt) / bb * 1000) / 100; // ×10 BB, без округления до 0.1 BB (округление давало сдвиг около +1 bb/100)
