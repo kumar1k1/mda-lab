@@ -1233,23 +1233,70 @@ function renderRFISummary(idx, r) {
 // ---------- вкладка «Колд-колл» ----------
 // #6 — колд-колл против разных сайзингов открытия (без олл-инов): частоты ответа и винрейт колла
 let CC_SZPOS = 'TOT';
-// окно с матрицей ответа на открытие одного размера (строка #6): руки цветом действия, без винрейтов
-let szMx = null;
-function showSzMx(title, z, row) {
-  if (!szMx) { szMx = el('div', 'szmx'); szMx.setAttribute('role', 'tooltip'); document.body.append(szMx); }
-  szMx.replaceChildren();
-  const h = el('div', 'szmx-h'); h.append(el('b', null, title), el('span', null, z.n.toLocaleString('ru-RU') + ' раз'));
-  const leg = el('div', 'resp-legend row'); [['колл', 'var(--mx-limp)'], ['3-бет', 'var(--mx-raise)'], ['олл-ин', 'var(--mx-push)'], ['фолд', 'var(--mx-empty)']].forEach(([l, col]) => { const it = el('span'); const i = el('i'); i.style.background = col; if (col === 'var(--mx-empty)') i.style.border = '1px solid var(--line2)'; it.append(i, document.createTextNode(l)); leg.append(it); });
-  szMx.append(h, leg, handMatrix(z.rmx, ['3-бет', 'олл-ин', 'колл', 'фолд']));
-  szMx.hidden = false;
-  // справа от таблицы, если помещается, иначе под строкой
-  const rr = row.getBoundingClientRect(), w = szMx.offsetWidth, hh = szMx.offsetHeight;
-  let x = rr.right + 12, y = rr.top + rr.height / 2 - hh / 2;
-  if (x + w > window.innerWidth - 8) { x = Math.max(8, Math.min(rr.left, window.innerWidth - w - 8)); y = rr.bottom + 8; if (y + hh > window.innerHeight - 8) y = rr.top - hh - 8; }
-  y = Math.max(8, Math.min(y, window.innerHeight - hh - 8));
-  szMx.style.left = x + 'px'; szMx.style.top = y + 'px';
+// окно с матрицей ответа на открытие одного размера (строка #6). Наведение — посмотреть, клик — закрепить;
+// в закреплённом окне переключатель: диапазон (колл / 3-бет / олл-ин / фолд), факт BB с каждой рукой, EV BB с каждой рукой
+let szMx = null, SZMX_PIN = null, SZMX_MODE = 'rng';
+function szMxEl() {
+  if (!szMx) {
+    szMx = el('div', 'szmx'); szMx.setAttribute('role', 'dialog'); szMx.hidden = true; document.body.append(szMx);
+    document.addEventListener('mousedown', (e) => { if (SZMX_PIN && !szMx.contains(e.target) && !e.target.closest('.sz5-r.has-mx')) unpinSzMx(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && SZMX_PIN) unpinSzMx(); });
+  }
+  return szMx;
 }
-function hideSzMx() { if (szMx) szMx.hidden = true; }
+function szValGrid(mx, mode) {
+  const R = 'AKQJT98765432', wrap = el('div', 'szv');
+  const vals = mx.filter(c => c.n >= 3).map(c => Math.abs((mode === 'ev' ? c.es : c.sum) / 10 / c.n)).sort((a, b) => a - b);
+  const scale = Math.max(1, vals[Math.floor(vals.length * 0.9)] || 1); // крайние 10% не растягивают шкалу цвета
+  for (let i = 0; i < 13; i++) for (let j = 0; j < 13; j++) {
+    const c = mx[i * 13 + j], name = i === j ? R[i] + R[j] : i < j ? R[i] + R[j] + 's' : R[j] + R[i] + 'o';
+    const cell = el('div', 'szv-c'); cell.append(el('span', 'h', name));
+    if (!c.n) cell.classList.add('na');
+    else {
+      const v = (mode === 'ev' ? c.es : c.sum) / 10 / c.n, t = Math.min(1, Math.abs(v) / scale);
+      cell.style.background = 'rgba(' + (v >= 0 ? 'var(--good-rgb)' : 'var(--bad-rgb)') + ',' + (0.18 + 0.6 * t).toFixed(2) + ')';
+      cell.append(el('span', 'v', (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(Math.abs(v) >= 10 ? 0 : 1)));
+      if (c.n < 5) cell.classList.add('low');
+      cell.title = name + ': ' + signed(c.sum / 10 / c.n, 2) + ' BB факт · ' + signed(c.es / 10 / c.n, 2) + ' BB EV · ' + c.n + ' раз';
+    }
+    wrap.append(cell);
+  }
+  return wrap;
+}
+function drawSzMx(title, z, pinned) {
+  const m = szMxEl(); m.replaceChildren(); m.classList.toggle('pinned', !!pinned);
+  const h = el('div', 'szmx-h'); h.append(el('b', null, title), el('span', null, z.n.toLocaleString('ru-RU') + ' раз'));
+  if (pinned) { const x = el('button', 'szmx-x', '×'); x.type = 'button'; x.title = 'Закрыть'; x.setAttribute('aria-label', 'Закрыть'); x.onclick = unpinSzMx; h.append(x); }
+  m.append(h);
+  const mode = pinned ? SZMX_MODE : 'rng';
+  if (pinned) {
+    const seg = el('div', 'seg szmx-seg'); seg.setAttribute('role', 'group'); seg.setAttribute('aria-label', 'Что показать');
+    [['rng', 'Диапазон'], ['net', 'Факт, BB'], ['ev', 'EV, BB']].forEach(([k, t]) => { const b = el('button', mode === k ? 'on' : '', t); b.type = 'button'; b.setAttribute('aria-pressed', String(mode === k)); b.onclick = () => { SZMX_MODE = k; drawSzMx(title, z, true); }; seg.append(b); });
+    m.append(seg);
+  }
+  if (mode === 'rng') {
+    const leg = el('div', 'resp-legend row'); [['колл', 'var(--mx-limp)'], ['3-бет', 'var(--mx-raise)'], ['олл-ин', 'var(--mx-push)'], ['фолд', 'var(--mx-empty)']].forEach(([l, col]) => { const it = el('span'); const i = el('i'); i.style.background = col; if (col === 'var(--mx-empty)') i.style.border = '1px solid var(--line2)'; it.append(i, document.createTextNode(l)); leg.append(it); });
+    m.append(leg, handMatrix(z.rmx, ['3-бет', 'олл-ин', 'колл', 'фолд']));
+  } else {
+    m.append(el('div', 'szmx-cap', (mode === 'ev' ? 'EV' : 'Фактический результат') + ' с каждой рукой в BB за раздачу — все ответы (колл, 3-бет, фолд)'), szValGrid(z.rmx, mode));
+  }
+  if (!pinned) m.append(el('div', 'szmx-hint', 'Клик по строке — закрепить окно и показать результат по рукам'));
+  m.hidden = false;
+}
+function placeSzMx(row) {
+  const m = szMx, rr = row.getBoundingClientRect(), w = m.offsetWidth, hh = m.offsetHeight;
+  let x = rr.right + 12, y = rr.top + rr.height / 2 - hh / 2;
+  if (x + w > window.innerWidth - 8) { x = Math.max(8, Math.min(rr.left + 40, window.innerWidth - w - 8)); y = rr.bottom + 8; if (y + hh > window.innerHeight - 8) y = rr.top - hh - 8; }
+  y = Math.max(8, Math.min(y, window.innerHeight - hh - 8));
+  m.style.left = x + 'px'; m.style.top = y + 'px';
+}
+function showSzMx(title, z, row) { if (SZMX_PIN) return; drawSzMx(title, z, false); placeSzMx(row); }
+function pinSzMx(title, z, row) {
+  if (SZMX_PIN && SZMX_PIN.row === row) { unpinSzMx(); return; }
+  SZMX_PIN = { row }; drawSzMx(title, z, true); placeSzMx(row);
+}
+function unpinSzMx() { SZMX_PIN = null; if (szMx) szMx.hidden = true; }
+function hideSzMx() { if (szMx && !SZMX_PIN) szMx.hidden = true; }
 
 function ccSizeBlock(r) {
   const card = el('div', 'insight cc-table');
@@ -1276,6 +1323,8 @@ function ccSizeBlock(r) {
         row.classList.add('has-mx'); row.tabIndex = 0;
         row.addEventListener('mouseenter', () => showSzMx(title, z, row)); row.addEventListener('mouseleave', hideSzMx);
         row.addEventListener('focus', () => showSzMx(title, z, row)); row.addEventListener('blur', hideSzMx);
+        row.addEventListener('click', () => pinSzMx(title, z, row));
+        row.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pinSzMx(title, z, row); } });
       }
       t.append(row);
     });
@@ -1638,7 +1687,7 @@ function currentIdx() {
 }
 
 function render() {
-  hideHandPop(); hideMxTip(); hideGroupTip(); hidePushTip(); hideSzMx();
+  hideHandPop(); hideMxTip(); hideGroupTip(); hidePushTip(); unpinSzMx();
   const rail = $('rail'); rail.replaceChildren();
   GROUPS.forEach(g => {
     const box = el('div', 'rgroup');

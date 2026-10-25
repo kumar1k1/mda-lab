@@ -930,4 +930,19 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .szmx-h{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
 .szmx-h b{font-size:13.5px}
 .szmx-h span{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
-.szmx .mx{width:100%}
+.szmx .mx{width:100%;flex:none} /* в колонке flex-основа 560px растягивала клетки по высоте */
+.szmx.pinned{pointer-events:auto}
+.sz5-r.has-mx{cursor:pointer}
+.szmx-x{margin-left:auto;width:26px;height:26px;border:none;border-radius:7px;background:transparent;color:var(--muted);font-size:17px;line-height:1;cursor:pointer}
+.szmx-x:hover,.szmx-x:focus-visible{background:var(--card2);color:var(--text)}
+.szmx-h{align-items:center}
+.szmx-h span{margin-left:auto}
+.szmx-h .szmx-x{margin-left:4px}
+.szmx-seg{align-self:flex-start}
+.szmx-cap,.szmx-hint{font-size:11.5px;color:var(--muted);line-height:1.4}
+.szv{display:grid;grid-template-columns:repeat(13,minmax(0,1fr));gap:2px;container-type:inline-size}
+.szv-c{aspect-ratio:1;min-width:0;border-radius:4px;background:var(--card);display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.05;color:var(--text)}
+.szv-c .h{font-family:var(--mono);font-size:clamp(7px,2.4cqi,10px);font-weight:700}
+.szv-c .v{font-family:var(--mono);font-size:clamp(6px,2.2cqi,9.5px)}
+.szv-c.na{color:var(--faint);background:var(--bg)}
+.szv-c.low{opacity:.55}
