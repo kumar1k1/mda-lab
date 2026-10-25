@@ -948,3 +948,4 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .szv-c.low{opacity:.55}
 .szv-c.click,.szmx .mx-c.click{cursor:pointer}
 .szv-c.click:hover,.szv-c.click:focus-visible,.szmx .mx-c.click:hover,.szmx .mx-c.click:focus-visible{box-shadow:inset 0 0 0 2px var(--text)}
+.hp-seg{align-self:flex-start;margin-bottom:6px}

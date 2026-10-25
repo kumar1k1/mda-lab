@@ -33,14 +33,19 @@ function popEl() {
 
 function hideHandPop() { if (handPop && !pinned) handPop.hidden = true; }
 
+// закреплённое окно матрицы: переключатель «Факт, BB» / «EV, BB» (при наведении — всегда факт)
+let POP_MODE = 'net';
 function buildPop(it, v, isPinned) {
   const pop = popEl();
+  const ev = isPinned && POP_MODE === 'ev' && it.o.es != null;
+  const sumOf = (m) => (ev ? m.es : m.sum);
+  if (ev) v = it.o.es / 10 / it.o.n;
   pop._src = it; pop.classList.toggle('pinned', isPinned);
   pop.replaceChildren();
   const head = el('div', 'hp-head');
   if (isPinned) { const grip = el('span', 'hp-grip', '⠿'); grip.setAttribute('aria-hidden', 'true'); head.append(grip); }
-  // в окнах матрицы — только фактический винрейт (без EV)
-  head.append(el('b', null, it.title || it.p), el('span', v >= 0 ? 'up' : 'down', signed(v, 2) + (it.vlab || ' BB за открытие')), el('span', 'muted', it.o.n.toLocaleString('ru-RU') + (it.nlab || ' открытий')));
+  // при наведении — фактический винрейт; в закреплённом окне — факт или EV по переключателю
+  head.append(el('b', null, it.title || it.p), el('span', v >= 0 ? 'up' : 'down', signed(v, 2) + (ev ? ' EV' : '') + (it.vlab || ' BB за открытие')), el('span', 'muted', it.o.n.toLocaleString('ru-RU') + (it.nlab || ' открытий')));
   if (isPinned) {
     const x = el('button', 'hp-close'); x.type = 'button'; x.setAttribute('aria-label', 'Закрыть окно');
     x.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
@@ -49,7 +54,7 @@ function buildPop(it, v, isPinned) {
     enableDrag(pop, head);
   } else head.append(el('span', 'hp-hint', 'клик — закрепить окно'));
   const inSet = (k) => it.only == null || it.only(k);
-  const vals = it.mx.filter((m, k) => inSet(k) && m.n >= 3).map(m => Math.abs(m.sum / 10 / m.n)).sort((a, b) => a - b);
+  const vals = it.mx.filter((m, k) => inSet(k) && m.n >= 3).map(m => Math.abs(sumOf(m) / 10 / m.n)).sort((a, b) => a - b);
   const scale = Math.max(1, ...vals.slice(0, Math.ceil(vals.length * 0.9)));
   const grid = el('div', 'hp-grid');
   for (let k = 0; k < 169; k++) {
@@ -59,11 +64,11 @@ function buildPop(it, v, isPinned) {
     if (isPinned && m.n) { c.type = 'button'; c.onclick = () => showHandList(it, k, c); c.title = handName(k) + ': ' + m.n + ' раздач — показать список'; }
     c.append(el('span', 'h', handName(k)));
     if (m.n) {
-      const avg = m.sum / 10 / m.n, t = Math.min(1, Math.abs(avg) / scale);
+      const avg = sumOf(m) / 10 / m.n, t = Math.min(1, Math.abs(avg) / scale);
       c.style.background = 'rgba(' + (avg >= 0 ? 'var(--good-rgb)' : 'var(--bad-rgb)') + ',' + (0.18 + 0.72 * t).toFixed(2) + ')';
       if (t > 0.65) c.style.color = '#0B1410';
       c.append(el('span', 'v', (avg >= 0 ? '+' : '−') + Math.abs(avg).toFixed(1)));
-      c.title = (c.title ? c.title + '\n' : '') + handName(k) + ': ' + signed(avg, 2) + ' BB, ' + m.n + ' раз, всего ' + signed(m.sum / 10, 1) + ' BB';
+      c.title = (c.title ? c.title + '\n' : '') + handName(k) + ': ' + signed(m.sum / 10 / m.n, 2) + ' BB факт' + (m.es != null ? ' · ' + signed(m.es / 10 / m.n, 2) + ' BB EV' : '') + ', ' + m.n + ' раз, всего ' + signed(m.sum / 10, 1) + ' BB';
       if (m.n < 5) c.classList.add('low');
     } else c.classList.add('na');
     grid.append(c);
@@ -72,7 +77,17 @@ function buildPop(it, v, isPinned) {
   foot.append(el('span', null, isPinned ? 'нажмите на руку, чтобы увидеть раздачи и проиграть их' : 'в клетке — средний результат руки в BB'),
     el('span', null, 'зелёный — плюс, красный — минус, бледная — меньше 5 раз, пустая — не играли этой рукой'));
   const list = el('div', 'hp-list'); list.hidden = true;
-  const leftCol = el('div', 'hp-left'); leftCol.append(grid, foot);
+  const leftCol = el('div', 'hp-left');
+  if (isPinned && it.o.es != null) {
+    const seg = el('div', 'seg hp-seg'); seg.setAttribute('role', 'group'); seg.setAttribute('aria-label', 'Что показать в клетках');
+    [['net', 'Факт, BB'], ['ev', 'EV, BB']].forEach(([k, t]) => {
+      const b = el('button', POP_MODE === k ? 'on' : '', t); b.type = 'button'; b.setAttribute('aria-pressed', String(POP_MODE === k));
+      b.onclick = () => { if (POP_MODE === k) return; POP_MODE = k; const left = pop.style.left, top = pop.style.top; buildPop(it, it.o.sum / 10 / it.o.n, true); pop.hidden = false; pop.style.left = left; pop.style.top = top; };
+      seg.append(b);
+    });
+    leftCol.append(seg);
+  }
+  leftCol.append(grid, foot);
   pop.classList.remove('with-list');
   pop.append(head, leftCol, list);
   return pop;
