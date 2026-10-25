@@ -2440,9 +2440,25 @@ function onMigrate(m) {
   migBox.querySelector('.prog-fill').style.width = pct + '%';
   migBox.querySelector('.mig-t').textContent = m.total ? 'Раздач обработано: ' + m.done.toLocaleString('ru-RU') + ' из ' + m.total.toLocaleString('ru-RU') + ' (' + pct + '%)' : 'Подготовка…';
 }
+// EV последней загрузки досчитывается в фоне: значок в панели; по окончании — свежая колонка nev
+function onEvBg(m) {
+  const b = $('evBg'); if (!b) return;
+  if (m.end) {
+    b.hidden = true;
+    if (!m.stopped && !m.error && HERO_DB && mda.dbCol) mda.dbCol('nev').then(bytes => {
+      if (!bytes || !HERO_DB) return;
+      HERO_DB.cols.nev = typedCol(bytes, 'f64'); VIEW_CACHE.clear();
+      if (state.player) choosePlayer('opp', state.player); else { if (DB !== HERO_DB && curAlias() && !isSimple(curAlias())) choosePlayer('alias', state.alias); else render(); }
+    });
+    return;
+  }
+  b.hidden = false;
+  b.textContent = 'EV считается в фоне' + (m.total ? ': ' + Math.round(m.done / m.total * 100) + '%' : '…');
+}
 async function loadDb() {
   if (!mda.dbMeta) return null;
   if (mda.onMigrate) mda.onMigrate(onMigrate);
+  if (mda.onEvBg) mda.onEvBg(onEvBg);
   const meta = await mda.dbMeta(); if (!meta) return null;
   const cols = {};
   for (const [name, type] of meta.cols) { const b = await mda.dbCol(name); if (b) cols[name] = typedCol(b, type); }

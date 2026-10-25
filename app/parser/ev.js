@@ -69,6 +69,52 @@ function eval7(cs) {
   return v;
 }
 
+// префлоп-столкновения: канонический ключ (лучшая из 24 перестановок мастей) и кэш доли банка героя
+const PERMS = []; (function gen(a, rest) { if (!rest.length) { PERMS.push(a); return; } rest.forEach((x, i) => gen(a.concat([x]), rest.slice(0, i).concat(rest.slice(i + 1)))); })([], [0, 1, 2, 3]);
+const PRE_CACHE = new Map();
+function preKey(hero, others) {
+  let best = null;
+  for (const pm of PERMS) {
+    const enc = (hc) => hc.map(c => (c >> 2) * 4 + pm[c & 3]).sort((x, y) => y - x).map(c => String.fromCharCode(48 + c)).join('');
+    const k = enc(hero) + '|' + others.map(enc).sort().join(',');
+    if (best === null || k < best) best = k;
+  }
+  return best;
+}
+function hashStr(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0 || 1; }
+
+// Быстрая оценка на битовых масках (те же числа, что eval7 и eval7Ref, без массивов и циклов по рангам) —
+// в расчёте EV это главная трата времени. Совпадение проверено перебором миллионов случайных рук.
+const top1 = (x) => 31 - Math.clz32(x);
+function stTopM(m) { const s = m & (m << 1) & (m << 2) & (m << 3) & (m << 4); if (s) return top1(s); return (m & 0x100f) === 0x100f ? 3 : -1; }
+function pc(x) { x = x - ((x >> 1) & 0x55555555); x = (x & 0x33333333) + ((x >> 2) & 0x33333333); return Math.imul((x + (x >> 4)) & 0x0F0F0F0F, 0x01010101) >>> 24; }
+function topN(x, n) { let v = 0; for (let k = 0; k < n; k++) { const r = top1(x); v = v * 13 + r; x &= ~(1 << r); } return v; }
+function eval7f(cs, len) {
+  let m0 = 0, m1 = 0, m2 = 0, m3 = 0, c1 = 0, c2 = 0, c3 = 0, c4 = 0;
+  for (let i = 0; i < len; i++) {
+    const c = cs[i], b = 1 << (c >> 2), s = c & 3;
+    if (s === 0) m0 |= b; else if (s === 1) m1 |= b; else if (s === 2) m2 |= b; else m3 |= b;
+    if (c3 & b) c4 |= b; else if (c2 & b) c3 |= b; else if (c1 & b) c2 |= b; else c1 |= b;
+  }
+  const fm = pc(m0) >= 5 ? m0 : pc(m1) >= 5 ? m1 : pc(m2) >= 5 ? m2 : pc(m3) >= 5 ? m3 : 0;
+  if (fm) { const st = stTopM(fm); if (st >= 0) return 8e6 + st; return 5e6 + topN(fm, 5); }
+  const mask = c1;
+  if (c4) { const q = top1(c4); return 7e6 + q * 13 + top1(mask & ~(1 << q)); }
+  const trips = c3, pairs = c2 & ~c3;
+  if (trips) {
+    const t0 = top1(trips), t2 = trips & ~(1 << t0);
+    if (t2 || pairs) { const p = t2 ? Math.max(top1(t2), pairs ? top1(pairs) : -1) : top1(pairs); return 6e6 + t0 * 13 + p; }
+  }
+  const st = stTopM(mask); if (st >= 0) return 4e6 + st;
+  if (trips) { const t0 = top1(trips); return 3e6 + t0 * 169 + topN(mask & ~(1 << t0), 2); }
+  if (pairs) {
+    const p0 = top1(pairs), r1 = pairs & ~(1 << p0);
+    if (r1) { const p1 = top1(r1); return 2e6 + (p0 * 13 + p1) * 13 + top1(mask & ~(1 << p0) & ~(1 << p1)); }
+    return 1e6 + p0 * 2197 + topN(mask & ~(1 << p0), 3);
+  }
+  return topN(mask, 5);
+}
+
 // детерминированный генератор, чтобы EV при каждой сборке получался одинаковым
 function rng(seed) { let s = seed >>> 0 || 1; return () => { s ^= s << 13; s >>>= 0; s ^= s >> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; }; }
 
@@ -135,7 +181,7 @@ function evNet(rp, seed) {
         const hh = hands7[j], ci = cards[E[j]]; let L = 0;
         for (let q = 0; q < ci.length; q++) hh[L++] = ci[q];
         for (let q = 0; q < board.length; q++) hh[L++] = board[q];
-        hh.length = L; const v = eval7(hh); vals[j] = v; if (v > m) m = v;
+        const v = eval7f(hh, L); vals[j] = v; if (v > m) m = v;
       }
       let w = 0, hasH = false; for (let j = 0; j < ne; j++) if (vals[j] === m) { w++; if (E[j] === h) hasH = true; }
       return hasH ? p.amt / w : 0;
@@ -148,13 +194,23 @@ function evNet(rp, seed) {
     const b5 = board0.concat(new Array(need).fill(0));
     if (need === 1) for (const a of deck) { b5[known] = a; tot += share(b5); runs++; }
     else if (need === 2) { for (let x = 0; x < deck.length; x++) for (let y = x + 1; y < deck.length; y++) { b5[known] = deck[x]; b5[known + 1] = deck[y]; tot += share(b5); runs++; } }
-    else { // префлоп: выборка досок
-      const N = global.EV_SAMPLES || 20000, d = deck.slice();
-      for (let q = 0; q < N; q++) { for (let j = 0; j < need; j++) { const z = j + Math.floor(r() * (d.length - j)); const tmp = d[j]; d[j] = d[z]; d[z] = tmp; b5[known + j] = d[j]; } tot += share(b5); runs++; }
+    else { // префлоп: выборка досок. Эквити зависит только от карт претендентов (масти — с точностью до перестановки),
+      // поэтому доля банка героя запоминается по каноническому ключу: одинаковые столкновения (AKs против QQ и т. п.)
+      // считаются один раз. Зерно выборки — от ключа, так что ответ одинаков при любом порядке расчёта.
+      const key = preKey(cards[h], E.filter(i => i !== h).map(i => cards[i]));
+      let frac = PRE_CACHE.get(key);
+      if (frac == null) {
+        const rk = rng(hashStr(key)), N = global.EV_SAMPLES || 20000, d = deck.slice(); let t2 = 0;
+        for (let q = 0; q < N; q++) { for (let j = 0; j < need; j++) { const z = j + Math.floor(rk() * (d.length - j)); const tmp = d[j]; d[j] = d[z]; d[z] = tmp; b5[known + j] = d[j]; } t2 += share(b5); }
+        frac = t2 / N / p.amt;
+        if (PRE_CACHE.size > 400000) PRE_CACHE.clear();
+        PRE_CACHE.set(key, frac);
+      }
+      tot = frac * p.amt; runs = 1;
     }
     delta += tot / runs - actual;
   }
   return pots.length ? delta : null;
 }
 
-module.exports = { evNet, eval7, eval7Ref, cardId };
+module.exports = { evNet, eval7, eval7f, eval7Ref, cardId };

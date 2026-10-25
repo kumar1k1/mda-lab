@@ -80,6 +80,7 @@ ipcMain.handle('db:meta', async () => {
     }
     await MIGRATING; s = source(); if (!s) return null;
   }
+  setTimeout(startBgEv, 1500); // EV, недосчитанный в прошлый раз (программу закрыли), — продолжить
   return s.meta;
 });
 ipcMain.handle('db:col', (_e, name) => { const s = source(); return s ? s.colBytes(name) : null; });
@@ -115,7 +116,7 @@ ipcMain.handle('aliases:save', (_e, list) => {
 });
 ipcMain.handle('player:replays', (_e, pid, ids) => { const s = source(); return s && s.v3 && Array.isArray(ids) ? s.playerReplays(pid, ids) : {}; });
 ipcMain.handle('db:demo', () => { if (!store.BaseDir.exists(demoDir())) return false; DEMO = true; SRC = null; return true; });
-ipcMain.handle('db:delete', () => { SRC = null; DEMO = false; try { fs.rmSync(baseDir(), { recursive: true, force: true }); } catch (e) { /* нет базы */ } return true; });
+ipcMain.handle('db:delete', () => { stopBgEv(); SRC = null; DEMO = false; try { fs.rmSync(baseDir(), { recursive: true, force: true }); } catch (e) { /* нет базы */ } return true; });
 ipcMain.handle('db:info', () => {
   const stored = store.BaseDir.exists(baseDir()) || fs.existsSync(baseFile('hands.json'));
   let canAppend = false, count = 0, opp = false;
@@ -159,8 +160,23 @@ ipcMain.handle('import:paths', (_e, paths) => {
 });
 // Загрузка: mode 'append' — дописать новые раздачи в текущую базу (повторы пропускаются),
 // иначе — собрать новую базу во временной папке и заменить ею прежнюю только после успешной сборки.
+// EV олл-инов после загрузки считается в фоне: раздачи доступны сразу, EV дописывается в базу (прогресс — в окно)
+let EV_BG = null;
+function startBgEv() {
+  if (EV_BG || DEMO) return;
+  const dir = baseDir();
+  if (!require('./parser/ingest.js').pendingEv(dir)) return;
+  const send = (m) => { if (win && !win.isDestroyed()) win.webContents.send('ev:bg', m); };
+  const w = new Worker(path.join(__dirname, 'ev-bg-worker.js'), { workerData: { dir } }); EV_BG = w;
+  send({ done: 0, total: 0 });
+  w.on('message', (m) => { if (m.type === 'progress') send(m); else { EV_BG = null; SRC = null; send({ end: true, error: m.type === 'error' ? m.message : null }); } });
+  w.on('error', (err) => { EV_BG = null; send({ end: true, error: String(err && err.message || err) }); });
+}
+function stopBgEv() { if (EV_BG) { const w = EV_BG; EV_BG = null; w.terminate(); if (win && !win.isDestroyed()) win.webContents.send('ev:bg', { end: true, stopped: true }); } }
+ipcMain.handle('ev:bg', () => { startBgEv(); return !!EV_BG; });
 ipcMain.handle('import:run', (e, opts) => new Promise((resolve) => {
   if (!lastFiles.length) return resolve({ error: 'Сначала выберите файлы' });
+  stopBgEv(); // недосчитанный EV прошлой загрузки досчитает сама загрузка
   const prev = baseDir();
   const append = opts.mode === 'append' && store.BaseDir.exists(prev);
   const dir = append ? prev : (PENDING_DIR || prev), tmp = dir + '.tmp', old = dir + '.old';
@@ -170,14 +186,14 @@ ipcMain.handle('import:run', (e, opts) => new Promise((resolve) => {
   const w = new Worker(path.join(__dirname, 'import-worker.js'), { workerData: { files: lastFiles, nicks: opts.nicks, alias: opts.alias, outDir: append ? dir : tmp, mode: append ? 'append' : 'build' } });
   w.on('message', (m) => {
     if (m.type === 'progress') { if (!e.sender.isDestroyed()) e.sender.send('import:progress', m); return; }
-    if (append) { SRC = null; PENDING_DIR = null; return resolve(m); }
+    if (append) { SRC = null; PENDING_DIR = null; if (m.type === 'done') setTimeout(startBgEv, 300); return resolve(m); }
     if (m.type === 'done' && m.hands) {
       SRC = null; fs.rmSync(old, { recursive: true, force: true });
       if (fs.existsSync(dir)) fs.renameSync(dir, old);
       fs.renameSync(tmp, dir); fs.rmSync(old, { recursive: true, force: true });
       // база переехала в новое место — старую убираем, новое запоминаем
       if (prev !== dir) { if (path.basename(prev) === BASE_NAME || prev === defaultBase()) fs.rmSync(prev, { recursive: true, force: true }); writeCfg(Object.assign(readCfg(), { baseDir: dir })); }
-      PENDING_DIR = null;
+      PENDING_DIR = null; setTimeout(startBgEv, 300);
     } else fs.rmSync(tmp, { recursive: true, force: true });
     resolve(m);
   });

@@ -105,11 +105,42 @@ async function parseParallel(files, heroes, onHand, onFile, threads, po) {
   return errors;
 }
 
+// EV по списку J: поправка к итогу → колонка nev (позиции идут по возрастанию — итог читается кусками)
+async function applyEv(dir, J, nHeroJobs, gdirs, nTot, o) {
+  const nJobs = J.length / STRIDE;
+  const ev = await computeEv(dir, J, { z: true, threads: o.threads, onTick: o.onTick });
+  for (const [table, gd, a0, a1] of [[0, gdirs[0], 0, nHeroJobs], [1, gdirs[1], nHeroJobs, nJobs]]) {
+    const pos = [], val = [], net = new ColumnReader(colFile(gd, 'net'), 'f64', nTot[table]);
+    for (let j = a0; j < a1; j++) { if (Number.isNaN(ev[j])) continue; const k = J[j * STRIDE]; pos.push(k); val.push(Math.round((net.get(k) / 10 + ev[j]) * 1000) / 100); }
+    net.close();
+    if (pos.length) patchColumn(gd, 'nev', 'f64', pos, val);
+  }
+}
+// фоновый EV: есть ли недосчитанный и досчитать (после загрузки или при следующем открытии программы)
+function pendingEv(dir) {
+  try { const m = JSON.parse(fs.readFileSync(path.join(dir, 'meta.json'), 'utf8')); return m.evPending && fs.existsSync(path.join(dir, 'ev-pending.bin')) ? m.evPending : null; } catch (e) { return null; }
+}
+async function finishEv(dir, o) {
+  const pe = pendingEv(dir); if (!pe) return false;
+  const mf = path.join(dir, 'meta.json'), meta = JSON.parse(fs.readFileSync(mf, 'utf8'));
+  if (meta.colDir === pe.colDir) {
+    const b = fs.readFileSync(path.join(dir, 'ev-pending.bin')), J = new Float64Array(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength));
+    const g = path.join(dir, pe.colDir);
+    await applyEv(dir, J, pe.heroJobs, [g, path.join(g, 'opp')], pe.n, o || {});
+  }
+  const m2 = JSON.parse(fs.readFileSync(mf, 'utf8')); delete m2.evPending;
+  const t = mf + '.tmp'; fs.writeFileSync(t, JSON.stringify(m2)); fs.renameSync(t, mf);
+  fs.rmSync(path.join(dir, 'ev-pending.bin'), { force: true });
+  return true;
+}
+
 // Главная операция. dir — папка базы: пустая (полная загрузка) или существующая v3 (дозагрузка).
 async function ingest(files, nicks, alias, dir, onProgress, opts) {
   opts = opts || {};
   const prog = (stage, done, total, hands) => { if (onProgress) onProgress(done, total, hands, stage); };
   fs.mkdirSync(dir, { recursive: true });
+  // EV прошлой загрузки ещё не досчитан (считается в фоне) — досчитать до слияния: номера строк сейчас поменяются
+  if (pendingEv(dir)) await finishEv(dir, { threads: opts.threads, onTick: (d, t) => prog('ev', d, t, 0) });
   const old = fs.existsSync(path.join(dir, 'meta.json')) ? openOld(dir) : null;
   const rooms = old ? old.meta.rooms.slice() : [];
   for (const r of Object.values(nicks)) if (!rooms.includes(r)) rooms.push(r);
@@ -255,14 +286,10 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
   const J = new Float64Array(nJobs * STRIDE); let q = 0;
   scan(0, hPlan, gdir, (k, p, o, l) => { J.set([k, p, o, l, k + 1, -1], q * STRIDE); q++; }); // ваши — как раньше: номер раздачи после сортировки
   scan(1, oPlan, godir, (k, p, o, l, key, seat) => { J.set([k, p, o, l, oppSeed(key, seat), seat], q * STRIDE); q++; });
-  const ev = await computeEv(dir, J, { z: true, threads: opts.threads, onTick: (d, t) => prog('ev', d, t, nH) });
-  // запись EV: итог раздачи + поправка; позиции идут по возрастанию — итог читается кусками
-  for (const [table, gd, a0, a1] of [[0, gdir, 0, nHeroJobs], [1, godir, nHeroJobs, nJobs]]) {
-    const pos = [], val = [], net = new ColumnReader(colFile(gd, 'net'), 'f64', nTot[table]);
-    for (let j = a0; j < a1; j++) { if (Number.isNaN(ev[j])) continue; const k = J[j * STRIDE]; pos.push(k); val.push(Math.round((net.get(k) / 10 + ev[j]) * 1000) / 100); }
-    net.close();
-    if (pos.length) patchColumn(gd, 'nev', 'f64', pos, val);
-  }
+  // EV: сразу (как раньше) или в фоне после загрузки (opts.deferEv) — тогда раздачи доступны сразу,
+  // а пока EV не досчитан, у новых строк «по EV» = факт (колонка nev уже равна итогу)
+  if (opts.deferEv && nJobs) fs.writeFileSync(path.join(dir, 'ev-pending.bin'), Buffer.from(J.buffer, J.byteOffset, J.byteLength));
+  else if (nJobs) await applyEv(dir, J, nHeroJobs, [gdir, godir], nTot, { threads: opts.threads, onTick: (d, t) => prog('ev', d, t, nH) });
 
   // 5. игроки: где начинаются строки каждого и сколько их (строки упорядочены по номеру игрока)
   const cnt = new Float64Array(players.length);
@@ -278,7 +305,8 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
     periodStart: Math.floor(m0 / 12) + '-' + String(m0 % 12 + 1).padStart(2, '0'), count: (old ? old.heroN : 0) + nH,
     cols: SCHEMA.concat([['aid', 'i16'], ['nk', 'i16']]), colDir: 'g' + gen,
     // обновления базы (parser/migrate.js): новая база посчитана целиком; при дозагрузке — как было у старой (её строки досчитаются при открытии)
-    mig: old ? (old.meta.mig || []) : require('./migrate.js').ALL_IDS, opp: { rows: (old ? old.oppN : 0) + nO, players: plist.length }, rpParts: rpw.parts, rpz: 1
+    mig: old ? (old.meta.mig || []) : require('./migrate.js').ALL_IDS,
+    evPending: opts.deferEv && nJobs ? { colDir: 'g' + gen, heroJobs: nHeroJobs, jobs: nJobs, n: nTot } : undefined, opp: { rows: (old ? old.oppN : 0) + nO, players: plist.length }, rpParts: rpw.parts, rpz: 1
   };
   const mt = path.join(dir, 'meta.json.tmp'); fs.writeFileSync(mt, JSON.stringify(meta)); fs.renameSync(mt, path.join(dir, 'meta.json'));
   if (old) fs.rmSync(old.g, { recursive: true, force: true });
@@ -312,4 +340,4 @@ async function buildBase(files, nicks, alias, outDir, onProgress, opts) {
   return ingestGrouped(files, nicks, alias, outDir, onProgress, opts);
 }
 
-module.exports = { ingest, ingestGrouped, buildBase, FORMAT, HERO_SCHEMA, OPP_SCHEMA, oppSeed };
+module.exports = { ingest, ingestGrouped, buildBase, FORMAT, HERO_SCHEMA, OPP_SCHEMA, oppSeed, pendingEv, finishEv };
