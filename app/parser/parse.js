@@ -365,6 +365,8 @@ function parseHandAll(text, fmt, heroes, observer, exclude) {
     if (r) { r.seatIdx = c.seatNums.indexOf(sn); opps.push(r); }
   }
   if (c.observer && !opps.length) return null;
+  // у соперников — тоже у каждой раздачи: реплеер с места соперника и EV олл-ина, где видны его карты
+  for (const r of opps) r.needRp = 1;
   let rp = (hero && hero.rp) || null;
   // запись реплеера — у каждой вашей раздачи (не только в спотах вкладок): раздачи любой ячейки открываются в реплеере
   if (!rp && (hero || opps.some(r => r.needRp))) rp = buildReplay(c.lines, { seatNums: c.seatNums, seats: c.seats, pos: c.pos, heroName: c.heroName, bb: c.bb, who: c.who, fmt: c.fmt, header: c.header, sbAmt: c.sbAmt });
