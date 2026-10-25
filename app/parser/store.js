@@ -193,8 +193,8 @@ class BaseDir {
     for (let pid = 0; pid < pl.length; pid++) {
       const p = pl[pid], st = new Array(8 * 4).fill(0); let any = false;
       for (let i = p.s; i < p.s + p.c; i++) {
-        // колд-колл «все» — без BB (как в #1); фолд на контбет «все» — со всех позиций, включая защиту BB (иначе у игроков мало данных)
-        const ps = pos[i], kc = ps === 6 ? [7] : [0, 1 + ps], kf = [0, 1 + ps];
+        // «все» — без BB (как в #1), и колд-колл, и фолд на контбет; BB — отдельно (защита большого блайнда)
+        const ps = pos[i], kc = ps === 6 ? [7] : [0, 1 + ps], kf = kc;
         if (rz[i] === 1 && cl[i] === 0 && lr[i] === 0) { any = true; for (const k of kc) { st[k * 4]++; if (act[i] === 1) st[k * 4 + 1]++; } }
         if (fcb[i] >= 0) { any = true; for (const k of kf) { st[k * 4 + 2]++; if (fcb[i] === 1) st[k * 4 + 3]++; } }
       }

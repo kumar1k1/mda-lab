@@ -955,7 +955,7 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .qd-body{display:flex;flex-direction:column;gap:10px;margin-top:4px}
 .qd-me-txt{margin:0;font-size:13px;color:var(--soft)}
 .qd-chart{overflow-x:auto}
-.qd-chart svg{display:block;width:100%;max-width:900px;min-width:520px;height:auto}
+.qd-chart svg{display:block;width:100%;max-width:640px;min-width:440px;height:auto}
 .qd-pt{fill:var(--ice);fill-opacity:.55;stroke:var(--bg);stroke-width:.6;cursor:pointer}
 .qd-pt:hover{fill-opacity:1;stroke:var(--text);stroke-width:1.2}
 .qd-pt.cur{fill:var(--amber);fill-opacity:1;stroke:var(--text)}

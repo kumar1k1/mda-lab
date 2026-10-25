@@ -1600,19 +1600,23 @@ function ccQuadBlock(r, idx) {
     const P0 = CC_QPOS, qi = QPOS[P0];
     // текущий игрок (вы, ваш алиас или выбранный соперник) — по текущей выборке и выбранной позиции
     const c = DB.cols; let fo = 0, fn = 0;
-    // фолд на контбет — со всех позиций (включая защиту BB), как у игроков базы: по одной позиции у соперников мало данных
-    if (c.fcb) for (const i of idx) { const v = c.fcb[i]; if (v < 0) continue; fn++; if (v === 1) fo++; }
+    // фолд на контбет — на выбранной позиции («Все без BB» — все позиции, кроме BB), как и у игроков базы
+    const qp = qi - 1; // номер позиции в базе (0 UTG … 6 BB)
+    if (c.fcb) for (const i of idx) { const v = c.fcb[i]; if (v < 0) continue; const ps = c.pos[i]; if (P0 === 'TOT' ? ps === 6 : ps !== qp) continue; fn++; if (v === 1) fo++; }
     const zc = r.cc[P0] || { n: 0, x: 0 };
     const me = { name: state.player ? state.player.name : (curAlias() ? curAlias().name : 'Вы'), cc: zc.n ? zc.x / zc.n : null, ccN: zc.n, fcb: fn ? fo / fn : null, fcbN: fn, pid: state.player ? state.player.pid : null };
     if (!data || !data.ok) { body.append(el('p', 'muted small', 'В базе нет данных о фолде на контбет — их начала сохранять версия 0.6. Загрузите базу заново («Заменить базу»), чтобы появился график.')); return; }
-    // порог входа: колд-колл — ≥ 60 возможностей (по одной позиции ≥ 20), фолд на контбет (все позиции) — ≥ 12 контбетов
-    const MIN_CC = P0 === 'TOT' ? 60 : 20, MIN_CB = 12;
-    const pts = data.rows.map(x => { const t = x[5], o = t[qi * 4], cx = t[qi * 4 + 1], cb = t[2], f = t[3]; return { pid: x[0], name: x[1], room: x[2], count: x[3], shown: x[4], cc: o ? cx / o : 0, ccN: o, fcb: cb ? f / cb : 0, fcbN: cb }; }).filter(p => p.ccN >= MIN_CC && p.fcbN >= MIN_CB);
+    // ваша точка — строго по выбранной позиции (≥ 20 контбетов, иначе не выводится).
+    // У игроков базы по одной позиции (кроме BB) контбетов единицы, поэтому их фолд на контбет — по всем позициям без BB, на BB — по BB.
+    // Порог входа игрока: «Все без BB» — ≥ 30 возможностей колд-колла и ≥ 6 контбетов; одна позиция — ≥ 10 и ≥ 6; BB — ≥ 20 и ≥ 8.
+    const MIN_CC = P0 === 'TOT' ? 30 : P0 === 'BB' ? 20 : 10, MIN_CB = P0 === 'BB' ? 8 : 6, MIN_ME = 20, qf = P0 === 'BB' ? 7 : 0;
+    const meLow = me.cc == null || me.fcb == null || me.fcbN < MIN_ME;
+    const pts = data.rows.map(x => { const t = x[5], o = t[qi * 4], cx = t[qi * 4 + 1], cb = t[qf * 4 + 2], f = t[qf * 4 + 3]; return { pid: x[0], name: x[1], room: x[2], count: x[3], shown: x[4], cc: o ? cx / o : 0, ccN: o, fcb: cb ? f / cb : 0, fcbN: cb }; }).filter(p => p.ccN >= MIN_CC && p.fcbN >= MIN_CB);
     if (pts.length < 5) { body.append(el('p', 'muted small', 'Мало игроков с достаточной выборкой' + (P0 === 'TOT' ? '' : ' на ' + P0) + ' (нужно ≥ ' + MIN_CC + ' возможностей колд-колла и ≥ ' + MIN_CB + ' контбетов после него).')); return; }
     const med = (a) => { const b = a.slice().sort((x, y) => x - y); return b[Math.floor(b.length / 2)]; };
     const mx = med(pts.map(p => p.cc)), my = med(pts.map(p => p.fcb));
-    const ccs = pts.map(p => p.cc).sort((a, b) => a - b), xMax = Math.min(1, Math.max(0.1, Math.ceil((ccs[Math.floor(ccs.length * 0.99)] || 0.3) * 20) / 20, me.cc || 0));
-    const W = 720, H = 460, P = { l: 52, r: 16, t: 16, b: 44 };
+    const ccs = pts.map(p => p.cc).sort((a, b) => a - b), xMax = Math.min(1, Math.max(0.1, Math.ceil((ccs[Math.floor(ccs.length * 0.99)] || 0.3) * 20) / 20, meLow ? 0 : me.cc || 0));
+    const W = 600, H = 360, P = { l: 52, r: 16, t: 16, b: 44 };
     const s = svgRoot(W, H, 'Колд-колл и фолд на контбет флопа по игрокам базы');
     const X = (v) => P.l + Math.min(1, v / xMax) * (W - P.l - P.r), Y = (v) => P.t + (1 - v) * (H - P.t - P.b);
     // зоны
@@ -1643,7 +1647,7 @@ function ccQuadBlock(r, idx) {
       d.addEventListener('click', () => { hide(); choosePlayer('opp', { pid: p.pid, name: p.name, room: p.room, count: p.count, shown: p.shown }); });
       s.append(d);
     });
-    if (me.cc != null && me.fcb != null && !state.player) {
+    if (!meLow && !state.player) {
       const p = Object.assign({ isMe: true }, me);
       const g = svgEl('g', { class: 'qd-me' });
       g.append(svgEl('circle', { cx: X(me.cc), cy: Y(me.fcb), r: 8 }), svgText(X(me.cc) + 12, Y(me.fcb) + 4, me.name, 'start', 'font-family:var(--sans);font-size:12px;font-weight:800;fill:var(--amber)'));
@@ -1651,7 +1655,8 @@ function ccQuadBlock(r, idx) {
       s.append(g);
     }
     const wrap = el('div', 'qd-chart'); wrap.append(s);
-    const meTxt = me.cc == null || me.fcb == null ? 'Для текущего выбора мало данных (нет контбетов после колд-колла в выборке).'
+    const at = P0 === 'TOT' ? '' : ' на ' + P0;
+    const meTxt = meLow ? 'Мало данных' + at + ' для точки «' + me.name + '»: ' + (me.fcbN || 0) + ' контбет' + (me.fcbN === 1 ? '' : me.fcbN >= 2 && me.fcbN <= 4 ? 'а' : 'ов') + ' после колд-колла (нужно ≥ ' + MIN_ME + '). Игроки базы показаны.'
       : 'Колд-колл' + (P0 === 'TOT' ? '' : ' на ' + P0) + ' ' + fmtPct(me.cc) + '% (' + me.ccN + '), фолд на контбет ' + fmtPct(me.fcb) + '% (' + me.fcbN + ') · игроков на графике: ' + pts.length + '.';
     const legend = el('div', 'qd-legend');
     [['Верхний левый', 'Узкий CC, легко сдаётся на флопе', 'идеальная мишень для контбета', 'var(--good)'],
@@ -1661,7 +1666,7 @@ function ccQuadBlock(r, idx) {
       const it = el('div', 'qd-z'); it.style.borderLeftColor = col; it.append(el('span', null, z), el('b', null, t), el('em', null, d)); legend.append(it);
     });
     body.append(el('p', 'qd-me-txt', meTxt), wrap, legend,
-      infoNote('Точка — игрок базы, у которого не меньше ' + MIN_CC + ' возможностей колд-колла' + (P0 === 'TOT' ? '' : ' на ' + P0) + ' и ' + MIN_CB + ' контбетов на флопе после колд-колла (показано ' + pts.length.toLocaleString('ru-RU') + ' игроков). Переключатель сверху — позиция для колд-колла: «Все без BB» как в #1, BB — защита большого блайнда. Фолд на контбет всегда считается со всех позиций (включая BB): по одной позиции у соперников слишком мало контбетов. Колд-колл — как в #1: рейз перед игроком, без лимперов и коллеров. Фолд на контбет — префлоп-рейзер первым ставит на флопе, игрок после колд-колла сбрасывает. Пунктир — медианы игроков базы: делят график на четыре зоны. Жёлтая точка — текущий выбор (вы или ваш алиас) по текущим фильтрам; игроки базы — по всей базе. Наведите на точку — ник и цифры, клик — открыть этого игрока во всех вкладках.'));
+      infoNote('Точка — игрок базы, у которого не меньше ' + MIN_CC + ' возможностей колд-колла' + (P0 === 'TOT' ? '' : ' на ' + P0) + ' и ' + MIN_CB + ' контбетов на флопе после колд-колла (показано ' + pts.length.toLocaleString('ru-RU') + ' игроков). Переключатель сверху — позиция: «Все без BB» — все позиции, кроме BB, как в #1; BB — защита большого блайнда. Ваши колд-колл и фолд на контбет считаются строго на выбранной позиции; ваша точка выводится, если на ней ≥ ' + MIN_ME + ' контбетов. У игроков базы колд-колл — на выбранной позиции, а фолд на контбет — по всем позициям без BB (на BB — по BB): на одной позиции у соперников всего несколько контбетов. Колд-колл — как в #1: рейз перед игроком, без лимперов и коллеров. Фолд на контбет — только банк с одним рейзером, где последним словом префлоп был колл игрока (без 3-бета и сквиза после него); на флопе первым ставит префлоп-рейзер: в позиции игрок ходит после него и сбрасывает, без позиции — сначала чек, потом фолд. Пунктир — медианы игроков базы: делят график на четыре зоны. Жёлтая точка — текущий выбор (вы или ваш алиас) по текущим фильтрам; игроки базы — по всей базе. Наведите на точку — ник и цифры, клик — открыть этого игрока во всех вкладках.'));
   };
   if (CC_QUAD && CC_QUAD.db === HERO_DB) draw(CC_QUAD.rows);
   else if (mda.playersCc) { const db = HERO_DB; mda.playersCc().then(rows => { CC_QUAD = { db, rows }; if (card.isConnected) draw(rows); }); }
