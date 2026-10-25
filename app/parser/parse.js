@@ -196,7 +196,10 @@ function parseCtx(text, fmt, heroes, observer) {
   const obs = !heroName && !!observer;
   if ((!heroName && !obs) || !bb) return null;
   const names = Object.keys(byName).sort((a, b) => b.length - a.length);
-  const who = (l) => names.find(n => l.startsWith(n + ':') || l.startsWith(n + ' '));
+  // кто действует в строке: ник в начале строки, за ним «:» или пробел; самый длинный подходящий ник.
+  // ники разложены по первому символу — строка сверяется только с никами на ту же букву (раньше — со всеми)
+  const byFirst = new Map(); for (const n of names) { const k = n.charCodeAt(0); if (!byFirst.has(k)) byFirst.set(k, []); byFirst.get(k).push(n); }
+  const who = (l) => { const b = byFirst.get(l.charCodeAt(0)); if (!b) return undefined; for (let i = 0; i < b.length; i++) { const n = b[i]; if (l.startsWith(n)) { const ch = l.charCodeAt(n.length); if (ch === 58 || ch === 32) return n; } } return undefined; };
 
   // блайнды
   let sbSeat = null, bbSeat = null;
@@ -270,8 +273,8 @@ function playerRec(c, heroName, opp) {
   rec = { id, hero: heroName, date, tour, tblMax, n: seatNums.length, pos: POS_IDX[hpos], bb: Math.round(seats[heroSeat].stack / bb * 10), pko: bounty ? 1 : 0, pdom: isPdom, bi: buyInCents(header, fmt), sit: 3, lim: 0, act: 0, size: 0, fti: -1, bvb: 0, fvr: -1 };
   rec.ant = c.anteTot > 0 && bb ? Math.min(32000, Math.round(c.anteTot / bb * 100)) : 0; // анте раздачи в BB×100
   const dealt = opp ? null : lines.find(l => l.startsWith('Dealt to ' + heroName + ' ['));
-  rec.hc = dealt ? handClass(dealt.slice(dealt.indexOf('['))) : opp ? shownClass(lines, heroName) : -1;
-  rec.net = Math.round(heroNet(lines, heroName, fmt) / bb * 1000) / 100; // ×10 BB, без округления до 0.1 BB (округление давало сдвиг около +1 bb/100)
+  rec.hc = dealt ? handClass(dealt.slice(dealt.indexOf('['))) : opp ? shownOf(c, heroName) : -1;
+  rec.net = Math.round(netOf(c, heroName) / bb * 1000) / 100; // ×10 BB, без округления до 0.1 BB (округление давало сдвиг около +1 bb/100)
   rec.hpa = 0; rec.sto = -1; rec.f3b = -1; rec.orsp = -1; rec.rz = 0; rec.cl = 0; rec.lr = 0; rec.rai = 0; rec.opos = -1; rec.ostk = -1; rec.osz = -1;
   // самый короткий стек среди блайндов (кроме героя), BB×10 — для стила против коротких/глубоких блайндов
   const bl = [sbSeat, bbSeat].filter(sn => sn != null && sn !== heroSeat && seats[sn]).map(sn => seats[sn].stack);
@@ -362,6 +365,45 @@ function shownClass(lines, name) {
     if (m && m[1] === name) return handClass('[' + m[2] + ']');
   }
   return -1;
+}
+
+// То же, что heroNet и shownClass, но за один проход по раздаче для всех игроков сразу (результат кэшируется в разметке):
+// раньше каждый игрок заново просматривал все строки раздачи — при 6–9 игроках это была заметная доля разбора.
+function netOf(c, name) {
+  if (!c._net) {
+    const inv = {}, back = {}, st = {}, col = {}, won = {}; let inSummary = false;
+    for (const l of c.lines) {
+      if (inSummary) {
+        if (c.fmt === 'wpn') { const i = l.indexOf(': '); if (i > 0 && l.startsWith('Seat ')) { const rest = l.slice(i + 2), n = c.who(rest); if (n) { const w = rest.match(/won ([\d.,]+)/); if (w) won[n] = (won[n] || 0) + num(w[1]); } } }
+        continue;
+      }
+      if (l.startsWith('*** ')) { if (/^\*\*\* SUMMARY/.test(l)) inSummary = true; else if (/^\*\*\* (FLOP|TURN|RIVER)/.test(l)) for (const k in st) st[k] = 0; continue; }
+      if (l.startsWith('Uncalled bet')) { const ub = l.match(/^Uncalled bet \(([\d.,]+)\) returned to (.+)$/); if (ub) { const n = ub[2].trim(); back[n] = (back[n] || 0) + num(ub[1]); } continue; }
+      const n = c.who(l); if (!n) continue;
+      const r = l.slice(n.length).replace(/^:/, '').trim();
+      let m;
+      if ((m = r.match(/^posts (?:the )?ante ([\d.,]+)/))) inv[n] = (inv[n] || 0) + num(m[1]);
+      else if ((m = r.match(/^posts (?:the )?(?:small|big) blind ([\d.,]+)/)) || (m = r.match(/^(?:calls|bets) ([\d.,]+)/))) { const v = num(m[1]); inv[n] = (inv[n] || 0) + v; st[n] = (st[n] || 0) + v; }
+      else if ((m = r.match(/^raises [\d.,]+ to ([\d.,]+)/))) { const to = num(m[1]); inv[n] = (inv[n] || 0) + to - (st[n] || 0); st[n] = to; }
+      else if ((m = r.match(/^collected ([\d.,]+)/))) col[n] = (col[n] || 0) + num(m[1]);
+    }
+    c._net = { inv, back, col, won };
+  }
+  const N = c._net; let collected = N.col[name] || 0;
+  if (c.fmt === 'wpn' && collected === 0) collected = N.won[name] || 0;
+  return collected + (N.back[name] || 0) - (N.inv[name] || 0);
+}
+function shownOf(c, name) {
+  if (!c._shown) {
+    const sh = {};
+    for (const l of c.lines) {
+      const n = c.who(l);
+      if (n && (l.startsWith(n + ': shows [') || l.startsWith(n + ' shows [')) && !(n in sh)) { sh[n] = handClass(l.slice(l.indexOf('['))); continue; }
+      if (l.startsWith('Seat ')) { const m = l.match(/^Seat \d+: (.+?) (?:\([^)]*\) )?(?:showed|mucked) \[([^\]]+)\]/); if (m && !(m[1] in sh)) sh[m[1]] = handClass('[' + m[2] + ']'); }
+    }
+    c._shown = sh;
+  }
+  return name in c._shown ? c._shown[name] : -1;
 }
 
 function parseHand(text, fmt, heroes) {

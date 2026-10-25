@@ -2620,13 +2620,14 @@ function renderEstimate() {
   $('estHands').textContent = (app ? '+ ' : '≈ ') + (minedEst ? (EST.mined || 0).toLocaleString('ru-RU') + ' без героя' : EST.hands.toLocaleString('ru-RU'));
   $('estSize').textContent = (app ? '+ ' : '≈ ') + fmtBytes(EST.bytes);
   $('estTime').textContent = fmtDur(EST.seconds);
+  $('estTime').title = EST.evSeconds ? 'Потом EV олл-инов досчитается в фоне ≈ ' + fmtDur(EST.evSeconds) + ' — раздачами можно пользоваться сразу' : '';
   const need = EST.bytes * 1.3 + 64 * 1024 * 1024; // запас на временные файлы при сборке
   const short = free != null && free < need;
   $('estFree').classList.toggle('bad', short); $('estSize').classList.toggle('bad', short);
   $('estNote').classList.toggle('bad', short);
   $('estNote').textContent = short
     ? 'Не хватит места: на время загрузки нужно около ' + fmtBytes(need) + '. Выберите другую папку или диск.'
-    : 'Оценка по образцу ' + fmtBytes(EST.sampleBytes) + ' из ' + fmtBytes(EST.totalBytes) + ' ваших историй на этом компьютере (' + EST.cpus + ' ядер, разбор и EV — в ' + EST.threads + ' потоков)' + (EST.opp ? '; вместе с вашими раздачами сохранятся ≈ ' + EST.opp.toLocaleString('ru-RU') + ' раздач соперников' : '') + '.' + (app ? ' Повторы уже лежащих в базе раздач отсеются — добавится не больше.' : ' Точные цифры — после загрузки.');
+    : 'Оценка по образцу ' + fmtBytes(EST.sampleBytes) + ' из ' + fmtBytes(EST.totalBytes) + ' ваших историй на этом компьютере (' + EST.cpus + ' ядер, разбор и EV — в ' + EST.threads + ' потоков)' + (EST.opp ? '; вместе с вашими раздачами сохранятся ≈ ' + EST.opp.toLocaleString('ru-RU') + ' строк соперников' : '') + '.' + (EST.evSeconds > 5 ? ' После загрузки EV олл-инов досчитается в фоне (≈ ' + fmtDur(EST.evSeconds) + '), раздачами можно пользоваться сразу.' : '') + (app ? ' Повторы уже лежащих в базе раздач отсеются — добавится не больше.' : ' Точные цифры — после загрузки.');
   $('doImport').disabled = short || !(IMPORT_SCAN && IMPORT_SCAN.ok);
 }
 function runEstimate() {
@@ -2654,11 +2655,12 @@ async function runImport() {
   const t0 = Date.now();
   mda.onProgress((m) => {
     // этапы: разбор файлов (до 70% полосы) и расчёт EV по олл-инам (оставшиеся 30%)
-    const f = m.stage === 'ev' ? 0.75 + 0.25 * m.done / Math.max(1, m.total) : m.stage === 'merge' ? 0.65 + 0.1 * m.done / Math.max(1, m.total) : 0.65 * m.done / Math.max(1, m.total);
+    // EV теперь считается в фоне после загрузки: полоса — разбор (до 88%) и раскладка по базе; этап ev — только если досчитывается EV прошлой загрузки
+    const f = m.stage === 'ev' ? 0.95 * m.done / Math.max(1, m.total) : m.stage === 'merge' ? 0.88 + 0.12 * m.done / Math.max(1, m.total) : 0.88 * m.done / Math.max(1, m.total);
     $('progFill').style.width = (f * 100).toFixed(1) + '%';
     const el2 = (Date.now() - t0) / 1000, left = f > 0.03 ? el2 / f - el2 : null;
     $('progText').textContent = (m.groups > 1 && m.stage !== 'parse' ? 'Часть ' + m.group + ' из ' + m.groups + ' · ' : '') + (m.stage === 'ev'
-      ? 'Считаю EV олл-инов: ' + m.done.toLocaleString('ru-RU') + ' из ' + m.total.toLocaleString('ru-RU')
+      ? 'Досчитываю EV прошлой загрузки: ' + m.done.toLocaleString('ru-RU') + ' из ' + m.total.toLocaleString('ru-RU')
       : m.stage === 'merge' ? 'Раскладываю раздачи по базе'
       : 'Разобрано файлов: ' + m.done.toLocaleString('ru-RU') + ' из ' + m.total.toLocaleString('ru-RU') + ' · раздач: ' + m.hands.toLocaleString('ru-RU')) + (left != null ? ' · осталось ' + fmtDur(left) : ''); // на разборе — все раздачи (ваши и датамайнинг)
   });

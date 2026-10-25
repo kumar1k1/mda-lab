@@ -177,9 +177,10 @@ async function estimate(files, heroNicks, opts) {
   // в датамайнинге строк соперников в 6–8 раз больше раздач, и это главный предел (сверено на загрузке 1,3 ГБ Winamax: 6,7 млн строк).
   const eff = Math.max(1, threads * 0.6);
   const parseSec = Math.max(parseMs * scale / eff * 1.25 / 1000, hands * 60e-6 + opp * 45e-6);
-  const seconds = parseSec + evJobs * evPer / eff / 1000 + (hands + opp) * 2e-5 + 3;
+  // EV олл-инов считается в фоне уже после загрузки (раздачи доступны сразу) — отдельной цифрой
+  const seconds = parseSec + (hands + opp) * 2e-5 + 3, evSeconds = evJobs * evPer / eff / 1000;
   const bytes = Math.round(hands * HERO_ROW + opp * OPP_ROW + (rpN ? rpBytes / rpN : 0) * rpN * scale + hands * 8);
-  return { totalBytes: total, sampleBytes: sBytes, hands, mined: Math.round(sMined * scale), opp, bytes, seconds: Math.round(seconds), threads, cpus, exact: sBytes >= total };
+  return { totalBytes: total, sampleBytes: sBytes, hands, mined: Math.round(sMined * scale), opp, bytes, seconds: Math.round(seconds), evSeconds: Math.round(evSeconds), threads, cpus, exact: sBytes >= total };
 }
 
 module.exports = { fileSize, ROOM_SIGNS, SUPPORTED, walk, addFile, scan, buildBase, appendBase, eachText, estimate };
