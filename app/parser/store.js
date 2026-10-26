@@ -190,18 +190,20 @@ class BaseDir {
     if (!n || !this.meta.cols.some(c => c[0] === 'fcb')) return (this._cc = { ok: false, rows: [] });
     const { readRange } = require('./table.js'), T = (nm, t) => typedFrom(readRange(this.og, nm, t, 0, n), t);
     const rz = T('rz', 'i8'), cl = T('cl', 'i8'), lr = T('lr', 'i8'), pos = T('pos', 'i8'), act = T('act', 'i8'), fcb = T('fcb', 'i8');
-    // по позициям: 0 — все без BB (как «Колд-колл» в #1), 1+pos — UTG, MP, HJ, CO, BTN, SB, BB (номера позиций базы 0…6)
+    const hasEv = this.oppCols().some(c => c[0] === 'nev'), net = T('net', 'f64'), nev = hasEv ? T('nev', 'f64') : null; // итог раздачи в BB (по EV, если посчитан)
+    // по позициям: 0 — все без BB (как «Колд-колл» в #1), 1+pos — UTG, MP, HJ, CO, BTN, SB, BB (номера позиций базы 0…6);
+    // на позицию 5 чисел: возможности колд-колла, колд-коллы, контбеты после колд-колла, фолды на них, сумма итогов колд-колл раздач (BB, по EV)
     for (let pid = 0; pid < pl.length; pid++) {
-      const p = pl[pid], st = new Array(8 * 4).fill(0); let any = false;
+      const p = pl[pid], st = new Array(8 * 5).fill(0); let any = false;
       for (let i = p.s; i < p.s + p.c; i++) {
         // «все» — без BB (как в #1), и колд-колл, и фолд на контбет; BB — отдельно (защита большого блайнда)
         const ps = pos[i], kc = ps === 6 ? [7] : [0, 1 + ps], kf = kc;
-        if (rz[i] === 1 && cl[i] === 0 && lr[i] === 0) { any = true; for (const k of kc) { st[k * 4]++; if (act[i] === 1) st[k * 4 + 1]++; } }
-        if (fcb[i] >= 0) { any = true; for (const k of kf) { st[k * 4 + 2]++; if (fcb[i] === 1) st[k * 4 + 3]++; } }
+        if (rz[i] === 1 && cl[i] === 0 && lr[i] === 0) { any = true; for (const k of kc) { st[k * 5]++; if (act[i] === 1) { st[k * 5 + 1]++; const e = nev ? nev[i] : NaN; st[k * 5 + 4] += Number.isFinite(e) ? e : net[i]; } } }
+        if (fcb[i] >= 0) { any = true; for (const k of kf) { st[k * 5 + 2]++; if (fcb[i] === 1) st[k * 5 + 3]++; } }
       }
       if (any) out.push([pid, p.n, p.r, p.c, p.sh || 0, st]);
     }
-    return (this._cc = { ok: true, rows: out });
+    return (this._cc = { ok: true, stride: 5, ev: hasEv, rows: out });
   }
   memberKeys() { const m = new Set(); for (const a of this.meta.aliases || []) if (!a.gone) for (const o of a.opp || []) m.add(o.r + '\u0001' + o.n); return m; }
   // игроки базы по нику и руму (для участников алиасов): [{pid, count, shown} | null]
