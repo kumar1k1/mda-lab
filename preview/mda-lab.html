@@ -4576,8 +4576,8 @@ async function showHandList(it, k, cellBtn) {
   pop.querySelectorAll('.hp-c.sel').forEach(c => c.classList.remove('sel')); cellBtn.classList.add('sel');
   const p = POS_NAMES.indexOf(it.p), c = DB.cols;
   const all = (it.ids || CURRENT_IDX).filter(i => c.sit[i] === (it.sit || 0) && (it.act != null ? c.act[i] === it.act : c.act[i] >= 2) && (p < 0 || c.pos[i] === p) && c.hc[i] === k);
-  list.hidden = false; pop.classList.add('with-list'); list.replaceChildren(el('div', 'hp-list-head', 'Загружаю раздачи…'));
-  const rp = await replaysFor(all);
+  list.hidden = false; pop.classList.add('with-list');
+  const rp = {}; let lazy = null; // записи реплеера — подгружаются по мере показа строк
   const reach = (i) => { const r = rp[i]; if (!r) return 0; if (r.sh && Object.keys(r.sh).length) return 4; return r.bd.length === 5 ? 3 : r.bd.length === 4 ? 2 : r.bd.length === 3 ? 1 : 0; };
   const f = { room: '', res: '', street: '', stack: '', q: '', sort: 'new' };
 
@@ -4614,28 +4614,56 @@ async function showHandList(it, k, cellBtn) {
     rows.sort(by[f.sort]);
     const total = rows.reduce((s, i) => s + c.net[i], 0) / 10;
     head.replaceChildren(el('b', null, handName(k) + (it.p ? ' с ' + it.p : '')), el('span', null, rows.length + (rows.length === all.length ? '' : ' из ' + all.length) + ' раздач'), el('span', total >= 0 ? 'up' : 'down', signed(total, 1) + ' BB всего' + (rows.length ? ' · ' + signed(total / rows.length, 2) + ' BB за раздачу' : '')));
-    box.replaceChildren();
+    box.replaceChildren(); if (lazy) lazy.stop();
     if (!rows.length) { box.append(el('p', 'muted small', 'Нет раздач под эти фильтры.')); return; }
-    rows.forEach(i => {
-      const r = rp[i];
-      const row = el('div', 'hp-row');
-      const play = el('button', 'hp-play'); play.type = 'button'; play.setAttribute('aria-label', 'Проиграть раздачу');
-      play.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z"/></svg>';
-      play.disabled = !r; play.onclick = () => openReplayer(i, rows); // листание — по этому списку
-      const net = c.net[i] / 10;
-      const info = el('div', 'hp-info');
-      info.append(el('span', 'd', r ? r.d : '—'), el('span', 't', (DB.rooms[c.room[i]] || '') + (r && r.t ? ' · ' + r.t : '')));
-      const board = el('div', 'hp-board');
-      const bd = r ? r.bd : [];
-      if (!bd.length) board.append(el('span', 'hp-nob', reach(i) === 4 ? 'олл-ин префлоп' : 'без флопа'));
-      else bd.forEach((cd, j) => { const ce = cardEl(cd, true); ce.classList.add('xs'); if (j === 3 || j === 4) ce.classList.add('gap'); board.append(ce); });
-      row.append(play, info, board, el('span', 'stk', (c.bb[i] / 10).toFixed(0) + ' BB'), resEl(net));
-      row.title = 'Стек ' + (c.bb[i] / 10).toFixed(1) + ' BB, итог ' + signed(net, 2) + ' BB';
-      box.append(row);
-    });
+    lazy = lazyRows(box, rows, rp, { cards: false });
   }
   draw();
   centerPop(pop);
+}
+
+// Список раздач без ожидания: строки сразу из колонок базы (дата, рум, стек, итог), карты и турнир дописываются
+// по мере подгрузки записей — порциями по 60 в порядке списка; следующие строки добавляются при прокрутке.
+const LIST_PAGE = 60;
+function dayText(i) { const [y0, m0] = DB.periodStart.split('-').map(Number); const d = new Date(Date.UTC(y0, m0 - 1, 1) + DB.cols.day[i] * 864e5); return d.toISOString().slice(0, 10); }
+function lazyRows(box, rows, rp, opt) {
+  const c = DB.cols, made = new Map(); let shown = 0, alive = true;
+  const fill = (i) => {
+    const o = made.get(i); if (!o) return; const r = rp[i];
+    if (r === undefined) return; // ещё грузится
+    o.play.disabled = !r; if (!r) o.play.title = 'Нет записи раздачи';
+    o.d.textContent = r ? r.d : dayText(i); o.t.textContent = (DB.rooms[c.room[i]] || '') + (r && r.t ? ' · ' + r.t : '');
+    if (o.cards && r && r.hc) { o.cards.replaceChildren(); r.hc.split(' ').forEach(cd => { const ce = cardEl(cd, true); ce.classList.add('xs'); o.cards.append(ce); }); }
+    o.board.replaceChildren(); const bd = r ? r.bd : [];
+    if (!bd.length) o.board.append(el('span', 'hp-nob', r && r.sh && Object.keys(r.sh).length ? 'олл-ин префлоп' : 'без флопа'));
+    else bd.forEach((cd, j) => { const ce = cardEl(cd, true); ce.classList.add('xs'); if (j === 3 || j === 4) ce.classList.add('gap'); o.board.append(ce); });
+  };
+  const sentinel = el('div', 'hp-more');
+  const more = async () => {
+    const page = rows.slice(shown, shown + LIST_PAGE); shown += page.length;
+    page.forEach(i => {
+      const row = el('div', 'hp-row');
+      const play = el('button', 'hp-play'); play.type = 'button'; play.setAttribute('aria-label', 'Проиграть раздачу');
+      play.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z"/></svg>';
+      play.onclick = () => openReplayer(i, rows); // листание — по этому списку
+      const info = el('div', 'hp-info'), d = el('span', 'd', dayText(i)), t = el('span', 't', DB.rooms[c.room[i]] || ''); info.append(d, t);
+      const cards = opt.cards ? el('div', 'hp-board') : null, board = el('div', 'hp-board');
+      board.append(el('span', 'hp-nob', '…'));
+      const net = c.net[i] / 10;
+      row.append(...[play, info, cards, board, el('span', 'stk', (c.bb[i] / 10).toFixed(0) + ' BB'), resEl(net)].filter(Boolean));
+      row.title = 'Стек ' + (c.bb[i] / 10).toFixed(1) + ' BB, итог ' + signed(net, 2) + ' BB';
+      box.insertBefore(row, sentinel); made.set(i, { play, d, t, cards, board });
+      if (rp[i] !== undefined) fill(i);
+    });
+    if (shown >= rows.length) { sentinel.remove(); io.disconnect(); }
+    const need = page.filter(i => rp[i] === undefined);
+    if (need.length) { const got = await replaysFor(need); if (!alive) return; need.forEach(i => { rp[i] = got[i] || null; fill(i); }); }
+  };
+  box.append(sentinel);
+  const io = new IntersectionObserver((es) => { if (es.some(e => e.isIntersecting) && shown < rows.length) more(); }, { root: box, rootMargin: '300px' });
+  io.observe(sentinel);
+  more();
+  return { stop() { alive = false; io.disconnect(); } };
 }
 
 // окно со списком раздач всегда по центру экрана
@@ -4684,34 +4712,16 @@ async function openIdsList(title, ids) {
   document.addEventListener('keydown', keys);
   IDS_LIST = { bg, keys };
   x.focus();
-  const rp = await replaysFor(ids);
+  const rp = {}; let lazy = null; // записи реплеера — подгружаются по мере показа строк
   function draw() {
     let rows = ids.filter(i => (f.room === '' || String(c.room[i]) === f.room) && (f.res !== 'win' || c.net[i] > 0) && (f.res !== 'lose' || c.net[i] < 0));
     const by = { new: (a, b) => c.day[b] - c.day[a] || b - a, old: (a, b) => c.day[a] - c.day[b] || a - b, worst: (a, b) => c.net[a] - c.net[b], best: (a, b) => c.net[b] - c.net[a] };
     rows.sort(by[f.sort]);
     const total = rows.reduce((s, i) => s + c.net[i], 0) / 10;
     ts.textContent = rows.length + (rows.length === ids.length ? '' : ' из ' + ids.length) + ' раздач · ' + signed(total, 1) + ' BB всего' + (rows.length ? ' · ' + signed(total / rows.length, 2) + ' BB за раздачу' : '');
-    list.replaceChildren();
+    list.replaceChildren(); if (lazy) lazy.stop();
     if (!rows.length) { list.append(el('p', 'muted small', 'Нет раздач под эти фильтры.')); return; }
-    rows.slice(0, 400).forEach(i => {
-      const r = rp[i];
-      const row = el('div', 'hp-row');
-      const play = el('button', 'hp-play'); play.type = 'button'; play.setAttribute('aria-label', 'Проиграть раздачу');
-      play.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z"/></svg>';
-      play.disabled = !r; if (!r) play.title = 'Нет записи раздачи'; play.onclick = () => openReplayer(i, rows);
-      const net = c.net[i] / 10;
-      const info = el('div', 'hp-info');
-      info.append(el('span', 'd', r ? r.d : '—'), el('span', 't', (DB.rooms[c.room[i]] || '') + (r && r.t ? ' · ' + r.t : '')));
-      const cards = el('div', 'hp-board');
-      if (r && r.hc) r.hc.split(' ').forEach(cd => { const ce = cardEl(cd, true); ce.classList.add('xs'); cards.append(ce); });
-      const board = el('div', 'hp-board');
-      const bd = r ? r.bd : [];
-      if (!bd.length) board.append(el('span', 'hp-nob', 'без флопа'));
-      else bd.forEach((cd, j) => { const ce = cardEl(cd, true); ce.classList.add('xs'); if (j === 3 || j === 4) ce.classList.add('gap'); board.append(ce); });
-      row.append(play, info, cards, board, el('span', 'stk', (c.bb[i] / 10).toFixed(0) + ' BB'), resEl(net));
-      list.append(row);
-    });
-    if (rows.length > 400) list.append(el('p', 'muted small', 'Показаны первые 400. Уточните фильтры.'));
+    lazy = lazyRows(list, rows, rp, { cards: true });
   }
   draw();
 }
