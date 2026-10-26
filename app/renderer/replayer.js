@@ -229,7 +229,10 @@
       const eq = aiFrom > 0 && k >= aiFrom && f.street < 4 ? eqAt(f) : null;
       seats.forEach((s, j) => {
         s.g.classList.toggle('folded', f.folded[j]); s.g.classList.toggle('act', f.actor === j); s.g.classList.toggle('won', f.won[j] > 0);
-        s.stT.textContent = f.allin[j] && f.stacks[j] <= 0.01 ? 'олл-ин' : fmt(f.stacks[j]) + ' BB';
+        // фолд — подписью прямо в боксе вместо стека, только в момент хода (на следующем шаге снова стек)
+        const foldNow = f.actor === j && f.act[j] && f.act[j].t === 'f';
+        s.stT.textContent = foldNow ? 'Фолд' : f.allin[j] && f.stacks[j] <= 0.01 ? 'олл-ин' : fmt(f.stacks[j]) + ' BB';
+        s.g.classList.toggle('foldnow', foldNow);
         const show = j === H0 ? rp.hc : f.show && rp.sh && rp.sh[j] ? rp.sh[j] : (eq && rp.sh && rp.sh[j] ? rp.sh[j] : null);
         const key = f.folded[j] && j !== H0 ? 'x' : show || 'back';
         if (key !== s.cardsKey) {
@@ -240,7 +243,7 @@
         if (f.bets[j] > 0.001) { s.betG.style.display = ''; s.betT.textContent = fmt(f.bets[j]); } else s.betG.style.display = 'none';
         // действие: на этой улице; фолд — только в момент хода; бет/рейз — с размером
         const a = f.act[j];
-        if (!a || (a.t === 'f' && f.actor !== j)) s.actG.style.display = 'none';
+        if (!a || a.t === 'f') s.actG.style.display = 'none'; // фолд показывается в боксе, не плашкой
         else {
           let txt = { f: 'Фолд', x: 'Чек', c: 'Колл', b: 'Бет', r: 'Рейз до', w: 'Выигрыш +' + fmt(a.v) }[a.t] || '';
           if (a.t !== 'f' && a.t !== 'x' && a.t !== 'w') txt += ' ' + fmt(a.v);
@@ -323,6 +326,7 @@
 .rv-seat.act .rv-plate{stroke:#F2B544;stroke-width:3}
 .rv-seat.won .rv-stack{fill:#7FD7A2}
 .rv-seat.folded{opacity:.38}
+.rv-seat.foldnow{opacity:.75}.rv-seat.foldnow .rv-stack{fill:#FF9B8A;font-weight:700}
 .rv-pos{font-family:Onest,'Segoe UI',sans-serif;font-size:15px;font-weight:800;fill:#ECEFF5}
 .rv-stack{font-family:'JetBrains Mono',Consolas,monospace;font-size:14px;fill:#C3C9D6}
 .rv-dealer{fill:#F4F1E8;stroke:#111;stroke-width:1}.rv-dealer-t{font-family:Onest,sans-serif;font-size:13px;font-weight:800;fill:#111}
