@@ -3417,18 +3417,32 @@ function ccQuadBlock(r, idx) {
     // ваш итог колд-колл раздач на выбранной позиции — для сравнения
     let myRes = null;
     if (c.rz && c.act && c.net) { let n = 0, sm = 0; for (const i of idx) { const ps = c.pos[i]; if (P0 === 'TOT' ? ps === 6 : ps !== qp) continue; if (c.rz[i] !== 1 || c.cl[i] !== 0 || (c.lr && c.lr[i] !== 0) || c.act[i] !== 1) continue; n++; sm += c.nev && Number.isFinite(c.nev[i]) ? c.nev[i] : c.net[i]; } if (n >= 20) myRes = { v: sm / n / 10, n, sum: sm }; }
-    // лучшая точка по результату: для каждой точки сетки — средний итог колд-колл раздач игроков базы рядом с ней
-    // (сглаживание: вес игрока = его колд-коллы × близость по Гауссу); берётся максимум там, где данных достаточно
+    // Точка максимального винрейта. Берутся все игроки базы, у кого есть хоть какая-то выборка (≥ 10 возможностей
+    // колд-колла и ≥ 2 контбета после него), а не только «крупные»: у соперников из ваших раздач обычно по 20–80 рук.
+    // Малая выборка игрока сглаживается к среднему по базе (байесовское сжатие): 2 контбета не дают «0% или 100%».
+    // Для каждой точки сетки — средний итог колд-колл раздачи игроков рядом (вес = колд-коллы × близость по Гауссу)
+    // и его погрешность по разбросу между игроками; выбирается точка с лучшей нижней границей (итог − погрешность),
+    // чтобы не ловить случайный выброс.
     let best = null;
-    const withRes = pts.filter(p => p.res != null && p.ccH > 0 && !(state.player && p.pid === state.player.pid));
-    if (!meLow && myRes) withRes.push({ cc: me.cc, fcb: me.fcb, ccH: myRes.n, res: myRes.sum }); // ваши раздачи — тоже в общей картине
-    if (withRes.length >= 10) {
-      const hx = Math.max(0.02, xGrid / 14), hy = 0.07, totH = withRes.reduce((a, p) => a + p.ccH, 0), need = Math.max(300, totH * 0.05);
+    const pool = [];
+    if (SD >= 5) {
+      let so = 0, sx = 0, sc = 0, sf = 0;
+      const raw = data.rows.map(x => { const t = x[5]; return { pid: x[0], o: t[qi * SD], cx: t[qi * SD + 1], res: t[qi * SD + 4], cb: t[qf * SD + 2], f: t[qf * SD + 3] }; }).filter(q => q.o >= 10 && q.cb >= 2 && q.cx > 0 && !(state.player && q.pid === state.player.pid));
+      raw.forEach(q => { so += q.o; sx += q.cx; sc += q.cb; sf += q.f; });
+      const mc = so ? sx / so : 0, mf = sc ? sf / sc : 0, KC = 20, KF = 6;
+      raw.forEach(q => pool.push({ cc: (q.cx + KC * mc) / (q.o + KC), fcb: (q.f + KF * mf) / (q.cb + KF), ccH: q.cx, res: q.res }));
+    }
+    if (!meLow && myRes) pool.push({ cc: me.cc, fcb: me.fcb, ccH: myRes.n, res: myRes.sum }); // ваши раздачи — тоже в общей картине
+    const poolH = pool.reduce((a, p) => a + p.ccH, 0);
+    if (pool.length >= 20) {
+      const hx = Math.max(0.02, xGrid / 14), hy = 0.07, need = Math.max(400, poolH * 0.04);
       for (let gx = 1; gx < 40; gx++) for (let gy = 1; gy < 40; gy++) {
-        const x = gx / 40 * xGrid, y = gy / 40; let wh = 0, wr = 0, np = 0;
-        for (const p of withRes) { const dx = (p.cc - x) / hx, dy = (p.fcb - y) / hy, k = Math.exp(-0.5 * (dx * dx + dy * dy)); if (k < 0.01) continue; wh += k * p.ccH; wr += k * p.res; if (k > 0.3) np++; }
-        if (wh < need || np < 5) continue;
-        const v = wr / wh / 10; if (!best || v > best.v) best = { x, y, v, wh, np };
+        const x = gx / 40 * xGrid, y = gy / 40; let wh = 0, wr = 0, np = 0; const near = [];
+        for (const p of pool) { const dx = (p.cc - x) / hx, dy = (p.fcb - y) / hy, k = Math.exp(-0.5 * (dx * dx + dy * dy)); if (k < 0.01) continue; wh += k * p.ccH; wr += k * p.res; if (k > 0.3) np++; near.push([k, p]); }
+        if (wh < need || np < 8) continue;
+        const v = wr / wh; let vv = 0; for (const [k, p] of near) { const d = p.res - v * p.ccH; vv += k * k * d * d; }
+        const se = Math.sqrt(vv) / wh / 10, val = v / 10, lo = val - se;
+        if (!best || lo > best.lo) best = { x, y, v: val, se, lo, wh, np };
       }
     }
     // ось колд-колла — по вашей точке и точке максимального винрейта (без лишнего пустого места справа)
@@ -3464,7 +3478,7 @@ function ccQuadBlock(r, idx) {
     if (best) {
       const g = svgEl('g', { class: 'qd-best' }), bx = X(best.x), by = Y(best.y);
       g.append(svgEl('circle', { cx: bx, cy: by, r: 12 }, 'fill:#F04438;fill-opacity:.2'), svgEl('circle', { cx: bx, cy: by, r: 7 }, 'fill:#F04438;stroke:var(--bg);stroke-width:2'));
-      const lab = 'макс. винрейт ' + bb(best.v) + ' BB', right = bx < (P.l + W - P.r) / 2;
+      const lab = 'макс. винрейт ' + bb(best.v) + ' ± ' + best.se.toFixed(2).replace('.', ',') + ' BB', right = bx < (P.l + W - P.r) / 2;
       g.append(svgText(bx + (right ? 13 : -13), by + 4, lab, right ? 'start' : 'end', 'font-family:var(--sans);font-size:12px;font-weight:800;fill:#FF6B5E' + HALO));
       const line = 'колд-колл около ' + Math.round(best.x * 100) + '% · фолд на контбет около ' + Math.round(best.y * 100) + '% · ' + bb(best.v) + ' BB в среднем за колд-колл';
       g.addEventListener('mouseenter', (e) => tip(e, 'Максимальный винрейт', line, 'по ' + Math.round(best.wh).toLocaleString('ru-RU') + ' колд-коллам ' + best.np + ' игроков рядом с этой точкой (ваши раздачи тоже учтены)'));
@@ -3482,12 +3496,12 @@ function ccQuadBlock(r, idx) {
     const at = P0 === 'TOT' ? '' : ' на ' + P0;
     const meTxt = meLow ? 'Мало данных' + at + ' для точки «' + me.name + '»: ' + (me.fcbN || 0) + ' контбет' + (me.fcbN === 1 ? '' : me.fcbN >= 2 && me.fcbN <= 4 ? 'а' : 'ов') + ' после колд-колла (нужно ≥ ' + MIN_ME + ').'
       : 'Колд-колл' + at + ' ' + fmtPct(me.cc) + '% (' + me.ccN + '), фолд на контбет ' + fmtPct(me.fcb) + '% (' + me.fcbN + ')' + (me.eq != null ? ' · равновесие ' + (me.eq * 100).toFixed(1).replace('.', ',') + '%' + (me.cbMed != null ? ' (контбет против вас обычно ' + me.cbMed + '% банка)' : '') + ' — ' + (Math.abs(me.fcb - me.eq) < 0.03 ? 'в норме' : me.fcb > me.eq ? 'перефолд на ' + fmtPct(me.fcb - me.eq) + ' п.п.' : 'недофолд на ' + fmtPct(me.eq - me.fcb) + ' п.п.') : '') + (myRes ? ' · ваш итог ' + bb(myRes.v) + ' BB за колд-колл' : '') + '.';
-    const bestTxt = best ? 'Максимальный винрейт по базе' + at + ': колд-колл около ' + Math.round(best.x * 100) + '%, фолд на контбет около ' + Math.round(best.y * 100) + '% — ' + bb(best.v) + ' BB за колд-колл (' + best.np + ' игроков, ' + Math.round(best.wh).toLocaleString('ru-RU') + ' колд-коллов рядом).'
+    const bestTxt = best ? 'Максимальный винрейт по базе' + at + ': колд-колл около ' + Math.round(best.x * 100) + '%, фолд на контбет около ' + Math.round(best.y * 100) + '% — ' + bb(best.v) + ' ± ' + best.se.toFixed(2).replace('.', ',') + ' BB за колд-колл (рядом ' + best.np.toLocaleString('ru-RU') + ' игроков и ' + Math.round(best.wh).toLocaleString('ru-RU') + ' колд-коллов; всего в расчёте ' + pool.length.toLocaleString('ru-RU') + ' игроков и ' + poolH.toLocaleString('ru-RU') + ' колд-коллов).' + (best.se > 0.3 ? ' Погрешность большая — точку уточнит база побольше (датамайнинг).' : '')
       : SD < 5 ? 'Точка максимального винрейта появится после повторной загрузки базы: старая база не хранит итоги колд-колл раздач соперников.' : 'Для точки максимального винрейта мало данных' + at + ': нужно больше игроков с колд-коллами в базе (лучше всего — датамайнинг).';
     const key = el('div', 'qd-key');
     [['qd-k-me', me.name], ['qd-k-eq', 'равновесие по MDF'], ['qd-k-best', 'максимальный винрейт (база + ваши раздачи)']].forEach(([c2, t]) => { const k = el('span', c2); k.append(el('i'), document.createTextNode(t)); key.append(k); });
     body.append(el('p', 'qd-me-txt', meTxt), el('p', 'qd-me-txt qd-best-txt', bestTxt), wrap, key,
-      infoNote('Жёлтая точка — текущий выбор (вы или ваш алиас) по текущим фильтрам: колд-колл и фолд на контбет на выбранной позиции, точка выводится, если на ней ≥ ' + MIN_ME + ' контбетов после колд-колла. Колд-колл — как в #1: рейз перед игроком, без лимперов и коллеров. Фолд на контбет — банк с одним рейзером, где последним словом префлоп был ваш колл; на флопе первым ставит префлоп-рейзер. Зелёная линия и кольцо — равновесный ориентир фолда на контбет по MDF: при ставке b в банк P фолдить можно не чаще b / (P + b); ориентир — среднее этой доли по реальным размерам контбетов против вас (треть банка — 25%, полбанка — 33%, банк — 50%). Кольцо стоит на вашем колд-колле: расстояние до него — ваш перефолд или недофолд. Красная точка — где максимальный винрейт: для каждой комбинации «колд-колл × фолд на контбет» берутся игроки базы рядом с ней (и ваши раздачи) (не меньше ' + MIN_CC + ' возможностей колд-колла и ' + MIN_CB + ' контбетов), и считается их средний итог на одну колд-колл раздачу по EV олл-инов (с учётом всей дальнейшей игры в раздаче); точка — там, где этот итог максимален при достаточной выборке. Это наблюдение по реальным игрокам, а не теория: на маленькой базе точка может заметно гулять, надёжнее всего — на большом датамайнинге.'));
+      infoNote('Жёлтая точка — текущий выбор (вы или ваш алиас) по текущим фильтрам: колд-колл и фолд на контбет на выбранной позиции, точка выводится, если на ней ≥ ' + MIN_ME + ' контбетов после колд-колла. Колд-колл — как в #1: рейз перед игроком, без лимперов и коллеров. Фолд на контбет — банк с одним рейзером, где последним словом префлоп был ваш колл; на флопе первым ставит префлоп-рейзер. Зелёная линия и кольцо — равновесный ориентир фолда на контбет по MDF: при ставке b в банк P фолдить можно не чаще b / (P + b); ориентир — среднее этой доли по реальным размерам контбетов против вас (треть банка — 25%, полбанка — 33%, банк — 50%). Кольцо стоит на вашем колд-колле: расстояние до него — ваш перефолд или недофолд. Красная точка — где максимальный винрейт: для каждой комбинации «колд-колл × фолд на контбет» берутся игроки базы рядом с ней и ваши раздачи (у игрока — не меньше 10 возможностей колд-колла и 2 контбетов после него; маленькая выборка игрока подтягивается к среднему по базе, чтобы 2 контбета не давали «0% или 100%»), и считается их средний итог на одну колд-колл раздачу по EV олл-инов (с учётом всей дальнейшей игры в раздаче); точка — там, где этот итог максимален с учётом погрешности (берётся лучшая нижняя граница «итог − погрешность»); число после ± — погрешность по разбросу между игроками. Это наблюдение по реальным игрокам, а не теория: на маленькой базе точка может заметно гулять, надёжнее всего — на большом датамайнинге.'));
   };
   if (CC_QUAD && CC_QUAD.db === HERO_DB) draw(CC_QUAD.rows);
   else if (mda.playersCc) { const db = HERO_DB; mda.playersCc().then(rows => { CC_QUAD = { db, rows }; if (card.isConnected) draw(rows); }); }
