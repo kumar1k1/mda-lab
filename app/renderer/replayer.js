@@ -137,7 +137,8 @@
       const sx = CX + 412 * Math.cos(ang), sy = CY + 262 * Math.sin(ang);
       const bxp = CX + 250 * Math.cos(ang), byp = CY + 112 * Math.sin(ang);
       // карты — со стороны центра стола, подписи действия и эквити — с внешней стороны (вверху стола — над местом, внизу — под ним)
-      const down = sy > CY + 1, cardY = down ? sy - 66 : sy + 52, actY = down ? sy + 52 : sy - 32;
+      // эквити — всегда прямо под местом; у нижних мест действие — над картами, у верхних — над местом (карты ниже эквити)
+      const down = sy > CY + 1, cardY = down ? sy - 66 : sy + 82, actY = down ? sy - 100 : sy - 32;
       const g = S('g', { class: 'rv-seat' + (k === H0 ? ' hero' : '') }, svg);
       const cardsG = S('g', null, g);
       S('rect', { x: sx - 78, y: sy - 4, width: 156, height: 52, rx: 14, class: 'rv-plate' }, g);
@@ -149,7 +150,7 @@
       S('circle', { cx: bxp - 22, cy: byp, r: 10, class: 'rv-chip' }, betG); S('circle', { cx: bxp - 22, cy: byp, r: 5.5, class: 'rv-chip-in' }, betG);
       const betT = T('', { x: bxp - 6, y: byp + 6, class: 'rv-bet' }, betG);
       const actG = S('g', { class: 'rv-actg' }, g); const actR = S('rect', { x: sx - 70, y: actY, width: 140, height: 26, rx: 13, class: 'rv-act' }, actG); const actT = T('', { x: sx, y: actY + 18, 'text-anchor': 'middle', class: 'rv-act-t' }, actG);
-      const ex = sx + (sx <= CX ? 84 : -184), eqG = S('g', { class: 'rv-eqg' }, g); S('rect', { x: ex, y: sy + 11, width: 100, height: 24, rx: 12, class: 'rv-eq' }, eqG); const eqT = T('', { x: ex + 50, y: sy + 28, 'text-anchor': 'middle', class: 'rv-eq-t' }, eqG);
+      const eqG = S('g', { class: 'rv-eqg' }, g); S('rect', { x: sx - 52, y: sy + 53, width: 104, height: 24, rx: 12, class: 'rv-eq' }, eqG); const eqT = T('', { x: sx, y: sy + 70, 'text-anchor': 'middle', class: 'rv-eq-t' }, eqG);
       return { g, cardsG, posT, stT, betG, betT, actG, actR, actT, eqG, eqT, sx, sy, cardY, cardsKey: '' };
     });
     stage.append(svg);
