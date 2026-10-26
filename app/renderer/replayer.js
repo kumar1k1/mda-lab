@@ -303,7 +303,7 @@
     };
     RP = { bg, stop, keys, speed };
     document.addEventListener('keydown', keys);
-    go(1); toggle();
+    go(1); // без автозапуска: воспроизведение — кнопкой ▶ или пробелом, шаги — стрелками и шкалой
     playB.focus();
   }
 
