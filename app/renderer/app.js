@@ -2761,3 +2761,27 @@ window.__hoverPush = (n) => { const c = document.querySelectorAll('.pmx-c')[n]; 
 window.__hoverCC = (col) => { const td = [...document.querySelectorAll('.ht td.c.click')].find(t => t.dataset.col === col); const r = td.getBoundingClientRect(); td.dispatchEvent(new MouseEvent('mouseenter', { clientX: r.left + 20, clientY: r.top + 10 })); };
 window.__hoverGroup = (n) => { const c = document.querySelectorAll('.hg-c')[n]; const r = c.getBoundingClientRect(); c.dispatchEvent(new MouseEvent('mouseenter', { clientX: r.left + 20, clientY: r.top + 5 })); };
 window.__hoverMx = (k) => { const c = document.querySelectorAll('.mx .mx-c')[k]; c.scrollIntoView({ block: 'center' }); const r = c.getBoundingClientRect(); c.dispatchEvent(new MouseEvent('mouseenter', { clientX: r.left + 10, clientY: r.top + 10 })); };
+
+// ---------- разделы программы (вкладки сверху); открытая вкладка запоминается ----------
+(function () {
+  const tabs = [...document.querySelectorAll('.apptab')];
+  const show = (pg, focus) => {
+    tabs.forEach(t => {
+      const on = t.dataset.page === pg;
+      t.setAttribute('aria-selected', String(on)); t.tabIndex = on ? 0 : -1;
+      const panel = document.getElementById(t.getAttribute('aria-controls')); if (panel) panel.hidden = !on;
+      if (on && focus) t.focus();
+    });
+    try { localStorage.setItem('mda.page', pg); } catch (e) { /* без сохранения */ }
+    window.dispatchEvent(new Event('resize')); // графики раздела пересчитывают размеры
+  };
+  tabs.forEach((t, i) => {
+    t.addEventListener('click', () => show(t.dataset.page));
+    t.addEventListener('keydown', (e) => {
+      const d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0; if (!d) return;
+      e.preventDefault(); show(tabs[(i + d + tabs.length) % tabs.length].dataset.page, true);
+    });
+  });
+  let start = 'mine'; try { const v = localStorage.getItem('mda.page'); if (tabs.some(t => t.dataset.page === v)) start = v; } catch (e) { /* по умолчанию — кабинет */ }
+  show(start);
+})();

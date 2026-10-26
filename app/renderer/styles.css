@@ -1035,3 +1035,19 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .rv-gear-pop{position:absolute;top:100%;right:0;margin-top:8px;width:260px;display:flex;flex-direction:column;gap:6px;padding:12px 14px;border-radius:10px;background:var(--card2);border:1px solid var(--line2);box-shadow:0 10px 30px rgba(0,0,0,.45);z-index:3}
 .rv-gear-pop b{font-size:13px}.rv-gear-pop span{font-size:12.5px;color:var(--muted);line-height:1.45}
 .rv-ib.dim{opacity:.4}
+/* разделы программы */
+.apptabs{display:flex;align-items:center;gap:22px;padding:0 18px;min-height:52px;background:var(--top);border-bottom:1px solid var(--line);flex:0 0 auto}
+.apptab-list{display:flex;align-items:stretch;gap:4px;align-self:stretch;overflow-x:auto}
+.apptab{display:inline-flex;align-items:center;gap:8px;padding:0 14px;border:none;border-bottom:3px solid transparent;background:transparent;color:var(--soft);font:inherit;font-size:14px;font-weight:700;cursor:pointer;white-space:nowrap}
+.apptab:hover{color:var(--text)}
+.apptab[aria-selected="true"]{color:var(--text);border-bottom-color:var(--amber)}
+.apptab[aria-selected="true"] svg{color:var(--amber)}
+.apptab:focus-visible{outline:2px solid var(--amber);outline-offset:-4px;border-radius:6px}
+.app-page{flex:1 1 auto;display:flex;flex-direction:column;min-height:0}
+.app-page[hidden]{display:none}
+.page-soon{align-items:center;justify-content:center;padding:24px}
+.soon-card{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;color:var(--muted);padding:32px 40px;border:1px dashed var(--line2);border-radius:16px;background:var(--panel)}
+.soon-card svg{color:var(--amber);margin-bottom:6px}
+.soon-card h2{margin:0;font-family:var(--display);font-size:20px;color:var(--text)}
+.soon-card p{margin:0;font-size:14px}
+@media (max-width:760px){.apptabs{gap:10px;padding:0 12px}.apptabs .brand span{display:none}.apptab{padding:0 10px;font-size:13px}.apptab svg{display:none}}

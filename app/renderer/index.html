@@ -8,13 +8,47 @@
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+<!-- Разделы программы: лента новостей, датамайнинг, личный кабинет (разбор вашей базы) -->
+<nav class="apptabs" aria-label="Разделы">
+  <div class="brand">
+    <img src="icon.png" alt="" width="28" height="28">
+    <span>MDA Lab</span>
+  </div>
+  <div class="apptab-list" role="tablist" aria-label="Разделы программы">
+    <button class="apptab" type="button" role="tab" id="tabNews" data-page="news" aria-controls="pgNews" aria-selected="false">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h13a2 2 0 0 1 2 2v11a2 2 0 0 0 2 2H6a2 2 0 0 1-2-2z"/><path d="M8 9h7M8 13h7M8 17h4"/></svg>
+      Лента новостей
+    </button>
+    <button class="apptab" type="button" role="tab" id="tabDm" data-page="dm" aria-controls="pgDm" aria-selected="false">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5.5" rx="7.5" ry="2.5"/><path d="M4.5 5.5v6c0 1.4 3.4 2.5 7.5 2.5s7.5-1.1 7.5-2.5v-6M4.5 11.5v6c0 1.4 3.4 2.5 7.5 2.5s7.5-1.1 7.5-2.5v-6"/></svg>
+      Датамайнинг
+    </button>
+    <button class="apptab" type="button" role="tab" id="tabMine" data-page="mine" aria-controls="pgMine" aria-selected="true">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4.5 21c1-4 4-6.5 7.5-6.5s6.5 2.5 7.5 6.5"/></svg>
+      Личный кабинет
+    </button>
+  </div>
+</nav>
+
+<section class="app-page page-soon" id="pgNews" role="tabpanel" aria-labelledby="tabNews" hidden>
+  <div class="soon-card">
+    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h13a2 2 0 0 1 2 2v11a2 2 0 0 0 2 2H6a2 2 0 0 1-2-2z"/><path d="M8 9h7M8 13h7M8 17h4"/></svg>
+    <h2>Лента новостей</h2>
+    <p>Раздел появится позже.</p>
+  </div>
+</section>
+
+<section class="app-page page-soon" id="pgDm" role="tabpanel" aria-labelledby="tabDm" hidden>
+  <div class="soon-card">
+    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5.5" rx="7.5" ry="2.5"/><path d="M4.5 5.5v6c0 1.4 3.4 2.5 7.5 2.5s7.5-1.1 7.5-2.5v-6M4.5 11.5v6c0 1.4 3.4 2.5 7.5 2.5s7.5-1.1 7.5-2.5v-6"/></svg>
+    <h2>Датамайнинг</h2>
+    <p>Раздел появится позже.</p>
+  </div>
+</section>
+
+<div class="app-page" id="pgMine" role="tabpanel" aria-labelledby="tabMine">
 <header class="top">
   <div class="top-main">
-    <div class="brand">
-      <img src="icon.png" alt="" width="28" height="28">
-      <span>MDA Lab</span>
-    </div>
-    <span class="top-div" aria-hidden="true"></span>
     <div class="player-wrap">
       <button class="player" id="playerBtn" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="playerMenu" title="Выбрать игрока">
         <span class="badge-reg" id="roomBadge">ALIAS</span>
@@ -64,6 +98,7 @@
     </div>
     <div class="content" id="content"></div>
   </section>
+</div>
 </div>
 
 <!-- Окно загрузки базы -->
