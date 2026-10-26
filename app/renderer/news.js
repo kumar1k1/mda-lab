@@ -1,10 +1,10 @@
 'use strict';
-// Лента новостей: материалы покерных сайтов за неделю (заголовок, описание, ссылка на источник).
+// Лента новостей: материалы покерных сайтов за последний месяц (заголовок, описание, ссылка на источник).
 // Теги ставятся здесь по словам заголовка, описания и рубрик сайта; материалы про трекеры, HUD и софт
 // поднимаются наверх отдельным блоком «Важно для вас» — они касаются работы с этой программой.
 (function () {
   const root = document.getElementById('pgNews'); if (!root) return;
-  const DAY = 864e5, WEEK = 7 * DAY;
+  const DAY = 864e5, MONTH = 31 * DAY; // лента — за последний месяц
   const TAGS = [
     { id: 'soft', name: 'Софт и трекеры', re: /\b(hud|huds|tracker|trackers|hand2note|pokertracker|holdem manager|hold'em manager|software|third-party|screenshield|rta|real-time assistance|client)\b|трекер|софт|худ|программ|клиент/i },
     { id: 'sec', name: 'Честная игра', re: /\b(cheat|cheating|cheater|bot|bots|superuser|superusers|security|malware|collusion|hack|hacked|integrity|fraud)\b|мошен|суперюзер|бот[аыов]?\b|безопасн|читер|вирус|взлом/i },
@@ -16,13 +16,13 @@
     { id: 'people', name: 'Люди и соцсети', re: /\b(interview|podcast|social media|stream\w*|ambassador)\b|соцсет|интервью|подкаст|стрим|амбассадор|блог/i }
   ];
   const TAG = Object.fromEntries(TAGS.map(t => [t.id, t]));
-  const SRC_COL = ['#F2B544', '#6EC3E8', '#7FD7A2', '#F08A7E', '#A99BF5', '#E9C46A', '#5CC8E6', '#F0A35E', '#C792EA'];
-  const tagsOf = (it) => { const s = it.title + ' ' + it.desc + ' ' + (it.cats || []).join(' '); const out = TAGS.filter(t => t.re.test(s)).map(t => t.id); return out.slice(0, 3); };
+  const SRC_COL = ['#F2B544', '#6EC3E8', '#7FD7A2', '#F08A7E', '#A99BF5', '#E9C46A', '#5CC8E6', '#F0A35E', '#C792EA', '#8FD3C7', '#F5A3C7', '#B5C96A', '#8AB4F8', '#E8A87C'];
+  const tagsOf = (it) => { const s = it.title + ' ' + it.desc + ' ' + (it.cats || []).join(' '); const out = TAGS.filter(t => t.re.test(s)).map(t => t.id); if (it.kind === 'strat' && !out.includes('strat')) out.unshift('strat'); return out.slice(0, 3); };
   const el = (t, c, txt) => { const e = document.createElement(t); if (c) e.className = c; if (txt != null) e.textContent = txt; return e; };
   const ST = (() => { try { return JSON.parse(localStorage.getItem('mda.news') || '{}') || {}; } catch (e) { return {}; } })();
   const save = () => { try { localStorage.setItem('mda.news', JSON.stringify({ tag: ST.tag, lang: ST.lang })); } catch (e) { /* без сохранения */ } };
   ST.tag = ST.tag || ''; ST.lang = ST.lang || ''; ST.q = '';
-  let DATA = null, loading = false;
+  let DATA = null, loading = false, SRCS = {};
 
   const ago = (t, now) => {
     const m = Math.round((now - t) / 60e3);
@@ -42,7 +42,7 @@
   const wrap = el('div', 'nw');
   const head = el('div', 'nw-head');
   const ht = el('div', 'nw-ht'); ht.append(el('h1', null, 'Лента новостей'));
-  const sub = el('p', 'nw-sub', 'Покерные новости за неделю из открытых лент сайтов'); ht.append(sub);
+  const sub = el('p', 'nw-sub', 'Покерные новости за месяц из открытых лент сайтов'); ht.append(sub);
   const refresh = el('button', 'btn nw-refresh'); refresh.type = 'button';
   refresh.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.6-6.4M21 4v5h-5"/></svg><span>Обновить</span>';
   refresh.onclick = () => load(true);
@@ -68,24 +68,25 @@
     meta.append(el('span', 'nw-lang-b', it.lang.toUpperCase()), el('span', 'nw-time', ago(it.date, now)));
     a.append(meta, el('h3', 'nw-title', it.title));
     if (it.desc) a.append(el('p', 'nw-desc', it.desc));
+    if (it.also && it.also.length) a.append(el('p', 'nw-also', 'Также пишут: ' + it.also.map(x => (SRCS[x.src] || { name: x.src }).name).join(', ')));
     const tg = el('div', 'nw-tags'); it.tags.forEach(t => tg.append(el('span', 'nw-tag t-' + t, TAG[t].name))); if (it.tags.length) a.append(tg);
     return a;
   }
 
   function draw() {
     if (!DATA) return;
-    const now = DATA.asOf || Date.now(), srcs = {};
+    const now = DATA.asOf || Date.now(), srcs = SRCS;
     (DATA.sources || []).forEach((s, i) => { srcs[s.id] = { name: s.name, color: SRC_COL[i % SRC_COL.length] }; });
     const all = DATA.items.map(it => Object.assign({}, it, { tags: tagsOf(it) }));
     const inLang = all.filter(it => !ST.lang || it.lang === ST.lang);
-    const week = inLang.filter(it => now - it.date < WEEK);
-    // чипы тем с числом материалов за неделю
+    const week = inLang.filter(it => now - it.date < MONTH);
+    // чипы тем с числом материалов за месяц
     chips.replaceChildren();
     const chip = (id, name, n) => { const b = el('button', 'nw-chip' + (id ? ' t-' + id : '')); b.type = 'button'; b.setAttribute('aria-pressed', String(ST.tag === id)); b.append(document.createTextNode(name), el('span', null, String(n))); b.onclick = () => { ST.tag = id; save(); draw(); }; chips.append(b); };
     chip('', 'Все', week.length);
     TAGS.forEach(t => { const n = week.filter(it => it.tags.includes(t.id)).length; if (n) chip(t.id, t.name, n); });
     langSeg.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === ST.lang));
-    // «Важно для вас»: софт и трекеры за две недели (касается работы с программой)
+    // «Важно для вас»: софт и трекеры (касается работы с программой)
     const q = ST.q, match = (it) => (!ST.tag || it.tags.includes(ST.tag)) && (!q || (it.title + ' ' + it.desc).toLowerCase().includes(q));
     const softT = (it) => TAG.soft.re.test(it.title) ? 1 : 0; // сначала те, где о софте сказано в заголовке
     const imp = inLang.filter(it => it.tags.includes('soft') && match(it)).sort((x, y) => softT(y) - softT(x) || y.date - x.date).slice(0, 3);
@@ -108,7 +109,7 @@
       grid.append(card(it, srcs[it.src] || { name: it.src, color: '#888' }, now, false));
     });
     const nSrc = new Set(DATA.items.map(it => it.src)).size;
-    sub.textContent = 'Покерные новости за неделю · ' + week.length + ' материалов из ' + nSrc + ' источников' + (DATA.updated ? ' · обновлено ' + new Date(DATA.updated).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) : '');
+    sub.textContent = 'Покерные новости за месяц · ' + week.length + ' материалов из ' + nSrc + ' источников' + (DATA.updated ? ' · обновлено ' + new Date(DATA.updated).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) : '');
     foot.textContent = (DATA.note ? DATA.note + ' ' : '') + 'Заголовки и описания — из открытых лент сайтов, полный текст открывается на сайте источника.' + (DATA.errors && DATA.errors.length ? ' Не ответили: ' + DATA.errors.map(e => e.src).join(', ') + '.' : '');
   }
 
@@ -122,7 +123,8 @@
   }
   // загрузка — когда раздел открыли впервые (и при запуске, если он открыт)
   const tab = document.getElementById('tabNews');
-  const onShow = () => { if (!root.hidden && !DATA) load(false); };
+  // при каждом открытии раздела — свежая лента (программа сама перекачивает её, если прошло больше 10 минут)
+  const onShow = () => { if (!root.hidden && !(DATA && DATA.asOf)) load(false); };
   if (tab) tab.addEventListener('click', onShow);
   setTimeout(onShow, 0);
 })();

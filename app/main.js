@@ -218,7 +218,10 @@ ipcMain.handle('import:run', (e, opts) => new Promise((resolve) => {
 ipcMain.handle('app:version', () => app.getVersion());
 // лента новостей (news.js): открытые RSS покерных сайтов, кэш в папке данных программы
 let NEWS = null;
-ipcMain.handle('news:get', (_e, force) => { if (!NEWS) NEWS = require('./news.js').make(app.getPath('userData')); return NEWS(!!force); });
+const newsFn = () => NEWS || (NEWS = require('./news.js').make(app.getPath('userData')));
+ipcMain.handle('news:get', (_e, force) => newsFn()(!!force));
+// новости собираются сами: через 15 с после запуска и каждые 3 часа, пока программа открыта (накапливаются за месяц)
+app.whenReady().then(() => { if (process.env.MDALAB_EVAL || process.env.MDALAB_TEST) return; const tick = () => newsFn()(false).catch(() => {}); setTimeout(tick, 15e3); setInterval(tick, 3 * 3600e3); });
 
 function createWindow() {
   win = new BrowserWindow({
