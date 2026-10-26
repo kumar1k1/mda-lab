@@ -1,0 +1,36 @@
+// Только для онлайн-превью: из браузера чужие RSS не читаются, поэтому здесь — снимок реальных новостей,
+// собранный вручную 26.10.2026 с сайтов-источников (заголовки, даты и ссылки — как на сайтах). В программе лента
+// загружается сама из RSS (app/news.js).
+window.NEWS_SNAPSHOT = (function () {
+  const d = (s) => Date.parse(s);
+  return {
+    updated: d('2026-10-26T21:40:00+03:00'), asOf: d('2026-10-26T21:40:00+03:00'),
+    note: 'Превью: снимок новостей на 26 октября.',
+    errors: [],
+    sources: [
+      { id: 'pokernews', name: 'PokerNews', lang: 'en' }, { id: 'pokerfuse', name: 'pokerfuse', lang: 'en' }, { id: 'pokertube', name: 'PokerTube', lang: 'en' },
+      { id: 'gamblingnews', name: 'GamblingNews', lang: 'en' }, { id: 'cardplayer', name: 'CardPlayer', lang: 'en' }, { id: 'pokerru', name: 'Poker.ru', lang: 'ru' },
+      { id: 'planpokera', name: 'Planpokera', lang: 'ru' }, { id: 'gipsyteam', name: 'GipsyTeam', lang: 'ru' }, { id: 'pokeroff', name: 'Pokeroff', lang: 'ru' }
+    ],
+    items: [
+      { src: 'pokerru', lang: 'ru', date: d('2026-10-26T12:00:00+03:00'), title: 'Новости недели: Адриан Матеос заслужил пурпурный пиджак Poker Masters, Сэм Фарха устроил драку с дилером', desc: 'Итоги недели: Матеос забрал пурпурный пиджак лучшего игрока серии Poker Masters, а Фарха поссорился с дилером.', link: 'https://poker.ru/mateos-zasluzhil-purpurnyj-pidzhak/' },
+      { src: 'planpokera', lang: 'ru', date: d('2026-10-26T10:00:00+03:00'), title: 'Jack Poker запустил акцию Daily Halloween Tasks с ежедневными выплатами и лотереей', desc: 'Хэллоуинская акция: ежедневные задания с выплатами и розыгрыш среди участников.', link: 'https://planpokera.com/jack-poker-daily-halloween-tasks/' },
+      { src: 'pokertube', lang: 'en', date: d('2026-10-23T18:00:00+03:00'), title: 'This Week in Poker News: October 19–23, 2026', desc: 'Seward denies Negreanu, Lithuanians close out KPC Poker in Jeju, Kolev wins WPT Prime Cyprus, GGPoker tightens its client.', link: 'https://www.pokertube.com/article/poker-news-week-october-19-23' },
+      { src: 'pokertube', lang: 'en', date: d('2026-10-23T16:00:00+03:00'), title: 'Seward Denies Negreanu for First PGT Title', desc: 'Nicholas Seward beat Daniel Negreanu heads-up to win the $26,000 Poker Masters Event #9 for $412,500.', link: 'https://www.pokertube.com/article/nick-seward-wins-poker-masters-event-9' },
+      { src: 'pokertube', lang: 'en', date: d('2026-10-23T15:00:00+03:00'), title: 'WSOP Super Circuit Rozvadov and Irish Open Marrakech on the Calendar', desc: 'Super Circuit Rozvadov runs October 28 – November 11 with a €3,000 Main Event guaranteeing €2 million; the Irish Open debuts in Marrakech on November 10–15.', link: 'https://www.pokertube.com/article/wsop-super-circuit-kings-rozvadov-has-a-2m-main-event' },
+      { src: 'pokerru', lang: 'ru', date: d('2026-10-23T14:00:00+03:00'), title: 'Кузнецова «разнесла» ChatGPT, Зубов вытащил тузы на четырех столах одновременно, «Иннер» провел необычный стрим: обзор социальных сетей', desc: 'Обзор соцсетей покерных игроков за неделю.', link: 'https://poker.ru/kuznetsova-raznes-chatgpt-obzor-sotssetej/' },
+      { src: 'planpokera', lang: 'ru', date: d('2026-10-23T12:00:00+03:00'), title: 'Poker Planets запускает отборочные турниры на Russian Poker Cup в Сочи', desc: 'Открыты отборочные на офлайн-турнир Russian Poker Cup в Сочи.', link: 'https://planpokera.com/poker-planets-russian-poker-cup/' },
+      { src: 'planpokera', lang: 'ru', date: d('2026-10-23T11:00:00+03:00'), title: 'MobilePokerClub разыграет $3,000 призового фонда в рамках серии MPS «Бинго»', desc: 'Серия MPS «Бинго» с призовым фондом $3,000.', link: 'https://planpokera.com/mobilepokerclub-seriya-mps-bingo/' },
+      { src: 'pokertube', lang: 'en', date: d('2026-10-23T10:00:00+03:00'), title: 'Kolev Runs the Table at WPT Prime Cyprus', desc: "Bulgaria's Ivelin Kolev won the $1,100 WPT Prime Cyprus Championship for $171,600, including a WPT World Championship seat.", link: 'https://www.pokertube.com/article/ivelin-kolev-wins-wpt-prime-cyprus-championship' },
+      { src: 'pokertube', lang: 'en', date: d('2026-10-23T09:00:00+03:00'), title: 'Ozturk Climbs to the Top of the MSPT Money List', desc: 'Umut Ozturk won the MSPT Spade Poker Championship for $280,290, his third MSPT title.', link: 'https://www.pokertube.com/article/umut-ozturk-wins-mspt-spade-poker-championship' },
+      { src: 'pokernews', lang: 'en', date: d('2026-10-22T19:00:00+03:00'), title: 'Police Raid Another Popular Texas Poker Room; Illegal Gambling Involved?', desc: 'Police raided the 101 Poker Club in Katy, Texas, detaining dealers and staff; the reason has not been disclosed.', link: 'https://pokernews.com/news/2026/10/101-poker-club-raided-52654.htm' },
+      { src: 'planpokera', lang: 'ru', date: d('2026-10-21T12:00:00+03:00'), title: 'ПОКЕРОК запустил Ocean KO — уникальный нокаут-формат со случайными выплатами за «выбивание»', desc: 'Новый нокаут-формат: выплата за выбитого соперника определяется случайно.', link: 'https://planpokera.com/pokerok-zapustil-ocean-ko/' },
+      { src: 'pokerru', lang: 'ru', date: d('2026-10-19T13:00:00+03:00'), title: 'Новости недели: Виталий Заворотный выиграл в турнире Poker Masters, Брин Кенни судится с GGPoker', desc: 'Заворотный стал победителем турнира Poker Masters, а Кенни подал иск против GGPoker.', link: 'https://poker.ru/zavorotnyj-vyigral-v-poker-masters/' },
+      { src: 'gamblingnews', lang: 'en', date: d('2026-10-19T12:00:00+03:00'), title: 'Americas Cardroom Puts ScreenShield On by Default for Every Player', desc: 'From November 4, WPN turns on ScreenShield for all ACR players: protected table content is blocked from screen capture and sharing.', link: 'https://www.gamblingnews.com/news/americas-cardroom-puts-screenshield-on-by-default-for-every-player/' },
+      { src: 'pokertube', lang: 'en', date: d('2026-10-19T06:46:00+03:00'), title: 'Mateos and Vaysman Collect Poker Masters Trophies', desc: 'Adrian Mateos won Event #5 for $229,500 against Nick Schulman; Justin Vaysman took Event #6 for $192,000 after a comeback from a short stack.', link: 'https://www.pokertube.com/article/adrian-mateos-wins-poker-masters-event-5' },
+      { src: 'planpokera', lang: 'ru', date: d('2026-10-19T10:00:00+03:00'), title: 'Jack Poker запустил временный BBJ Lucky Loss Jackpot с компенсацией до 100 ББ стола', desc: 'Временный джекпот за проигрыш с сильной рукой — компенсация до 100 больших блайндов стола.', link: 'https://planpokera.com/jack-poker-bbj-lucky-loss-jackpot/' },
+      { src: 'pokertube', lang: 'en', date: d('2026-10-15T15:00:00+03:00'), title: 'GGPoker Tightens Up Its Client: Third-Party Tools Banned', desc: 'HUDs, trackers and automation tools (PokerTracker 4, Hand2Note, Hold\'em Manager 3 and others) must be fully closed before launching the GGPoker client.', link: 'https://www.pokertube.com/article/ggpoker-bans-third-party-tools' },
+      { src: 'gamblingnews', lang: 'en', date: d('2026-10-15T12:00:00+03:00'), title: 'Poker Legend Sues GGPoker over Commission Disputes', desc: 'Former ambassador Bryn Kenney sues the operator for unpaid commissions, alleging breach of contract and fraud.', link: 'https://www.gamblingnews.com/news/poker-legend-sues-ggpoker-over-commission-disputes/' }
+    ]
+  };
+})();

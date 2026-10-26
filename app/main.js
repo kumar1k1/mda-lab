@@ -216,6 +216,9 @@ ipcMain.handle('import:run', (e, opts) => new Promise((resolve) => {
   w.on('error', (err) => { if (!append) fs.rmSync(tmp, { recursive: true, force: true }); resolve({ type: 'error', message: String(err && err.message || err) }); });
 }));
 ipcMain.handle('app:version', () => app.getVersion());
+// лента новостей (news.js): открытые RSS покерных сайтов, кэш в папке данных программы
+let NEWS = null;
+ipcMain.handle('news:get', (_e, force) => { if (!NEWS) NEWS = require('./news.js').make(app.getPath('userData')); return NEWS(!!force); });
 
 function createWindow() {
   win = new BrowserWindow({

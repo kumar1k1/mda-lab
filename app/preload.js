@@ -30,6 +30,7 @@ contextBridge.exposeInMainWorld('mda', {
   pathOf: (file) => { try { return webUtils.getPathForFile(file) || ''; } catch (e) { return ''; } },
   droppedPaths: (paths) => ipcRenderer.invoke('import:paths', Array.from(paths || []).map(String)),
   version: () => ipcRenderer.invoke('app:version'),
+  newsGet: (force) => ipcRenderer.invoke('news:get', !!force),
   // только для автотестов: выбрать папку без диалога
   scanPathsForTest: (process.env.MDALAB_EVAL || process.env.MDALAB_SNAPSHOT || process.env.MDALAB_TEST) ? (paths) => ipcRenderer.invoke('import:paths', paths) : undefined
 });

@@ -68,6 +68,7 @@
   window.mda = {
     dbMeta: async () => { if (META !== undefined) return META; try { const r = await fetch(BASE + 'meta.json'); META = r.ok ? await r.json() : null; } catch (e) { META = null; } return META; },
     dbCol: async (name) => { try { return await b64('c_' + name + '.bin'); } catch (e) { return null; } },
+    newsGet: async () => window.NEWS_SNAPSHOT || { updated: 0, items: [], errors: [], sources: [] },
     replaysFor: async (ids) => {
       if (!IDX) { try { const u = await b64('rp.idx'); IDX = u ? new DataView(u.buffer) : new DataView(new ArrayBuffer(0)); } catch (e) { IDX = new DataView(new ArrayBuffer(0)); } }
       const refs = [];

@@ -1055,6 +1055,60 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .soon-card h2{margin:0;font-family:var(--display);font-size:20px;color:var(--text)}
 .soon-card p{margin:0;font-size:14px}
 @media (max-width:760px){.apptabs{gap:10px;padding:0 12px}.apptabs .brand span{display:none}.apptab{padding:0 10px;font-size:13px}.apptab svg{display:none}}
+/* лента новостей */
+.news-page{overflow:auto;display:block}
+.nw{max-width:1240px;margin:0 auto;padding:22px 24px 40px;display:flex;flex-direction:column;gap:16px}
+.nw-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px}
+.nw-ht h1{margin:0;font-family:var(--display);font-size:28px;font-weight:800;letter-spacing:-.02em}
+.nw-sub{margin:4px 0 0;color:var(--muted);font-size:13.5px}
+.nw-refresh{display:inline-flex;align-items:center;gap:8px}
+.nw-refresh.spin svg{animation:rvspin .9s linear infinite}
+.nw-bar{display:flex;align-items:center;justify-content:space-between;gap:12px 20px;flex-wrap:wrap;position:sticky;top:0;z-index:2;padding:10px 0;background:var(--bg);border-bottom:1px solid var(--line)}
+.nw-chips{display:flex;gap:6px;flex-wrap:wrap}
+.nw-chip{display:inline-flex;align-items:center;gap:7px;min-height:32px;padding:0 12px;border-radius:999px;border:1px solid var(--line2);background:var(--panel);color:var(--soft);font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+.nw-chip span{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+.nw-chip:hover{color:var(--text);border-color:var(--muted)}
+.nw-chip[aria-pressed="true"]{background:rgba(var(--amber-rgb),.18);border-color:var(--amber);color:var(--text)}
+.nw-chip[aria-pressed="true"] span{color:var(--amber)}
+.nw-right{display:flex;align-items:center;gap:10px}
+.nw-lang button{min-height:32px;padding:0 12px}
+.nw-search{min-height:34px;width:220px;padding:0 12px;border-radius:9px;border:1px solid var(--line2);background:var(--panel);color:var(--text);font:inherit;font-size:13px}
+.nw-search:focus{outline:2px solid var(--amber);outline-offset:-1px}
+.nw-body{display:flex;flex-direction:column;gap:22px}
+.nw-imp{border:1px solid rgba(var(--amber-rgb),.55);background:linear-gradient(180deg,rgba(var(--amber-rgb),.10),rgba(var(--amber-rgb),.03));border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:12px}
+.nw-imp-h{display:flex;align-items:center;flex-wrap:wrap;gap:4px 8px;color:var(--amber);font-size:13px}
+.nw-imp-h b{font-size:14px}.nw-imp-h span{color:var(--soft)}
+.nw-imp-g{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px}
+.nw-day h2{margin:0 0 10px;font-size:13px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.nw-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.nw-card{display:flex;flex-direction:column;gap:8px;padding:14px 16px 14px;border-radius:14px;background:var(--panel);border:1px solid var(--line);color:inherit;text-decoration:none;transition:border-color .15s,transform .15s}
+.nw-card:hover{border-color:var(--muted);transform:translateY(-1px)}
+.nw-card:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.nw-card.big{background:var(--card)}
+.nw-img{margin:-14px -16px 2px;aspect-ratio:16/8;overflow:hidden;border-radius:14px 14px 0 0;background:var(--card2)}
+.nw-img img{width:100%;height:100%;object-fit:cover;display:block}
+.nw-meta{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.nw-src{display:inline-flex;align-items:center;gap:6px;font-weight:800;color:var(--soft)}
+.nw-src i{width:8px;height:8px;border-radius:50%;background:var(--c)}
+.nw-lang-b{font-family:var(--mono);font-size:10.5px;padding:1px 5px;border-radius:4px;border:1px solid var(--line2)}
+.nw-time{margin-left:auto}
+.nw-title{margin:0;font-size:15.5px;line-height:1.35;font-weight:800;color:var(--text);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.nw-card.big .nw-title{font-size:17px}
+.nw-desc{margin:0;font-size:13px;line-height:1.5;color:var(--soft);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.nw-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:auto;padding-top:4px}
+.nw-tag{font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--card2);color:var(--soft)}
+.t-soft.nw-tag{background:rgba(242,181,68,.16);color:#F2C46A}
+.t-sec.nw-tag{background:rgba(240,125,109,.15);color:#F49A8C}
+.t-law.nw-tag{background:rgba(169,155,245,.16);color:#BDB2F8}
+.t-tour.nw-tag{background:rgba(92,200,230,.14);color:#7FD3EC}
+.t-win.nw-tag{background:rgba(95,211,154,.14);color:#7FDDAE}
+.t-promo.nw-tag{background:rgba(240,163,94,.15);color:#F4B57E}
+.t-strat.nw-tag{background:rgba(168,214,114,.15);color:#BCE08F}
+.t-people.nw-tag{background:rgba(199,146,234,.15);color:#D3A9EF}
+.nw-empty{display:flex;flex-direction:column;align-items:center;gap:4px;padding:40px;color:var(--muted);text-align:center}
+.nw-empty b{color:var(--text)}
+.nw-foot{margin:0;font-size:12px;color:var(--muted)}
+@media (max-width:760px){.nw{padding:14px 16px 30px}.nw-head{align-items:flex-start}.nw-refresh span{display:none}.nw-right{width:100%}.nw-search{flex:1;width:auto;min-width:0}.nw-imp-g,.nw-grid{grid-template-columns:1fr}.nw-ht h1{font-size:23px}}
 
 /* Дополнения только для онлайн-превью: тёмная тема и узкие экраны */
 :root{color-scheme:dark}
@@ -1343,6 +1397,7 @@ body{padding-left:max(0px, env(safe-area-inset-left, 0px));padding-right:max(0px
   window.mda = {
     dbMeta: async () => { if (META !== undefined) return META; try { const r = await fetch(BASE + 'meta.json'); META = r.ok ? await r.json() : null; } catch (e) { META = null; } return META; },
     dbCol: async (name) => { try { return await b64('c_' + name + '.bin'); } catch (e) { return null; } },
+    newsGet: async () => window.NEWS_SNAPSHOT || { updated: 0, items: [], errors: [], sources: [] },
     replaysFor: async (ids) => {
       if (!IDX) { try { const u = await b64('rp.idx'); IDX = u ? new DataView(u.buffer) : new DataView(new ArrayBuffer(0)); } catch (e) { IDX = new DataView(new ArrayBuffer(0)); } }
       const refs = [];
@@ -5253,6 +5308,176 @@ function resEl(net) {
 .rv-actg.t-f .rv-act{fill:#5F687B}
 .rv-eq{fill:rgba(8,10,14,.85);stroke:#7FD7A2;stroke-width:1.2}.rv-eq-t{font-family:'JetBrains Mono',Consolas,monospace;font-size:12.5px;font-weight:700;fill:#7FD7A2}`;
   const st = document.createElement('style'); st.textContent = RV_SVG_CSS; document.head.append(st);
+})();
+
+</script>
+<script>
+// Только для онлайн-превью: из браузера чужие RSS не читаются, поэтому здесь — снимок реальных новостей,
+// собранный вручную 26.10.2026 с сайтов-источников (заголовки, даты и ссылки — как на сайтах). В программе лента
+// загружается сама из RSS (app/news.js).
+window.NEWS_SNAPSHOT = (function () {
+  const d = (s) => Date.parse(s);
+  return {
+    updated: d('2026-10-26T21:40:00+03:00'), asOf: d('2026-10-26T21:40:00+03:00'),
+    note: 'Превью: снимок новостей на 26 октября.',
+    errors: [],
+    sources: [
+      { id: 'pokernews', name: 'PokerNews', lang: 'en' }, { id: 'pokerfuse', name: 'pokerfuse', lang: 'en' }, { id: 'pokertube', name: 'PokerTube', lang: 'en' },
+      { id: 'gamblingnews', name: 'GamblingNews', lang: 'en' }, { id: 'cardplayer', name: 'CardPlayer', lang: 'en' }, { id: 'pokerru', name: 'Poker.ru', lang: 'ru' },
+      { id: 'planpokera', name: 'Planpokera', lang: 'ru' }, { id: 'gipsyteam', name: 'GipsyTeam', lang: 'ru' }, { id: 'pokeroff', name: 'Pokeroff', lang: 'ru' }
+    ],
+    items: [
+      { src: 'pokerru', lang: 'ru', date: d('2026-10-26T12:00:00+03:00'), title: 'Новости недели: Адриан Матеос заслужил пурпурный пиджак Poker Masters, Сэм Фарха устроил драку с дилером', desc: 'Итоги недели: Матеос забрал пурпурный пиджак лучшего игрока серии Poker Masters, а Фарха поссорился с дилером.', link: 'https://poker.ru/mateos-zasluzhil-purpurnyj-pidzhak/' },
+      { src: 'planpokera', lang: 'ru', date: d('2026-10-26T10:00:00+03:00'), title: 'Jack Poker запустил акцию Daily Halloween Tasks с ежедневными выплатами и лотереей', desc: 'Хэллоуинская акция: ежедневные задания с выплатами и розыгрыш среди участников.', link: 'https://planpokera.com/jack-poker-daily-halloween-tasks/' },
+      { src: 'pokertube', lang: 'en', date: d('2026-10-23T18:00:00+03:00'), title: 'This Week in Poker News: October 19–23, 2026', desc: 'Seward denies Negreanu, Lithuanians close out KPC Poker in Jeju, Kolev wins WPT Prime Cyprus, GGPoker tightens its client.', link: 'https://www.pokertube.com/article/poker-news-week-october-19-23' },
+      { src: 'pokertube', lang: 'en', date: d('2026-10-23T16:00:00+03:00'), title: 'Seward Denies Negreanu for First PGT Title', desc: 'Nicholas Seward beat Daniel Negreanu heads-up to win the $26,000 Poker Masters Event #9 for $412,500.', link: 'https://www.pokertube.com/article/nick-seward-wins-poker-masters-event-9' },
+      { src: 'pokertube', lang: 'en', date: d('2026-10-23T15:00:00+03:00'), title: 'WSOP Super Circuit Rozvadov and Irish Open Marrakech on the Calendar', desc: 'Super Circuit Rozvadov runs October 28 – November 11 with a €3,000 Main Event guaranteeing €2 million; the Irish Open debuts in Marrakech on November 10–15.', link: 'https://www.pokertube.com/article/wsop-super-circuit-kings-rozvadov-has-a-2m-main-event' },
+      { src: 'pokerru', lang: 'ru', date: d('2026-10-23T14:00:00+03:00'), title: 'Кузнецова «разнесла» ChatGPT, Зубов вытащил тузы на четырех столах одновременно, «Иннер» провел необычный стрим: обзор социальных сетей', desc: 'Обзор соцсетей покерных игроков за неделю.', link: 'https://poker.ru/kuznetsova-raznes-chatgpt-obzor-sotssetej/' },
+      { src: 'planpokera', lang: 'ru', date: d('2026-10-23T12:00:00+03:00'), title: 'Poker Planets запускает отборочные турниры на Russian Poker Cup в Сочи', desc: 'Открыты отборочные на офлайн-турнир Russian Poker Cup в Сочи.', link: 'https://planpokera.com/poker-planets-russian-poker-cup/' },
+      { src: 'planpokera', lang: 'ru', date: d('2026-10-23T11:00:00+03:00'), title: 'MobilePokerClub разыграет $3,000 призового фонда в рамках серии MPS «Бинго»', desc: 'Серия MPS «Бинго» с призовым фондом $3,000.', link: 'https://planpokera.com/mobilepokerclub-seriya-mps-bingo/' },
+      { src: 'pokertube', lang: 'en', date: d('2026-10-23T10:00:00+03:00'), title: 'Kolev Runs the Table at WPT Prime Cyprus', desc: "Bulgaria's Ivelin Kolev won the $1,100 WPT Prime Cyprus Championship for $171,600, including a WPT World Championship seat.", link: 'https://www.pokertube.com/article/ivelin-kolev-wins-wpt-prime-cyprus-championship' },
+      { src: 'pokertube', lang: 'en', date: d('2026-10-23T09:00:00+03:00'), title: 'Ozturk Climbs to the Top of the MSPT Money List', desc: 'Umut Ozturk won the MSPT Spade Poker Championship for $280,290, his third MSPT title.', link: 'https://www.pokertube.com/article/umut-ozturk-wins-mspt-spade-poker-championship' },
+      { src: 'pokernews', lang: 'en', date: d('2026-10-22T19:00:00+03:00'), title: 'Police Raid Another Popular Texas Poker Room; Illegal Gambling Involved?', desc: 'Police raided the 101 Poker Club in Katy, Texas, detaining dealers and staff; the reason has not been disclosed.', link: 'https://pokernews.com/news/2026/10/101-poker-club-raided-52654.htm' },
+      { src: 'planpokera', lang: 'ru', date: d('2026-10-21T12:00:00+03:00'), title: 'ПОКЕРОК запустил Ocean KO — уникальный нокаут-формат со случайными выплатами за «выбивание»', desc: 'Новый нокаут-формат: выплата за выбитого соперника определяется случайно.', link: 'https://planpokera.com/pokerok-zapustil-ocean-ko/' },
+      { src: 'pokerru', lang: 'ru', date: d('2026-10-19T13:00:00+03:00'), title: 'Новости недели: Виталий Заворотный выиграл в турнире Poker Masters, Брин Кенни судится с GGPoker', desc: 'Заворотный стал победителем турнира Poker Masters, а Кенни подал иск против GGPoker.', link: 'https://poker.ru/zavorotnyj-vyigral-v-poker-masters/' },
+      { src: 'gamblingnews', lang: 'en', date: d('2026-10-19T12:00:00+03:00'), title: 'Americas Cardroom Puts ScreenShield On by Default for Every Player', desc: 'From November 4, WPN turns on ScreenShield for all ACR players: protected table content is blocked from screen capture and sharing.', link: 'https://www.gamblingnews.com/news/americas-cardroom-puts-screenshield-on-by-default-for-every-player/' },
+      { src: 'pokertube', lang: 'en', date: d('2026-10-19T06:46:00+03:00'), title: 'Mateos and Vaysman Collect Poker Masters Trophies', desc: 'Adrian Mateos won Event #5 for $229,500 against Nick Schulman; Justin Vaysman took Event #6 for $192,000 after a comeback from a short stack.', link: 'https://www.pokertube.com/article/adrian-mateos-wins-poker-masters-event-5' },
+      { src: 'planpokera', lang: 'ru', date: d('2026-10-19T10:00:00+03:00'), title: 'Jack Poker запустил временный BBJ Lucky Loss Jackpot с компенсацией до 100 ББ стола', desc: 'Временный джекпот за проигрыш с сильной рукой — компенсация до 100 больших блайндов стола.', link: 'https://planpokera.com/jack-poker-bbj-lucky-loss-jackpot/' },
+      { src: 'pokertube', lang: 'en', date: d('2026-10-15T15:00:00+03:00'), title: 'GGPoker Tightens Up Its Client: Third-Party Tools Banned', desc: 'HUDs, trackers and automation tools (PokerTracker 4, Hand2Note, Hold\'em Manager 3 and others) must be fully closed before launching the GGPoker client.', link: 'https://www.pokertube.com/article/ggpoker-bans-third-party-tools' },
+      { src: 'gamblingnews', lang: 'en', date: d('2026-10-15T12:00:00+03:00'), title: 'Poker Legend Sues GGPoker over Commission Disputes', desc: 'Former ambassador Bryn Kenney sues the operator for unpaid commissions, alleging breach of contract and fraud.', link: 'https://www.gamblingnews.com/news/poker-legend-sues-ggpoker-over-commission-disputes/' }
+    ]
+  };
+})();
+
+</script>
+<script>
+'use strict';
+// Лента новостей: материалы покерных сайтов за неделю (заголовок, описание, ссылка на источник).
+// Теги ставятся здесь по словам заголовка, описания и рубрик сайта; материалы про трекеры, HUD и софт
+// поднимаются наверх отдельным блоком «Важно для вас» — они касаются работы с этой программой.
+(function () {
+  const root = document.getElementById('pgNews'); if (!root) return;
+  const DAY = 864e5, WEEK = 7 * DAY;
+  const TAGS = [
+    { id: 'soft', name: 'Софт и трекеры', re: /\b(hud|huds|tracker|trackers|hand2note|pokertracker|holdem manager|hold'em manager|software|third-party|screenshield|rta|real-time assistance|client)\b|трекер|софт|худ|программ|клиент/i },
+    { id: 'sec', name: 'Честная игра', re: /\b(cheat|cheating|cheater|bot|bots|superuser|superusers|security|malware|collusion|hack|hacked|integrity|fraud)\b|мошен|суперюзер|бот[аыов]?\b|безопасн|читер|вирус|взлом/i },
+    { id: 'law', name: 'Законы и регулирование', re: /\b(regulat\w*|legal\w*|law|laws|licen[cs]\w*|court|sues|sued|lawsuit|police|raid|raided|bill|gambling ban)\b|закон|лиценз|суд|регулир|запрет|полици/i },
+    { id: 'tour', name: 'Турниры и серии', re: /\b(series|festival|championship|main event|guarantee[ds]?|gtd|schedule|calendar|satellite|qualif\w*|wsop|ept|wpt|pgt|poker masters|circuit|scoop|wcoop|sunday)\b|сери[яиюей]|турнир|фестивал|гарант|отбор|сателлит|расписан|воскресник/i },
+    { id: 'win', name: 'Результаты', re: /\b(wins?|won|winner|victory|title|bracelet|trophy|trophies|champion|runs the table|denies|crowned|final table)\b|выиграл|побед|чемпион|браслет|финальн|пиджак/i },
+    { id: 'promo', name: 'Румы и акции', re: /\b(promo\w*|rakeback|bonus|leaderboard|jackpot|freeroll\w*|happy hour|giveaway)\b|акци[яиюей]|рейкбек|бонус|лидерборд|джекпот|фриролл|запустил|розыгрыш|разыграет/i },
+    { id: 'strat', name: 'Стратегия', re: /\b(strategy|tips|how to|gto|solver|lesson|mistakes|exploit\w*)\b|стратег|совет|разбор|ошибк|обучен/i },
+    { id: 'people', name: 'Люди и соцсети', re: /\b(interview|podcast|social media|stream\w*|ambassador)\b|соцсет|интервью|подкаст|стрим|амбассадор|блог/i }
+  ];
+  const TAG = Object.fromEntries(TAGS.map(t => [t.id, t]));
+  const SRC_COL = ['#F2B544', '#6EC3E8', '#7FD7A2', '#F08A7E', '#A99BF5', '#E9C46A', '#5CC8E6', '#F0A35E', '#C792EA'];
+  const tagsOf = (it) => { const s = it.title + ' ' + it.desc + ' ' + (it.cats || []).join(' '); const out = TAGS.filter(t => t.re.test(s)).map(t => t.id); return out.slice(0, 3); };
+  const el = (t, c, txt) => { const e = document.createElement(t); if (c) e.className = c; if (txt != null) e.textContent = txt; return e; };
+  const ST = (() => { try { return JSON.parse(localStorage.getItem('mda.news') || '{}') || {}; } catch (e) { return {}; } })();
+  const save = () => { try { localStorage.setItem('mda.news', JSON.stringify({ tag: ST.tag, lang: ST.lang })); } catch (e) { /* без сохранения */ } };
+  ST.tag = ST.tag || ''; ST.lang = ST.lang || ''; ST.q = '';
+  let DATA = null, loading = false;
+
+  const ago = (t, now) => {
+    const m = Math.round((now - t) / 60e3);
+    if (m < 60) return Math.max(1, m) + ' мин назад';
+    const h = Math.round(m / 60); if (h < 24) return h + ' ч назад';
+    const d = Math.floor((now - t) / DAY); return d === 1 ? 'вчера' : d + ' дн. назад';
+  };
+  const dayName = (t, now) => {
+    const a = new Date(t), b = new Date(now); a.setHours(0, 0, 0, 0); b.setHours(0, 0, 0, 0);
+    const d = Math.round((b - a) / DAY);
+    if (d === 0) return 'Сегодня'; if (d === 1) return 'Вчера';
+    return new Date(t).toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' }).replace(/^./, c => c.toUpperCase());
+  };
+
+  // ---------- каркас ----------
+  root.classList.remove('page-soon'); root.classList.add('news-page'); root.replaceChildren();
+  const wrap = el('div', 'nw');
+  const head = el('div', 'nw-head');
+  const ht = el('div', 'nw-ht'); ht.append(el('h1', null, 'Лента новостей'));
+  const sub = el('p', 'nw-sub', 'Покерные новости за неделю из открытых лент сайтов'); ht.append(sub);
+  const refresh = el('button', 'btn nw-refresh'); refresh.type = 'button';
+  refresh.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.6-6.4M21 4v5h-5"/></svg><span>Обновить</span>';
+  refresh.onclick = () => load(true);
+  head.append(ht, refresh);
+  const bar = el('div', 'nw-bar');
+  const chips = el('div', 'nw-chips'); chips.setAttribute('role', 'group'); chips.setAttribute('aria-label', 'Темы');
+  const right = el('div', 'nw-right');
+  const langSeg = el('div', 'seg bx-seg nw-lang'); langSeg.setAttribute('role', 'group'); langSeg.setAttribute('aria-label', 'Язык');
+  [['', 'Все'], ['ru', 'RU'], ['en', 'EN']].forEach(([v, l]) => { const b = el('button', null, l); b.type = 'button'; b.dataset.v = v; b.onclick = () => { ST.lang = v; save(); draw(); }; langSeg.append(b); });
+  const search = el('input', 'nw-search'); search.type = 'search'; search.placeholder = 'Поиск по новостям'; search.setAttribute('aria-label', 'Поиск по новостям');
+  search.oninput = () => { ST.q = search.value.trim().toLowerCase(); draw(); };
+  right.append(langSeg, search);
+  bar.append(chips, right);
+  const body = el('div', 'nw-body');
+  const foot = el('p', 'nw-foot');
+  wrap.append(head, bar, body, foot); root.append(wrap);
+
+  function card(it, src, now, big) {
+    const a = el('a', 'nw-card' + (big ? ' big' : '')); a.href = it.link; a.target = '_blank'; a.rel = 'noopener noreferrer';
+    if (it.img) { const im = el('div', 'nw-img'); const i = el('img'); i.src = it.img; i.alt = ''; i.loading = 'lazy'; i.onerror = () => im.remove(); im.append(i); a.append(im); }
+    const meta = el('div', 'nw-meta');
+    const s = el('span', 'nw-src'); s.style.setProperty('--c', src.color); s.append(el('i'), document.createTextNode(src.name)); meta.append(s);
+    meta.append(el('span', 'nw-lang-b', it.lang.toUpperCase()), el('span', 'nw-time', ago(it.date, now)));
+    a.append(meta, el('h3', 'nw-title', it.title));
+    if (it.desc) a.append(el('p', 'nw-desc', it.desc));
+    const tg = el('div', 'nw-tags'); it.tags.forEach(t => tg.append(el('span', 'nw-tag t-' + t, TAG[t].name))); if (it.tags.length) a.append(tg);
+    return a;
+  }
+
+  function draw() {
+    if (!DATA) return;
+    const now = DATA.asOf || Date.now(), srcs = {};
+    (DATA.sources || []).forEach((s, i) => { srcs[s.id] = { name: s.name, color: SRC_COL[i % SRC_COL.length] }; });
+    const all = DATA.items.map(it => Object.assign({}, it, { tags: tagsOf(it) }));
+    const inLang = all.filter(it => !ST.lang || it.lang === ST.lang);
+    const week = inLang.filter(it => now - it.date < WEEK);
+    // чипы тем с числом материалов за неделю
+    chips.replaceChildren();
+    const chip = (id, name, n) => { const b = el('button', 'nw-chip' + (id ? ' t-' + id : '')); b.type = 'button'; b.setAttribute('aria-pressed', String(ST.tag === id)); b.append(document.createTextNode(name), el('span', null, String(n))); b.onclick = () => { ST.tag = id; save(); draw(); }; chips.append(b); };
+    chip('', 'Все', week.length);
+    TAGS.forEach(t => { const n = week.filter(it => it.tags.includes(t.id)).length; if (n) chip(t.id, t.name, n); });
+    langSeg.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === ST.lang));
+    // «Важно для вас»: софт и трекеры за две недели (касается работы с программой)
+    const q = ST.q, match = (it) => (!ST.tag || it.tags.includes(ST.tag)) && (!q || (it.title + ' ' + it.desc).toLowerCase().includes(q));
+    const softT = (it) => TAG.soft.re.test(it.title) ? 1 : 0; // сначала те, где о софте сказано в заголовке
+    const imp = inLang.filter(it => it.tags.includes('soft') && match(it)).sort((x, y) => softT(y) - softT(x) || y.date - x.date).slice(0, 3);
+    const impSet = new Set(imp.map(it => it.link));
+    const list = week.filter(it => match(it) && !impSet.has(it.link));
+    body.replaceChildren();
+    if (imp.length) {
+      const box = el('section', 'nw-imp'); box.setAttribute('aria-label', 'Важно для вас');
+      const h = el('div', 'nw-imp-h'); h.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>';
+      h.append(el('b', null, 'Важно для вас'), el('span', null, 'касается трекеров, HUD и софта рядом с клиентом рума'));
+      const g = el('div', 'nw-imp-g'); imp.forEach(it => g.append(card(it, srcs[it.src] || { name: it.src, color: '#888' }, now, true)));
+      box.append(h, g); body.append(box);
+    }
+    if (!list.length && !imp.length) { const e = el('div', 'nw-empty'); e.append(el('b', null, 'Ничего не найдено'), el('span', null, 'Измените тему, язык или поиск.')); body.append(e); }
+    // по дням
+    let cur = null, grid = null;
+    list.forEach(it => {
+      const d = dayName(it.date, now);
+      if (d !== cur) { cur = d; const sec = el('section', 'nw-day'); sec.append(el('h2', null, d)); grid = el('div', 'nw-grid'); sec.append(grid); body.append(sec); }
+      grid.append(card(it, srcs[it.src] || { name: it.src, color: '#888' }, now, false));
+    });
+    const nSrc = new Set(DATA.items.map(it => it.src)).size;
+    sub.textContent = 'Покерные новости за неделю · ' + week.length + ' материалов из ' + nSrc + ' источников' + (DATA.updated ? ' · обновлено ' + new Date(DATA.updated).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) : '');
+    foot.textContent = (DATA.note ? DATA.note + ' ' : '') + 'Заголовки и описания — из открытых лент сайтов, полный текст открывается на сайте источника.' + (DATA.errors && DATA.errors.length ? ' Не ответили: ' + DATA.errors.map(e => e.src).join(', ') + '.' : '');
+  }
+
+  async function load(force) {
+    if (loading || !window.mda || !window.mda.newsGet) return;
+    loading = true; refresh.disabled = true; refresh.classList.add('spin');
+    if (!DATA) body.replaceChildren(el('div', 'nw-empty', 'Загружаю новости…'));
+    try { DATA = await window.mda.newsGet(force); } catch (e) { if (!DATA) body.replaceChildren(el('div', 'nw-empty', 'Не удалось загрузить новости: ' + e.message)); }
+    loading = false; refresh.disabled = false; refresh.classList.remove('spin');
+    draw();
+  }
+  // загрузка — когда раздел открыли впервые (и при запуске, если он открыт)
+  const tab = document.getElementById('tabNews');
+  const onShow = () => { if (!root.hidden && !DATA) load(false); };
+  if (tab) tab.addEventListener('click', onShow);
+  setTimeout(onShow, 0);
 })();
 
 </script>
