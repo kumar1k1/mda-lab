@@ -1020,7 +1020,9 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .rv-stb:hover:not(:disabled){background:var(--card2);color:var(--text)}
 .rv-stb.on{background:rgba(var(--amber-rgb),.2);color:var(--text)}
 .rv-stb:disabled{opacity:.3;cursor:default}
-.rv-ib.on{background:rgba(var(--amber-rgb),.22);color:var(--amber)}
+.rv-ib.tg{color:var(--text)}
+.rv-ib.tg:hover:not(:disabled){color:var(--amber)}
+.rv-ib.on,.rv-ib.on:hover:not(:disabled){background:rgba(var(--amber-rgb),.22);color:var(--amber)}
 .rv-speed{margin-left:0}
 .rv-speed button{min-height:30px;padding:0 10px}
 .rv-now{margin-left:auto;font-size:14px;font-weight:700;color:var(--text);min-height:20px;text-align:right}

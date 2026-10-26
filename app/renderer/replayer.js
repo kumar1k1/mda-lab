@@ -52,6 +52,7 @@
   const SUITCH = { s: '♠', h: '♥', d: '♦', c: '♣' };
   const SUITCOL = { s: '#1B1D22', h: '#D23B3B', d: '#2F6FE0', c: '#1E8A4C' };
   const STREET = ['Префлоп', 'Флоп', 'Тёрн', 'Ривер', 'Итог'];
+  const posClass = (p) => /^(UTG|EP)/.test(p) ? 'p-ep' : /^(MP|LJ)/.test(p) ? 'p-mp' : p === 'HJ' ? 'p-hj' : p === 'CO' ? 'p-co' : p === 'BTN' ? 'p-bt' : p === 'SB' ? 'p-sb' : p === 'BB' ? 'p-bb' : '';
   const ru = (t) => String(t).replace(/(\d)\.(\d)/g, '$1,$2'); // десятичная запятая
   const W = 1000, H = 718, CX = 500, CY = 370;
   // карта: белая плашка, ранг и масть; без кода — рубашка
@@ -197,7 +198,7 @@
       eyeB.innerHTML = ic(PREF.hide ? EYE_ON : EYE_OFF); eyeB.title = t; eyeB.setAttribute('aria-label', t);
       eyeB.classList.toggle('on', PREF.hide); eyeB.setAttribute('aria-pressed', String(PREF.hide));
     }
-    eyeState();
+    eyeB.classList.add('tg'); eyeState();
     // ники за столом: кнопка с человечком (зачёркнут — ники скрыты); выбор общий для всех раздач
     const NAMES = Array.isArray(rp.nm) && rp.nm.some(Boolean) ? rp.nm : null;
     const MAN = '<circle cx="12" cy="7.5" r="3.5"/><path d="M5 20c.8-3.7 3.6-6 7-6s6.2 2.3 7 6"/>';
@@ -205,9 +206,9 @@
     function nameState() {
       const t = !NAMES ? 'Ники есть у раздач, загруженных после обновления программы' : PREF.names ? 'Ники игроков показаны — нажмите, чтобы скрыть (N)' : 'Ники игроков скрыты — нажмите, чтобы показать (N)';
       nameB.innerHTML = ic(MAN + (PREF.names && NAMES ? '' : '<path d="M3 3l18 18"/>')); nameB.title = t; nameB.setAttribute('aria-label', t);
-      nameB.setAttribute('aria-pressed', String(PREF.names)); nameB.classList.toggle('dim', !NAMES);
+      nameB.setAttribute('aria-pressed', String(PREF.names)); nameB.classList.toggle('dim', !NAMES); nameB.classList.toggle('on', PREF.names && !!NAMES);
     }
-    nameState();
+    nameB.classList.add('tg'); nameState();
     const L = CUR.list, p = CUR.pos;
     const prevB = ib('Предыдущая раздача (PgUp)', ic('<path d="M6 5v14M18 6l-8 6 8 6z"/>'), () => step(-1)); prevB.disabled = p <= 0;
     const nextB = ib('Следующая раздача (PgDn)', ic('<path d="M18 5v14M6 6l8 6-8 6z"/>'), () => step(1)); nextB.disabled = p >= L.length - 1;
@@ -294,8 +295,14 @@
       seats.forEach((s, j) => {
         s.g.classList.toggle('folded', f.folded[j]); s.g.classList.toggle('act', f.actor === j); s.g.classList.toggle('won', f.won[j] > 0);
         const nick = PREF.names && NAMES ? NAMES[j] : null, stk = f.allin[j] && f.stacks[j] <= 0.01 ? 'олл-ин' : amt(f.stacks[j]);
-        if (nick) { const lab = nick.length > 16 ? nick.slice(0, 15) + '…' : nick; if (s.posT.textContent !== lab) s.posT.textContent = lab; s.stT.textContent = s.pos + ' · ' + stk; }
-        else { if (s.posT.textContent !== s.posLab) s.posT.textContent = s.posLab; s.stT.textContent = stk; }
+        // позиция — своим цветом (ранние тёплые → поздние холодные); с никами — во второй строке перед стеком
+        const lk = (nick || '') + '|' + stk;
+        if (s.labKey !== lk) {
+          s.labKey = lk; s.posT.replaceChildren(); s.stT.replaceChildren();
+          const posSpan = (parent) => { const t = S('tspan', { class: 'rv-pc ' + posClass(s.pos) }, parent); t.textContent = s.pos; };
+          if (nick) { s.posT.textContent = nick.length > 16 ? nick.slice(0, 15) + '…' : nick; posSpan(s.stT); s.stT.append(' · ' + stk); }
+          else { if (j === H0) s.posT.append(heroLabel() + ' · '); posSpan(s.posT); s.stT.textContent = stk; }
+        }
         const known = rp.sh && rp.sh[j];
         const show = j === H0 ? rp.hc : known && (f.show || eq || !PREF.hide) ? known : null;
         const key = f.folded[j] && j !== H0 ? 'x' : show || 'back';
@@ -387,6 +394,7 @@
 .rv-seat.folded{opacity:.38}
 .rv-seat.foldnow{opacity:.75}.rv-seat.foldnow .rv-stack{fill:#FF9B8A;font-weight:700}
 .rv-pos{font-family:Onest,'Segoe UI',sans-serif;font-size:15px;font-weight:800;fill:#ECEFF5}
+.rv-pc{font-weight:800}.p-ep{fill:#EF7D6D}.p-mp{fill:#F0A35E}.p-hj{fill:#E9C46A}.p-co{fill:#A8D672}.p-bt{fill:#5FD39A}.p-sb{fill:#5CC8E6}.p-bb{fill:#A99BF5}
 .rv-stack{font-family:'JetBrains Mono',Consolas,monospace;font-size:14px;fill:#C3C9D6}
 .rv-dealer{fill:#F4F1E8;stroke:#111;stroke-width:1}.rv-dealer-t{font-family:Onest,sans-serif;font-size:13px;font-weight:800;fill:#111}
 .rv-chip{fill:#F2B544;stroke:#1B1406;stroke-width:1.5}.rv-chip-in{fill:none;stroke:#1B1406;stroke-width:1.2;stroke-dasharray:2 2}
