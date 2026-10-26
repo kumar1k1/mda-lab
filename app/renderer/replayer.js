@@ -74,8 +74,21 @@
   async function getRp(i) { if (CUR.cache.has(i)) return CUR.cache.get(i); const r = (await replaysFor([i]))[i] || null; CUR.cache.set(i, r); if (CUR.cache.size > 12) CUR.cache.delete(CUR.cache.keys().next().value); return r; }
   function prefetch() { const L = CUR.list, p = CUR.pos; [L[p + 1], L[p - 1]].forEach(j => { if (j != null && !CUR.cache.has(j)) getRp(j); }); }
 
+  // Окно открывается сразу (пока запись читается — «Загружаю раздачу…»); повторные клики не копятся:
+  // показывается только последняя запрошенная раздача.
+  let SEQ = 0, WAIT = null;
+  function waitBox(on) {
+    if (!on) { if (WAIT) { WAIT.remove(); WAIT = null; } return; }
+    if (WAIT || RP) return;
+    WAIT = el('div', 'rv-bg rv-wait'); const b = el('div', 'rv-wait-box'); b.append(el('span', 'rv-spin'), el('span', null, 'Загружаю раздачу…'));
+    WAIT.append(b); WAIT.addEventListener('click', () => { SEQ++; waitBox(false); }); document.body.append(WAIT);
+  }
   async function show(i) {
-    const rp = await getRp(i); if (!rp) return;
+    const my = ++SEQ;
+    if (!CUR.cache.has(i)) waitBox(true);
+    const rp = await getRp(i);
+    if (my !== SEQ) return; // пока грузилась, выбрали другую раздачу или закрыли
+    waitBox(false); if (!rp) return;
     const keepSpeed = RP && RP.speed;
     if (RP) closeReplayer(true);
     build(i, rp, keepSpeed);
@@ -84,8 +97,9 @@
   window.closeReplayer = function (keepCur) {
     if (!RP) return;
     RP.stop(); document.removeEventListener('keydown', RP.keys); RP.bg.remove(); RP = null;
-    if (!keepCur) CUR = null;
+    if (!keepCur) { CUR = null; SEQ++; }
   };
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && WAIT) { SEQ++; waitBox(false); } });
 
   function build(i, rp, keepSpeed) {
     const fr = Replay.frames(rp), n = rp.pl.length, H0 = rp.h;

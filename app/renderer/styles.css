@@ -1032,3 +1032,8 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .rv-speed button{min-height:30px;padding:0 10px}
 .rv-now{margin-left:auto;font-size:14px;font-weight:700;color:var(--text);min-height:20px;text-align:right}
 @media (max-width: 900px){.rv-main{grid-template-columns:1fr}.rv-side{max-height:180px}.rv-head{grid-template-columns:1fr;}.rv-now{margin-left:0;flex-basis:100%;text-align:left}}
+.rv-wait{background:rgba(4,6,9,.55);cursor:progress}
+.rv-wait-box{display:flex;align-items:center;gap:12px;padding:14px 22px;border-radius:12px;background:var(--panel,#171B22);border:1px solid rgba(255,255,255,.08);color:var(--text,#E8EAED);font-size:14px}
+.rv-spin{width:18px;height:18px;border-radius:50%;border:2px solid rgba(255,255,255,.18);border-top-color:#E8B65A;animation:rvspin .8s linear infinite}
+@keyframes rvspin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.rv-spin{animation:none}}

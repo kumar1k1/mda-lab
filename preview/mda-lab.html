@@ -1036,6 +1036,11 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .rv-speed button{min-height:30px;padding:0 10px}
 .rv-now{margin-left:auto;font-size:14px;font-weight:700;color:var(--text);min-height:20px;text-align:right}
 @media (max-width: 900px){.rv-main{grid-template-columns:1fr}.rv-side{max-height:180px}.rv-head{grid-template-columns:1fr;}.rv-now{margin-left:0;flex-basis:100%;text-align:left}}
+.rv-wait{background:rgba(4,6,9,.55);cursor:progress}
+.rv-wait-box{display:flex;align-items:center;gap:12px;padding:14px 22px;border-radius:12px;background:var(--panel,#171B22);border:1px solid rgba(255,255,255,.08);color:var(--text,#E8EAED);font-size:14px}
+.rv-spin{width:18px;height:18px;border-radius:50%;border:2px solid rgba(255,255,255,.18);border-top-color:#E8B65A;animation:rvspin .8s linear infinite}
+@keyframes rvspin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.rv-spin{animation:none}}
 
 /* Дополнения только для онлайн-превью: тёмная тема и узкие экраны */
 :root{color-scheme:dark}
@@ -4826,8 +4831,21 @@ function resEl(net) {
   async function getRp(i) { if (CUR.cache.has(i)) return CUR.cache.get(i); const r = (await replaysFor([i]))[i] || null; CUR.cache.set(i, r); if (CUR.cache.size > 12) CUR.cache.delete(CUR.cache.keys().next().value); return r; }
   function prefetch() { const L = CUR.list, p = CUR.pos; [L[p + 1], L[p - 1]].forEach(j => { if (j != null && !CUR.cache.has(j)) getRp(j); }); }
 
+  // Окно открывается сразу (пока запись читается — «Загружаю раздачу…»); повторные клики не копятся:
+  // показывается только последняя запрошенная раздача.
+  let SEQ = 0, WAIT = null;
+  function waitBox(on) {
+    if (!on) { if (WAIT) { WAIT.remove(); WAIT = null; } return; }
+    if (WAIT || RP) return;
+    WAIT = el('div', 'rv-bg rv-wait'); const b = el('div', 'rv-wait-box'); b.append(el('span', 'rv-spin'), el('span', null, 'Загружаю раздачу…'));
+    WAIT.append(b); WAIT.addEventListener('click', () => { SEQ++; waitBox(false); }); document.body.append(WAIT);
+  }
   async function show(i) {
-    const rp = await getRp(i); if (!rp) return;
+    const my = ++SEQ;
+    if (!CUR.cache.has(i)) waitBox(true);
+    const rp = await getRp(i);
+    if (my !== SEQ) return; // пока грузилась, выбрали другую раздачу или закрыли
+    waitBox(false); if (!rp) return;
     const keepSpeed = RP && RP.speed;
     if (RP) closeReplayer(true);
     build(i, rp, keepSpeed);
@@ -4836,8 +4854,9 @@ function resEl(net) {
   window.closeReplayer = function (keepCur) {
     if (!RP) return;
     RP.stop(); document.removeEventListener('keydown', RP.keys); RP.bg.remove(); RP = null;
-    if (!keepCur) CUR = null;
+    if (!keepCur) { CUR = null; SEQ++; }
   };
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && WAIT) { SEQ++; waitBox(false); } });
 
   function build(i, rp, keepSpeed) {
     const fr = Replay.frames(rp), n = rp.pl.length, H0 = rp.h;
