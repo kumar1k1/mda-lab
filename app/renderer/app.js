@@ -1239,7 +1239,7 @@ let szMx = null, SZMX_PIN = null, SZMX_MODE = 'rng';
 function szMxEl() {
   if (!szMx) {
     szMx = el('div', 'szmx'); szMx.setAttribute('role', 'dialog'); szMx.hidden = true; document.body.append(szMx);
-    document.addEventListener('mousedown', (e) => { if (SZMX_PIN && !szMx.contains(e.target) && !e.target.closest('.sz5-r.has-mx, .il-bg, .rp-bg, [role=dialog]')) unpinSzMx(); });
+    document.addEventListener('mousedown', (e) => { if (SZMX_PIN && !szMx.contains(e.target) && !e.target.closest('.sz5-r.has-mx, .il-bg, .rp-bg, .rv-bg, [role=dialog]')) unpinSzMx(); });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && SZMX_PIN && !document.querySelector('.il-bg')) unpinSzMx(); });
   }
   return szMx;

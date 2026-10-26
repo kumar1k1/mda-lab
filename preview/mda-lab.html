@@ -2888,7 +2888,7 @@ let szMx = null, SZMX_PIN = null, SZMX_MODE = 'rng';
 function szMxEl() {
   if (!szMx) {
     szMx = el('div', 'szmx'); szMx.setAttribute('role', 'dialog'); szMx.hidden = true; document.body.append(szMx);
-    document.addEventListener('mousedown', (e) => { if (SZMX_PIN && !szMx.contains(e.target) && !e.target.closest('.sz5-r.has-mx, .il-bg, .rp-bg, [role=dialog]')) unpinSzMx(); });
+    document.addEventListener('mousedown', (e) => { if (SZMX_PIN && !szMx.contains(e.target) && !e.target.closest('.sz5-r.has-mx, .il-bg, .rp-bg, .rv-bg, [role=dialog]')) unpinSzMx(); });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && SZMX_PIN && !document.querySelector('.il-bg')) unpinSzMx(); });
   }
   return szMx;
@@ -4655,113 +4655,7 @@ function cardEl(code, small) {
   return d;
 }
 
-let RP = null;
-async function openReplayer(i) {
-  const rp = (await replaysFor([i]))[i]; if (!rp) return;
-  closeReplayer();
-  const fr = Replay.frames(rp);
-  const bg = el('div', 'rp-bg'); bg.setAttribute('role', 'dialog'); bg.setAttribute('aria-modal', 'true'); bg.setAttribute('aria-label', 'Реплеер раздачи');
-  const box = el('div', 'rp');
-  const head = el('div', 'rp-head');
-  const ttl = el('div', 'rp-title');
-  ttl.append(el('b', null, (DB.rooms[DB.cols.room[i]] || '') + ' · ' + (rp.t || '')), el('span', 'muted', rp.d + ' · вы на ' + rp.pl[rp.h][0] + ' · стек ' + rp.pl[rp.h][1] + ' BB'));
-  const x = el('button', 'icon-btn'); x.type = 'button'; x.setAttribute('aria-label', 'Закрыть реплеер');
-  x.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
-  x.onclick = closeReplayer;
-  head.append(ttl, x);
-  const main = el('div', 'rp-main');
-  const table = el('div', 'rp-table');
-  const felt = el('div', 'rp-felt');
-  const center = el('div', 'rp-center'); const boardEl = el('div', 'rp-board'); const potEl = el('div', 'rp-pot');
-  center.append(boardEl, potEl); felt.append(center); table.append(felt);
-  const n = rp.pl.length;
-  const seatEls = rp.pl.map((p, k) => {
-    const ang = Math.PI / 2 + (k - rp.h) * 2 * Math.PI / n;
-    const sx = 50 + 44 * Math.cos(ang), sy = 50 + 40 * Math.sin(ang);
-    const bx = 50 + 26 * Math.cos(ang), by = 50 + 22 * Math.sin(ang);
-    const seat = el('div', 'rp-seat' + (k === rp.h ? ' hero' : ''));
-    seat.style.left = sx + '%'; seat.style.top = sy + '%';
-    const cards = el('div', 'rp-cards');
-    const lab = el('div', 'rp-lab'); lab.append(el('b', null, k === rp.h ? (heroLabel()) + ' · ' + p[0] : p[0]));
-    const stack = el('div', 'rp-stack');
-    seat.append(cards, lab, stack);
-    if (p[0] === 'BTN') { const d = el('span', 'rp-dealer', 'D'); seat.append(d); }
-    const bet = el('div', 'rp-bet'); bet.style.left = bx + '%'; bet.style.top = by + '%';
-    table.append(seat, bet);
-    return { seat, cards, stack, bet };
-  });
-  const ctrl = el('div', 'rp-ctrl');
-  const mk = (label, svg, fn) => { const b = el('button', 'rp-btn'); b.type = 'button'; b.setAttribute('aria-label', label); b.title = label; b.innerHTML = svg; b.onclick = fn; ctrl.append(b); return b; };
-  const I = (d) => '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' + d + '</svg>';
-  const state = { k: 0, timer: null };
-  mk('В начало', I('<path d="M6 5h2v14H6zM20 5v14L9 12z"/>'), () => go(0));
-  mk('Шаг назад', I('<path d="M18 5v14L7 12z"/>'), () => go(state.k - 1));
-  const playB = mk('Воспроизвести', I('<path d="M7 4.5v15l13-7.5z"/>'), () => toggle());
-  playB.classList.add('main');
-  mk('Шаг вперёд', I('<path d="M6 5v14l11-7z"/>'), () => go(state.k + 1));
-  mk('В конец', I('<path d="M16 5h2v14h-2zM4 5v14l11-7z"/>'), () => go(fr.length - 1));
-  const speed = el('select', 'rp-speed'); speed.setAttribute('aria-label', 'Скорость');
-  [['1200', '1×'], ['700', '2×'], ['350', '4×']].forEach(([v, l]) => { const o = el('option', null, l); o.value = v; speed.append(o); });
-  speed.value = '700'; ctrl.append(speed);
-  const prog = el('span', 'rp-prog'); ctrl.append(prog);
-  const action = el('div', 'rp-action');
-  const log = el('ol', 'rp-log');
-  fr.forEach((f, k) => { if (k === 0) return; const li = el('li', null, f.text); li.dataset.street = f.street; li.onclick = () => go(k); li.tabIndex = 0; li.onkeydown = (e) => { if (e.key === 'Enter') go(k); }; log.append(li); });
-  const side = el('div', 'rp-side'); side.append(el('div', 'rp-side-h', 'Ход раздачи'), log);
-  const left = el('div', 'rp-left'); left.append(table, action, ctrl);
-  main.append(left);
-  box.append(head, main); bg.append(box); document.body.append(bg);
-  bg.addEventListener('click', (e) => { if (e.target === bg) closeReplayer(); });
-
-  function go(k) {
-    k = Math.max(0, Math.min(fr.length - 1, k)); state.k = k;
-    const f = fr[k];
-    boardEl.replaceChildren(...rp.bd.slice(0, f.board).map(c => cardEl(c)));
-    potEl.textContent = f.pot > 0 ? 'Банк ' + f.pot + ' BB' : '';
-    seatEls.forEach((s, j) => {
-      s.seat.classList.toggle('folded', f.folded[j]);
-      s.seat.classList.toggle('act', f.actor === j);
-      s.seat.classList.toggle('won', f.won[j] > 0);
-      s.stack.textContent = (f.allin[j] && f.stacks[j] <= 0.01 ? 'олл-ин' : f.stacks[j] + ' BB');
-      const show = j === rp.h ? (rp.hc || '').split(' ') : f.show && rp.sh && rp.sh[j] ? rp.sh[j].split(' ') : null;
-      s.cards.replaceChildren(...(f.folded[j] && j !== rp.h ? [] : show ? show.map(c => cardEl(c, true)) : [cardEl(null, true), cardEl(null, true)]));
-      // на месте фишек ставки — действие игрока на этой улице: чек, колл, бет, рейз, олл-ин, фолд, выигрыш
-      const a = f.act[j];
-      if (a && a.t === 'f' && f.actor !== j) { s.bet.hidden = true; s.bet.className = 'rp-bet'; } // фолд виден только в момент хода
-      else if (a) {
-        const ai = a.ai && a.t !== 'w' && a.t !== 'f';
-        const T = { f: 'Фолд', x: 'Чек', c: 'Колл ' + a.v, b: 'Бет ' + a.v, r: 'Рейз ' + a.v, w: '+' + a.v + ' BB' }[a.t];
-        s.bet.textContent = ai ? 'Олл-ин ' + a.v : T;
-        s.bet.className = 'rp-bet a-' + (ai ? 'ai' : a.t) + (f.actor === j ? (a.t === 'f' ? ' fade' : ' now') : '');
-        s.bet.hidden = false;
-      } else {
-        s.bet.textContent = f.bets[j] > 0 ? f.bets[j] + ' BB' : '';
-        s.bet.className = 'rp-bet';
-        s.bet.hidden = !(f.bets[j] > 0);
-      }
-    });
-    action.textContent = f.text;
-    prog.textContent = 'шаг ' + k + ' из ' + (fr.length - 1);
-    if (k >= fr.length - 1) stop();
-  }
-  function stop() { clearInterval(state.timer); state.timer = null; playB.innerHTML = I('<path d="M7 4.5v15l13-7.5z"/>'); playB.setAttribute('aria-label', 'Воспроизвести'); }
-  function toggle() {
-    if (state.timer) { stop(); return; }
-    if (state.k >= fr.length - 1) go(0);
-    playB.innerHTML = I('<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>'); playB.setAttribute('aria-label', 'Пауза');
-    state.timer = setInterval(() => go(state.k + 1), +speed.value);
-  }
-  speed.onchange = () => { if (state.timer) { stop(); toggle(); } };
-  RP = { bg, stop, keys: (e) => { if (e.key === 'Escape') closeReplayer(); else if (e.key === 'ArrowRight') go(state.k + 1); else if (e.key === 'ArrowLeft') go(state.k - 1); else if (e.key === ' ') { e.preventDefault(); toggle(); } } };
-  document.addEventListener('keydown', RP.keys);
-  go(1); toggle();
-  playB.focus();
-}
-
-function closeReplayer() {
-  if (!RP) return;
-  RP.stop(); document.removeEventListener('keydown', RP.keys); RP.bg.remove(); RP = null;
-}
+let RP = null; // открытый реплеер (replayer.js: openReplayer / closeReplayer)
 
 // ---------- список раздач по выбранному столбику (#3.4.8) ----------
 let IDS_LIST = null;
