@@ -4794,7 +4794,7 @@ function resEl(net) {
   const SUITCOL = { s: '#1B1D22', h: '#D23B3B', d: '#2F6FE0', c: '#1E8A4C' };
   const STREET = ['Префлоп', 'Флоп', 'Тёрн', 'Ривер', 'Итог'];
   const ru = (t) => String(t).replace(/(\d)\.(\d)/g, '$1,$2'); // десятичная запятая
-  const W = 1000, H = 690, CX = 500, CY = 330;
+  const W = 1000, H = 718, CX = 500, CY = 370;
   // карта: белая плашка, ранг и масть; без кода — рубашка
   function card(parent, x, y, code, w) {
     const h = w * 1.4, g = S('g', { transform: 'translate(' + x + ',' + y + ')' }, parent);
@@ -4878,8 +4878,7 @@ function resEl(net) {
       const sx = CX + 412 * Math.cos(ang), sy = CY + 262 * Math.sin(ang);
       const bxp = CX + 250 * Math.cos(ang), byp = CY + 112 * Math.sin(ang);
       // карты — со стороны центра стола, подписи действия и эквити — с внешней стороны (вверху стола — над местом, внизу — под ним)
-      // эквити — всегда прямо под местом; у нижних мест действие — над картами, у верхних — над местом (карты ниже эквити)
-      const down = sy > CY + 1, cardY = down ? sy - 66 : sy + 82, actY = down ? sy - 100 : sy - 32;
+      const cardY = sy - 66, actY = sy - 100; // у всех одинаково: карты над местом, действие над картами, эквити под местом
       const g = S('g', { class: 'rv-seat' + (k === H0 ? ' hero' : '') }, svg);
       const cardsG = S('g', null, g);
       S('rect', { x: sx - 78, y: sy - 4, width: 156, height: 52, rx: 14, class: 'rv-plate' }, g);
