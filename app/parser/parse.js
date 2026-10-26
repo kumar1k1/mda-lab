@@ -142,7 +142,7 @@ function buildReplay(lines, ctx) {
   else if (fmt === 'ps') { const t = header.match(/Tournament #(\d+), (.*?) (?:Hold'em|Holdem)/); tl = t ? t[2].replace(/â‚½/g, '₽') + ' · #' + t[1] : ''; }
   else { const t = header.match(/Tournament #(\d+)/); tl = t ? 'Турнир #' + t[1] : ''; }
   const tm = header.match(/(\d{4}\/\d{2}\/\d{2}) (\d{1,2}:\d{2})/);
-  return { pl, h: heroI, hc, ev, bd: board, sh: shown, t: tl, d: tm ? tm[1].replace(/\//g, '-') + ' ' + tm[2] : '', bb: 1 };
+  return { pl, h: heroI, hc, ev, bd: board, sh: shown, t: tl, d: tm ? tm[1].replace(/\//g, '-') + ' ' + tm[2] : '', c: Math.round(bb * 100) / 100, bb: 1 };
 }
 
 // Общая разметка раздачи: заголовок, места, блайнды, позиции, префлоп-действия — одна на всех игроков.

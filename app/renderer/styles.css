@@ -1030,3 +1030,5 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .rv-spin{width:18px;height:18px;border-radius:50%;border:2px solid rgba(255,255,255,.18);border-top-color:#E8B65A;animation:rvspin .8s linear infinite}
 @keyframes rvspin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.rv-spin{animation:none}}
+.rv-gear-pop{position:absolute;top:100%;right:0;margin-top:8px;width:260px;display:flex;flex-direction:column;gap:6px;padding:12px 14px;border-radius:10px;background:var(--card2);border:1px solid var(--line2);box-shadow:0 10px 30px rgba(0,0,0,.45);z-index:3}
+.rv-gear-pop b{font-size:13px}.rv-gear-pop span{font-size:12.5px;color:var(--muted);line-height:1.45}

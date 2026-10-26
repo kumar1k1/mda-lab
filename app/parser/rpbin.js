@@ -33,11 +33,11 @@ const cent = (v) => { const k = Math.round(v * 100); return k / 100 === v ? k : 
 
 function encodeBin(rec) {
   const keys = Object.keys(rec);
-  for (const k of keys) if (!['pl', 'h', 'hc', 'ev', 'bd', 'sh', 't', 'd'].includes(k)) return null;
+  for (const k of keys) if (!['pl', 'h', 'hc', 'ev', 'bd', 'sh', 't', 'd', 'c'].includes(k)) return null;
   const w = new W(); w.u8(VER);
   // флаги наличия полей
   const has = (k) => k in rec;
-  let fl = 0; ['hc', 'bd', 'sh', 't', 'd'].forEach((k, i) => { if (has(k)) fl |= 1 << i; }); if (rec.hc === null) fl |= 32;
+  let fl = 0; ['hc', 'bd', 'sh', 't', 'd'].forEach((k, i) => { if (has(k)) fl |= 1 << i; }); if (rec.hc === null) fl |= 32; if (has('c')) fl |= 64;
   w.u8(fl);
   // турнир — сразу после флагов: при записи в базу строка заменяется номером в таблице турниров базы (internTitle)
   if (has('t')) { if (typeof rec.t !== 'string') return null; w.str(rec.t); }
@@ -74,6 +74,8 @@ function encodeBin(rec) {
     const dm = /^(\d{4})-(\d{2})-(\d{2}) (\d{1,2}):(\d{2})$/.exec(rec.d);
     if (dm && dm[4].length === 2) { w.u8(1); w.uv(Math.round(Date.UTC(+dm[1], +dm[2] - 1, +dm[3], +dm[4], +dm[5]) / 60000)); } else { w.u8(0); w.str(rec.d); }
   }
+  // большой блайнд в фишках (с 0.7.2): для показа стеков и ставок в фишках
+  if (has('c')) { const c = typeof rec.c === 'number' && rec.c > 0 ? cent(rec.c) : null; if (c == null) return null; w.uv(c); }
   return w.out();
 }
 function decodeBin(b, titles) {
@@ -95,6 +97,7 @@ function decodeBin(b, titles) {
   if (fl & 4) { const k = r.uv(); rec.sh = {}; for (let i = 0; i < k; i++) { const key = r.uv(); rec.sh[key] = cardsR(); } }
   if (fl & 8) rec.t = t;
   if (fl & 16) { if (r.u8()) { const t = new Date(r.uv() * 60000), z = (v) => String(v).padStart(2, '0'); rec.d = t.getUTCFullYear() + '-' + z(t.getUTCMonth() + 1) + '-' + z(t.getUTCDate()) + ' ' + z(t.getUTCHours()) + ':' + z(t.getUTCMinutes()); } else rec.d = r.str(); }
+  if (fl & 64) rec.c = r.uv() / 100;
   return rec;
 }
 // исходная запись → байты: двоичный вид, если он восстанавливает запись один в один, иначе JSON.

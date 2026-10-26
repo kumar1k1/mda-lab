@@ -1034,6 +1034,8 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .rv-spin{width:18px;height:18px;border-radius:50%;border:2px solid rgba(255,255,255,.18);border-top-color:#E8B65A;animation:rvspin .8s linear infinite}
 @keyframes rvspin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.rv-spin{animation:none}}
+.rv-gear-pop{position:absolute;top:100%;right:0;margin-top:8px;width:260px;display:flex;flex-direction:column;gap:6px;padding:12px 14px;border-radius:10px;background:var(--card2);border:1px solid var(--line2);box-shadow:0 10px 30px rgba(0,0,0,.45);z-index:3}
+.rv-gear-pop b{font-size:13px}.rv-gear-pop span{font-size:12.5px;color:var(--muted);line-height:1.45}
 
 /* Дополнения только для онлайн-превью: тёмная тема и узкие экраны */
 :root{color-scheme:dark}
@@ -4815,6 +4817,9 @@ function resEl(net) {
     return g;
   }
 
+  // настройки вида, общие для всех раздач (запоминаются): скрывать карты соперников до вскрытия, суммы в фишках
+  const PREF = (() => { let p = {}; try { p = JSON.parse(localStorage.getItem('mda.rv') || '{}') || {}; } catch (e) { p = {}; } return { hide: p.hide !== false, chips: !!p.chips }; })();
+  const savePref = () => { try { localStorage.setItem('mda.rv', JSON.stringify(PREF)); } catch (e) { /* без сохранения */ } };
   let CUR = null; // { list, pos, i, cache }
   window.openReplayer = async function (i, list) {
     const ids = Array.isArray(list) && list.includes(i) ? list.slice() : [i];
@@ -4869,8 +4874,16 @@ function resEl(net) {
     const ic = (d, fill) => '<svg width="18" height="18" viewBox="0 0 24 24" ' + (fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"') + ' aria-hidden="true">' + d + '</svg>';
     const copyB = ib('Скопировать ход раздачи', ic('<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>'), () => copyText());
     const pngB = ib('Сохранить картинкой', ic('<path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>'), () => savePng());
+    const gearB = ib('Настройки вида реплеера', ic('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>'), () => toggleGear());
+    function toggleGear() {
+      const old = tools.querySelector('.rv-gear-pop'); if (old) { old.remove(); return; }
+      const pop = el('div', 'rv-gear-pop'); pop.append(el('b', null, 'Вид реплеера'), el('span', null, 'Настройки появятся здесь: цвета стола и карт, размер, что показывать на местах.'));
+      tools.append(pop);
+      const off = (e) => { if (!pop.contains(e.target) && e.target !== gearB && !gearB.contains(e.target)) { pop.remove(); document.removeEventListener('pointerdown', off, true); } };
+      document.addEventListener('pointerdown', off, true);
+    }
     const closeB = ib('Закрыть (Esc)', ic('<path d="M6 6l12 12M18 6L6 18"/>'), () => closeReplayer());
-    tools.append(copyB, pngB, closeB);
+    tools.append(copyB, pngB, gearB, closeB);
     head.append(ttl, res, tools);
 
     // ---------- стол ----------
@@ -4928,8 +4941,15 @@ function resEl(net) {
     const stStart = [1, -1, -1, -1];
     for (let k = 1; k < fr.length; k++) { const s2 = fr[k].street; if (s2 >= 1 && s2 <= 3 && stStart[s2] < 0) stStart[s2] = k; }
     const stBtns = ['Префлоп', 'Флоп', 'Тёрн', 'Ривер'].map((lab, s2) => { const b = el('button', 'rv-stb', lab); b.type = 'button'; b.disabled = stStart[s2] < 0; b.onclick = () => { stop(); go(stStart[s2]); }; return b; });
-    const eyeB = ib('Показать карты соперников (V)', ic('<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>'), () => { st.eye = !st.eye; eyeB.classList.toggle('on', st.eye); eyeB.setAttribute('aria-pressed', String(st.eye)); go(st.k); });
-    eyeB.setAttribute('aria-pressed', 'false'); eyeB.disabled = !(rp.sh && Object.keys(rp.sh).some(j => +j !== H0));
+    const EYE_ON = '<path d="M3 3l18 18"/><path d="M10.6 5.1A10.9 10.9 0 0 1 12 5c6.4 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.2M6.6 6.6C3.8 8.4 2 12 2 12s3.6 7 10 7a9.8 9.8 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>';
+    const EYE_OFF = '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>';
+    const eyeB = ib('', '', () => { PREF.hide = !PREF.hide; savePref(); eyeState(); go(st.k); });
+    function eyeState() {
+      const t = PREF.hide ? 'Карты соперников скрыты до вскрытия — нажмите, чтобы видеть сразу (V)' : 'Карты соперников видны сразу — нажмите, чтобы скрыть до вскрытия (V)';
+      eyeB.innerHTML = ic(PREF.hide ? EYE_ON : EYE_OFF); eyeB.title = t; eyeB.setAttribute('aria-label', t);
+      eyeB.classList.toggle('on', PREF.hide); eyeB.setAttribute('aria-pressed', String(PREF.hide));
+    }
+    eyeState();
     const L = CUR.list, p = CUR.pos;
     const prevB = ib('Предыдущая раздача (PgUp)', ic('<path d="M6 5v14M18 6l-8 6 8 6z"/>'), () => step(-1)); prevB.disabled = p <= 0;
     const nextB = ib('Следующая раздача (PgDn)', ic('<path d="M18 5v14M6 6l8 6-8 6z"/>'), () => step(1)); nextB.disabled = p >= L.length - 1;
@@ -4975,6 +4995,20 @@ function resEl(net) {
     }
     const clearFly = () => svg.querySelectorAll('.rv-fly').forEach(g => g.remove());
 
+    // суммы: в больших блайндах или в фишках (клик по любому месту за столом переключает для всех раздач)
+    const BBC = rp.c > 0 ? rp.c : 0;
+    const chipsOn = () => PREF.chips && BBC > 0;
+    const chipF = (v) => { const x = v * BBC; return x >= 100 ? Math.round(x).toLocaleString('ru-RU') : fmt(x); };
+    const num = (v) => (chipsOn() ? chipF(v) : fmt(v));
+    const amt = (v) => (chipsOn() ? chipF(v) : fmt(v) + ' BB');
+    seats.forEach((s) => {
+      s.g.style.cursor = 'pointer';
+      s.g.addEventListener('click', () => {
+        if (!BBC) { flash(copyB, 'В этой раздаче нет размера блайндов — загрузите руки заново'); return; }
+        PREF.chips = !PREF.chips; savePref(); go(st.k);
+      });
+    });
+
     // ---------- шаг ----------
     let boardShown = -1;
     function go(k, anim) {
@@ -4983,7 +5017,7 @@ function resEl(net) {
       const f = fr[k], prev = fr[k - 1], moving = anim && k === from + 1;
       if (f.board !== boardShown) { boardShown = f.board; boardG.replaceChildren(); (rp.bd || []).slice(0, f.board).forEach((cd, q) => card(boardG, bx0 + q * (CW + 10), by0, cd, CW)); }
       const inBets = f.bets.reduce((a, b) => a + b, 0), potAll = f.pot + inBets;
-      potT.textContent = potAll > 0.001 ? 'Банк ' + fmt(potAll) + ' BB' : '';
+      potT.textContent = potAll > 0.001 ? 'Банк ' + amt(potAll) : '';
       streetT.textContent = STREET[f.street];
       // под банком: шансы банка для того, кто ходит следующим и должен уравнивать; SPR на флопе и дальше
       const sub = [];
@@ -5001,9 +5035,9 @@ function resEl(net) {
       const final = f.won.some(v => v > 0);
       seats.forEach((s, j) => {
         s.g.classList.toggle('folded', f.folded[j]); s.g.classList.toggle('act', f.actor === j); s.g.classList.toggle('won', f.won[j] > 0);
-        s.stT.textContent = f.allin[j] && f.stacks[j] <= 0.01 ? 'олл-ин' : fmt(f.stacks[j]) + ' BB';
+        s.stT.textContent = f.allin[j] && f.stacks[j] <= 0.01 ? 'олл-ин' : amt(f.stacks[j]);
         const known = rp.sh && rp.sh[j];
-        const show = j === H0 ? rp.hc : known && (f.show || eq || st.eye) ? known : null;
+        const show = j === H0 ? rp.hc : known && (f.show || eq || !PREF.hide) ? known : null;
         const key = f.folded[j] && j !== H0 ? 'x' : show || 'back';
         if (key !== s.cardsKey) {
           s.cardsKey = key; s.cardsG.replaceChildren();
@@ -5012,7 +5046,7 @@ function resEl(net) {
         // фишки перед игроком: ставка на этой улице, в конце — выигрыш
         const v = final ? f.won[j] : f.bets[j];
         s.betG.classList.toggle('win', final && v > 0);
-        if (v > 0.001) { s.betG.style.display = ''; s.betT.textContent = fmt(v); } else s.betG.style.display = 'none';
+        if (v > 0.001) { s.betG.style.display = ''; s.betT.textContent = num(v); } else s.betG.style.display = 'none';
         s.actG.style.display = 'none'; // без подписей действий: видно фишки ставок, сбросивший — бледный
         if (eq && eq[j] != null) { s.eqG.style.display = ''; s.eqT.textContent = 'эквити ' + Math.round(eq[j] * 100) + '%'; } else s.eqG.style.display = 'none';
       });
@@ -5065,7 +5099,7 @@ function resEl(net) {
       else if (e.key === 'ArrowRight') { stop(); go(st.k + 1, true); } else if (e.key === 'ArrowLeft') { stop(); go(st.k - 1); }
       else if (e.key === 'Home') { stop(); go(1); } else if (e.key === 'End') { stop(); go(fr.length - 1); }
       else if (e.key === 'PageDown') { e.preventDefault(); step(1); } else if (e.key === 'PageUp') { e.preventDefault(); step(-1); }
-      else if (e.key === ' ') { e.preventDefault(); toggle(); } else if ((e.key === 'v' || e.key === 'V' || e.key === 'м' || e.key === 'М') && !eyeB.disabled) eyeB.click(); else return;
+      else if (e.key === ' ') { e.preventDefault(); toggle(); } else if ((e.key === 'v' || e.key === 'V' || e.key === 'м' || e.key === 'М') ) eyeB.click(); else return;
     };
     RP = { bg, stop, keys, speed };
     document.addEventListener('keydown', keys);
