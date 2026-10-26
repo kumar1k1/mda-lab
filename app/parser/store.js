@@ -140,10 +140,10 @@ class BaseDir {
     this.dir = dir; this.meta = JSON.parse(fs.readFileSync(path.join(dir, 'meta.json'), 'utf8'));
     this.v3 = this.meta.format === 'mdalab-cols-v3';
     this.g = this.v3 ? path.join(dir, this.meta.colDir) : dir; this.og = path.join(this.g, 'opp');
-    this.z = !!this.meta.rpz; this._idx = null; this._players = null;
+    this.z = this.meta.rpz === 2 ? 2 : !!this.meta.rpz; this._idx = null; this._players = null;
   }
   static exists(dir) { return fs.existsSync(path.join(dir, 'meta.json')); }
-  colBytes(name) { const f = path.join(this.g, 'c_' + name + '.bin'); return fs.existsSync(f) ? fs.readFileSync(f) : null; }
+  colBytes(name) { return require('./table.js').readColBytes(this.g, name); } // сжатая (.z) или прежняя (.bin)
   column(name) { const t = this.meta.cols.find(c => c[0] === name); const b = t && this.colBytes(name); return b ? typedFrom(b, t[1]) : null; }
   index() { if (!this._idx) { const f = path.join(this.dir, 'rp.idx'); this._idx = fs.existsSync(f) ? fs.readFileSync(f) : Buffer.alloc(0); } return this._idx; }
   _readRecs(refs, seats) { // refs: [[id, part, off, len]]
@@ -153,7 +153,7 @@ class BaseDir {
         const [i, p, off, len] = refs[q]; if (p < 0) continue;
         let fd = fds.get(p); if (fd == null) { fd = fs.openSync(path.join(this.dir, 'rp_' + p + '.dat'), 'r'); fds.set(p, fd); }
         const b = Buffer.alloc(len); fs.readSync(fd, b, 0, len, off);
-        const rec = decodeRec(b, this.z); out[i] = seats ? asSeat(rec, seats[q]) : rec;
+        const rec = decodeRec(b, this.z, this.dir); out[i] = seats ? asSeat(rec, seats[q]) : rec;
       }
     } finally { for (const fd of fds.values()) fs.closeSync(fd); }
     return out;
@@ -211,7 +211,7 @@ class BaseDir {
   }
   // колонки соперников: общие со строками героя (без колонки алиаса aid — она только у ваших раздач)
   // (и без nk — номер вашего ника; файла колонки у соперников нет: такая колонка вешала загрузку игрока)
-  oppCols() { return this.meta.cols.filter(c => c[0] !== 'aid' && c[0] !== 'nk' && fs.existsSync(path.join(this.og, 'c_' + c[0] + '.bin'))); }
+  oppCols() { const { hasCol } = require('./table.js'); return this.meta.cols.filter(c => c[0] !== 'aid' && c[0] !== 'nk' && hasCol(this.og, c[0])); }
   playerMeta(pid) {
     const p = this.players()[pid]; if (!p) return null;
     const room = this.meta.rooms[p.r];
@@ -219,7 +219,7 @@ class BaseDir {
   }
   playerCol(pid, name) {
     const p = this.players()[pid], t = this.oppCols().find(c => c[0] === name); if (!p || !t) return null;
-    if (!fs.existsSync(path.join(this.og, 'c_' + name + '.bin'))) return null;
+    if (!require('./table.js').hasCol(this.og, name)) return null;
     return require('./table.js').readRange(this.og, name, t[1], p.s, p.c);
   }
   playerReplays(pid, ids) {
@@ -277,7 +277,18 @@ function asSeat(rec, seat) {
   return Object.assign({}, rec, { h: seat, hc: sh[seat] || null, sh, pl: rec.pl.map((p, j) => [p[0], p[1], j === seat ? 1 : 0, p[3]]) });
 }
 // запись реплеера из байтов (z — сжата deflate-raw)
-function decodeRec(b, z) { return JSON.parse((z ? require('zlib').inflateRawSync(b) : b).toString('utf8')); }
+// запись реплеера из байтов базы: rpz = 2 — двоичный вид (parser/rpbin.js, турниры — по таблице турниров базы dir/rp-titles.json),
+// rpz = 1 — сжатый JSON (базы до 0.7), иначе — JSON как есть
+const TITLES = new Map();
+function titlesOf(dir, need) {
+  let t = TITLES.get(dir);
+  if (!t || (need != null && need >= t.length)) { try { t = JSON.parse(fs.readFileSync(path.join(dir, 'rp-titles.json'), 'utf8')); } catch (e) { t = []; } TITLES.set(dir, t); }
+  return t;
+}
+function decodeRec(b, z, dir) {
+  if (z === 2) { const RB = require('./rpbin.js'); let t = dir ? titlesOf(dir) : []; if (b[0] === 3) { const id = RB.titleId(b); if (id >= t.length) t = titlesOf(dir, id); } return RB.decodeRecBin(b, t); }
+  return JSON.parse((z ? require('zlib').inflateRawSync(b) : b).toString('utf8'));
+}
 
 // 53-битный хеш строки (два 32-битных FNV-1a) — для отсева дублей без хранения строк
 function hash53(s) {
@@ -286,4 +297,4 @@ function hash53(s) {
   return (h1 >>> 0) * 2097152 + ((h2 >>> 0) & 0x1fffff);
 }
 
-module.exports = { asSeat, decodeRec, HashSet53, FORMAT, SCHEMA, TYPES, ColumnBuilder, ReplayWriter, BaseDir, writeBaseDir, writeColumn, writeFromLegacy, packIndex, typedFrom, bufOf, hash53 };
+module.exports = { asSeat, decodeRec, titlesOf, HashSet53, FORMAT, SCHEMA, TYPES, ColumnBuilder, ReplayWriter, BaseDir, writeBaseDir, writeColumn, writeFromLegacy, packIndex, typedFrom, bufOf, hash53 };

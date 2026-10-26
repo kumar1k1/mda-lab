@@ -155,7 +155,7 @@ async function estimate(files, heroNicks, opts) {
         const r = parseTextAll(text, heroes, !heroes.size); // без ников — как датамайнинг: только соперники
         for (const h of r.hands) {
           if (h.hero) sHands++; else sMined++; sOpp += h.opps.length;
-          if (h.rp) { rpN++; rpBytes += zlib.deflateRawSync(Buffer.from(JSON.stringify(h.rp))).length; }
+          if (h.rp) { rpN++; rpBytes += require('./rpbin.js').encodeRec(h.rp).length - 25; } // двоичная запись; турнир — номером (≈ −25 байт)
           if (h.hero && h.hero.rp && h.hero.hc >= 0) evRecs.push([h.rp, -1]);
           for (const o of h.opps) if (o.needRp && o.hc >= 0 && h.rp) evRecs.push([h.rp, o.seatIdx]);
         }
@@ -180,7 +180,8 @@ async function estimate(files, heroNicks, opts) {
   const parseSec = Math.max(parseMs * scale / eff * 1.25 / 1000, hands * 30e-6 + opp * 20e-6);
   // EV олл-инов считается в фоне уже после загрузки (раздачи доступны сразу) — отдельной цифрой
   const seconds = parseSec + (hands + opp) * 7e-6 + 3, evSeconds = evJobs * evPer / eff / 1000;
-  const bytes = Math.round(hands * HERO_ROW + opp * OPP_ROW + (rpN ? rpBytes / rpN : 0) * rpN * scale + hands * 8);
+  // колонки хранятся сжатыми (≈ 22–25% исходного размера, замер на датамайнинге Winamax)
+  const bytes = Math.round((hands * HERO_ROW + opp * OPP_ROW) * 0.25 + (rpN ? rpBytes / rpN : 0) * rpN * scale + hands * 8);
   return { totalBytes: total, sampleBytes: sBytes, hands, mined: Math.round(sMined * scale), opp, bytes, seconds: Math.round(seconds), evSeconds: Math.round(evSeconds), threads, cpus, exact: sBytes >= total };
 }
 

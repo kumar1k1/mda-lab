@@ -9,6 +9,7 @@ const { parseTextAll } = require('./parse.js');
 const { eachText } = require('./build.js');
 const { hash53, SCHEMA } = require('./store.js');
 const { rowVals } = require('./ingest.js');
+const { encodeRec } = require('./rpbin.js');
 const NC = SCHEMA.length, CNAMES = SCHEMA.map(c => c[0]);
 const { closeAll } = require('./zip.js');
 
@@ -46,7 +47,7 @@ async function work(fi) {
         const heroRp = !!(h.hero && h.hero.rp); if (h.hero) delete h.hero.rp; // запись реплеера — у каждой вашей раздачи
         const vi = h.hero ? addRow(h.hero) : nRows;
         for (const o of h.opps) addRow(o);
-        hands.push({ k: hash53(h.id + '|' + h.tour), room: h.room, hn: h.hero ? h.hero.hero : null, hhc: h.hero ? h.hero.hc : -1, vi, on: h.opps.map(o => o.hero), os: h.opps.map(o => o.seatIdx), onr: h.opps.map(o => (o.needRp ? 1 : 0)), heroRp, rpz: rp ? zlib.deflateRawSync(Buffer.from(JSON.stringify(rp), 'utf8')) : null });
+        hands.push({ k: hash53(h.id + '|' + h.tour), room: h.room, hn: h.hero ? h.hero.hero : null, hhc: h.hero ? h.hero.hc : -1, vi, on: h.opps.map(o => o.hero), os: h.opps.map(o => o.seatIdx), onr: h.opps.map(o => (o.needRp ? 1 : 0)), heroRp, rpz: rp ? encodeRec(rp) : null }); // двоичная запись (parser/rpbin.js)
       }
       if (hands.length >= BATCH) await flush(false);
     });

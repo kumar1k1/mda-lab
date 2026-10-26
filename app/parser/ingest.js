@@ -21,6 +21,7 @@ const os = require('os');
 const { SCHEMA, ReplayWriter, HashSet53, typedFrom, hash53 } = require('./store.js');
 const { SpillColumn, ColumnReader, mergePlan, mergeColumn, permute, patchColumn, colFile } = require('./table.js');
 const { computeEv, STRIDE } = require('./ev-pool.js');
+const { internTitle } = require('./rpbin.js');
 
 const FORMAT = 'mdalab-cols-v3';
 // колонки ваших раздач: статы + ссылка на запись реплеера + отпечаток раздачи
@@ -108,7 +109,7 @@ async function parseParallel(files, heroes, onHand, onFile, threads, po) {
 // EV по списку J: поправка к итогу → колонка nev (позиции идут по возрастанию — итог читается кусками)
 async function applyEv(dir, J, nHeroJobs, gdirs, nTot, o) {
   const nJobs = J.length / STRIDE;
-  const ev = await computeEv(dir, J, { z: true, threads: o.threads, onTick: o.onTick });
+  const ev = await computeEv(dir, J, { z: o.z != null ? o.z : 2, threads: o.threads, onTick: o.onTick });
   for (const [table, gd, a0, a1] of [[0, gdirs[0], 0, nHeroJobs], [1, gdirs[1], nHeroJobs, nJobs]]) {
     const pos = [], val = [], net = new ColumnReader(colFile(gd, 'net'), 'f64', nTot[table]);
     for (let j = a0; j < a1; j++) { if (Number.isNaN(ev[j])) continue; const k = J[j * STRIDE]; pos.push(k); val.push(Math.round((net.get(k) / 10 + ev[j]) * 1000) / 100); }
@@ -126,7 +127,7 @@ async function finishEv(dir, o) {
   if (meta.colDir === pe.colDir) {
     const b = fs.readFileSync(path.join(dir, 'ev-pending.bin')), J = new Float64Array(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength));
     const g = path.join(dir, pe.colDir);
-    await applyEv(dir, J, pe.heroJobs, [g, path.join(g, 'opp')], pe.n, o || {});
+    await applyEv(dir, J, pe.heroJobs, [g, path.join(g, 'opp')], pe.n, Object.assign({ z: meta.rpz === 2 ? 2 : !!meta.rpz }, o || {}));
   }
   const m2 = JSON.parse(fs.readFileSync(mf, 'utf8')); delete m2.evPending;
   const t = mf + '.tmp'; fs.writeFileSync(t, JSON.stringify(m2)); fs.renameSync(t, mf);
@@ -141,6 +142,8 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
   fs.mkdirSync(dir, { recursive: true });
   // EV прошлой загрузки ещё не досчитан (считается в фоне) — досчитать до слияния: номера строк сейчас поменяются
   if (pendingEv(dir)) await finishEv(dir, { threads: opts.threads, onTick: (d, t) => prog('ev', d, t, 0) });
+  // старая база ещё в прежнем формате (реплеер JSON, несжатые колонки, недосчитанные колонки) — сначала обновить
+  if (fs.existsSync(path.join(dir, 'meta.json'))) { const mg = require('./migrate.js'); if (mg.pending(JSON.parse(fs.readFileSync(path.join(dir, 'meta.json'), 'utf8'))).length) mg.doMigrate(dir, (p) => prog('migrate', p.done, p.total, 0)); }
   const old = fs.existsSync(path.join(dir, 'meta.json')) ? openOld(dir) : null;
   const rooms = old ? old.meta.rooms.slice() : [];
   for (const r of Object.values(nicks)) if (!rooms.includes(r)) rooms.push(r);
@@ -184,6 +187,11 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
   for (const [nm, t] of HERO_SCHEMA) H[nm] = new SpillColumn(colFile(tmp, nm), nm, t);
   for (const [nm, t] of OPP_SCHEMA) O[nm] = new SpillColumn(colFile(path.join(tmp, 'opp'), nm), nm, t);
   const rpw = new ReplayWriter(dir, opts.partSize, old ? old.meta.rpParts : 0);
+  // записи реплеера — двоичные (rpz = 2), турнир — номером в таблице турниров базы
+  const titles = old ? (() => { try { return JSON.parse(fs.readFileSync(path.join(dir, 'rp-titles.json'), 'utf8')); } catch (e) { return []; } })() : [];
+  const tmap = new Map(titles.map((t, i) => [t, i]));
+  const tid = (t) => { let i = tmap.get(t); if (i == null) { i = titles.length; titles.push(t); tmap.set(t, i); } return i; };
+  const addRec = (b) => rpw.addRaw(internTitle(b, tid));
   let dup = 0, nH = 0, nO = 0, nD = 0;
 
   // 1–2. разбор и раскладка по колонкам
@@ -194,7 +202,7 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
     if (!h.hn) { // раздача без героя: только соперники, если такой раздачи ещё нет в базе
       if (!handSeen.add(h.k)) { dup++; return; }
       let ri = rooms.indexOf(h.room); if (ri < 0) { rooms.push(h.room); ri = rooms.length - 1; }
-      const ref = h.rpz && h.onr.some(x => x) ? rpw.addRaw(h.rpz) : null;
+      const ref = h.rpz && h.onr.some(x => x) ? addRec(h.rpz) : null;
       addOpps(h, ri, ref, h.vi); nD++;
       return;
     }
@@ -205,7 +213,7 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
     const newHand = handSeen.add(h.k); // раздачи ещё не было в базе (ни у одного алиаса)
     const roomIdx = rooms.indexOf(nicksAll[h.hn]);
     const needRef = h.rpz && (h.heroRp || (newHand && h.onr.some(x => x)));
-    const ref = needRef ? rpw.addRaw(h.rpz) : null;
+    const ref = needRef ? addRec(h.rpz) : null;
     pushRow(HC, h.vals, h.vi, roomIdx);
     const hr = h.heroRp && ref && h.hhc >= 0; // запись реплеера у каждой вашей раздачи с вашими картами
     H.rpp.push(hr ? ref[0] : -1); H.rpo.push(hr ? ref[1] : 0); H.rpl.push(hr ? ref[2] : 0); H.key.push(h.k); H.aid.push(aid); H.nk.push(nkOf.has(h.hn) ? nkOf.get(h.hn) : -1);
@@ -225,6 +233,7 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
     }
   }
   rpw.close();
+  { const f = path.join(dir, 'rp-titles.json'), t = f + '.tmp'; fs.writeFileSync(t, JSON.stringify(titles)); fs.renameSync(t, f); }
   for (const c of Object.values(H)) c.close();
   for (const c of Object.values(O)) c.close();
   if (!nH && !nO) { fs.rmSync(tmp, { recursive: true, force: true }); if (!old) fs.rmSync(dir, { recursive: true, force: true }); return { hands: old ? old.heroN : 0, added: 0, dup, errors, rooms, opp: old ? old.oppN : 0, oppAdded: 0, players: old ? old.players.length : 0, aliases: aliases.map(a => a.name) }; }
@@ -308,7 +317,7 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
     cols: SCHEMA.concat([['aid', 'i16'], ['nk', 'i16']]), colDir: 'g' + gen,
     // обновления базы (parser/migrate.js): новая база посчитана целиком; при дозагрузке — как было у старой (её строки досчитаются при открытии)
     mig: old ? (old.meta.mig || []) : require('./migrate.js').ALL_IDS,
-    evPending: opts.deferEv && nJobs ? { colDir: 'g' + gen, heroJobs: nHeroJobs, jobs: nJobs, n: nTot } : undefined, opp: { rows: (old ? old.oppN : 0) + nO, players: plist.length }, rpParts: rpw.parts, rpz: 1
+    evPending: opts.deferEv && nJobs ? { colDir: 'g' + gen, heroJobs: nHeroJobs, jobs: nJobs, n: nTot } : undefined, opp: { rows: (old ? old.oppN : 0) + nO, players: plist.length }, rpParts: rpw.parts, rpz: 2
   };
   const mt = path.join(dir, 'meta.json.tmp'); fs.writeFileSync(mt, JSON.stringify(meta)); fs.renameSync(mt, path.join(dir, 'meta.json'));
   if (old) fs.rmSync(old.g, { recursive: true, force: true });

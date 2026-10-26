@@ -72,14 +72,33 @@ function eval7(cs) {
 // префлоп-столкновения: канонический ключ (лучшая из 24 перестановок мастей) и кэш доли банка героя
 const PERMS = []; (function gen(a, rest) { if (!rest.length) { PERMS.push(a); return; } rest.forEach((x, i) => gen(a.concat([x]), rest.slice(0, i).concat(rest.slice(i + 1)))); })([], [0, 1, 2, 3]);
 const PRE_CACHE = new Map();
+// ключ и карты в канонических мастях (герой первым, остальные — по порядку ключа)
 function preKey(hero, others) {
-  let best = null;
+  let best = null, bh = null, bo = null;
   for (const pm of PERMS) {
-    const enc = (hc) => hc.map(c => (c >> 2) * 4 + pm[c & 3]).sort((x, y) => y - x).map(c => String.fromCharCode(48 + c)).join('');
-    const k = enc(hero) + '|' + others.map(enc).sort().join(',');
-    if (best === null || k < best) best = k;
+    const map = (hc) => hc.map(c => (c >> 2) * 4 + pm[c & 3]).sort((x, y) => y - x);
+    const enc = (hc) => hc.map(c => String.fromCharCode(48 + c)).join('');
+    const h2 = map(hero), o2 = others.map(map).map(x => [enc(x), x]).sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
+    const k = enc(h2) + '|' + o2.map(x => x[0]).join(',');
+    if (best === null || k < best) { best = k; bh = h2; bo = o2.map(x => x[1]); }
   }
-  return best;
+  return { key: best, hero: bh, others: bo };
+}
+// доля банка героя при олл-ине до флопа — только по каноническим картам (не зависит от реальных мастей и порядка расчёта)
+function preFrac(pk) {
+  const hands = [pk.hero].concat(pk.others), ne = hands.length, used = new Set(); hands.forEach(hc => hc.forEach(c => used.add(c)));
+  const d = []; for (let c = 0; c < 52; c++) if (!used.has(c)) d.push(c);
+  const rk = rng(hashStr(pk.key)), N = global.EV_SAMPLES || 20000, h7 = new Array(7), b5 = new Array(5); let t = 0;
+  for (let q = 0; q < N; q++) {
+    for (let j = 0; j < 5; j++) { const z = j + Math.floor(rk() * (d.length - j)); const tmp = d[j]; d[j] = d[z]; d[z] = tmp; b5[j] = d[j]; }
+    let m = -Infinity, w = 0, hv = 0;
+    for (let i = 0; i < ne; i++) {
+      const hc = hands[i]; let L = 0; for (let k = 0; k < hc.length; k++) h7[L++] = hc[k]; for (let k = 0; k < 5; k++) h7[L++] = b5[k];
+      const v = eval7f(h7, L); if (i === 0) hv = v; if (v > m) { m = v; w = 1; } else if (v === m) w++;
+    }
+    if (hv === m) t += 1 / w;
+  }
+  return t / N;
 }
 function hashStr(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0 || 1; }
 
@@ -197,15 +216,9 @@ function evNet(rp, seed) {
     else { // префлоп: выборка досок. Эквити зависит только от карт претендентов (масти — с точностью до перестановки),
       // поэтому доля банка героя запоминается по каноническому ключу: одинаковые столкновения (AKs против QQ и т. п.)
       // считаются один раз. Зерно выборки — от ключа, так что ответ одинаков при любом порядке расчёта.
-      const key = preKey(cards[h], E.filter(i => i !== h).map(i => cards[i]));
-      let frac = PRE_CACHE.get(key);
-      if (frac == null) {
-        const rk = rng(hashStr(key)), N = global.EV_SAMPLES || 20000, d = deck.slice(); let t2 = 0;
-        for (let q = 0; q < N; q++) { for (let j = 0; j < need; j++) { const z = j + Math.floor(rk() * (d.length - j)); const tmp = d[j]; d[j] = d[z]; d[z] = tmp; b5[known + j] = d[j]; } t2 += share(b5); }
-        frac = t2 / N / p.amt;
-        if (PRE_CACHE.size > 400000) PRE_CACHE.clear();
-        PRE_CACHE.set(key, frac);
-      }
+      const pk = preKey(cards[h], E.filter(i => i !== h).map(i => cards[i]));
+      let frac = PRE_CACHE.get(pk.key);
+      if (frac == null) { frac = preFrac(pk); if (PRE_CACHE.size > 400000) PRE_CACHE.clear(); PRE_CACHE.set(pk.key, frac); }
       tot = frac * p.amt; runs = 1;
     }
     delta += tot / runs - actual;

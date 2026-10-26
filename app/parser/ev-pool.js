@@ -12,7 +12,7 @@ const { asSeat, decodeRec } = require('./store.js');
 const S = 6;
 function readRec(dir, fds, part, off, len, z) {
   let fd = fds.get(part); if (fd == null) { fd = fs.openSync(path.join(dir, 'rp_' + part + '.dat'), 'r'); fds.set(part, fd); }
-  const b = Buffer.alloc(len); fs.readSync(fd, b, 0, len, off); return decodeRec(b, z);
+  const b = Buffer.alloc(len); fs.readSync(fd, b, 0, len, off); return decodeRec(b, z, dir);
 }
 function computeSerial(dir, jobs, onTick, z) {
   const out = new Float64Array(jobs.length / S).fill(NaN), fds = new Map();
@@ -27,7 +27,7 @@ function computeSerial(dir, jobs, onTick, z) {
 
 async function computeEv(dir, jobs, opts) {
   opts = opts || {};
-  const n = jobs.length / S, z = !!opts.z;
+  const n = jobs.length / S, z = opts.z === 2 ? 2 : !!opts.z;
   let threads = opts.threads != null ? opts.threads : Math.max(1, Math.min(8, (os.cpus() || []).length - 1));
   let Worker; try { ({ Worker } = require('worker_threads')); } catch (e) { threads = 1; }
   if (threads <= 1 || n < 2000) return computeSerial(dir, jobs, opts.onTick, z);

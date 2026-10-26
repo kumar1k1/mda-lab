@@ -16,7 +16,9 @@ function pack(baseDir, out) {
   const g = path.join(baseDir, meta.colDir), og = path.join(g, 'opp');
   fs.rmSync(out, { recursive: true, force: true }); fs.mkdirSync(out, { recursive: true });
   const b64 = (f, buf) => fs.writeFileSync(path.join(out, f + '.b64.json'), JSON.stringify(Buffer.from(buf).toString('base64')));
-  const col = (dir, n, t) => typedFrom(fs.readFileSync(path.join(dir, 'c_' + n + '.bin')), t);
+  const T = require('../app/parser/table.js'), zlib = require('zlib'), { decodeRec } = require('../app/parser/store.js');
+  const col = (dir, n, t) => T.readCol(dir, n, t); // сжатые (.z) и прежние (.bin) колонки
+  const bin2 = meta.rpz === 2; // двоичный реплеер базы — для превью перепаковывается в сжатый JSON (shim читает его)
   // записи реплеера: перепаковка в части по ~6 МБ (только те, на которые есть ссылки)
   const PART = 6 * 1024 * 1024, map = new Map(); let part = 0, buf = [], len = 0;
   const srcFd = {};
@@ -26,11 +28,12 @@ function pack(baseDir, out) {
     const k = p + ':' + o; let r = map.get(k); if (r) return r;
     if (len + l > PART) flush();
     const fd = srcFd[p] || (srcFd[p] = fs.openSync(path.join(baseDir, 'rp_' + p + '.dat'), 'r'));
-    const b = Buffer.alloc(l); fs.readSync(fd, b, 0, l, o);
+    let b = Buffer.alloc(l); fs.readSync(fd, b, 0, l, o);
+    if (bin2) { b = zlib.deflateRawSync(Buffer.from(JSON.stringify(decodeRec(b, 2, baseDir)), 'utf8')); l = b.length; }
     r = [part, len, l]; buf.push(b); len += l; map.set(k, r); return r;
   };
   // ваши раздачи
-  for (const [n, t] of meta.cols) fs.writeFileSync(path.join(out, 'c_' + n + '.bin.b64.json'), JSON.stringify(fs.readFileSync(path.join(g, 'c_' + n + '.bin')).toString('base64')));
+  for (const [n, t] of meta.cols) { const b = T.readColBytes(g, n); if (b) fs.writeFileSync(path.join(out, 'c_' + n + '.bin.b64.json'), JSON.stringify(b.toString('base64'))); }
   const hp = col(g, 'rpp', 'i32'), ho = col(g, 'rpo', 'u32'), hl = col(g, 'rpl', 'u32'), idx = Buffer.alloc(hp.length * 12);
   for (let i = 0; i < hp.length; i++) { const [p, o, l] = remap(hp[i], ho[i], hl[i]); idx.writeInt32LE(p, i * 12); idx.writeUInt32LE(o, i * 12 + 4); idx.writeUInt32LE(l, i * 12 + 8); }
   b64('rp.idx', idx);
@@ -55,7 +58,7 @@ function pack(baseDir, out) {
   writeChunk();
   fs.writeFileSync(path.join(out, 'players.json'), JSON.stringify(pl));
   for (const fd of Object.values(srcFd)) fs.closeSync(fd);
-  const m2 = Object.assign({}, meta, { rpParts: part, oppChunks: chunk, oppCols: OPP_SCHEMA.filter(([n]) => C[n]) });
+  const m2 = Object.assign({}, meta, { rpz: 1, rpParts: part, oppChunks: chunk, oppCols: OPP_SCHEMA.filter(([n]) => C[n]) });
   delete m2.colDir;
   fs.writeFileSync(path.join(out, 'meta.json'), JSON.stringify(m2));
   // колд-колл и фолд на контбет по игрокам — готовой таблицей (в превью не читать все куски соперников)
