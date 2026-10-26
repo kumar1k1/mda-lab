@@ -229,10 +229,7 @@
       const eq = aiFrom > 0 && k >= aiFrom && f.street < 4 ? eqAt(f) : null;
       seats.forEach((s, j) => {
         s.g.classList.toggle('folded', f.folded[j]); s.g.classList.toggle('act', f.actor === j); s.g.classList.toggle('won', f.won[j] > 0);
-        // фолд — подписью прямо в боксе вместо стека, только в момент хода (на следующем шаге снова стек)
-        const foldNow = f.actor === j && f.act[j] && f.act[j].t === 'f';
-        s.stT.textContent = foldNow ? 'Фолд' : f.allin[j] && f.stacks[j] <= 0.01 ? 'олл-ин' : fmt(f.stacks[j]) + ' BB';
-        s.g.classList.toggle('foldnow', foldNow);
+        s.stT.textContent = f.allin[j] && f.stacks[j] <= 0.01 ? 'олл-ин' : fmt(f.stacks[j]) + ' BB';
         const show = j === H0 ? rp.hc : f.show && rp.sh && rp.sh[j] ? rp.sh[j] : (eq && rp.sh && rp.sh[j] ? rp.sh[j] : null);
         const key = f.folded[j] && j !== H0 ? 'x' : show || 'back';
         if (key !== s.cardsKey) {
@@ -241,22 +238,7 @@
         }
         // ставка на столе
         if (f.bets[j] > 0.001) { s.betG.style.display = ''; s.betT.textContent = fmt(f.bets[j]); } else s.betG.style.display = 'none';
-        // действие: на этой улице; фолд — только в момент хода; бет/рейз — с размером
-        const a = f.act[j];
-        if (!a || a.t === 'f') s.actG.style.display = 'none'; // фолд показывается в боксе, не плашкой
-        else {
-          let txt = { f: 'Фолд', x: 'Чек', c: 'Колл', b: 'Бет', r: 'Рейз до', w: 'Выигрыш +' + fmt(a.v) }[a.t] || '';
-          if (a.t !== 'f' && a.t !== 'x' && a.t !== 'w') txt += ' ' + fmt(a.v);
-          if (f.actor === j && prev && (a.t === 'b' || a.t === 'r')) {
-            const potBefore = prev.pot + prev.bets.reduce((x, y) => x + y, 0), maxPrev = Math.max(...prev.bets);
-            if (a.t === 'b' && potBefore > 0) txt += ' · ' + Math.round(a.v / potBefore * 100) + '%';
-            if (a.t === 'r' && maxPrev > 0) txt += ' · ×' + fmt(a.v / maxPrev);
-          }
-          if (a.ai && a.t !== 'w' && a.t !== 'f') txt = 'Олл-ин ' + fmt(a.v);
-          s.actT.textContent = txt; s.actG.style.display = '';
-          s.actG.setAttribute('class', 'rv-actg t-' + (a.ai && a.t !== 'w' ? 'ai' : a.t) + (f.actor === j ? ' now' : ''));
-          const w2 = Math.max(70, txt.length * 8.4 + 22); s.actR.setAttribute('x', s.sx - w2 / 2); s.actR.setAttribute('width', w2);
-        }
+        s.actG.style.display = 'none'; // без подписей действий: видно фишки ставок, сбросивший — бледный
         if (eq && eq[j] != null) { s.eqG.style.display = ''; s.eqT.textContent = 'эквити ' + Math.round(eq[j] * 100) + '%'; } else s.eqG.style.display = 'none';
       });
       // шкала и лента
