@@ -4822,8 +4822,8 @@ function resEl(net) {
   }
 
   // настройки вида, общие для всех раздач (запоминаются): скрывать карты соперников до вскрытия, суммы в фишках
-  const PREF = (() => { let p = {}; try { p = JSON.parse(localStorage.getItem('mda.rv') || '{}') || {}; } catch (e) { p = {}; } return { hide: p.hide !== false, chips: !!p.chips, names: p.names !== false }; })();
-  const savePref = () => { try { localStorage.setItem('mda.rv', JSON.stringify(PREF)); } catch (e) { /* без сохранения */ } };
+  const PREF = (() => { let p = {}; try { p = JSON.parse(localStorage.getItem('mda.rv2') || '{}') || {}; } catch (e) { p = {}; } return { hide: p.hide === true, chips: !!p.chips, names: p.names !== false }; })(); // по умолчанию всё видно
+  const savePref = () => { try { localStorage.setItem('mda.rv2', JSON.stringify(PREF)); } catch (e) { /* без сохранения */ } };
   let CUR = null; // { list, pos, i, cache }
   window.openReplayer = async function (i, list) {
     const ids = Array.isArray(list) && list.includes(i) ? list.slice() : [i];
@@ -4876,16 +4876,18 @@ function resEl(net) {
     const tools = el('div', 'rv-tools');
     const ib = (label, svg, fn, cls) => { const b = el('button', 'rv-ib' + (cls ? ' ' + cls : '')); b.type = 'button'; b.title = label; b.setAttribute('aria-label', label); b.innerHTML = svg; b.onclick = fn; return b; };
     const ic = (d, fill) => '<svg width="18" height="18" viewBox="0 0 24 24" ' + (fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"') + ' aria-hidden="true">' + d + '</svg>';
-    const copyB = ib('Скопировать ход раздачи', ic('<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>'), () => copyText());
-    const pngB = ib('Сохранить картинкой', ic('<path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>'), () => savePng());
+    const copyB = ib('Скопировать ход раздачи', ic('<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>'), () => soon(copyB, 'Копирование хода раздачи', 'Скоро будет добавлено: ход раздачи текстом в буфер обмена.'));
+    const pngB = ib('Сохранить картинкой', ic('<path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>'), () => soon(pngB, 'Сохранение картинкой', 'Скоро будет добавлено: снимок стола в файл.'));
     const gearB = ib('Настройки вида реплеера', ic('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>'), () => toggleGear());
-    function toggleGear() {
-      const old = tools.querySelector('.rv-gear-pop'); if (old) { old.remove(); return; }
-      const pop = el('div', 'rv-gear-pop'); pop.append(el('b', null, 'Вид реплеера'), el('span', null, 'Настройки появятся здесь: цвета стола и карт, размер, что показывать на местах.'));
+    // окошко под кнопкой «скоро будет» (шестерёнка, копирование, картинка); повторный клик или клик мимо — закрыть
+    function soon(btn, title, text) {
+      const old = tools.querySelector('.rv-gear-pop'), same = old && old._btn === btn; if (old) old.remove(); if (same) return;
+      const pop = el('div', 'rv-gear-pop'); pop._btn = btn; pop.append(el('b', null, title), el('span', null, text));
       tools.append(pop);
-      const off = (e) => { if (!pop.contains(e.target) && e.target !== gearB && !gearB.contains(e.target)) { pop.remove(); document.removeEventListener('pointerdown', off, true); } };
+      const off = (e) => { if (!pop.contains(e.target) && !btn.contains(e.target)) { pop.remove(); document.removeEventListener('pointerdown', off, true); } };
       document.addEventListener('pointerdown', off, true);
     }
+    const toggleGear = () => soon(gearB, 'Вид реплеера', 'Скоро будет добавлено: цвета стола и карт, размер, что показывать на местах.');
     const closeB = ib('Закрыть (Esc)', ic('<path d="M6 6l12 12M18 6L6 18"/>'), () => closeReplayer());
     tools.append(copyB, pngB, gearB, closeB);
     head.append(ttl, res, tools);
@@ -4961,7 +4963,7 @@ function resEl(net) {
     function nameState() {
       const t = !NAMES ? 'Ники есть у раздач, загруженных после обновления программы' : PREF.names ? 'Ники игроков показаны — нажмите, чтобы скрыть (N)' : 'Ники игроков скрыты — нажмите, чтобы показать (N)';
       nameB.innerHTML = ic(MAN + (PREF.names && NAMES ? '' : '<path d="M3 3l18 18"/>')); nameB.title = t; nameB.setAttribute('aria-label', t);
-      nameB.setAttribute('aria-pressed', String(PREF.names)); nameB.classList.toggle('dim', !NAMES); nameB.classList.toggle('on', PREF.names && !!NAMES);
+      nameB.setAttribute('aria-pressed', String(!PREF.names)); nameB.classList.toggle('dim', !NAMES); nameB.classList.toggle('on', !PREF.names && !!NAMES);
     }
     nameB.classList.add('tg'); nameState();
     const L = CUR.list, p = CUR.pos;
