@@ -155,7 +155,7 @@ async function estimate(files, heroNicks, opts) {
         const r = parseTextAll(text, heroes, !heroes.size); // без ников — как датамайнинг: только соперники
         for (const h of r.hands) {
           if (h.hero) sHands++; else sMined++; sOpp += h.opps.length;
-          if (h.rp) { rpN++; rpBytes += require('./rpbin.js').encodeRec(h.rp).length - 25; } // двоичная запись; турнир — номером (≈ −25 байт)
+          if (h.rp) { rpN++; const { bb, ...rp } = h.rp; rpBytes += require('./rpbin.js').encodeRec(rp).length - 25; } // как в базе: без bb, двоичная запись, турнир — номером (≈ −25 байт)
           if (h.hero && h.hero.rp && h.hero.hc >= 0) evRecs.push([h.rp, -1]);
           for (const o of h.opps) if (o.needRp && o.hc >= 0 && h.rp) evRecs.push([h.rp, o.seatIdx]);
         }

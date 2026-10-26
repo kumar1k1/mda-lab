@@ -2635,7 +2635,7 @@ function renderEstimate() {
   $('estNote').classList.toggle('bad', short);
   $('estNote').textContent = short
     ? 'Не хватит места: на время загрузки нужно около ' + fmtBytes(need) + '. Выберите другую папку или диск.'
-    : 'Оценка по образцу ' + fmtBytes(EST.sampleBytes) + ' из ' + fmtBytes(EST.totalBytes) + ' ваших историй на этом компьютере (' + EST.cpus + ' ядер: разбор — в ' + EST.threads + ' потоков, EV — в ' + (EST.evThreads || EST.threads) + ')' + (EST.opp ? '; вместе с вашими раздачами сохранятся ≈ ' + EST.opp.toLocaleString('ru-RU') + ' строк соперников' : '') + '.' + (EST.evSeconds > 5 ? ' После загрузки EV олл-инов досчитается в фоне (≈ ' + fmtDur(EST.evSeconds) + '), раздачами можно пользоваться сразу.' : '') + (app ? ' Повторы уже лежащих в базе раздач отсеются — добавится не больше.' : ' Точные цифры — после загрузки.');
+    : 'Оценка по образцу ' + fmtBytes(EST.sampleBytes) + ' из ' + fmtBytes(EST.totalBytes) + ' ваших историй на этом компьютере (' + EST.cpus + ' ядер: разбор — в ' + EST.threads + ' потоков, EV — в ' + (EST.evThreads || EST.threads) + ')' + (EST.opp ? '; вместе с вашими раздачами сохранятся ≈ ' + EST.opp.toLocaleString('ru-RU') + ' строк соперников' : '') + '.' + (EST.evSeconds > 5 ? ' После загрузки EV олл-инов досчитается в фоне (' + fmtDur(EST.evSeconds) + '), раздачами можно пользоваться сразу.' : '') + (app ? ' Повторы уже лежащих в базе раздач отсеются — добавится не больше.' : ' Точные цифры — после загрузки.');
   $('doImport').disabled = short || !(IMPORT_SCAN && IMPORT_SCAN.ok);
 }
 // «Скорость загрузки»: Авто / Экономно / Максимум — хранится в настройках программы
