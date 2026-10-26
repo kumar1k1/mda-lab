@@ -206,7 +206,7 @@ async function showHandList(it, k, cellBtn) {
       const row = el('div', 'hp-row');
       const play = el('button', 'hp-play'); play.type = 'button'; play.setAttribute('aria-label', 'Проиграть раздачу');
       play.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z"/></svg>';
-      play.disabled = !r; play.onclick = () => openReplayer(i);
+      play.disabled = !r; play.onclick = () => openReplayer(i, rows); // листание — по этому списку
       const net = c.net[i] / 10;
       const info = el('div', 'hp-info');
       info.append(el('span', 'd', r ? r.d : '—'), el('span', 't', (DB.rooms[c.room[i]] || '') + (r && r.t ? ' · ' + r.t : '')));
@@ -389,7 +389,7 @@ async function openIdsList(title, ids) {
       const row = el('div', 'hp-row');
       const play = el('button', 'hp-play'); play.type = 'button'; play.setAttribute('aria-label', 'Проиграть раздачу');
       play.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z"/></svg>';
-      play.disabled = !r; if (!r) play.title = 'Нет записи раздачи'; play.onclick = () => openReplayer(i);
+      play.disabled = !r; if (!r) play.title = 'Нет записи раздачи'; play.onclick = () => openReplayer(i, rows);
       const net = c.net[i] / 10;
       const info = el('div', 'hp-info');
       info.append(el('span', 'd', r ? r.d : '—'), el('span', 't', (DB.rooms[c.room[i]] || '') + (r && r.t ? ' · ' + r.t : '')));

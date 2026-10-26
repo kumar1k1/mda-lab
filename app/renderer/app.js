@@ -2521,7 +2521,7 @@ function showImport(r) {
   if (!r || r.canceled) return;
   IMPORT_SCAN = r;
   $('impResult').hidden = false; $('impProgress').hidden = true;
-  $('impSummary').textContent = 'Найдено ' + r.files.toLocaleString('ru-RU') + ' файлов, ' + fmtBytes(r.bytes) + ', примерно ' + r.estHands.toLocaleString('ru-RU') + ' раздач. Источник: ' + r.source;
+  $('impSummary').textContent = 'Найдено ' + r.files.toLocaleString('ru-RU') + ' файлов, ' + fmtBytes(r.bytes) + '. Источник: ' + r.source;
   const body = $('impRooms'); body.replaceChildren();
   Object.keys(r.rooms).forEach(room => {
     const z = r.rooms[room], tr = el('tr');
