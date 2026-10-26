@@ -124,6 +124,12 @@ function decodeRecBin(b, titles) {
 function playersIn(b) { // число мест в двоичной записи
   const r = new R(b); r.p = 2; if (b[1] & 8) { if (b[0] === VER_T) r.uv(); else r.str(); } return r.uv();
 }
+// число мест и номер вашего места (без полной расшифровки записи)
+function seatsOf(b) {
+  const r = new R(b); r.p = 2; if (b[1] & 8) { if (b[0] === VER_T) r.uv(); else r.str(); }
+  const n = r.uv(); for (let i = 0; i < n; i++) { r.u8(); r.sv(); r.u8(); r.uv(); }
+  return { n, h: r.sv() };
+}
 function appendNames(b, codes) {
   if ((b[0] !== VER && b[0] !== VER_T) || (b[1] & 128)) return b;
   const w = new W(); w.uv(codes.length); for (const c of codes) w.uv(c);
@@ -133,4 +139,4 @@ function appendNames(b, codes) {
 // номер турнира у записи вида 3 (для подгрузки дописанной таблицы турниров)
 function titleId(b) { const r = new R(b); r.p = 2; return r.uv(); }
 
-module.exports = { encodeRec, decodeRecBin, internTitle, titleId, encodeBin, decodeBin, playersIn, appendNames };
+module.exports = { encodeRec, decodeRecBin, internTitle, titleId, encodeBin, decodeBin, playersIn, appendNames, seatsOf };

@@ -4222,7 +4222,7 @@ function onMigrate(m) {
   if (!MIG_T || MIG_T.id !== m.id) MIG_T = { id: m.id, t0: now, d0: m.done };
   const el2 = (now - MIG_T.t0) / 1000, rate = el2 > 1.5 ? (m.done - MIG_T.d0) / el2 : 0;
   const left = rate > 0 && m.total ? (m.total - m.done) / rate : null;
-  const stage = { rpbin: 'Перевожу записи раздач в компактный вид', colz: 'Сжимаю колонки статистики', fcb: 'Досчитываю фолд на контбет', ant: 'Досчитываю анте', cbs: 'Досчитываю размеры контбетов' }[m.id] || 'Обновляю';
+  const stage = { rpbin: 'Перевожу записи раздач в компактный вид', colz: 'Сжимаю колонки статистики', names: 'Добавляю ники игроков в записи раздач', fcb: 'Досчитываю фолд на контбет', ant: 'Досчитываю анте', cbs: 'Досчитываю размеры контбетов' }[m.id] || 'Обновляю';
   migBox.querySelector('.mig-t').textContent = m.total ? stage + ': ' + m.done.toLocaleString('ru-RU') + ' из ' + m.total.toLocaleString('ru-RU') + ' (' + pct + '%)' + (left != null ? ' · осталось ' + fmtDur(left) : '') : 'Подготовка…';
 }
 // EV последней загрузки досчитывается в фоне: значок в панели; по окончании — свежая колонка nev

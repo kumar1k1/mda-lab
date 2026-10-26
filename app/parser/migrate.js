@@ -40,7 +40,7 @@ const MIGRATIONS = [
   { id: 'cbs', col: ['cbs', 'i16'], uses: ['fcb'], need: (C, i) => C.fcb[i] >= 0 && C.cbs[i] < 0, calc: (rec) => cbsOf(rec) }
 ];
 // обновления формата (после досчёта колонок): двоичный реплеер и сжатые колонки (0.7)
-const FORMAT_IDS = ['rpbin', 'colz'];
+const FORMAT_IDS = ['rpbin', 'colz', 'names']; // names (0.7.2) — ники за столом в записях реплеера
 const ALL_IDS = MIGRATIONS.map(m => m.id).concat(FORMAT_IDS);
 
 // какие обновления ещё не сделаны для этой базы (только база v3 — у неё записи реплеера на каждую строку)
@@ -65,7 +65,7 @@ async function doMigrate(dir, post) {
   for (const id of FORMAT_IDS) {
     const meta = JSON.parse(fs.readFileSync(mf, 'utf8'));
     if (!pending(meta).includes(id)) continue;
-    if (id === 'rpbin') await migRpbin(dir, meta, post); else migColz(dir, meta, post);
+    if (id === 'rpbin') await migRpbin(dir, meta, post); else if (id === 'names') migNames(dir, meta, post); else migColz(dir, meta, post);
     const m2 = JSON.parse(fs.readFileSync(mf, 'utf8'));
     m2.mig = Array.from(new Set((m2.mig || []).concat([id])));
     const tmp = mf + '.tmp'; fs.writeFileSync(tmp, JSON.stringify(m2)); fs.renameSync(tmp, mf);
@@ -146,6 +146,63 @@ async function migRpbin(dir, meta, post) {
   }
   const mf = path.join(dir, 'meta.json'), m2 = JSON.parse(fs.readFileSync(mf, 'utf8'));
   m2.rpz = 2; m2.rpParts = w.parts;
+  const tmp = mf + '.tmp'; fs.writeFileSync(tmp, JSON.stringify(m2)); fs.renameSync(tmp, mf);
+  for (let p = 0; p < oldParts; p++) fs.rmSync(path.join(dir, 'rp_' + p + '.dat'), { force: true });
+}
+// Ники за столом (0.7.2): в старых записях реплеера мест без имён, но база знает, кто где сидел — у строк соперников
+// есть игрок (pid) и место (seat), у ваших строк — номер вашего ника (nk). Каждая запись дописывается кодами мест
+// (rpbin.appendNames) и переписывается в новые части rp_*.dat; ссылки обеих таблиц — на новые места.
+function migNames(dir, meta, post) {
+  if (meta.rpz !== 2) return;
+  const RB = require('./rpbin.js'), { ReplayWriter } = require('./store.js'), { BlockReader } = require('./blockreader.js');
+  const oldParts = meta.rpParts || 0, tabs = tablesOf(dir, meta);
+  for (const t of tabs) { t.rpp = readCol(t.d, 'rpp', 'i32', t.n); t.rpo = readCol(t.d, 'rpo', 'u32', t.n); t.rpl = readCol(t.d, 'rpl', 'u32', t.n); }
+  const idx = new Map(), P = [], O = [], L = [];
+  const uOf = tabs.map(t => { const u = new Int32Array(t.n).fill(-1); for (let i = 0; i < t.n; i++) { const p = t.rpp[i]; if (p < 0) continue; const k = p * 4294967296 + t.rpo[i]; let v = idx.get(k); if (v == null) { v = P.length; idx.set(k, v); P.push(p); O.push(t.rpo[i]); L.push(t.rpl[i]); } u[i] = v; } return u; });
+  const N = P.length, heroNk = new Int16Array(N).fill(-1);
+  const H = tabs[0], nk = readCol(H.d, 'nk', 'i16', H.n);
+  if (nk) for (let i = 0; i < H.n; i++) if (uOf[0][i] >= 0 && nk[i] >= 0) heroNk[uOf[0][i]] = nk[i];
+  // строки соперников по записям (подсчётом): start[u] … start[u + 1]
+  const start = new Int32Array(N + 1); let oSeat = null, oPid = null, oRow = null;
+  if (tabs[1]) {
+    const T2 = tabs[1], seat = readCol(T2.d, 'seat', 'i8', T2.n), pid = readCol(T2.d, 'pid', 'i32', T2.n), u2 = uOf[1];
+    for (let i = 0; i < T2.n; i++) if (u2[i] >= 0) start[u2[i] + 1]++;
+    for (let u = 0; u < N; u++) start[u + 1] += start[u];
+    const fill = start.slice(0, N); oRow = new Int32Array(start[N]);
+    for (let i = 0; i < T2.n; i++) if (u2[i] >= 0) oRow[fill[u2[i]]++] = i;
+    oSeat = seat; oPid = pid;
+  }
+  const ord = Array.from(P.keys()).sort((a, b) => P[a] - P[b] || O[a] - O[b]);
+  const br = new BlockReader(dir), w = new ReplayWriter(dir, undefined, oldParts);
+  const NP = new Int32Array(N), NO = new Uint32Array(N), NL = new Uint32Array(N);
+  let done = 0;
+  for (const u of ord) {
+    let b = br.get(P[u], O[u], L[u]);
+    try {
+      if ((b[0] === 2 || b[0] === 3) && !(b[1] & 128)) {
+        const { n, h } = RB.seatsOf(b), codes = new Array(n).fill(0);
+        if (oRow) for (let q = start[u]; q < start[u + 1]; q++) { const i = oRow[q], s = oSeat[i]; if (s >= 0 && s < n && oPid[i] >= 0) codes[s] = 2 + 2 * oPid[i]; }
+        if (heroNk[u] >= 0 && h >= 0 && h < n) codes[h] = 1 + 2 * heroNk[u];
+        b = RB.appendNames(Buffer.from(b), codes);
+      }
+    } catch (e) { /* запись как была */ }
+    const ref = w.addRaw(b); NP[u] = ref[0]; NO[u] = ref[1]; NL[u] = ref[2];
+    if (post && ++done % 5000 === 0) post({ done, total: N, id: 'names' });
+  }
+  br.close(); w.close();
+  const remap = (p, o) => idx.get(p * 4294967296 + o);
+  for (const t of tabs) {
+    for (let i = 0; i < t.n; i++) { if (t.rpp[i] < 0) continue; const u = remap(t.rpp[i], t.rpo[i]); t.rpp[i] = NP[u]; t.rpo[i] = NO[u]; t.rpl[i] = NL[u]; }
+    writeCol(t.d, 'rpp', t.rpp); writeCol(t.d, 'rpo', t.rpo); writeCol(t.d, 'rpl', t.rpl);
+  }
+  const pf = path.join(dir, 'ev-pending.bin');
+  if (fs.existsSync(pf)) {
+    const b = fs.readFileSync(pf), J = new Float64Array(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength));
+    for (let j = 0; j < J.length; j += 6) { const u = remap(J[j + 1], J[j + 2]); if (u != null) { J[j + 1] = NP[u]; J[j + 2] = NO[u]; J[j + 3] = NL[u]; } }
+    fs.writeFileSync(pf, Buffer.from(J.buffer));
+  }
+  const mf = path.join(dir, 'meta.json'), m2 = JSON.parse(fs.readFileSync(mf, 'utf8'));
+  m2.rpParts = w.parts;
   const tmp = mf + '.tmp'; fs.writeFileSync(tmp, JSON.stringify(m2)); fs.renameSync(tmp, mf);
   for (let p = 0; p < oldParts; p++) fs.rmSync(path.join(dir, 'rp_' + p + '.dat'), { force: true });
 }
