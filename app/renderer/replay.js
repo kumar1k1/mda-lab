@@ -20,7 +20,9 @@
       k++;
     }
     st.text = 'Анте и блайнды'; st.actor = -1; snap();
-    let collected = false;
+    // Возврат неуравненной ставки — без отдельного шага (фишки возвращаются в том же кадре, где закончилась торговля);
+    // вскрытие и раздача банка (в том числе дележ и побочные банки) — одним итоговым кадром.
+    let collected = false; const wins = [];
     for (; k < rp.ev.length; k++) {
       const [s, i, t, a, ai] = rp.ev[k];
       st.actor = i;
@@ -36,18 +38,27 @@
       else if (t === 'c') { st.stacks[i] -= a; st.bets[i] += a; st.text = name(i) + ': колл ' + r2(a) + ' BB'; st.act[i] = { t: 'c', v: r2(st.bets[i]) }; }
       else if (t === 'b') { st.stacks[i] -= a; st.bets[i] += a; st.text = name(i) + ': бет ' + r2(a) + ' BB'; st.act[i] = { t: 'b', v: r2(a) }; }
       else if (t === 'r') { const add = a - st.bets[i]; st.stacks[i] -= add; st.bets[i] = a; st.text = name(i) + ': рейз до ' + r2(a) + ' BB'; st.act[i] = { t: 'r', v: r2(a) }; }
-      else if (t === 'U') { st.stacks[i] += a; st.bets[i] -= a; st.text = 'Возврат неуравненной ставки ' + r2(a) + ' BB: ' + name(i); }
+      else if (t === 'U') {
+        st.stacks[i] += a; st.bets[i] -= a;
+        if (out.length > 2) { const keep = out[out.length - 1]; const txt = st.text, ac = st.actor; st.text = keep.text; st.actor = keep.actor; out.pop(); snap(); st.text = txt; st.actor = ac; continue; }
+        st.text = 'Возврат неуравненной ставки ' + r2(a) + ' BB: ' + name(i);
+      }
       else if (t === 'W') {
-        if (!collected) {
-          st.bets.forEach(b => { st.pot += b; }); st.bets.fill(0); collected = true;
-          if (Object.keys(rp.sh || {}).length) { st.show = true; st.street = 4; st.actor = -1; st.text = 'Вскрытие'; snap(); }
-          st.street = 4;
-        }
-        if (!st.act._won) { st.act = st.act.map(() => null); st.act._won = true; }
-        st.stacks[i] += a; st.pot -= a; st.won[i] += a; st.act[i] = { t: 'w', v: r2(st.won[i]) }; st.text = (i === rp.h ? 'Вы забираете ' : name(i) + ' забирает ') + r2(a) + ' BB';
+        if (!collected) { st.bets.forEach(b => { st.pot += b; }); st.bets.fill(0); collected = true; st.street = 4; st.actor = -1; if (Object.keys(rp.sh || {}).length) st.show = true; st.act = st.act.map(() => null); }
+        st.stacks[i] += a; st.pot -= a; st.won[i] += a; st.act[i] = { t: 'w', v: r2(st.won[i]) };
+        if (!wins.includes(i)) wins.push(i);
+        continue; // кадр — один на все выигрыши, после цикла
       }
       if (ai) { st.allin[i] = true; st.text += ' — олл-ин'; if (st.act[i]) st.act[i].ai = true; }
       snap();
+    }
+    if (wins.length) {
+      const who = (i) => (i === rp.h ? 'Вы' : name(i)), amt = (i) => r2(st.won[i]) + ' BB';
+      const same = wins.length > 1 && wins.every(i => Math.abs(st.won[i] - st.won[wins[0]]) < 0.02);
+      if (wins.length === 1) st.text = (wins[0] === rp.h ? 'Вы забираете ' : name(wins[0]) + ' забирает ') + amt(wins[0]);
+      else if (same) st.text = 'Банк делят ' + wins.map(who).join(' и ') + ': по ' + amt(wins[0]);
+      else st.text = 'Банк: ' + wins.map(i => who(i) + ' ' + amt(i)).join(', ');
+      st.actor = -1; snap();
     }
     const last = out[out.length - 1]; if (Math.abs(last.pot) < 0.1) last.pot = 0; // округление копеек WPN
     return out;

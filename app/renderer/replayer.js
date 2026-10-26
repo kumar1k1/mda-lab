@@ -259,7 +259,7 @@
     function step(d) { const L2 = CUR.list, q = CUR.pos + d; if (q < 0 || q >= L2.length) return; CUR.pos = q; show(L2[q]); }
     function copyText() {
       const lines = [(rp.t || room) + ' · ' + rp.d, 'Вы: ' + rp.pl[H0][0] + ', ' + (rp.hc || '') + ', стек ' + fmt(rp.pl[H0][1]) + ' BB'];
-      let ls = -1; fr.forEach((f, k) => { if (k < 1) return; if (f.street !== ls) { ls = f.street; lines.push('', STREET[f.street] + (f.board ? ' [' + rp.bd.slice(0, f.board).join(' ') + ']' : '')); } if (f.actor >= 0 || /забира|Вскрытие|Возврат/.test(f.text)) lines.push('  ' + ru(f.text)); });
+      let ls = -1; fr.forEach((f, k) => { if (k < 1) return; if (f.street !== ls) { ls = f.street; lines.push('', STREET[f.street] + (f.board ? ' [' + rp.bd.slice(0, f.board).join(' ') + ']' : '')); } if (f.actor >= 0 || /забира|Банк|Возврат/.test(f.text)) lines.push('  ' + ru(f.text)); });
       lines.push('', 'Итог: ' + sgn(net) + ' BB' + (Math.abs(nev - net) > 0.005 ? ' (по EV ' + sgn(nev) + ' BB)' : ''));
       const txt = lines.join('\n');
       (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(() => flash(copyB, 'Скопировано')).catch(() => flash(copyB, 'Не удалось скопировать'));
