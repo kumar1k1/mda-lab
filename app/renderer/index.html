@@ -118,6 +118,13 @@
           <div><span>Свободно на диске</span><b id="estFree">…</b></div>
           <div><span>Время загрузки</span><b id="estTime">…</b></div>
         </div>
+        <div class="imp-perf">
+          <span>Скорость загрузки</span>
+          <div class="seg bx-seg" id="perfSeg" role="radiogroup" aria-label="Скорость загрузки">
+            <button type="button" data-perf="auto">Авто</button><button type="button" data-perf="eco">Экономно</button><button type="button" data-perf="max">Максимум</button>
+          </div>
+          <small class="muted" id="perfHint"></small>
+        </div>
         <p class="muted small" id="estNote">Оцениваю по образцу ваших историй…</p>
       </div>
       <div class="imp-progress" id="impProgress" hidden>

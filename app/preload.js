@@ -20,6 +20,8 @@ contextBridge.exposeInMainWorld('mda', {
   baseLocation: () => ipcRenderer.invoke('base:location'),
   pickBaseDir: () => ipcRenderer.invoke('base:pick'),
   onEvBg: (cb) => { ipcRenderer.removeAllListeners('ev:bg'); ipcRenderer.on('ev:bg', (_e, m) => cb(m)); },
+  getPerf: () => ipcRenderer.invoke('perf:get'),
+  setPerf: (m) => ipcRenderer.invoke('perf:set', m),
   onMigrate: (cb) => { ipcRenderer.removeAllListeners('db:migrate'); ipcRenderer.on('db:migrate', (_e, m) => cb(m)); },
   onProgress: (cb) => { ipcRenderer.removeAllListeners('import:progress'); ipcRenderer.on('import:progress', (_e, m) => cb(m)); },
   pick: (mode) => ipcRenderer.invoke('import:pick', mode),

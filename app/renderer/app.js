@@ -2427,18 +2427,24 @@ function typedCol(bytes, type) {
   return new A(b.buffer, b.byteOffset, Math.floor(b.byteLength / A.BYTES_PER_ELEMENT));
 }
 // окно «Обновляю базу»: новая версия программы досчитывает данные из уже загруженных рук (без перезаливки)
-let migBox = null;
+let migBox = null, MIG_T = null;
 function onMigrate(m) {
-  if (m.end) { if (migBox) { migBox.remove(); migBox = null; } return; }
+  if (m.end) { if (migBox) { migBox.remove(); migBox = null; } MIG_T = null; return; }
   if (!migBox) {
     migBox = el('div', 'modal-bg mig-bg'); const box = el('div', 'modal mig');
-    box.append(el('h2', null, 'Обновляю базу до новой версии'), el('p', 'muted', 'Новая версия программы считает больше статистики. Недостающие данные досчитываются из уже загруженных раздач — перезаливать руки не нужно. Это делается один раз.'),
+    box.append(el('h2', null, 'Обновляю базу до новой версии'), el('p', 'muted', 'Новая версия программы хранит базу компактнее и считает больше статистики. Всё делается из уже загруженных раздач — перезаливать руки не нужно. Это происходит один раз.'),
       (() => { const t = el('div', 'prog-track'); t.append(el('div', 'prog-fill')); return t; })(), el('p', 'small muted mig-t', 'Подготовка…'));
     migBox.append(box); document.body.append(migBox);
   }
   const pct = m.total ? Math.min(100, Math.round(m.done / m.total * 100)) : 0;
   migBox.querySelector('.prog-fill').style.width = pct + '%';
-  migBox.querySelector('.mig-t').textContent = m.total ? 'Раздач обработано: ' + m.done.toLocaleString('ru-RU') + ' из ' + m.total.toLocaleString('ru-RU') + ' (' + pct + '%)' : 'Подготовка…';
+  // этап и оценка оставшегося времени по скорости этого этапа
+  const now = Date.now();
+  if (!MIG_T || MIG_T.id !== m.id) MIG_T = { id: m.id, t0: now, d0: m.done };
+  const el2 = (now - MIG_T.t0) / 1000, rate = el2 > 1.5 ? (m.done - MIG_T.d0) / el2 : 0;
+  const left = rate > 0 && m.total ? (m.total - m.done) / rate : null;
+  const stage = { rpbin: 'Перевожу записи раздач в компактный вид', colz: 'Сжимаю колонки статистики', fcb: 'Досчитываю фолд на контбет', ant: 'Досчитываю анте', cbs: 'Досчитываю размеры контбетов' }[m.id] || 'Обновляю';
+  migBox.querySelector('.mig-t').textContent = m.total ? stage + ': ' + m.done.toLocaleString('ru-RU') + ' из ' + m.total.toLocaleString('ru-RU') + ' (' + pct + '%)' + (left != null ? ' · осталось ' + fmtDur(left) : '') : 'Подготовка…';
 }
 // EV последней загрузки досчитывается в фоне: значок в панели; по окончании — свежая колонка nev
 function onEvBg(m) {
@@ -2509,7 +2515,9 @@ function renderWelcome() {
   return w;
 }
 
+let PERF_READY = false;
 function showImport(r) {
+  if (!PERF_READY) { PERF_READY = true; setupPerf(); }
   if (!r || r.canceled) return;
   IMPORT_SCAN = r;
   $('impResult').hidden = false; $('impProgress').hidden = true;
@@ -2627,8 +2635,16 @@ function renderEstimate() {
   $('estNote').classList.toggle('bad', short);
   $('estNote').textContent = short
     ? 'Не хватит места: на время загрузки нужно около ' + fmtBytes(need) + '. Выберите другую папку или диск.'
-    : 'Оценка по образцу ' + fmtBytes(EST.sampleBytes) + ' из ' + fmtBytes(EST.totalBytes) + ' ваших историй на этом компьютере (' + EST.cpus + ' ядер, разбор и EV — в ' + EST.threads + ' потоков)' + (EST.opp ? '; вместе с вашими раздачами сохранятся ≈ ' + EST.opp.toLocaleString('ru-RU') + ' строк соперников' : '') + '.' + (EST.evSeconds > 5 ? ' После загрузки EV олл-инов досчитается в фоне (≈ ' + fmtDur(EST.evSeconds) + '), раздачами можно пользоваться сразу.' : '') + (app ? ' Повторы уже лежащих в базе раздач отсеются — добавится не больше.' : ' Точные цифры — после загрузки.');
+    : 'Оценка по образцу ' + fmtBytes(EST.sampleBytes) + ' из ' + fmtBytes(EST.totalBytes) + ' ваших историй на этом компьютере (' + EST.cpus + ' ядер: разбор — в ' + EST.threads + ' потоков, EV — в ' + (EST.evThreads || EST.threads) + ')' + (EST.opp ? '; вместе с вашими раздачами сохранятся ≈ ' + EST.opp.toLocaleString('ru-RU') + ' строк соперников' : '') + '.' + (EST.evSeconds > 5 ? ' После загрузки EV олл-инов досчитается в фоне (≈ ' + fmtDur(EST.evSeconds) + '), раздачами можно пользоваться сразу.' : '') + (app ? ' Повторы уже лежащих в базе раздач отсеются — добавится не больше.' : ' Точные цифры — после загрузки.');
   $('doImport').disabled = short || !(IMPORT_SCAN && IMPORT_SCAN.ok);
+}
+// «Скорость загрузки»: Авто / Экономно / Максимум — хранится в настройках программы
+const PERF_HINT = { auto: 'по ядрам и свободной памяти этого компьютера', eco: 'половина ядер — удобно работать за компьютером параллельно', max: 'все ядра под загрузку' };
+async function setupPerf() {
+  const seg = $('perfSeg'); if (!seg || !mda.getPerf) { if (seg) seg.parentNode.hidden = true; return; }
+  const show = (m) => { seg.querySelectorAll('button').forEach(b => { const on = b.dataset.perf === m; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }); $('perfHint').textContent = PERF_HINT[m] || ''; };
+  show(await mda.getPerf());
+  seg.querySelectorAll('button').forEach(b => { b.onclick = async () => { show(await mda.setPerf(b.dataset.perf)); runEstimate(); }; });
 }
 function runEstimate() {
   clearTimeout(estTimer);

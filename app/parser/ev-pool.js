@@ -28,7 +28,7 @@ function computeSerial(dir, jobs, onTick, z) {
 async function computeEv(dir, jobs, opts) {
   opts = opts || {};
   const n = jobs.length / S, z = opts.z === 2 ? 2 : !!opts.z;
-  let threads = opts.threads != null ? opts.threads : Math.max(1, Math.min(8, (os.cpus() || []).length - 1));
+  let threads = opts.threads != null ? opts.threads : require('./threads.js').threadsFor('ev'); // по ядрам и свободной памяти
   let Worker; try { ({ Worker } = require('worker_threads')); } catch (e) { threads = 1; }
   if (threads <= 1 || n < 2000) return computeSerial(dir, jobs, opts.onTick, z);
   const out = new Float64Array(n).fill(NaN);

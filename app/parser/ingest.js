@@ -62,7 +62,7 @@ function openOld(dir) {
 async function parseParallel(files, heroes, onHand, onFile, threads, po) {
   const { Worker } = require('worker_threads');
   const { fileSize } = require('./build.js');
-  const P = Math.max(1, threads || Math.min(8, Math.max(1, (os.cpus() || []).length - 1)));
+  const P = Math.max(1, threads || require('./threads.js').threadsFor('parse')); // по ядрам и свободной памяти
   const size = files.map(f => { try { return fileSize(f); } catch (e) { return 0; } });
   const AHEAD = 256 * 1024 * 1024;
   let next = 0, want = 0, errors = 0, ahead = 0;
@@ -143,7 +143,7 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
   // EV прошлой загрузки ещё не досчитан (считается в фоне) — досчитать до слияния: номера строк сейчас поменяются
   if (pendingEv(dir)) await finishEv(dir, { threads: opts.threads, onTick: (d, t) => prog('ev', d, t, 0) });
   // старая база ещё в прежнем формате (реплеер JSON, несжатые колонки, недосчитанные колонки) — сначала обновить
-  if (fs.existsSync(path.join(dir, 'meta.json'))) { const mg = require('./migrate.js'); if (mg.pending(JSON.parse(fs.readFileSync(path.join(dir, 'meta.json'), 'utf8'))).length) mg.doMigrate(dir, (p) => prog('migrate', p.done, p.total, 0)); }
+  if (fs.existsSync(path.join(dir, 'meta.json'))) { const mg = require('./migrate.js'); if (mg.pending(JSON.parse(fs.readFileSync(path.join(dir, 'meta.json'), 'utf8'))).length) await mg.doMigrate(dir, (p) => prog('migrate', p.done, p.total, 0)); }
   const old = fs.existsSync(path.join(dir, 'meta.json')) ? openOld(dir) : null;
   const rooms = old ? old.meta.rooms.slice() : [];
   for (const r of Object.values(nicks)) if (!rooms.includes(r)) rooms.push(r);

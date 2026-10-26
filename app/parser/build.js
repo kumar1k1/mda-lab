@@ -168,7 +168,7 @@ async function estimate(files, heroNicks, opts) {
   let evMs = 0, evN = 0; const tE = Date.now();
   for (let k = 0; k < evRecs.length && Date.now() - tE < 4000; k++) { evNet(asSeat(evRecs[k][0], evRecs[k][1]), k + 1); evN++; }
   evMs = Date.now() - tE;
-  const cpus = (os.cpus() || []).length, threads = Math.max(1, Math.min(8, cpus - 1));
+  const TH = require('./threads.js'), cpus = TH.cores(), threads = TH.threadsFor('parse'), evThreads = TH.threadsFor('ev');
   const scale = sBytes ? total / sBytes : 0;
   const hands = Math.round(sHands * scale), opp = Math.round(sOpp * scale);
   const evJobs = evRecs.length * scale, evPer = evN ? evMs / evN : 0;
@@ -179,10 +179,11 @@ async function estimate(files, heroNicks, opts) {
   // (сверено на загрузке 1,7 ГБ Winamax в 0.6.2: ~28 мкс на строку соперника; в 0.6.3 строки приходят готовыми числами — ~20 мкс)
   const parseSec = Math.max(parseMs * scale / eff * 1.25 / 1000, hands * 30e-6 + opp * 20e-6);
   // EV олл-инов считается в фоне уже после загрузки (раздачи доступны сразу) — отдельной цифрой
-  const seconds = parseSec + (hands + opp) * 7e-6 + 3, evSeconds = evJobs * evPer / eff / 1000;
+  const effEv = Math.max(1, evThreads * 0.6);
+  const seconds = parseSec + (hands + opp) * 7e-6 + 3, evSeconds = evJobs * evPer / effEv / 1000;
   // колонки хранятся сжатыми (≈ 22–25% исходного размера, замер на датамайнинге Winamax)
   const bytes = Math.round((hands * HERO_ROW + opp * OPP_ROW) * 0.25 + (rpN ? rpBytes / rpN : 0) * rpN * scale + hands * 8);
-  return { totalBytes: total, sampleBytes: sBytes, hands, mined: Math.round(sMined * scale), opp, bytes, seconds: Math.round(seconds), evSeconds: Math.round(evSeconds), threads, cpus, exact: sBytes >= total };
+  return { totalBytes: total, sampleBytes: sBytes, hands, mined: Math.round(sMined * scale), opp, bytes, seconds: Math.round(seconds), evSeconds: Math.round(evSeconds), threads, evThreads, cpus, exact: sBytes >= total };
 }
 
 module.exports = { fileSize, ROOM_SIGNS, SUPPORTED, walk, addFile, scan, buildBase, appendBase, eachText, estimate };

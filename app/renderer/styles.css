@@ -985,3 +985,6 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .ld-bar i{display:block;height:100%;width:0;background:var(--amber);border-radius:2px;transition:width .15s}
 .ev-bg{margin-left:auto;font-size:12px;font-weight:700;color:var(--amber);border:1px dashed rgba(var(--amber-rgb),.5);border-radius:999px;padding:3px 10px;white-space:nowrap}
 .ev-bg:not([hidden]) + .sel-count{margin-left:0}
+.imp-perf{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px;font-size:13px}
+.imp-perf > span{font-weight:700}
+.imp-perf small{font-size:12px}

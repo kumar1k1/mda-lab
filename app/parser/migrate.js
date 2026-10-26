@@ -59,13 +59,13 @@ function readCol(dir, name, type, n) {
 function writeCol(dir, name, a) { require('./table.js').writeCol(dir, name, a); }
 const TYPES_OF = { rz: 'i8', act: 'i8', pos: 'i8', fcb: 'i8', ant: 'i16', cbs: 'i16' };
 
-function doMigrate(dir, post) {
+async function doMigrate(dir, post) {
   const r1 = doRowMigrations(dir, post);
   const mf = path.join(dir, 'meta.json'), done = r1.done.slice();
   for (const id of FORMAT_IDS) {
     const meta = JSON.parse(fs.readFileSync(mf, 'utf8'));
     if (!pending(meta).includes(id)) continue;
-    if (id === 'rpbin') migRpbin(dir, meta, post); else migColz(dir, meta, post);
+    if (id === 'rpbin') await migRpbin(dir, meta, post); else migColz(dir, meta, post);
     const m2 = JSON.parse(fs.readFileSync(mf, 'utf8'));
     m2.mig = Array.from(new Set((m2.mig || []).concat([id])));
     const tmp = mf + '.tmp'; fs.writeFileSync(tmp, JSON.stringify(m2)); fs.renameSync(tmp, mf);
@@ -83,7 +83,7 @@ function tablesOf(dir, meta) {
 }
 // Реплеер → двоичный вид (rpz = 2): все записи переписываются в новые части rp_*.dat (номера — после старых),
 // ссылки rpp/rpo/rpl у ваших строк и строк соперников (и у недосчитанного фонового EV) — на новые места; старые части удаляются.
-function migRpbin(dir, meta, post) {
+async function migRpbin(dir, meta, post) {
   if (meta.rpz === 2) return;
   const { ReplayWriter, decodeRec: dec } = require('./store.js'), RB = require('./rpbin.js');
   const zOld = !!meta.rpz, oldParts = meta.rpParts || 0, tabs = tablesOf(dir, meta);
@@ -95,16 +95,41 @@ function migRpbin(dir, meta, post) {
   const w = new ReplayWriter(dir, undefined, oldParts);
   const titles = [], tmap = new Map(), tid = (s) => { let i = tmap.get(s); if (i == null) { i = titles.length; titles.push(s); tmap.set(s, i); } return i; };
   const NP = new Int32Array(P.length), NO = new Uint32Array(P.length), NL = new Uint32Array(P.length);
-  const fds = new Map(), fdOf = (p) => { let fd = fds.get(p); if (fd == null) { fd = fs.openSync(path.join(dir, 'rp_' + p + '.dat'), 'r'); fds.set(p, fd); } return fd; };
+  // перекодирование — пачками по 20 000 записей на нескольких ядрах; результаты пишутся строго по порядку
+  const BATCH = 20000, nb = Math.ceil(ord.length / BATCH);
+  const threads = require('./threads.js').threadsFor('ev');
   let done = 0;
-  try {
-    for (const u of ord) {
-      const b = Buffer.alloc(L[u]); fs.readSync(fdOf(P[u]), b, 0, b.length, O[u]);
-      let nb; try { nb = RB.internTitle(RB.encodeRec(dec(b, zOld)), tid); } catch (e) { nb = Buffer.from(JSON.stringify(null)); }
-      const ref = w.addRaw(nb); NP[u] = ref[0]; NO[u] = ref[1]; NL[u] = ref[2];
-      if (post && ++done % 5000 === 0) post({ done, total: P.length, id: 'rpbin' });
-    }
-  } finally { for (const fd of fds.values()) fs.closeSync(fd); }
+  const put = (u, b) => { const ref = w.addRaw(RB.internTitle(b, tid)); NP[u] = ref[0]; NO[u] = ref[1]; NL[u] = ref[2]; };
+  if (threads <= 1 || ord.length < 2 * BATCH) {
+    const { BlockReader } = require('./blockreader.js'), br = new BlockReader(dir);
+    for (const u of ord) { let b; try { b = RB.encodeRec(dec(br.get(P[u], O[u], L[u]), zOld, dir)); } catch (e) { b = Buffer.from('null'); } put(u, b); if (post && ++done % 5000 === 0) post({ done, total: P.length, id: 'rpbin' }); }
+    br.close();
+  } else {
+    await new Promise((resolve, reject) => {
+      const ready = new Map(); let next = 0, want = 0, alive = 0, failed = false;
+      const ws = [];
+      const feed = (wk) => {
+        if (next >= nb) { wk.terminate(); return; }
+        const id = next++, us = ord.slice(id * BATCH, (id + 1) * BATCH);
+        wk.postMessage({ id, P: Float64Array.from(us, u => P[u]), O: Float64Array.from(us, u => O[u]), L: Float64Array.from(us, u => L[u]) });
+      };
+      const drain = () => {
+        while (ready.has(want)) {
+          const { buf, lens } = ready.get(want); ready.delete(want);
+          const us = ord.slice(want * BATCH, (want + 1) * BATCH), b = Buffer.from(buf); let off = 0;
+          for (let i = 0; i < us.length; i++) { put(us[i], b.subarray(off, off + lens[i])); off += lens[i]; }
+          done += us.length; if (post) post({ done, total: P.length, id: 'rpbin' }); want++;
+        }
+        if (want >= nb) resolve();
+      };
+      for (let t = 0; t < threads; t++) {
+        const wk = new Worker(path.join(__dirname, 'rpbin-worker.js'), { workerData: { dir, z: zOld } }); ws.push(wk); alive++;
+        wk.on('message', (m) => { ready.set(m.id, m); feed(wk); drain(); });
+        wk.on('error', (e) => { if (!failed) { failed = true; ws.forEach(x => x.terminate()); reject(e); } });
+        feed(wk);
+      }
+    });
+  }
   w.close();
   fs.writeFileSync(path.join(dir, 'rp-titles.json'), JSON.stringify(titles));
   const remap = (p, o) => idx.get(p * 4294967296 + o);
@@ -163,7 +188,7 @@ function doRowMigrations(dir, post) {
     plan.push({ m, t, C, rows }); total += rows.length;
   }
   let done = 0, last = 0;
-  const fds = new Map(), fdOf = (p) => { let fd = fds.get(p); if (fd == null) { fd = fs.openSync(path.join(dir, 'rp_' + p + '.dat'), 'r'); fds.set(p, fd); } return fd; };
+  const { BlockReader } = require('./blockreader.js'), br = new BlockReader(dir); // чтение крупными окнами по порядку файла
   try {
     // по миграциям по порядку: fcb раньше cbs (cbs берёт строки, где известен фолд на контбет)
     for (const m of todo) {
@@ -175,7 +200,7 @@ function doRowMigrations(dir, post) {
         rows.sort((a, b) => t.rpp[a] - t.rpp[b] || t.rpo[a] - t.rpo[b]); // чтение по порядку файла
         const out = C[m.col[0]];
         for (const i of rows) {
-          const b = Buffer.alloc(t.rpl[i]); fs.readSync(fdOf(t.rpp[i]), b, 0, b.length, t.rpo[i]);
+          const b = br.get(t.rpp[i], t.rpo[i], t.rpl[i]);
           let rec = null; try { rec = decodeRec(b, z, dir); } catch (e) { /* запись повреждена */ }
           if (rec && rec.ev) { const v = m.calc(rec, t.hero ? rec.h : t.seat[i]); if (v != null && v >= 0) out[i] = v; }
           done++; if (post && done - last >= 2000) { last = done; post({ done, total, id: m.id }); }
@@ -187,23 +212,24 @@ function doRowMigrations(dir, post) {
       meta.mig = Array.from(new Set((meta.mig || []).concat([m.id])));
       const tmp = mf + '.tmp'; fs.writeFileSync(tmp, JSON.stringify(meta)); fs.renameSync(tmp, mf);
     }
-  } finally { for (const fd of fds.values()) fs.closeSync(fd); }
+  } finally { br.close(); }
   return { done: todo.map(m => m.id), rows: total };
 }
 
 // в фоновом потоке: окно программы не замирает; onProgress({done,total})
 function run(dir, onProgress) {
   return new Promise((resolve, reject) => {
-    const w = new Worker(__filename, { workerData: { dir } });
+    const w = new Worker(__filename, { workerData: { dir, migrate: true } });
     w.on('message', (m) => { if (m.type === 'progress') { if (onProgress) onProgress(m); } else if (m.type === 'done') resolve(m.res); else if (m.type === 'error') reject(new Error(m.msg)); });
     w.on('error', reject);
     w.on('exit', (c) => { if (c) reject(new Error('обновление базы прервано (' + c + ')')); });
   });
 }
 
-if (!isMainThread && workerData && workerData.dir) {
-  try { const res = doMigrate(workerData.dir, (p) => parentPort.postMessage(Object.assign({ type: 'progress' }, p))); parentPort.postMessage({ type: 'done', res }); }
-  catch (e) { parentPort.postMessage({ type: 'error', msg: e && e.stack || String(e) }); }
+if (!isMainThread && workerData && workerData.migrate && workerData.dir) {
+  doMigrate(workerData.dir, (p) => parentPort.postMessage(Object.assign({ type: 'progress' }, p)))
+    .then((res) => parentPort.postMessage({ type: 'done', res }))
+    .catch((e) => parentPort.postMessage({ type: 'error', msg: e && e.stack || String(e) }));
 }
 
 module.exports = { pending, run, doMigrate, ALL_IDS, fcbOf, antOf };

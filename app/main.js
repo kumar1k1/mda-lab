@@ -24,6 +24,18 @@ function writeCfg(c) { fs.mkdirSync(app.getPath('userData'), { recursive: true }
 const defaultBase = () => path.join(app.getPath('userData'), 'base');
 const baseDir = () => readCfg().baseDir || defaultBase();
 let PENDING_DIR = null; // место, выбранное для следующей загрузки
+// Скорость загрузки: auto / eco / max — читают parser/threads.js (через окружение, его наследуют потоки)
+process.env.MDALAB_PERF = readCfg().perf || 'auto';
+ipcMain.handle('perf:get', () => process.env.MDALAB_PERF);
+ipcMain.handle('perf:set', (_e, m) => { const v = m === 'eco' || m === 'max' ? m : 'auto'; process.env.MDALAB_PERF = v; writeCfg(Object.assign(readCfg(), { perf: v })); return v; });
+// На время тяжёлой работы (загрузка, фоновый EV, обновление базы) — пониженный приоритет процесса: компьютер
+// остаётся отзывчивым (покерный клиент, браузер), а когда другие программы процессор не просят, скорость та же.
+// В режиме «Максимум» приоритет не снижается.
+let HEAVY = 0;
+function heavy(on) {
+  HEAVY = Math.max(0, HEAVY + (on ? 1 : -1));
+  try { const os = require('os'), P = os.constants.priority; os.setPriority(process.pid, HEAVY && process.env.MDALAB_PERF !== 'max' ? P.PRIORITY_BELOW_NORMAL : P.PRIORITY_NORMAL); } catch (e) { /* нет прав — не важно */ }
+}
 function freeBytes(dir) {
   let d = dir; while (d && !fs.existsSync(d)) { const up = path.dirname(d); if (up === d) break; d = up; }
   try { const st = fs.statfsSync(d); return st.bavail * st.bsize; } catch (e) { return null; }
@@ -76,7 +88,8 @@ ipcMain.handle('db:meta', async () => {
     if (!MIGRATING) {
       const send = (m) => { if (win && !win.isDestroyed()) win.webContents.send('db:migrate', m); };
       send({ done: 0, total: 0 });
-      MIGRATING = mig.run(s.dir, send).catch((e) => { console.error('migrate', e); }).finally(() => { send({ end: true }); MIGRATING = null; SRC = null; });
+      heavy(true);
+      MIGRATING = mig.run(s.dir, send).catch((e) => { console.error('migrate', e); }).finally(() => { heavy(false); send({ end: true }); MIGRATING = null; SRC = null; });
     }
     await MIGRATING; s = source(); if (!s) return null;
   }
@@ -168,6 +181,7 @@ function startBgEv() {
   if (!require('./parser/ingest.js').pendingEv(dir)) return;
   const send = (m) => { if (win && !win.isDestroyed()) win.webContents.send('ev:bg', m); };
   const w = new Worker(path.join(__dirname, 'ev-bg-worker.js'), { workerData: { dir } }); EV_BG = w;
+  heavy(true); let heavyOn = true; w.on('exit', () => { if (heavyOn) { heavyOn = false; heavy(false); } });
   send({ done: 0, total: 0 });
   w.on('message', (m) => { if (m.type === 'progress') send(m); else { EV_BG = null; SRC = null; send({ end: true, error: m.type === 'error' ? m.message : null }); } });
   w.on('error', (err) => { EV_BG = null; send({ end: true, error: String(err && err.message || err) }); });
@@ -184,6 +198,8 @@ ipcMain.handle('import:run', (e, opts) => new Promise((resolve) => {
   if (!append) fs.rmSync(tmp, { recursive: true, force: true });
   SRC = null; DEMO = false; // база будет меняться — закрываем; загрузка своей базы выходит из демо
   const w = new Worker(path.join(__dirname, 'import-worker.js'), { workerData: { files: lastFiles, nicks: opts.nicks, alias: opts.alias, outDir: append ? dir : tmp, mode: append ? 'append' : 'build' } });
+  heavy(true); let heavyOn = true; const heavyOff = () => { if (heavyOn) { heavyOn = false; heavy(false); } };
+  w.on('exit', heavyOff);
   w.on('message', (m) => {
     if (m.type === 'progress') { if (!e.sender.isDestroyed()) e.sender.send('import:progress', m); return; }
     if (append) { SRC = null; PENDING_DIR = null; if (m.type === 'done') setTimeout(startBgEv, 300); return resolve(m); }
