@@ -1014,28 +1014,21 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .rv-ib.main{width:46px;height:46px;border-radius:50%;background:var(--amber);color:var(--amber-ink)}
 .rv-ib.main:hover{background:var(--amber);filter:brightness(1.08)}
 .rv-flash{position:absolute;top:100%;right:0;margin-top:6px;background:var(--card2);border:1px solid var(--line2);border-radius:8px;padding:4px 10px;font-size:12px;white-space:nowrap;z-index:2}
-.rv-main{display:grid;grid-template-columns:minmax(0,1fr) 250px;gap:14px;min-height:0}
+.rv-main{display:block;min-height:0}
 .rv-stage{min-width:0;display:flex;align-items:center;justify-content:center}
-.rv-svg{width:100%;height:auto;max-height:calc(100vh - 240px);display:block}
-.rv-side{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px;min-height:0;max-height:min(520px,calc(100vh - 260px));overflow:auto}
-.rv-log{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px}
-.rv-log-h{font-size:12px;font-weight:800;color:var(--muted);padding:8px 8px 4px}
-.rv-log-h:first-child{padding-top:2px}
-.rv-log-i{font-size:13px;color:var(--soft);padding:5px 8px;border-radius:7px;cursor:pointer}
-.rv-log-i:hover{background:var(--card)}
-.rv-log-i.cur{background:rgba(var(--amber-rgb),.18);color:var(--text)}
+.rv-svg{width:100%;height:auto;max-height:calc(100vh - 190px);display:block}
 .rv-bar{display:flex;flex-direction:column;gap:10px}
-.rv-scrub{position:relative;display:flex;gap:3px;height:30px;cursor:pointer;touch-action:none;outline:none}
-.rv-scrub:focus-visible{box-shadow:0 0 0 2px var(--amber);border-radius:8px}
-.rv-seg{position:relative;min-width:24px;border-radius:7px;display:flex;align-items:center;padding:0 8px;overflow:hidden}
-.rv-seg span{font-size:11px;font-weight:700;white-space:nowrap;color:rgba(255,255,255,.75)}
-.rv-seg.s0{background:#2A3142}.rv-seg.s1{background:#1F4A40}.rv-seg.s2{background:#23584B}.rv-seg.s3{background:#2B6656}.rv-seg.s4{background:#3B3626}
-.rv-knob{position:absolute;top:-4px;bottom:-4px;width:4px;margin-left:-2px;border-radius:2px;background:var(--amber);box-shadow:0 0 0 2px rgba(0,0,0,.5);pointer-events:none}
-.rv-ctrl{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.rv-speed{margin-left:8px}
+.rv-ctrl{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.rv-grp{display:flex;align-items:center;gap:2px;padding:2px;border-radius:10px;background:var(--panel);border:1px solid var(--line)}
+.rv-stb{min-height:32px;padding:0 12px;border:none;border-radius:8px;background:transparent;color:var(--soft);font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
+.rv-stb:hover:not(:disabled){background:var(--card2);color:var(--text)}
+.rv-stb.on{background:rgba(var(--amber-rgb),.2);color:var(--text)}
+.rv-stb:disabled{opacity:.3;cursor:default}
+.rv-ib.on{background:rgba(var(--amber-rgb),.22);color:var(--amber)}
+.rv-speed{margin-left:0}
 .rv-speed button{min-height:30px;padding:0 10px}
 .rv-now{margin-left:auto;font-size:14px;font-weight:700;color:var(--text);min-height:20px;text-align:right}
-@media (max-width: 900px){.rv-main{grid-template-columns:1fr}.rv-side{max-height:180px}.rv-head{grid-template-columns:1fr;}.rv-now{margin-left:0;flex-basis:100%;text-align:left}}
+@media (max-width: 900px){.rv-head{grid-template-columns:1fr;}.rv-now{margin-left:0;flex-basis:100%;text-align:left}}
 .rv-wait{background:rgba(4,6,9,.55);cursor:progress}
 .rv-wait-box{display:flex;align-items:center;gap:12px;padding:14px 22px;border-radius:12px;background:var(--panel,#171B22);border:1px solid rgba(255,255,255,.08);color:var(--text,#E8EAED);font-size:14px}
 .rv-spin{width:18px;height:18px;border-radius:50%;border:2px solid rgba(255,255,255,.18);border-top-color:#E8B65A;animation:rvspin .8s linear infinite}
@@ -4874,15 +4867,10 @@ function resEl(net) {
     const tools = el('div', 'rv-tools');
     const ib = (label, svg, fn, cls) => { const b = el('button', 'rv-ib' + (cls ? ' ' + cls : '')); b.type = 'button'; b.title = label; b.setAttribute('aria-label', label); b.innerHTML = svg; b.onclick = fn; return b; };
     const ic = (d, fill) => '<svg width="18" height="18" viewBox="0 0 24 24" ' + (fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"') + ' aria-hidden="true">' + d + '</svg>';
-    const nav = el('div', 'rv-nav');
-    const L = CUR.list, p = CUR.pos;
-    const prevB = ib('Предыдущая раздача (PgUp)', ic('<path d="M15 18l-6-6 6-6"/>'), () => step(-1)); prevB.disabled = p <= 0;
-    const nextB = ib('Следующая раздача (PgDn)', ic('<path d="M9 18l6-6-6-6"/>'), () => step(1)); nextB.disabled = p >= L.length - 1;
-    nav.append(prevB, el('span', 'rv-navn', (p + 1) + ' из ' + L.length), nextB);
     const copyB = ib('Скопировать ход раздачи', ic('<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>'), () => copyText());
     const pngB = ib('Сохранить картинкой', ic('<path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>'), () => savePng());
     const closeB = ib('Закрыть (Esc)', ic('<path d="M6 6l12 12M18 6L6 18"/>'), () => closeReplayer());
-    tools.append(nav, copyB, pngB, closeB);
+    tools.append(copyB, pngB, closeB);
     head.append(ttl, res, tools);
 
     // ---------- стол ----------
@@ -4921,46 +4909,37 @@ function resEl(net) {
       const betT = T('', { x: bxp - 6, y: byp + 6, class: 'rv-bet' }, betG);
       const actG = S('g', { class: 'rv-actg' }, g); const actR = S('rect', { x: sx - 70, y: actY, width: 140, height: 26, rx: 13, class: 'rv-act' }, actG); const actT = T('', { x: sx, y: actY + 18, 'text-anchor': 'middle', class: 'rv-act-t' }, actG);
       const eqG = S('g', { class: 'rv-eqg' }, g); S('rect', { x: sx - 52, y: sy + 53, width: 104, height: 24, rx: 12, class: 'rv-eq' }, eqG); const eqT = T('', { x: sx, y: sy + 70, 'text-anchor': 'middle', class: 'rv-eq-t' }, eqG);
-      return { g, cardsG, posT, stT, betG, betT, actG, actR, actT, eqG, eqT, sx, sy, cardY, cardsKey: '' };
+      return { g, cardsG, posT, stT, betG, betT, actG, actR, actT, eqG, eqT, sx, sy, cardY, cardsKey: '', bx: bxp - 22, by: byp };
     });
     stage.append(svg);
 
-    // ---------- ход раздачи по улицам ----------
-    const side = el('div', 'rv-side');
-    const log = el('ol', 'rv-log');
-    const lis = [];
-    let lastStreet = -1;
-    fr.forEach((f, k) => {
-      if (k === 0) return;
-      if (f.street !== lastStreet) { lastStreet = f.street; const h = el('li', 'rv-log-h', STREET[f.street]); log.append(h); }
-      const li = el('li', 'rv-log-i'); li.textContent = ru(f.text); li.tabIndex = 0; li.onclick = () => go(k); li.onkeydown = (e) => { if (e.key === 'Enter') go(k); };
-      lis[k] = li; log.append(li);
-    });
-    side.append(log);
-    main.append(stage, side);
+    main.append(stage);
 
-    // ---------- шкала времени и кнопки ----------
+    // ---------- кнопки (как в Hand2Note): ▶, шаг назад/вперёд, улицы, показать карты, соседние раздачи ----------
     const bar = el('div', 'rv-bar');
-    const scrub = el('div', 'rv-scrub'); scrub.setAttribute('role', 'slider'); scrub.setAttribute('aria-label', 'Ход раздачи'); scrub.tabIndex = 0;
-    const segs = []; let s0 = 1;
-    for (let k = 2; k <= fr.length; k++) { if (k === fr.length || fr[k].street !== fr[s0].street) { segs.push({ a: s0, b: k - 1, st: fr[s0].street }); s0 = k; } }
-    const total = fr.length - 1;
-    segs.forEach(sg => { const d = el('div', 'rv-seg s' + sg.st); d.style.flexGrow = String(sg.b - sg.a + 1); d.append(el('span', null, STREET[sg.st])); scrub.append(d); });
-    const knob = el('div', 'rv-knob'); scrub.append(knob);
-    const pick = (e) => { const r = scrub.getBoundingClientRect(); const x = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)); go(1 + Math.round(x * (total - 1))); };
-    scrub.addEventListener('pointerdown', (e) => { scrub.setPointerCapture(e.pointerId); stop(); pick(e); const mv = (ev) => pick(ev); const up = () => { scrub.removeEventListener('pointermove', mv); scrub.removeEventListener('pointerup', up); }; scrub.addEventListener('pointermove', mv); scrub.addEventListener('pointerup', up); });
     const ctrl = el('div', 'rv-ctrl');
     const I = (d) => ic(d, true);
-    const st = { k: 0, timer: null };
-    ctrl.append(ib('В начало (Home)', I('<path d="M6 5h2v14H6zM20 5v14L9 12z"/>'), () => go(1)), ib('Шаг назад (←)', I('<path d="M18 5v14L7 12z"/>'), () => go(st.k - 1)));
-    const playB = ib('Воспроизвести (пробел)', I('<path d="M7 4.5v15l13-7.5z"/>'), () => toggle(), 'main'); ctrl.append(playB);
-    ctrl.append(ib('Шаг вперёд (→)', I('<path d="M6 5v14l11-7z"/>'), () => go(st.k + 1)), ib('В конец (End)', I('<path d="M16 5h2v14h-2zM4 5v14l11-7z"/>'), () => go(fr.length - 1)));
+    const st = { k: 0, timer: null, eye: false };
+    const grp = (...xs) => { const d = el('div', 'rv-grp'); d.append(...xs); return d; };
+    const playB = ib('Воспроизвести (пробел)', I('<path d="M7 4.5v15l13-7.5z"/>'), () => toggle(), 'main');
+    const backB = ib('Шаг назад (←)', ic('<path d="M19 12H5M11 6l-6 6 6 6"/>'), () => { stop(); go(st.k - 1); });
+    const fwdB = ib('Шаг вперёд (→)', ic('<path d="M5 12h14M13 6l6 6-6 6"/>'), () => { stop(); go(st.k + 1, true); });
+    // начало каждой улицы: префлоп — первый кадр, дальше — кадр, где открылась улица
+    const stStart = [1, -1, -1, -1];
+    for (let k = 1; k < fr.length; k++) { const s2 = fr[k].street; if (s2 >= 1 && s2 <= 3 && stStart[s2] < 0) stStart[s2] = k; }
+    const stBtns = ['Префлоп', 'Флоп', 'Тёрн', 'Ривер'].map((lab, s2) => { const b = el('button', 'rv-stb', lab); b.type = 'button'; b.disabled = stStart[s2] < 0; b.onclick = () => { stop(); go(stStart[s2]); }; return b; });
+    const eyeB = ib('Показать карты соперников (V)', ic('<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>'), () => { st.eye = !st.eye; eyeB.classList.toggle('on', st.eye); eyeB.setAttribute('aria-pressed', String(st.eye)); go(st.k); });
+    eyeB.setAttribute('aria-pressed', 'false'); eyeB.disabled = !(rp.sh && Object.keys(rp.sh).some(j => +j !== H0));
+    const L = CUR.list, p = CUR.pos;
+    const prevB = ib('Предыдущая раздача (PgUp)', ic('<path d="M6 5v14M18 6l-8 6 8 6z"/>'), () => step(-1)); prevB.disabled = p <= 0;
+    const nextB = ib('Следующая раздача (PgDn)', ic('<path d="M18 5v14M6 6l8 6-8 6z"/>'), () => step(1)); nextB.disabled = p >= L.length - 1;
+    const navN = el('span', 'rv-navn', (p + 1) + ' из ' + L.length);
     const speedSeg = el('div', 'seg bx-seg rv-speed'); const SPD = [['1200', '1×'], ['700', '2×'], ['350', '4×']];
     let speed = keepSpeed || '700';
     SPD.forEach(([v, l]) => { const b = el('button', null, l); b.type = 'button'; b.dataset.v = v; b.classList.toggle('on', v === speed); b.onclick = () => { speed = v; speedSeg.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); if (st.timer) { stop(); toggle(); } if (RP) RP.speed = v; }; speedSeg.append(b); });
     const now = el('div', 'rv-now');
-    ctrl.append(speedSeg, now);
-    bar.append(scrub, ctrl);
+    ctrl.append(playB, grp(backB, fwdB), grp(...stBtns), eyeB, grp(prevB, navN, nextB), speedSeg, now);
+    bar.append(ctrl);
     box.append(head, main, bar); bg.append(box); document.body.append(bg);
     bg.addEventListener('click', (e) => { if (e.target === bg) closeReplayer(); });
 
@@ -4983,40 +4962,71 @@ function resEl(net) {
       return eqCache.get(key);
     };
 
+    // ---------- фишки едут: ставки — в банк, когда открывается улица; банк — победителю в конце ----------
+    const potX = CX, potY = by0 + CW * 1.4 + 28;
+    const calm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    function fly(x1, y1, x2, y2, amount) {
+      if (calm) return;
+      const g = S('g', { class: 'rv-fly' }, svg);
+      S('circle', { cx: 0, cy: 0, r: 10, class: 'rv-chip' }, g); S('circle', { cx: 0, cy: 0, r: 5.5, class: 'rv-chip-in' }, g);
+      if (amount) T(amount, { x: 16, y: 6, class: 'rv-bet' }, g);
+      const an = g.animate([{ transform: 'translate(' + x1 + 'px,' + y1 + 'px)' }, { transform: 'translate(' + x2 + 'px,' + y2 + 'px)' }], { duration: 420, easing: 'cubic-bezier(.4,0,.2,1)', fill: 'forwards' });
+      an.onfinish = () => g.remove(); an.oncancel = () => g.remove();
+    }
+    const clearFly = () => svg.querySelectorAll('.rv-fly').forEach(g => g.remove());
+
     // ---------- шаг ----------
     let boardShown = -1;
-    function go(k) {
-      k = Math.max(1, Math.min(fr.length - 1, k)); st.k = k;
-      const f = fr[k], prev = fr[k - 1];
+    function go(k, anim) {
+      k = Math.max(1, Math.min(fr.length - 1, k));
+      const from = st.k; st.k = k; clearFly();
+      const f = fr[k], prev = fr[k - 1], moving = anim && k === from + 1;
       if (f.board !== boardShown) { boardShown = f.board; boardG.replaceChildren(); (rp.bd || []).slice(0, f.board).forEach((cd, q) => card(boardG, bx0 + q * (CW + 10), by0, cd, CW)); }
-      const inBets = f.bets.reduce((a, b) => a + b, 0);
-      potT.textContent = f.pot + inBets > 0.001 ? 'Банк ' + fmt(f.pot + inBets) + ' BB' : '';
+      const inBets = f.bets.reduce((a, b) => a + b, 0), potAll = f.pot + inBets;
+      potT.textContent = potAll > 0.001 ? 'Банк ' + fmt(potAll) + ' BB' : '';
       streetT.textContent = STREET[f.street];
-      // SPR на флопе и дальше: эффективный стек героя против самого большого стека соперника / банк
+      // под банком: шансы банка для того, кто ходит следующим и должен уравнивать; SPR на флопе и дальше
+      const sub = [];
+      const nx = fr[k + 1];
+      if (nx && nx.actor >= 0 && nx.street === f.street && f.street < 4) {
+        const toCall = Math.min(Math.max(...f.bets) - f.bets[nx.actor], f.stacks[nx.actor]);
+        if (toCall > 0.001) sub.push('шансы 1:' + fmt(potAll / toCall) + ' (' + fmt(Math.round(toCall / (potAll + toCall) * 1000) / 10) + '%)');
+      }
       if (f.street >= 1 && f.street <= 3 && !f.folded[H0]) {
         let opp = 0; for (let j = 0; j < n; j++) if (j !== H0 && !f.folded[j]) opp = Math.max(opp, f.stacks[j]);
-        const eff = Math.min(f.stacks[H0], opp), pot = f.pot + inBets; subT.textContent = pot > 0 && eff > 0 ? 'SPR ' + fmt(eff / pot) : '';
-      } else subT.textContent = '';
+        const eff = Math.min(f.stacks[H0], opp); if (potAll > 0 && eff > 0) sub.push('SPR ' + fmt(eff / potAll));
+      }
+      subT.textContent = sub.join(' · ');
       const eq = aiFrom > 0 && k >= aiFrom && f.street < 4 ? eqAt(f) : null;
+      const final = f.won.some(v => v > 0);
       seats.forEach((s, j) => {
         s.g.classList.toggle('folded', f.folded[j]); s.g.classList.toggle('act', f.actor === j); s.g.classList.toggle('won', f.won[j] > 0);
         s.stT.textContent = f.allin[j] && f.stacks[j] <= 0.01 ? 'олл-ин' : fmt(f.stacks[j]) + ' BB';
-        const show = j === H0 ? rp.hc : f.show && rp.sh && rp.sh[j] ? rp.sh[j] : (eq && rp.sh && rp.sh[j] ? rp.sh[j] : null);
+        const known = rp.sh && rp.sh[j];
+        const show = j === H0 ? rp.hc : known && (f.show || eq || st.eye) ? known : null;
         const key = f.folded[j] && j !== H0 ? 'x' : show || 'back';
         if (key !== s.cardsKey) {
           s.cardsKey = key; s.cardsG.replaceChildren();
           if (key !== 'x') { const cs = show ? show.split(' ') : [null, null], w = 44; cs.forEach((cd, q) => card(s.cardsG, s.sx - (cs.length * (w + 4) - 4) / 2 + q * (w + 4), s.cardY, cd, w)); }
         }
-        // ставка на столе
-        if (f.bets[j] > 0.001) { s.betG.style.display = ''; s.betT.textContent = fmt(f.bets[j]); } else s.betG.style.display = 'none';
+        // фишки перед игроком: ставка на этой улице, в конце — выигрыш
+        const v = final ? f.won[j] : f.bets[j];
+        s.betG.classList.toggle('win', final && v > 0);
+        if (v > 0.001) { s.betG.style.display = ''; s.betT.textContent = fmt(v); } else s.betG.style.display = 'none';
         s.actG.style.display = 'none'; // без подписей действий: видно фишки ставок, сбросивший — бледный
         if (eq && eq[j] != null) { s.eqG.style.display = ''; s.eqT.textContent = 'эквити ' + Math.round(eq[j] * 100) + '%'; } else s.eqG.style.display = 'none';
       });
-      // шкала и лента
-      knob.style.left = (total > 1 ? (k - 1) / (total - 1) * 100 : 0) + '%';
-      scrub.setAttribute('aria-valuenow', String(k)); scrub.setAttribute('aria-valuemax', String(total)); scrub.setAttribute('aria-valuetext', ru(f.text));
-      lis.forEach((li, q) => { if (li) li.classList.toggle('cur', q === k); });
-      if (lis[k]) lis[k].scrollIntoView({ block: 'nearest' });
+      if (moving) {
+        const prevBets = prev.bets.some(b => b > 0.001);
+        if (final) {
+          // ставки последней улицы — в банк, банк — победителям (фишки выигрыша появляются, когда доедут)
+          seats.forEach((s, j) => { if (f.won[j] > 0) { s.betG.style.opacity = '0'; fly(potX, potY, s.bx, s.by); setTimeout(() => { s.betG.style.opacity = ''; }, calm ? 0 : 400); } });
+        } else if (f.street > prev.street && prevBets) {
+          seats.forEach((s, j) => { if (prev.bets[j] > 0.001) fly(s.bx, s.by, potX, potY); });
+        }
+      } else seats.forEach(s => { s.betG.style.opacity = ''; });
+      stBtns.forEach((b, s2) => b.classList.toggle('on', f.street === s2 || (s2 === 3 && f.street === 4 && stStart[3] > 0)));
+      backB.disabled = k <= 1; fwdB.disabled = k >= fr.length - 1;
       now.textContent = ru(f.text);
       if (k >= fr.length - 1) stop();
     }
@@ -5025,7 +5035,7 @@ function resEl(net) {
       if (st.timer) { stop(); return; }
       if (st.k >= fr.length - 1) go(1);
       playB.innerHTML = I('<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>'); playB.setAttribute('aria-label', 'Пауза (пробел)');
-      st.timer = setInterval(() => go(st.k + 1), +speed);
+      st.timer = setInterval(() => go(st.k + 1, true), +speed);
     }
     function step(d) { const L2 = CUR.list, q = CUR.pos + d; if (q < 0 || q >= L2.length) return; CUR.pos = q; show(L2[q]); }
     function copyText() {
@@ -5052,10 +5062,10 @@ function resEl(net) {
     const keys = (e) => {
       if (e.target && /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
       if (e.key === 'Escape') closeReplayer();
-      else if (e.key === 'ArrowRight') { stop(); go(st.k + 1); } else if (e.key === 'ArrowLeft') { stop(); go(st.k - 1); }
+      else if (e.key === 'ArrowRight') { stop(); go(st.k + 1, true); } else if (e.key === 'ArrowLeft') { stop(); go(st.k - 1); }
       else if (e.key === 'Home') { stop(); go(1); } else if (e.key === 'End') { stop(); go(fr.length - 1); }
       else if (e.key === 'PageDown') { e.preventDefault(); step(1); } else if (e.key === 'PageUp') { e.preventDefault(); step(-1); }
-      else if (e.key === ' ') { e.preventDefault(); toggle(); } else return;
+      else if (e.key === ' ') { e.preventDefault(); toggle(); } else if ((e.key === 'v' || e.key === 'V' || e.key === 'м' || e.key === 'М') && !eyeB.disabled) eyeB.click(); else return;
     };
     RP = { bg, stop, keys, speed };
     document.addEventListener('keydown', keys);
@@ -5085,6 +5095,8 @@ function resEl(net) {
 .rv-dealer{fill:#F4F1E8;stroke:#111;stroke-width:1}.rv-dealer-t{font-family:Onest,sans-serif;font-size:13px;font-weight:800;fill:#111}
 .rv-chip{fill:#F2B544;stroke:#1B1406;stroke-width:1.5}.rv-chip-in{fill:none;stroke:#1B1406;stroke-width:1.2;stroke-dasharray:2 2}
 .rv-bet{font-family:'JetBrains Mono',Consolas,monospace;font-size:16px;font-weight:700;fill:#F6E7C1}
+.rv-betg.win .rv-bet{fill:#7FD7A2}.rv-betg.win .rv-chip{fill:#7FD7A2}
+.rv-fly{pointer-events:none}
 .rv-act{fill:#3A4152}.rv-act-t{font-family:Onest,'Segoe UI',sans-serif;font-size:13px;font-weight:800;fill:#ECEFF5}
 .rv-actg.t-c .rv-act{fill:#6EC3E8}.rv-actg.t-c .rv-act-t{fill:#06202C}
 .rv-actg.t-b .rv-act,.rv-actg.t-r .rv-act{fill:#F2B544}.rv-actg.t-b .rv-act-t,.rv-actg.t-r .rv-act-t{fill:#1B1406}
