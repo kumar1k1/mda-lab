@@ -21,7 +21,7 @@ const os = require('os');
 const { SCHEMA, ReplayWriter, HashSet53, typedFrom, hash53 } = require('./store.js');
 const { SpillColumn, ColumnReader, mergePlan, mergeColumn, permute, patchColumn, colFile } = require('./table.js');
 const { computeEv, STRIDE } = require('./ev-pool.js');
-const { internTitle } = require('./rpbin.js');
+const { internTitle, appendNames, playersIn } = require('./rpbin.js');
 
 const FORMAT = 'mdalab-cols-v3';
 // колонки ваших раздач: статы + ссылка на запись реплеера + отпечаток раздачи
@@ -191,7 +191,22 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
   const titles = old ? (() => { try { return JSON.parse(fs.readFileSync(path.join(dir, 'rp-titles.json'), 'utf8')); } catch (e) { return []; } })() : [];
   const tmap = new Map(titles.map((t, i) => [t, i]));
   const tid = (t) => { let i = tmap.get(t); if (i == null) { i = titles.length; titles.push(t); tmap.set(t, i); } return i; };
-  const addRec = (b) => rpw.addRaw(internTitle(b, tid));
+  // запись реплеера: турнир — номером, плюс кто сидел за столом (ваш ник / соперник из списка игроков базы)
+  const pidOf = (roomIdx, name, make) => { const pk = roomIdx + '\u0001' + name; let pid = pmap.get(pk); if (pid == null && make) { pid = players.length; players.push({ n: name, r: roomIdx, c: 0, sh: 0 }); pmap.set(pk, pid); } return pid; };
+  const addRec = (b, h, roomIdx, make) => {
+    b = internTitle(b, tid);
+    try {
+      const n = playersIn(b), codes = new Array(n).fill(0), taken = new Array(n).fill(false);
+      for (let j = 0; j < h.on.length; j++) {
+        const s = h.os[j]; if (!(s >= 0 && s < n)) continue; taken[s] = true; const name = h.on[j];
+        if (nkOf.has(name)) codes[s] = 1 + 2 * nkOf.get(name);
+        else if (!others.has(name)) { const pid = pidOf(roomIdx, name, make); if (pid != null) codes[s] = 2 + 2 * pid; }
+      }
+      if (h.hn && nkOf.has(h.hn)) { const free = taken.map((t, s) => (t ? -1 : s)).filter(s => s >= 0); if (free.length === 1) codes[free[0]] = 1 + 2 * nkOf.get(h.hn); }
+      b = appendNames(b, codes);
+    } catch (e) { /* без ников */ }
+    return rpw.addRaw(b);
+  };
   let dup = 0, nH = 0, nO = 0, nD = 0;
 
   // 1–2. разбор и раскладка по колонкам
@@ -202,7 +217,7 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
     if (!h.hn) { // раздача без героя: только соперники, если такой раздачи ещё нет в базе
       if (!handSeen.add(h.k)) { dup++; return; }
       let ri = rooms.indexOf(h.room); if (ri < 0) { rooms.push(h.room); ri = rooms.length - 1; }
-      const ref = h.rpz && h.onr.some(x => x) ? addRec(h.rpz) : null;
+      const ref = h.rpz && h.onr.some(x => x) ? addRec(h.rpz, h, ri, true) : null;
       addOpps(h, ri, ref, h.vi); nD++;
       return;
     }
@@ -213,7 +228,7 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
     const newHand = handSeen.add(h.k); // раздачи ещё не было в базе (ни у одного алиаса)
     const roomIdx = rooms.indexOf(nicksAll[h.hn]);
     const needRef = h.rpz && (h.heroRp || (newHand && h.onr.some(x => x)));
-    const ref = needRef ? addRec(h.rpz) : null;
+    const ref = needRef ? addRec(h.rpz, h, roomIdx, newHand) : null;
     pushRow(HC, h.vals, h.vi, roomIdx);
     const hr = h.heroRp && ref && h.hhc >= 0; // запись реплеера у каждой вашей раздачи с вашими картами
     H.rpp.push(hr ? ref[0] : -1); H.rpo.push(hr ? ref[1] : 0); H.rpl.push(hr ? ref[2] : 0); H.key.push(h.k); H.aid.push(aid); H.nk.push(nkOf.has(h.hn) ? nkOf.get(h.hn) : -1);
@@ -225,7 +240,7 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
       const name = h.on[j];
       if (others.has(name)) continue; // другой ваш алиас за тем же столом — у него свои раздачи
       const pk = roomIdx + '\u0001' + name;
-      let pid = pmap.get(pk); if (pid == null) { pid = players.length; players.push({ n: name, r: roomIdx, c: 0, sh: 0 }); pmap.set(pk, pid); }
+      const pid = pidOf(roomIdx, name, true);
       pushRow(OC, h.vals, row0 + j, roomIdx);
       const orr = h.onr[j] && ref;
       O.pid.push(pid); O.seat.push(h.os[j]); O.rpp.push(orr ? ref[0] : -1); O.rpo.push(orr ? ref[1] : 0); O.rpl.push(orr ? ref[2] : 0); O.key.push(h.k);

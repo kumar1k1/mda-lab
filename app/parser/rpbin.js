@@ -98,6 +98,7 @@ function decodeBin(b, titles) {
   if (fl & 8) rec.t = t;
   if (fl & 16) { if (r.u8()) { const t = new Date(r.uv() * 60000), z = (v) => String(v).padStart(2, '0'); rec.d = t.getUTCFullYear() + '-' + z(t.getUTCMonth() + 1) + '-' + z(t.getUTCDate()) + ' ' + z(t.getUTCHours()) + ':' + z(t.getUTCMinutes()); } else rec.d = r.str(); }
   if (fl & 64) rec.c = r.uv() / 100;
+  if (fl & 128) { const k = r.uv(); rec.np = []; for (let i = 0; i < k; i++) rec.np.push(r.uv()); } // кто за столом (см. appendNames)
   return rec;
 }
 // исходная запись → байты: двоичный вид, если он восстанавливает запись один в один, иначе JSON.
@@ -118,7 +119,18 @@ function decodeRecBin(b, titles) {
   return b[0] === VER || b[0] === VER_T ? decodeBin(b, titles) : JSON.parse(b.toString('utf8'));
 }
 
+// Кто сидел за столом (с 0.7.2): дописывается в конец записи при загрузке в базу, по месту на игрока —
+// 0 неизвестно, нечётное 1 + 2·k — ваш ник номер k в meta.heroNicks, чётное 2 + 2·p — соперник p в списке игроков базы.
+function playersIn(b) { // число мест в двоичной записи
+  const r = new R(b); r.p = 2; if (b[1] & 8) { if (b[0] === VER_T) r.uv(); else r.str(); } return r.uv();
+}
+function appendNames(b, codes) {
+  if ((b[0] !== VER && b[0] !== VER_T) || (b[1] & 128)) return b;
+  const w = new W(); w.uv(codes.length); for (const c of codes) w.uv(c);
+  const out = Buffer.concat([b, w.out()]); out[1] |= 128; return out;
+}
+
 // номер турнира у записи вида 3 (для подгрузки дописанной таблицы турниров)
 function titleId(b) { const r = new R(b); r.p = 2; return r.uv(); }
 
-module.exports = { encodeRec, decodeRecBin, internTitle, titleId, encodeBin, decodeBin };
+module.exports = { encodeRec, decodeRecBin, internTitle, titleId, encodeBin, decodeBin, playersIn, appendNames };

@@ -153,7 +153,7 @@ class BaseDir {
         const [i, p, off, len] = refs[q]; if (p < 0) continue;
         let fd = fds.get(p); if (fd == null) { fd = fs.openSync(path.join(this.dir, 'rp_' + p + '.dat'), 'r'); fds.set(p, fd); }
         const b = Buffer.alloc(len); fs.readSync(fd, b, 0, len, off);
-        const rec = decodeRec(b, this.z, this.dir); out[i] = seats ? asSeat(rec, seats[q]) : rec;
+        const rec = withNames(decodeRec(b, this.z, this.dir), this.meta, () => this.players()); out[i] = seats ? asSeat(rec, seats[q]) : rec;
       }
     } finally { for (const fd of fds.values()) fs.closeSync(fd); }
     return out;
@@ -285,6 +285,13 @@ function titlesOf(dir, need) {
   if (!t || (need != null && need >= t.length)) { try { t = JSON.parse(fs.readFileSync(path.join(dir, 'rp-titles.json'), 'utf8')); } catch (e) { t = []; } TITLES.set(dir, t); }
   return t;
 }
+// ники за столом: коды записи (rpbin.appendNames) → rec.nm (по местам; null — неизвестно)
+function withNames(rec, meta, playersFn) {
+  if (!rec || !rec.np) return rec;
+  const hn = meta.heroNicks || [], pl = rec.np.some(v => v && v % 2 === 0) ? playersFn() : [];
+  rec.nm = rec.np.map(v => (!v ? null : v % 2 ? (hn[(v - 1) / 2] || null) : (pl[(v - 2) / 2] ? pl[(v - 2) / 2].n : null)));
+  delete rec.np; return rec;
+}
 function decodeRec(b, z, dir) {
   if (z === 2) { const RB = require('./rpbin.js'); let t = dir ? titlesOf(dir) : []; if (b[0] === 3) { const id = RB.titleId(b); if (id >= t.length) t = titlesOf(dir, id); } return RB.decodeRecBin(b, t); }
   return JSON.parse((z ? require('zlib').inflateRawSync(b) : b).toString('utf8'));
@@ -297,4 +304,4 @@ function hash53(s) {
   return (h1 >>> 0) * 2097152 + ((h2 >>> 0) & 0x1fffff);
 }
 
-module.exports = { asSeat, decodeRec, titlesOf, HashSet53, FORMAT, SCHEMA, TYPES, ColumnBuilder, ReplayWriter, BaseDir, writeBaseDir, writeColumn, writeFromLegacy, packIndex, typedFrom, bufOf, hash53 };
+module.exports = { asSeat, decodeRec, withNames, titlesOf, HashSet53, FORMAT, SCHEMA, TYPES, ColumnBuilder, ReplayWriter, BaseDir, writeBaseDir, writeColumn, writeFromLegacy, packIndex, typedFrom, bufOf, hash53 };

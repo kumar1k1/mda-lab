@@ -66,7 +66,7 @@
   }
 
   // настройки вида, общие для всех раздач (запоминаются): скрывать карты соперников до вскрытия, суммы в фишках
-  const PREF = (() => { let p = {}; try { p = JSON.parse(localStorage.getItem('mda.rv') || '{}') || {}; } catch (e) { p = {}; } return { hide: p.hide !== false, chips: !!p.chips }; })();
+  const PREF = (() => { let p = {}; try { p = JSON.parse(localStorage.getItem('mda.rv') || '{}') || {}; } catch (e) { p = {}; } return { hide: p.hide !== false, chips: !!p.chips, names: p.names !== false }; })();
   const savePref = () => { try { localStorage.setItem('mda.rv', JSON.stringify(PREF)); } catch (e) { /* без сохранения */ } };
   let CUR = null; // { list, pos, i, cache }
   window.openReplayer = async function (i, list) {
@@ -170,7 +170,7 @@
       const betT = T('', { x: bxp - 6, y: byp + 6, class: 'rv-bet' }, betG);
       const actG = S('g', { class: 'rv-actg' }, g); const actR = S('rect', { x: sx - 70, y: actY, width: 140, height: 26, rx: 13, class: 'rv-act' }, actG); const actT = T('', { x: sx, y: actY + 18, 'text-anchor': 'middle', class: 'rv-act-t' }, actG);
       const eqG = S('g', { class: 'rv-eqg' }, g); S('rect', { x: sx - 52, y: sy + 53, width: 104, height: 24, rx: 12, class: 'rv-eq' }, eqG); const eqT = T('', { x: sx, y: sy + 70, 'text-anchor': 'middle', class: 'rv-eq-t' }, eqG);
-      return { g, cardsG, posT, stT, betG, betT, actG, actR, actT, eqG, eqT, sx, sy, cardY, cardsKey: '', bx: bxp - 22, by: byp };
+      return { pos: pl[0], posLab: k === H0 ? heroLabel() + ' · ' + pl[0] : pl[0], g, cardsG, posT, stT, betG, betT, actG, actR, actT, eqG, eqT, sx, sy, cardY, cardsKey: '', bx: bxp - 22, by: byp };
     });
     stage.append(svg);
 
@@ -198,6 +198,16 @@
       eyeB.classList.toggle('on', PREF.hide); eyeB.setAttribute('aria-pressed', String(PREF.hide));
     }
     eyeState();
+    // ники за столом: кнопка с человечком (зачёркнут — ники скрыты); выбор общий для всех раздач
+    const NAMES = Array.isArray(rp.nm) && rp.nm.some(Boolean) ? rp.nm : null;
+    const MAN = '<circle cx="12" cy="7.5" r="3.5"/><path d="M5 20c.8-3.7 3.6-6 7-6s6.2 2.3 7 6"/>';
+    const nameB = ib('', '', () => { if (!NAMES) return; PREF.names = !PREF.names; savePref(); nameState(); go(st.k); });
+    function nameState() {
+      const t = !NAMES ? 'Ники есть у раздач, загруженных после обновления программы' : PREF.names ? 'Ники игроков показаны — нажмите, чтобы скрыть (N)' : 'Ники игроков скрыты — нажмите, чтобы показать (N)';
+      nameB.innerHTML = ic(MAN + (PREF.names && NAMES ? '' : '<path d="M3 3l18 18"/>')); nameB.title = t; nameB.setAttribute('aria-label', t);
+      nameB.setAttribute('aria-pressed', String(PREF.names)); nameB.classList.toggle('dim', !NAMES);
+    }
+    nameState();
     const L = CUR.list, p = CUR.pos;
     const prevB = ib('Предыдущая раздача (PgUp)', ic('<path d="M6 5v14M18 6l-8 6 8 6z"/>'), () => step(-1)); prevB.disabled = p <= 0;
     const nextB = ib('Следующая раздача (PgDn)', ic('<path d="M18 5v14M6 6l8 6-8 6z"/>'), () => step(1)); nextB.disabled = p >= L.length - 1;
@@ -206,7 +216,7 @@
     let speed = keepSpeed || '700';
     SPD.forEach(([v, l]) => { const b = el('button', null, l); b.type = 'button'; b.dataset.v = v; b.classList.toggle('on', v === speed); b.onclick = () => { speed = v; speedSeg.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); if (st.timer) { stop(); toggle(); } if (RP) RP.speed = v; }; speedSeg.append(b); });
     const now = el('div', 'rv-now');
-    ctrl.append(playB, grp(backB, fwdB), grp(...stBtns), eyeB, grp(prevB, navN, nextB), speedSeg, now);
+    ctrl.append(playB, grp(backB, fwdB), grp(...stBtns), grp(eyeB, nameB), grp(prevB, navN, nextB), speedSeg, now);
     bar.append(ctrl);
     box.append(head, main, bar); bg.append(box); document.body.append(bg);
     bg.addEventListener('click', (e) => { if (e.target === bg) closeReplayer(); });
@@ -283,7 +293,9 @@
       const final = f.won.some(v => v > 0);
       seats.forEach((s, j) => {
         s.g.classList.toggle('folded', f.folded[j]); s.g.classList.toggle('act', f.actor === j); s.g.classList.toggle('won', f.won[j] > 0);
-        s.stT.textContent = f.allin[j] && f.stacks[j] <= 0.01 ? 'олл-ин' : amt(f.stacks[j]);
+        const nick = PREF.names && NAMES ? NAMES[j] : null, stk = f.allin[j] && f.stacks[j] <= 0.01 ? 'олл-ин' : amt(f.stacks[j]);
+        if (nick) { const lab = nick.length > 16 ? nick.slice(0, 15) + '…' : nick; if (s.posT.textContent !== lab) s.posT.textContent = lab; s.stT.textContent = s.pos + ' · ' + stk; }
+        else { if (s.posT.textContent !== s.posLab) s.posT.textContent = s.posLab; s.stT.textContent = stk; }
         const known = rp.sh && rp.sh[j];
         const show = j === H0 ? rp.hc : known && (f.show || eq || !PREF.hide) ? known : null;
         const key = f.folded[j] && j !== H0 ? 'x' : show || 'back';
@@ -309,7 +321,9 @@
       } else seats.forEach(s => { s.betG.style.opacity = ''; });
       stBtns.forEach((b, s2) => b.classList.toggle('on', f.street === s2 || (s2 === 3 && f.street === 4 && stStart[3] > 0)));
       backB.disabled = k <= 1; fwdB.disabled = k >= fr.length - 1;
-      now.textContent = ru(f.text);
+      let txt = ru(f.text);
+      if (PREF.names && NAMES && f.actor >= 0 && f.actor !== H0 && NAMES[f.actor] && txt.startsWith(rp.pl[f.actor][0] + ':')) txt = NAMES[f.actor] + txt.slice(rp.pl[f.actor][0].length);
+      now.textContent = txt;
       if (k >= fr.length - 1) stop();
     }
     function stop() { clearInterval(st.timer); st.timer = null; playB.innerHTML = I('<path d="M7 4.5v15l13-7.5z"/>'); playB.setAttribute('aria-label', 'Воспроизвести (пробел)'); }
@@ -347,7 +361,7 @@
       else if (e.key === 'ArrowRight') { stop(); go(st.k + 1, true); } else if (e.key === 'ArrowLeft') { stop(); go(st.k - 1); }
       else if (e.key === 'Home') { stop(); go(1); } else if (e.key === 'End') { stop(); go(fr.length - 1); }
       else if (e.key === 'PageDown') { e.preventDefault(); step(1); } else if (e.key === 'PageUp') { e.preventDefault(); step(-1); }
-      else if (e.key === ' ') { e.preventDefault(); toggle(); } else if ((e.key === 'v' || e.key === 'V' || e.key === 'м' || e.key === 'М') ) eyeB.click(); else return;
+      else if (e.key === ' ') { e.preventDefault(); toggle(); } else if ((e.key === 'v' || e.key === 'V' || e.key === 'м' || e.key === 'М') ) eyeB.click(); else if (e.key === 'n' || e.key === 'N' || e.key === 'т' || e.key === 'Т') nameB.click(); else return;
     };
     RP = { bg, stop, keys, speed };
     document.addEventListener('keydown', keys);
