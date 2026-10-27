@@ -1505,3 +1505,4 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .rs-tip:hover > .rs-tip-b,.rs-tip:focus > .rs-tip-b,.rs-tip.open > .rs-tip-b{display:flex}
 .rs-row-h > :nth-child(n+3){justify-self:end;text-align:right}
 .rs-row-h > :nth-child(n+3) > .rs-tip-b{left:auto;right:0}
+.rs-avg-l{margin:0;font-size:12px;color:var(--muted)}.rs-avg-l b{font-family:var(--mono)}.rs-avg-l b.pos{color:var(--good)}.rs-avg-l b.neg{color:var(--bad)}
