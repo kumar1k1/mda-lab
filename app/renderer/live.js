@@ -360,8 +360,8 @@
   // Серии ранжируются: больше турниров / крупнее гарантии / раньше. План можно поправить галочками.
   let PICK = false, FROMPICK = false, pickT = null, pickForm = null, pickRes = null;
   const PEDIT = {}, POPEN = new Set();
-  const PK0 = { bud: 3000, lo: 0, hi: 0, trav: 0, n: 6, ent: 1.5, main: true, side: true, hr: false, bnt: true, sat: false, nlh: true, sort: 'n' };
-  ST.pk = Object.assign({}, PK0, ST.pk && typeof ST.pk === 'object' ? ST.pk : {});
+  const PK0 = { bud: 3000, lo: 0, hi: 0, n: 6, ent: 1.5, main: true, side: true, hr: false, bnt: true, sat: false, nlh: true, sort: 'n' };
+  ST.pk = Object.assign({}, PK0, ST.pk && typeof ST.pk === 'object' ? ST.pk : {}); delete ST.pk.trav; // бюджет — только покерные расходы
   const pickSoon = (ms) => { if (pickT) return; pickT = setTimeout(() => { pickT = null; if (PICK) drawPickRes(); }, ms || 150); };
   function openPick() { PICK = true; FROMPICK = false; pickB.classList.add('on'); pickForm = null; drawPick(); }
   const tms = (t) => { if (!t) return null; const v = Date.parse(t.length > 10 ? t.slice(0, 16) + ':00Z' : t.slice(0, 10) + 'T00:00:00Z'); return Number.isFinite(v) ? v : null; };
@@ -379,7 +379,7 @@
   }
   function plan(f) {
     const C = cands(f); if (!C) return null;
-    const k = ST.pk, avail = Math.max(0, k.bud - (k.trav || 0)), cost = (e) => e.b * entOf(e, k.ent);
+    const k = ST.pk, avail = k.bud, cost = (e) => e.b * entOf(e, k.ent);
     let pick;
     if (PEDIT[f.id]) pick = C.filter(e => PEDIT[f.id].has(e.i));
     else {
@@ -395,7 +395,7 @@
     pick.sort((a, b) => (a.ms || 0) - (b.ms || 0));
     const tot = pick.reduce((a, e) => a + cost(e), 0), gtd = pick.reduce((a, e) => a + (e.g || 0), 0);
     const days = pick.filter(e => e.ms != null).map(e => Math.floor(e.ms / DAY));
-    return { f, C, pick, tot, gtd, main: pick.find(e => kind(e) === 'main'), d0: days.length ? Math.min(...days) : null, d1: days.length ? Math.max(...days) : null, over: tot + (k.trav || 0) > k.bud };
+    return { f, C, pick, tot, gtd, main: pick.find(e => kind(e) === 'main'), d0: days.length ? Math.min(...days) : null, d1: days.length ? Math.max(...days) : null, over: tot > k.bud };
   }
   function drawPick() {
     if (!pickForm) {
@@ -407,7 +407,7 @@
       const k = ST.pk, upd = () => { save(); Object.keys(PEDIT).forEach(i => delete PEDIT[i]); pickSoon(200); };
       const num = (label, key, help, step) => { const w = el('label', 'lv-pk-f'); w.append(el('span', null, label)); const i = el('input', 'lv-pk-in'); i.type = 'number'; i.min = '0'; i.step = String(step || 50); i.value = k[key] || ''; i.placeholder = key === 'hi' ? 'любой' : '0'; i.oninput = () => { k[key] = Math.max(0, +i.value || 0); upd(); }; w.append(i); if (help) w.append(el('small', null, help)); return w; };
       const row1 = el('div', 'lv-pk-row');
-      row1.append(num('Ваш бюджет, $', 'bud', 'вся сумма на серию', 100), num('Бай-ин от, $', 'lo', '', 50), num('Бай-ин до, $', 'hi', 'пусто — любой', 50), num('Дорога и жильё, $', 'trav', 'вычтется из бюджета', 100));
+      row1.append(num('Ваш бюджет, $', 'bud', 'только на бай-ины и ре-энтри', 100), num('Бай-ин от, $', 'lo', '', 50), num('Бай-ин до, $', 'hi', 'пусто — любой', 50));
       const row2 = el('div', 'lv-pk-row');
       const nW = el('label', 'lv-pk-f'); nW.append(el('span', null, 'Сколько турниров готовы сыграть')); const nI = el('input', 'lv-pk-in'); nI.type = 'number'; nI.min = '1'; nI.max = '60'; nI.value = k.n; nI.oninput = () => { k.n = Math.max(1, Math.min(60, +nI.value || 1)); upd(); }; nW.append(nI, el('small', null, 'не больше этого числа'));
       const segW = (label, key, opts, help) => { const w = el('div', 'lv-pk-f'); w.append(el('span', null, label)); const g = el('div', 'seg bx-seg'); g.setAttribute('role', 'group'); g.setAttribute('aria-label', label); opts.forEach(([v, l]) => { const b = el('button', k[key] === v ? 'on' : null, l); b.type = 'button'; b.onclick = () => { k[key] = v; [...g.children].forEach(c => c.classList.toggle('on', c === b)); upd(); }; g.append(b); }); w.append(g); if (help) w.append(el('small', null, help)); return w; };
@@ -445,13 +445,13 @@
     const t = el('div'); t.append(el('b', null, f.name), el('span', null, [(f.city ? f.city + ', ' : '') + c.ru, dTxt(f.s, f.e)].join(' · ')));
     const sb = el('button', 'btn lv-btn', 'Расписание →'); sb.type = 'button'; sb.onclick = () => openFest(f);
     hd.append(t, sb); card.append(hd);
-    const load = Math.round((p.tot + (k.trav || 0)) / k.bud * 100);
+    const load = Math.round(p.tot / k.bud * 100);
     const st = el('div', 'lv-pc-s');
     const cell = (a, b, cls) => { const x = el('div', cls || null); x.append(el('span', null, a), el('b', null, b)); st.append(x); };
     cell('Турниров в плане', p.pick.length + (p.pick.length < k.n ? ' из ' + k.n : ''));
-    cell('Стоимость', money(p.tot) + (k.trav ? ' + ' + money(k.trav) : ''));
+    cell('Стоимость', money(p.tot));
     cell('Загрузка бюджета', load + '%', p.over ? 'bad' : null);
-    cell('Остаток', money(Math.max(0, k.bud - p.tot - (k.trav || 0))));
+    cell('Остаток', money(Math.max(0, k.bud - p.tot)));
     if (p.gtd) cell('Сумма гарантий', big(p.gtd), 'g');
     if (p.d0 != null) cell('Дни на серии', (p.d0 === p.d1 ? dShort(p.d0) : dShort(p.d0) + ' – ' + dShort(p.d1)) + ' (' + (p.d1 - p.d0 + 1) + ' ' + plural(p.d1 - p.d0 + 1, 'день', 'дня', 'дней') + ')');
     card.append(st);
@@ -473,7 +473,7 @@
         tb.append(r);
       });
       card.append(tb);
-      if (p.over) card.append(el('p', 'lv-pc-n bad', 'План дороже бюджета на ' + money(p.tot + (k.trav || 0) - k.bud) + '.'));
+      if (p.over) card.append(el('p', 'lv-pc-n bad', 'План дороже бюджета на ' + money(p.tot - k.bud) + '.'));
     }
     return card;
   }
