@@ -1526,3 +1526,30 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .rs-rows-m .rs-row,.rs-rows-p .rs-row{grid-template-columns:minmax(70px,1.3fr) minmax(84px,1.2fr) repeat(3,minmax(50px,1fr))}
 .rs-rows-m{max-height:420px;overflow-y:auto}
 .rs-rows-m .rs-row-h{position:sticky;top:0;background:var(--card);z-index:1}
+
+/* пересчёт под новые фильтры: старая страница приглушена, новая проявляется плавно */
+.rs-main > :not(.rs-filters){transition:opacity .18s ease}
+.rs-main.rs-busy > :not(.rs-filters){opacity:.55}
+.rs-soon{display:flex;flex-direction:column;gap:4px;align-items:center;justify-content:center;text-align:center;padding:28px 16px;border:1px dashed var(--line);border-radius:10px;color:var(--faint);font-size:13px}
+.rs-soon b{color:var(--amber);font-size:14px}
+/* простые блоки 15+: строки из 4 колонок и сетка сочетаний */
+.rs-rows-c .rs-row{grid-template-columns:minmax(80px,1.3fr) minmax(96px,1.3fr) repeat(2,minmax(56px,1fr))}
+.rs-mx-w{overflow-x:auto}
+.rs-mx{display:grid;gap:5px;min-width:420px}
+.rs-mx-h{font-size:10.5px;font-weight:800;letter-spacing:.04em;color:var(--faint);text-align:center;align-self:end;padding-bottom:2px}
+.rs-mx-r{font-size:12.5px;font-weight:700;align-self:center;white-space:nowrap;padding-right:4px}
+.rs-mx .rs-tl-c{padding:6px 2px}
+.rs-mx .rs-tl-c b{font-size:12.5px}
+.rs-mx .rs-tl-c small{font-size:9.5px}
+.rs-mx .rs-tl-c.none{background:transparent;border:1px dashed var(--line);opacity:.35}
+.rs-best.rs-two{margin-top:12px}
+.rs-sum-w{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px;align-items:start}
+@media (max-width:1100px){.rs-sum-w{grid-template-columns:1fr}}
+.rs-sum{padding:12px 14px;border-radius:12px;background:var(--panel);border:1px solid var(--line);border-top:3px solid var(--line2)}
+.rs-sum.opt{border-top-color:var(--amber)}.rs-sum.neg{border-top-color:var(--bad)}.rs-sum.warn{border-top-color:#F5C46B}.rs-sum.pos{border-top-color:var(--good)}
+.rs-sum h4{margin:0 0 8px;font-size:13px}
+.rs-sum-i{padding:8px 0;border-bottom:1px solid var(--line)}.rs-sum-i:last-child{border-bottom:none}
+.rs-sum-t{display:flex;flex-direction:column;gap:2px}
+.rs-sum-t b{font-size:13px}.rs-sum.neg .rs-sum-t b{color:var(--bad)}.rs-sum.pos .rs-sum-t b{color:var(--good)}.rs-sum.warn .rs-sum-t b{color:#F5C46B}
+.rs-sum-n{font-size:10.5px;color:var(--faint);white-space:nowrap;font-family:var(--mono)}
+.rs-sum-i p{margin:3px 0 0;font-size:12px;color:var(--soft);line-height:1.45}
