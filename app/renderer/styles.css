@@ -1520,3 +1520,5 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .rs-avg-l .rs-tip-b{width:320px}
 .rs-tip.up > .rs-tip-b{top:auto;bottom:calc(100% + 6px)}
 .rs-tip.left > .rs-tip-b{left:auto;right:0}
+.rs-tl.rs-tl7{grid-template-columns:repeat(7,minmax(0,1fr))}
+.rs-tl-c em{font-style:normal;font-size:9.5px;color:var(--faint);font-family:var(--mono)}

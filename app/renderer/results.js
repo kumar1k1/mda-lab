@@ -12,7 +12,7 @@
   const LS = { get(k, d) { try { const v = localStorage.getItem(k); if (v != null) return JSON.parse(v); } catch (e) { /* ниже */ } return k in MEM ? MEM[k] : d; }, set(k, v) { MEM[k] = v; try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* только память */ } } };
   const DEF = { tilt: 40, cmp: 'd30', period: 'all', room: -1, bounty: 'all', speed: 'all', kind: 'all', bi: 'all', tbl: 'all', metric: 'ev', adj: 2, pFrom: '', pTo: '', biFrom: '', biTo: '' };
   const F = Object.assign({}, DEF, LS.get('mda.res.f', {}));
-  F.metric = 'ev'; // считается всегда в EV (переключатель «Считать» убран)
+  F.metric = 'ev'; F.adj = 2; // всегда EV и полная поправка (переключатели «Считать» и «Поправка» убраны)
   const saveF = () => LS.set('mda.res.f', F);
   const fmt = (v, d) => v == null || !Number.isFinite(v) ? '—' : (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(d == null ? 1 : d);
   const num = (n) => Math.round(n).toLocaleString('ru-RU');
@@ -444,8 +444,7 @@
       seg('Скорость', 'speed', [['all', 'Все'], ['0', 'Обычная'], ['1', 'Турбо'], ['2', 'Гипер']]),
       biBox(),
       seg('Стол', 'tbl', [['all', 'Все'], ['1', '6-max'], ['2', '7–8'], ['3', '9-max']]),
-      seg('Тип', 'kind', [['all', 'Все'], ['0', 'Обычные'], ['1', 'Сателлиты']]),
-      adjBox()
+      seg('Тип', 'kind', [['all', 'Все'], ['0', 'Обычные'], ['1', 'Сателлиты']])
     );
     const reset = el('button', 'rs-reset', 'Сбросить'); reset.type = 'button'; reset.onclick = () => { Object.assign(F, DEF); saveF(); draw(); };
     if (Object.keys(DEF).some(k => !['cmp', 'tilt', 'pFrom', 'pTo', 'biFrom', 'biTo'].includes(k) && String(F[k]) !== String(DEF[k]))) fb.append(reset);
@@ -493,7 +492,7 @@
     // «Полная» поправка: совместная модель всех факторов (обратная подгонка аддитивной модели). Для блока фактора берётся
     // «частичный остаток»: результат минус вклад всех ОСТАЛЬНЫХ факторов — то есть влияние только этого фактора при прочих равных.
     const PR = {};
-    let T_HEAD = null, S_HEAD = null; // выводы #4 и #5 — те же слова попадают в «Главное» (#3)
+    let T_HEAD = null, S_HEAD = null, L_HEAD = null, D_HEAD = null; // выводы #4 и #5 — те же слова попадают в «Главное» (#3)
     if (+F.adj === 2) {
       const cbF = (n) => n <= 2 ? 0 : n <= 4 ? 1 : n <= 6 ? 2 : n <= 8 ? 3 : n <= 10 ? 4 : n <= 13 ? 5 : 6;
       const slF = (s) => { const z = D.sessions[s], L = z[1] - z[0]; return L < 120 ? 0 : L < 240 ? 1 : L < 360 ? 2 : L < 480 ? 3 : L < 600 ? 4 : 5; };
@@ -633,7 +632,7 @@
         { const hb = head.querySelector('b'), hs = head.querySelector('span'); S_HEAD = { cls: hb.classList.contains('neg') ? 'bad' : hb.classList.contains('warn') ? 'warn' : hb.classList.contains('pos') ? 'good' : 'good', title: hb.textContent, text: hs ? hs.textContent : '' }; }
         // лента часов: цвет — оценка, число — отклонение от обычного уровня
         const tl = el('div', 'rs-tl');
-        gS.forEach(r => { if (!r.n) return; const [cls, txt] = verdictOf(r, ref); const c = el('div', 'rs-tl-c ' + cls); c.append(el('span', 'h', r.label), el('b', null, r.n >= MINN ? fmt(r.v - ref, 1) : '—'), el('small', null, txt)); c.title = r.label + ': ' + fmt(r.v) + ' BB/100 · ' + num(r.n) + ' раздач' + (Number.isFinite(r.lo) ? ' · 95%: от ' + fmt(r.lo) + ' до ' + fmt(r.hi) : ''); tl.append(c); });
+        gS.forEach(r => { if (!r.n) return; const [cls, txt] = verdictOf(r, ref); const c = el('div', 'rs-tl-c ' + cls); c.append(el('span', 'h', r.label), el('b', null, cls !== 'small' ? fmt(r.v - ref, 1) : '—'), el('small', null, txt)); c.title = r.label + ': ' + fmt(r.v) + ' BB/100 · ' + num(r.n) + ' раздач' + (Number.isFinite(r.lo) ? ' · 95%: от ' + fmt(r.lo) + ' до ' + fmt(r.hi) : ''); tl.append(c); });
         cS.append(tl);
       }
     }
@@ -643,16 +642,62 @@
     const SL = [[0, 120, 'до 2 ч'], [120, 240, '2–4 ч'], [240, 360, '4–6 ч'], [360, 480, '6–8 ч'], [480, 600, '8–10 ч'], [600, 1e9, '10+ ч']];
     const slOf = (s) => { const z = D.sessions[s], L = z[1] - z[0]; return SL.findIndex(b => L >= b[0] && L < b[1]); };
     const gL = groups(D, X, (i) => slOf(D.ses[i]), SL.length, pure('slen'));
-    const cL = card('Длина сессии', 'Весь результат сессий разной длины. Под столбцом — сколько было таких сессий.');
-    cL.append(bars(gL.map((r, q) => Object.assign(r, { label: SL[q][2], sub: r.ses ? r.ses + ' ' + plural(r.ses, 'сессия', 'сессии', 'сессий') : '' })), { sub: true, aria: 'результат по длине сессии' }));
-    addPure(cL, 'число столов, час сессии, время суток, день, скорость и рум', gL); grid.append(cL);
+    const cL = card('Какой длины сессии играть?', 'Как вы играете в сессиях разной длины и сколько они приносят.', false, 'В каждой строке — сессии определённой длины (сессия — игра без перерыва больше 45 минут). Все раздачи сессии относятся к её длине: если сессия шла 9 часов, в строку «8–10 ч» попадают и её первые часы.\n\n«К вашему среднему» — лучше или хуже вы играете в таких сессиях, чем обычно (что такое «ваш средний» — в подсказке «в тех же ситуациях»). «Мало данных» — меньше 5 сессий или погрешность больше ±20 BB/100.\n\n«EV за сессию» — сколько BB в среднем приносит одна такая сессия. «EV в час» — сколько в среднем приносит час игры в таких сессиях. В длинных сессиях он обычно выше: в них больше глубоких проходов в турнирах, поэтому сам по себе он не значит, что длинные сессии выгоднее — для этого смотрите «К вашему среднему».');
+    {
+      const ref = 0, gLE = groups(D, X, (i) => slOf(D.ses[i]), SL.length, { vals: X.ev, ci: false, shrink: false });
+      const sesL = SL.map(() => new Set()); X.idx.forEach(i => { const k = slOf(D.ses[i]); if (k >= 0) sesL[k].add(D.ses[i]); });
+      gL.forEach((r, q) => { r.label = SL[q][2]; let m = 0; for (const z of sesL[q]) { const w = D.sessions[z]; m += Math.max(15, w[1] - w[0]); } r.hours = m / 60; r.evs = sesL[q].size ? gLE[q].sum / sesL[q].size : NaN; r.evh = m ? gLE[q].sum / (m / 60) : NaN; });
+      const rowsL = gL.filter(r => r.n);
+      if (!rowsL.some(r => r.n >= MINN)) cL.append(lack());
+      else {
+        const ev = rowsL.filter(r => verdictOf(r, ref)[0] !== 'small'), bad = ev.filter(r => verdictOf(r, ref)[0] === 'down'), good = ev.filter(r => verdictOf(r, ref)[0] === 'up');
+        const small = rowsL.filter(r => verdictOf(r, ref)[0] === 'small');
+        const tail = small.length ? ' Мало данных для оценки: ' + small.map(r => r.label + ' (' + (r.ses < 5 ? r.ses + ' ' + plural(r.ses, 'сессия', 'сессии', 'сессий') : Math.round(r.hours) + ' ч игры') + ')').join(', ') + '.' : '';
+        const lenFrom = (r) => r.label.startsWith('до') ? 0 : parseInt(r.label, 10), lenTo = (r) => r.label.includes('+') ? null : parseInt(r.label.split('–').pop().replace('до ', ''), 10);
+        const head = el('div', 'rs-head2'); let hb, ht, hc = null;
+        if (bad.length) { hb = 'Сессии ' + bad.map(r => r.label).join(', ') + ' играются хуже среднего'; hc = 'neg'; const okL = ev.filter(r => !bad.includes(r)); ht = 'Разница — ' + bad.map(r => fmt(r.v, 1)).join(', ') + ' BB/100.' + (okL.length ? ' Сессии ' + okL.map(r => r.label).join(', ') + ' — без потери качества.' : '') + tail; }
+        else if (good.length) { hb = 'Лучше всего вы играете в сессиях ' + good.map(r => r.label).join(', '); hc = 'pos'; ht = 'На ' + good.map(r => Math.abs(r.v).toFixed(1)).join(', ') + ' BB/100 лучше вашего среднего.' + tail; }
+        else if (ev.length > 1) { hb = 'Длина сессии на качество игры не влияет'; const a = lenFrom(ev[0]), z = lenTo(ev[ev.length - 1]); ht = 'Сессии ' + (z == null ? 'от ' + a + ' часов и длиннее' : (a ? 'от ' + a + ' ' : '') + 'до ' + z + ' часов') + ' играются одинаково — разница в пределах случайности.' + tail; }
+        else { hb = 'Пока без вывода'; ht = 'Для сравнения нужно хотя бы два варианта длины с достаточной выборкой.' + tail; }
+        head.append(el('b', hc, hb), el('span', null, ht)); cL.append(head, avgLine());
+        L_HEAD = { cls: hc === 'neg' ? 'bad' : 'good', title: hb, text: ht };
+        const tb = el('div', 'rs-rows rs-rows-l'); const hdr = el('div', 'rs-row rs-row-h'); ['Длина', 'К вашему среднему', 'Сессий', 'EV за сессию', 'EV в час', 'Часов'].forEach(t => hdr.append(el('span', null, t))); tb.append(hdr);
+        rowsL.forEach(r => { const [cls, txt] = verdictOf(r, ref), row = el('div', 'rs-row ' + cls); row.append(el('b', null, r.label), el('span', 'rs-chip ' + cls, txt), el('span', 'num', String(r.ses)), el('span', 'num ' + (r.evs >= 0 ? 'pos' : 'neg'), Number.isFinite(r.evs) ? fmt(r.evs, 0) : '—'), el('span', 'num ' + (r.hours < 2 ? 'dim' : r.evh >= 0 ? 'pos' : 'neg'), r.hours >= 2 && Number.isFinite(r.evh) ? fmt(r.evh, 1) : '—'), el('span', 'num dim', r.hours >= 1 ? Math.round(r.hours) : '<1'));
+          row.title = r.label + ': ' + num(r.n) + ' раздач, ' + r.ses + ' ' + plural(r.ses, 'сессия', 'сессии', 'сессий') + (Number.isFinite(r.se) ? ' · погрешность ±' + (1.96 * r.se).toFixed(0) + ' BB/100' : '') + (cls === 'small' ? '' : ' · ' + fmt(r.v) + ' BB/100 к вашему среднему'); tb.append(row); });
+        cL.append(tb);
+      }
+    }
+    grid.append(cL);
     if (await step()) return;
     // ---- дни недели ----
     const gD = groups(D, X, (i) => D.DOW[i], 7, pure('dow'));
     const okD = gD.filter(r => r.n >= nH * 0.04); const bestD = okD.length ? okD.reduce((a, b) => b.v > a.v ? b : a) : null;
-    const cD = card('Дни недели', 'По вашему времени (часовой пояс компьютера).');
-    cD.append(bars(gD.map((r, q) => Object.assign(r, { label: DOW[q], best: !gD.flat && r === bestD })), { sub: true, aria: 'результат по дням недели' }));
-    addPure(cD, 'число столов, час сессии, время суток, длина сессии, скорость и рум', gD); grid.append(cD);
+    const cD = card('В какие дни играть?', 'Как вы играете в разные дни недели — по вашему времени.', false, 'Каждая клетка — день недели (по часовому поясу вашего компьютера).\n\nЧисло — на сколько BB/100 вы играете в этот день лучше (плюс) или хуже (минус) своего среднего; что такое «ваш средний» — в подсказке «в тех же ситуациях». Ниже — сколько раздач сыграно в этот день.\n\nЦвет: зелёный — лучше среднего, серый — как в среднем, красный — хуже; бледный — «чуть» (может быть случайностью), пунктир — мало данных.');
+    {
+      const ref = 0, DN = ['понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота', 'воскресенье'], DNv = ['в понедельник', 'во вторник', 'в среду', 'в четверг', 'в пятницу', 'в субботу', 'в воскресенье'];
+      gD.forEach((r, q) => { r.label = DOW[q]; });
+      if (!gD.some(r => r.n >= MINN)) cD.append(lack());
+      else {
+        const ev = gD.filter(r => r.n && verdictOf(r, ref)[0] !== 'small');
+        const bad = ev.filter(r => verdictOf(r, ref)[0] === 'down'), good = ev.filter(r => verdictOf(r, ref)[0] === 'up');
+        const sb = ev.filter(r => verdictOf(r, ref)[0] === 'down-soft'), sg = ev.filter(r => verdictOf(r, ref)[0] === 'up-soft');
+        const list = (a) => a.map(r => DNv[r.k]).join(', ');
+        const head = el('div', 'rs-head2'); let hb, ht, hc = null;
+        if (bad.length || good.length) {
+          hb = (good.length ? 'Лучше всего — ' + list(good) : '') + (good.length && bad.length ? '; ' : '') + (bad.length ? (good.length ? 'хуже — ' : 'Хуже всего вы играете ') + list(bad) : '');
+          hb = hb.charAt(0).toUpperCase() + hb.slice(1); hc = bad.length && !good.length ? 'neg' : good.length && !bad.length ? 'pos' : null;
+          ht = [...good, ...bad].map(r => DNv[r.k] + ' ' + fmt(r.v, 1)).join(', ') + ' BB/100 к вашему среднему.' + (bad.length ? ' В эти дни стоит играть меньше или внимательнее.' : ''); ht = ht.charAt(0).toUpperCase() + ht.slice(1);
+        } else {
+          hb = 'День недели на игру не влияет'; ht = 'Разница между днями в пределах случайности.' + (sg.length || sb.length ? ' Слегка ' + [sg.length ? 'лучше ' + list(sg) : '', sb.length ? 'хуже ' + list(sb) : ''].filter(Boolean).join(', ') + ' — но это может быть шумом.' : '');
+        }
+        head.append(el('b', hc, hb), el('span', null, ht)); cD.append(head, avgLine());
+        D_HEAD = { cls: hc === 'neg' ? 'bad' : 'good', title: hb, text: ht };
+        const tl = el('div', 'rs-tl rs-tl7');
+        gD.forEach(r => { const [cls, txt] = verdictOf(r, ref); const c = el('div', 'rs-tl-c ' + cls); c.append(el('span', 'h', r.label), el('b', null, cls !== 'small' ? fmt(r.v - ref, 1) : '—'), el('small', null, txt), el('em', null, r.n ? num(r.n) + ' р.' : '')); c.title = DN[r.k] + ': ' + num(r.n) + ' раздач, ' + r.ses + ' ' + plural(r.ses, 'сессия', 'сессии', 'сессий') + (Number.isFinite(r.se) ? ' · погрешность ±' + (1.96 * r.se).toFixed(0) + ' BB/100' : ''); tl.append(c); });
+        cD.append(tl);
+      }
+    }
+    grid.append(cD);
     if (await step()) return;
     // ---- время суток ----
     const gH = groups(D, X, (i) => D.HOUR[i], 24, pure('hour'));
@@ -994,8 +1039,8 @@
       else if (okH.length) { const w = okH.reduce((a, b) => b.v < a.v ? b : a), bst = okH.reduce((a, b) => b.v > a.v ? b : a);
         add('bad', 'Слабый час: ' + String(w.k).padStart(2, '0') + ':00–' + String((w.k + 1) % 24).padStart(2, '0') + ':00', fmt(w.v) + ' BB/100 на ' + num(w.n) + ' раздачах.' + (sure(w) && w.v < 0 ? ' Попробуйте в это время короткий перерыв или меньше столов.' : ''), w);
         add('good', 'Сильный час: ' + String(bst.k).padStart(2, '0') + ':00–' + String((bst.k + 1) % 24).padStart(2, '0') + ':00', fmt(bst.v) + ' BB/100.', bst); }
-      if (bestD && gD.flat) add('good', 'Дни недели: разницы не видно', 'Отличия между днями в пределах случайности — по этим данным день недели на игру не влияет.', null);
-      else if (bestD) add('good', 'Лучший день — ' + ['понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота', 'воскресенье'][bestD.k], fmt(bestD.v) + ' BB/100.', bestD);
+      if (D_HEAD) add(D_HEAD.cls, D_HEAD.title, D_HEAD.text, null);
+      if (L_HEAD) add(L_HEAD.cls, L_HEAD.title, L_HEAD.text, null);
       const s01 = gS.slice(0, 2).reduce((a, r) => [a[0] + r.sum, a[1] + r.n], [0, 0]), sLate = gS.slice(5).reduce((a, r) => [a[0] + r.sum, a[1] + r.n], [0, 0]);
       if (S_HEAD) add(S_HEAD.cls, S_HEAD.title, S_HEAD.text, null);
       const luck = (netS - evS) / nH * 100; add(luck >= 0 ? 'good' : 'bad', luck >= 0 ? 'Вам везёт' : 'Вам не везёт', 'Факт отличается от EV на ' + fmt(luck) + ' BB/100 — это олл-ины, не ваша игра.', null);
