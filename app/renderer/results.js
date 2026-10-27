@@ -323,6 +323,10 @@
   }
   // ---------- страница ----------
   let ROOT = null, WAIT = 0, WT = null, GEN = 0;
+  // ANCHOR — блок, в котором нажали фильтр: после пересчёта страница остаётся на нём, а не прыгает в начало
+  let ANCHOR = null;
+  const stay = (cd) => { if (ROOT && cd && cd.isConnected) ANCHOR = { id: cd.dataset.anchor, off: cd.getBoundingClientRect().top - ROOT.getBoundingClientRect().top }; };
+  const toAnchor = (R) => { if (!ANCHOR) return false; const a = R.querySelector('[data-anchor="' + ANCHOR.id + '"]'); if (!a) return false; R.scrollTop += (a.getBoundingClientRect().top - R.getBoundingClientRect().top) - ANCHOR.off; return true; };
   const CACHE = new Map(); // ключ фильтров → готовые блоки страницы (переключение назад — мгновенно)
   const tick = () => new Promise(r => setTimeout(r, 0));
   function seg(label, key, opts, onSet) {
@@ -441,6 +445,7 @@
 
   // панель фильтров (#1) — всегда строится заново по текущим настройкам (в кэше страницы её не хранить:
   // списки и поля там помнят то, что вы выбирали в прошлый раз)
+  const anyF = () => Object.keys(DEF).some(k => !['cmp', 'tilt', 'pFrom', 'pTo', 'biFrom', 'biTo'].includes(k) && String(F[k]) !== String(DEF[k]));
   function filtersBar(D) {
     const rooms = D.db.rooms || [];
     const fb = el('div', 'rs-filters');
@@ -454,21 +459,24 @@
       seg('Тип', 'kind', [['all', 'Все'], ['0', 'Обычные'], ['1', 'Сателлиты']])
     );
     const reset = el('button', 'rs-reset', 'Сбросить'); reset.type = 'button'; reset.onclick = () => { Object.assign(F, DEF); saveF(); draw(); };
-    if (Object.keys(DEF).some(k => !['cmp', 'tilt', 'pFrom', 'pTo', 'biFrom', 'biTo'].includes(k) && String(F[k]) !== String(DEF[k]))) fb.append(reset);
+    if (anyF()) fb.append(reset);
     fb.append(el('span', 'rs-num', '#1'));
     return fb;
   }
   // ошибка в одном расчёте не должна оставлять страницу недорисованной
   async function draw(root) {
+    const g0 = GEN + 1;
     try { await draw0(root); }
     catch (e) { console.error('results', e); if (ROOT) { ROOT.querySelectorAll('.rs-card .rs-note').forEach(n => { if (n.textContent === 'Считаю…') n.textContent = 'Не удалось досчитать под эти фильтры.'; }); ROOT.append(note('Ошибка расчёта: ' + (e && e.message || e) + '. Измените фильтры или нажмите «Сбросить».')); } }
+    finally { if (GEN === g0 && ROOT) ROOT.style.paddingBottom = ''; }
   }
   async function draw0(root) {
     if (root) { ROOT = root; WAIT = 0; } if (!ROOT) return;
     const R = ROOT, gen = ++GEN;
     const ckey = JSON.stringify(F) + '|' + DKEY + '|' + (typeof state !== 'undefined' ? state.alias : 0) + '|' + (typeof HERO_DB !== 'undefined' && HERO_DB ? HERO_DB.count : 0);
-    if (DATA && DATA.db === (typeof HERO_DB !== 'undefined' ? HERO_DB : null) && CACHE.has(ckey)) { const keep = R.scrollTop, nodes = CACHE.get(ckey).map(n => n.classList && n.classList.contains('rs-filters') ? filtersBar(DATA) : n); R.replaceChildren(...nodes); R.scrollTop = keep; return; }
-    const keepTop = R.scrollTop; R.replaceChildren();
+    if (DATA && DATA.db === (typeof HERO_DB !== 'undefined' ? HERO_DB : null) && CACHE.has(ckey)) { const keep = R.scrollTop, nodes = CACHE.get(ckey).map(n => n.classList && n.classList.contains('rs-filters') ? filtersBar(DATA) : n); R.replaceChildren(...nodes); R.scrollTop = keep; toAnchor(R); ANCHOR = null; return; }
+    const keepTop = R.scrollTop; R.style.paddingBottom = R.scrollHeight + 'px'; R.replaceChildren(); R.scrollTop = keepTop;
+    const unpad = () => { R.style.paddingBottom = ''; };
     const head = el('div', 'rs-head'); head.append(el('h2', null, 'Результаты'), el('p', null, 'Где и когда вы играете лучше всего: число столов, ход сессии, время, дни и форматы турниров. Наведите на столбец — подробности; усы — 95% интервал.'));
     R.append(head);
     const D = await load();
@@ -566,7 +574,8 @@
     const cI = card('Главное', 'Выводы под текущие фильтры. «Надёжно» — интервал не захватывает ноль; «тенденция» — может быть случайностью.', true);
     cI.append(el('p', 'rs-note', 'Считаю…')); grid.append(cI);
     R.scrollTop = keepTop;
-    const step = async () => { await tick(); return gen !== GEN || !R.isConnected; };
+    let anchored = false;
+    const step = async () => { if (!anchored) anchored = toAnchor(R); await tick(); return gen !== GEN || !R.isConnected; };
     if (await step()) return;
     // ---- сколько столов ----
     const cb = (n) => n <= 2 ? 0 : n <= 4 ? 1 : n <= 6 ? 2 : n <= 8 ? 3 : n <= 10 ? 4 : n <= 13 ? 5 : 6;
@@ -837,7 +846,7 @@
     if (await step()) return;
     // ---- форматы турниров: таблица ----
     {
-      const cF = card('Форматы турниров', 'Нажмите на строку — она станет фильтром для всей страницы.', true);
+      const cF = card('Форматы турниров', 'Нажмите на строку — она станет фильтром для всей страницы.', true); cF.dataset.anchor = 'fmt';
       const secs = [];
       const tourCls = (i) => { const tr = D.tour[i], k = tr >= 0 ? D.tours[tr][0] : -1; return k >= 0 ? D.cls[k] : { speed: 0, myst: false, sat: false }; };
       secs.push(['Рум', 'room', rooms.map((r, k) => [k, r]), (i) => c.room[i]]);
@@ -859,7 +868,7 @@
         opts.forEach(([val, lab], k) => {
           const r = gv[k]; if (!r.n) return;
           const tr = el('tr', String(F[fk]) === String(val) ? 'on' : null); tr.tabIndex = 0;
-          const act = () => { F[fk] = String(F[fk]) === String(val) ? DEF[fk] : (typeof DEF[fk] === 'number' ? +val : val); saveF(); draw(); };
+          const act = () => { stay(cF); F[fk] = String(F[fk]) === String(val) ? DEF[fk] : (typeof DEF[fk] === 'number' ? +val : val); saveF(); draw(); };
           tr.onclick = act; tr.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); act(); } };
           const luck = gn[k].v - ge[k].v;
           const cells = [lab, num(r.n), num(tours[k].size), fmt(ge[k].v), fmt(gn[k].v), fmt(luck)];
@@ -1137,6 +1146,7 @@
       if (CUM) tag(CUM.querySelector('.rs-card-h')); tag(kp); grid.querySelectorAll(':scope > .rs-card').forEach(c => tag(c.querySelector('.rs-card-h') || c)); }
     if (gen !== GEN) return;
     R.append(note('Как считается. ' + mName + ' в BB на 100 раздач. «На ситуацию» — из каждой раздачи вычитается ваш ожидаемый результат в такой же ситуации по всей истории: позиция, стек, игроков за столом, размер стола, баунти и анте (редкие ситуации сглажены к общим). «Полная» — дополнительно совместная модель столов, часа сессии, времени суток, дня, длины сессии, скорости и рума: в блоках #4–#8 видно влияние только одного фактора при прочих равных. С поправкой вклад одной раздачи ограничен ±100 BB. Маленькие группы подтянуты к среднему (наведите — видно значение без сглаживания), «надёжно» — с учётом числа сравнений. Ключевые числа (#2), позиции и стек — без поправки. Деньги, ICM и стоимость баунти не учитываются — только фишки.'));
+    unpad(); toAnchor(R); ANCHOR = null;
     CACHE.set(ckey, [...R.childNodes]); if (CACHE.size > 10) CACHE.delete(CACHE.keys().next().value);
   }
   // данные «Результатов» грузятся заранее, в свободное время после загрузки базы — вкладка открывается без ожидания
