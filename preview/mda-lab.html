@@ -5893,6 +5893,9 @@ window.NEWS_SNAPSHOT = (function () {
   };
 
   // ---------- настоящие данные: сервер чата через главный процесс ----------
+  // ONLINE = false — пока только аккаунт (хранится на этом компьютере): без выбора сервера, чата и друзей.
+  // true — вернуть всё из 0.7.11 (в паре с NET в social-client.js).
+  const ONLINE = false;
   const R = window.mda && window.mda.social;
   const REAL = !!R;
   const ST = { st: null, me: null, users: [], friends: [], requests: [], sent: [], unread: {}, last: {}, chats: {}, conn: false, err: '' };
@@ -5901,12 +5904,15 @@ window.NEWS_SNAPSHOT = (function () {
   function refresh() {
     clearTimeout(refT);
     refT = setTimeout(async () => {
-      const r = await R.call('GET', '/state');
-      try { ST.st = await R.status(); } catch (e) { /* прежний */ }
-      if (r && r.ok) { Object.assign(ST, { me: r.me, users: r.users, friends: r.friends, requests: r.requests, sent: r.sent, unread: r.unread, last: r.last }); LS.set('mda.social.me', r.me); }
-      else if (r && r.auth === false) loggedOut();
-      redraw();
+      await loadState(); redraw();
     }, 60);
+  }
+  async function loadState() {
+    const r = await R.call('GET', '/state');
+    try { ST.st = await R.status(); } catch (e) { /* прежний */ }
+    if (r && r.ok) { Object.assign(ST, { me: r.me, users: r.users, friends: r.friends, requests: r.requests, sent: r.sent, unread: r.unread, last: r.last }); LS.set('mda.social.me', r.me); }
+    else if (r && r.auth === false) loggedOut();
+    return r;
   }
   async function loadMsgs(id) { const r = await R.call('GET', '/msgs?with=' + encodeURIComponent(id)); if (r && r.ok) { ST.chats[id] = r.msgs; if (CUR === id && !panel.hidden) redraw(); } }
   function loggedOut() { Object.assign(ST, { me: null, users: [], friends: [], requests: [], sent: [], unread: {}, last: {}, chats: {} }); LS.set('mda.social.me', null); }
@@ -5997,12 +6003,12 @@ window.NEWS_SNAPSHOT = (function () {
     const bg = el('div', 'modal-bg so-bg'), box = el('div', 'modal so-welcome'); box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-labelledby', 'soWT');
     const hero = el('div', 'so-w-hero'); hero.innerHTML = '<img src="' + (document.querySelector('.brand img') || {}).src + '" alt="" width="44" height="44">';
     hero.append(el('h2', null, 'Добро пожаловать в MDA Lab')); hero.lastChild.id = 'soWT';
-    hero.append(el('p', null, 'Создайте аккаунт — с ним у вас будет личный кабинет, друзья и чат с другими игроками программы.'));
+    hero.append(el('p', null, ONLINE ? 'Создайте аккаунт — с ним у вас будет личный кабинет, друзья и чат с другими игроками программы.' : 'Создайте аккаунт MDA Lab — с ним у вас будет личный кабинет. Загруженная база остаётся на месте, ничего загружать заново не нужно.'));
     let mode = 'reg';
     const seg = el('div', 'seg bx-seg so-w-seg'); const bReg = el('button', 'on', 'Создать аккаунт'), bLog = el('button', null, 'У меня есть аккаунт'); bReg.type = bLog.type = 'button'; seg.append(bReg, bLog);
     const form = el('form', 'so-form'); form.noValidate = true;
     const field = (lab, type, ph, hint) => { const w = el('label', 'so-f'); w.append(el('span', null, lab)); const i = el('input'); i.type = type; i.placeholder = ph || ''; w.append(i); if (hint) w.append(el('small', null, hint)); form.append(w); return { w, i }; };
-    const fN = field('Никнейм', 'text', 'например, Molodoy', 'Его увидят друзья и другие игроки. 3–20 символов: буквы, цифры, _'); fN.i.autocomplete = 'username'; fN.i.maxLength = 20;
+    const fN = field('Никнейм', 'text', 'например, Molodoy', ONLINE ? 'Его увидят друзья и другие игроки. 3–20 символов: буквы, цифры, _' : '3–20 символов: латинские буквы, цифры, _'); fN.i.autocomplete = 'username'; fN.i.maxLength = 20;
     const fP = field('Пароль', 'password', 'не меньше 8 символов'); fP.i.autocomplete = 'new-password';
     const fP2 = field('Повторите пароль', 'password', ''); fP2.i.autocomplete = 'new-password';
     const fE = field('Почта (по желанию)', 'email', 'name@mail.com', 'Нужна только чтобы восстановить пароль'); fE.i.autocomplete = 'email';
@@ -6010,7 +6016,7 @@ window.NEWS_SNAPSHOT = (function () {
     // в программе — сначала выбрать сервер чата
     let srvW = null;
     const drawSrv = () => {
-      if (!REAL) return; const st = ST.st || {};
+      if (!REAL || !ONLINE) return; const st = ST.st || {};
       const w = el('div', 'so-srv-w');
       if (st.server) {
         const l = el('div', 'so-srv-cur'); l.append(el('span', null, 'Сервер чата'), el('b', null, st.host ? 'этот компьютер' : st.server));
@@ -6022,7 +6028,7 @@ window.NEWS_SNAPSHOT = (function () {
     const pick = () => { const w = el('div', 'so-srv-w'); w.append(el('span', 'so-srv-h', 'Сервер чата'), serverBox(() => { drawSrv(); fN.i.focus(); })); return w; };
     drawSrv();
     const go = el('button', 'btn-load so-go', 'Создать аккаунт'); go.type = 'submit'; form.append(go);
-    const later = el('button', 'so-later', 'Позже'); later.type = 'button'; later.onclick = () => bg.remove();
+    const later = el('button', 'so-later', 'Позже'); later.type = 'button'; later.onclick = () => { LS.set('mda.welcome.later', 1); bg.remove(); };
     const setMode = (m) => { mode = m; bReg.classList.toggle('on', m === 'reg'); bLog.classList.toggle('on', m === 'log'); fP2.w.hidden = fE.w.hidden = m === 'log'; go.textContent = m === 'reg' ? 'Создать аккаунт' : 'Войти'; fP.i.autocomplete = m === 'reg' ? 'new-password' : 'current-password'; err.textContent = ''; };
     bReg.onclick = () => setMode('reg'); bLog.onclick = () => setMode('log');
     form.onsubmit = async (e) => {
@@ -6031,7 +6037,7 @@ window.NEWS_SNAPSHOT = (function () {
       if (fP.i.value.length < 8) { err.textContent = 'Пароль — не меньше 8 символов'; fP.i.focus(); return; }
       if (mode === 'reg' && fP.i.value !== fP2.i.value) { err.textContent = 'Пароли не совпадают'; fP2.i.focus(); return; }
       if (mode === 'reg' && fE.i.value && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(fE.i.value)) { err.textContent = 'Проверьте почту'; fE.i.focus(); return; }
-      if (REAL && !(ST.st && ST.st.server)) { err.textContent = 'Сначала выберите сервер чата'; return; }
+      if (REAL && ONLINE && !(ST.st && ST.st.server)) { err.textContent = 'Сначала выберите сервер чата'; return; }
       go.disabled = true; err.textContent = '';
       const r = await (mode === 'reg' ? A.register(nick, fE.i.value.trim(), fP.i.value) : A.login(nick, fP.i.value));
       go.disabled = false;
@@ -6061,9 +6067,9 @@ window.NEWS_SNAPSHOT = (function () {
       const head = el('div', 'so-card so-me');
       const av = el('div', 'so-av big', a.nick[0].toUpperCase()); av.style.background = colorOf(a.nick);
       const who = el('div', 'so-me-t'); who.append(el('h2', null, a.nick), el('p', null, 'В MDA Lab с ' + new Date(a.since).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })));
-      const st = el('span', 'so-online', 'в сети'); who.append(st);
+      const st = el('span', 'so-online', 'в сети'); if (ONLINE) who.append(st);
       const out = el('button', 'btn', 'Выйти'); out.type = 'button'; out.onclick = async () => { await A.logout(); redraw(); };
-      if (REAL && !ST.conn) { st.textContent = 'нет связи с сервером'; st.className = 'so-offline'; }
+      if (REAL && ONLINE && !ST.conn) { st.textContent = 'нет связи с сервером'; st.className = 'so-offline'; }
       head.append(av, who, out);
       const grid = el('div', 'so-grid');
       const card = (title) => { const c = el('section', 'so-card'); c.append(el('h3', null, title)); grid.append(c); return c; };
@@ -6080,12 +6086,13 @@ window.NEWS_SNAPSHOT = (function () {
         f.append(o, n, ok, e2); c1.append(f); o.focus();
       };
       const c2 = card('Ники в румах');
-      c2.append(el('p', 'so-muted', 'Ваши ники из загруженной базы. Друзья увидят, где вы играете, только если вы разрешите.'));
+      c2.append(el('p', 'so-muted', ONLINE ? 'Ваши ники из загруженной базы. Друзья увидят, где вы играете, только если вы разрешите.' : 'Ваши ники из загруженной базы.'));
       const nk = (typeof HERO_DB !== 'undefined' && HERO_DB && HERO_DB.nicks) ? HERO_DB.nicks : null;
       const list = el('div', 'so-nicks');
       if (nk && Object.keys(nk).length) Object.entries(nk).forEach(([n, r]) => { const p = el('span', 'so-chip'); p.append(el('i', null, r), document.createTextNode(n)); list.append(p); });
       else list.append(el('span', 'so-muted', 'Загрузите базу — ники появятся здесь'));
       c2.append(list);
+      if (ONLINE) {
       const c3 = card('Приватность');
       const tg = (lab, key, def) => { const w = el('label', 'so-tg'); const i = el('input'); i.type = 'checkbox'; i.checked = a[key] != null ? a[key] : def; i.onchange = async () => { await A.update({ [key]: i.checked }); if (key === 'showNicks' && i.checked) pushNicks(true); }; w.append(i, el('span', null, lab)); c3.append(w); };
       tg('Показывать другим, что я в сети', 'showOnline', true); tg('Принимать заявки в друзья от всех', 'openRequests', true); tg('Показывать друзьям мои ники в румах', 'showNicks', false);
@@ -6093,11 +6100,12 @@ window.NEWS_SNAPSHOT = (function () {
       c4.append(el('p', 'so-muted', A.friends().length + ' в друзьях · ' + A.friends().filter(u => u.online).length + ' сейчас в сети'));
       const ob = el('button', 'btn', 'Открыть чат'); ob.type = 'button'; ob.onclick = () => openPanel(); c4.append(ob);
       if (REAL) srvCard(card('Сервер чата'));
+      }
       pushNicks();
       main.append(head, grid);
     }
     if (!REAL) main.append(el('p', 'so-demo', 'Превью: данные хранятся только в этом окне, пользователи в чате — демонстрационные.'));
-    else if (!a) { const c = el('section', 'so-card'); c.append(el('h3', null, 'Сервер чата')); srvCard(c); main.append(c); }
+    else if (!a && ONLINE) { const c = el('section', 'so-card'); c.append(el('h3', null, 'Сервер чата')); srvCard(c); main.append(c); }
     acc.append(nav, main);
   }
 
@@ -6132,14 +6140,14 @@ window.NEWS_SNAPSHOT = (function () {
   const chatB = el('button', 'so-chatb'); chatB.type = 'button'; chatB.innerHTML = ico('<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.6A8 8 0 1 1 21 12z"/><path d="M8.5 11h.01M12 11h.01M15.5 11h.01"/>', 20);
   const badge = el('span', 'so-badge'); chatB.append(badge); chatB.onclick = () => (panel.hidden ? openPanel() : closePanel());
   const meB = el('button', 'so-meb'); meB.type = 'button'; meB.onclick = () => { if (!A.account()) welcome(true); else document.getElementById('tabAcc').click(); };
-  right.append(chatB, meB); if (bar) bar.append(right);
+  if (ONLINE) right.append(chatB); right.append(meB); if (bar) bar.append(right);
 
   // ---------- панель чата: друзья / все пользователи / заявки, окно переписки ----------
   const panel = el('aside', 'so-panel'); panel.hidden = true; panel.setAttribute('aria-label', 'Чат'); document.body.append(panel);
   let TAB = 'friends', CUR = null, Q = '';
   const DRAFT = {}, SHOT = {}; // недописанное сообщение и снимок — переживают перерисовку при новых событиях
   const plural = (n, a, b, c) => { const m = n % 10, h = n % 100; return m === 1 && h !== 11 ? a : m >= 2 && m <= 4 && (h < 12 || h > 14) ? b : c; };
-  function openPanel(id) { if (!A.account()) { welcome(true); return; } panel.hidden = false; if (id) { CUR = id; A.markRead(id); if (REAL) loadMsgs(id); } else if (REAL) refresh(); redraw(); }
+  function openPanel(id) { if (!ONLINE) return; if (!A.account()) { welcome(true); return; } panel.hidden = false; if (id) { CUR = id; A.markRead(id); if (REAL) loadMsgs(id); } else if (REAL) refresh(); redraw(); }
   function closePanel() { panel.hidden = true; redraw(); }
   function avatar(u, size) { const a = el('span', 'so-av' + (size ? ' ' + size : ''), u.nick[0].toUpperCase()); a.style.background = colorOf(u.nick); if (u.online) a.classList.add('on'); return a; }
   function drawPanel() {
@@ -6222,11 +6230,12 @@ window.NEWS_SNAPSHOT = (function () {
   if (REAL) ST.me = LS.get('mda.social.me', null); // пока сервер не ответил — последний известный аккаунт
   redraw();
   const tA = document.getElementById('tabAcc'); if (tA) tA.addEventListener('click', drawCabinet); // ники из базы — свежие
-  // первый запуск: аккаунта нет — сразу предложить создать (в программе — когда ещё нет базы; в превью — всегда, для показа)
-  const inApp = /Electron/.test(navigator.userAgent);
+  // первый запуск или обновление старой версии: аккаунта нет — предложить создать (база остаётся на месте)
   setTimeout(async () => {
-    if (REAL) { try { ST.st = await R.status(); ST.conn = ST.st.connected; } catch (e) { ST.st = {}; } if (!ST.st.loggedIn) loggedOut(); else refresh(); redraw(); }
-    if (A.account()) return; let hasBase = false; if (inApp && window.mda && window.mda.dbInfo) { try { const i = await window.mda.dbInfo(); hasBase = !!(i && i.stored); } catch (e) { /* нет */ } } if (!inApp || !hasBase) welcome(); }, 600);
+    if (REAL) { try { ST.st = await R.status(); ST.conn = ST.st.connected; } catch (e) { ST.st = {}; } if (!ST.st.loggedIn) loggedOut(); else await loadState(); redraw(); }
+    // окно входа: пока нет аккаунта — при первом запуске и после обновления старой версии (база при этом остаётся)
+    if (!A.account() && !LS.get('mda.welcome.later', 0)) welcome();
+  }, 600);
   window.MDASocial = { open: openPanel, welcome: () => welcome(true) };
 })();
 

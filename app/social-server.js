@@ -178,12 +178,12 @@ function make(dir, opts) {
   let srv = null;
   return {
     port: () => (srv && srv.address() ? srv.address().port : 0),
-    start(port) {
+    start(port, bind) {
       return new Promise((resolve, reject) => {
         srv = http.createServer((req, res) => { handle(req, res).catch(e => { try { fail(res, 400, String(e.message || e)); } catch (x) { /* уже ответили */ } }); });
         srv.keepAliveTimeout = 65e3;
         srv.once('error', reject);
-        srv.listen(port || PORT, '0.0.0.0', () => resolve(srv.address().port));
+        srv.listen(port == null ? PORT : port, bind || '0.0.0.0', () => resolve(srv.address().port));
       });
     },
     stop() { saveNow(); for (const s of conns.values()) for (const r of s) { try { r.end(); } catch (e) { /* нет */ } } conns.clear(); return new Promise(r => (srv ? srv.close(() => r()) : r())); },

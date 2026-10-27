@@ -8,6 +8,10 @@ const http = require('http');
 const https = require('https');
 const { safeStorage } = require('electron');
 const S = require('./social-server.js');
+// NET = false — пока без сети: аккаунты хранятся на этом компьютере (тот же сервер, но только для самой программы,
+// адрес 127.0.0.1 — снаружи недоступен, брандмауэр не спрашивает). Выбор сервера и чат скрыты.
+// NET = true — как в 0.7.11: «этот компьютер — сервер» / подключиться по адресу, чат. Аккаунты из папки social-server сохраняются.
+const NET = false;
 
 function make(userData, emit) {
   const file = path.join(userData, 'social.json');
@@ -18,14 +22,17 @@ function make(userData, emit) {
   const setToken = (t) => { if (!t) { delete cfg.tok; delete cfg.tokEnc; } else { const e = enc(); cfg.tokEnc = e; cfg.tok = (e ? safeStorage.encryptString(t) : Buffer.from(t, 'utf8')).toString('base64'); } saveCfg(); };
 
   let host = null; // встроенный сервер
+  let ready = null; // локальный режим: запуск сервера для этой программы
   const base = () => {
+    if (!NET) return host ? new URL('http://127.0.0.1:' + host.port()) : null;
     let s = String(cfg.server || '').trim(); if (!s) return null;
     if (!/^https?:\/\//i.test(s)) s = 'http://' + s;
     try { const u = new URL(s); if (!u.port && u.protocol === 'http:') u.port = String(S.PORT); return u; } catch (e) { return null; }
   };
 
-  function request(method, p, body, opt) {
+  async function request(method, p, body, opt) {
     opt = opt || {};
+    if (!NET) { try { await (ready || (ready = startLocal())); } catch (e) { ready = null; return { ok: false, error: 'Не удалось открыть хранилище аккаунтов: ' + e.message }; } }
     return new Promise((resolve) => {
       const b = base(); if (!b) return resolve({ ok: false, error: 'Сервер чата не выбран', noServer: true });
       const data = body ? Buffer.from(JSON.stringify(body)) : null, tok = opt.noAuth ? '' : getToken();
@@ -78,18 +85,21 @@ function make(userData, emit) {
     try { await host.start(cfg.port || S.PORT); } catch (e) { host = null; throw new Error(e.code === 'EADDRINUSE' ? 'Порт ' + (cfg.port || S.PORT) + ' занят — возможно, сервер уже запущен в другой копии программы' : String(e.message || e)); }
     return host.port();
   }
+  async function startLocal() { if (host) return; host = S.make(path.join(userData, 'social-server'), { name: 'local' }); await host.start(0, '127.0.0.1'); }
   async function stopHost() { if (host) { await host.stop(); host = null; } }
 
-  const status = () => ({ server: cfg.server || '', host: !!cfg.host, hosting: host ? { port: host.port(), addrs: S.lanAddrs().map(a => a.ip + (host.port() === S.PORT ? '' : ':' + host.port())), stats: host.stats() } : null, loggedIn: !!getToken(), connected });
+  const status = () => ({ net: NET, server: cfg.server || '', host: !!cfg.host, hosting: NET && host ? { port: host.port(), addrs: S.lanAddrs().map(a => a.ip + (host.port() === S.PORT ? '' : ':' + host.port())), stats: host.stats() } : null, loggedIn: !!getToken(), connected });
 
   return {
     async init() {
+      if (!NET) { ready = startLocal().catch(e => { ready = null; throw e; }); try { await ready; connected = true; } catch (e) { /* при запросе — ещё раз */ } return; }
       if (cfg.host) { try { await startHost(); } catch (e) { emit('conn', { connected: false, error: e.message }); } }
       if (getToken()) openEvents();
     },
     status,
     // выбор сервера: { host: true } — этот компьютер; { server: '192.168.1.5' } — другой
     async setServer(o) {
+      if (!NET) return { ok: false, error: 'Подключение к серверу появится позже' };
       o = o || {}; const prev = cfg.server;
       if (o.host) {
         try { const port = await startHost(); cfg.host = true; cfg.server = '127.0.0.1:' + port; } catch (e) { return { ok: false, error: e.message }; }
@@ -107,11 +117,11 @@ function make(userData, emit) {
     async call(method, p, body) {
       const auth = p === '/register' || p === '/login';
       const r = await request(method, p, body, { noAuth: auth, timeout: p === '/send' ? 30000 : 8000 });
-      if (auth && r && r.ok && r.token) { setToken(r.token); delete r.token; openEvents(); }
+      if (auth && r && r.ok && r.token) { setToken(r.token); delete r.token; if (NET) openEvents(); }
       if (r && r.auth === false) { setToken(''); closeEvents(); emit('auth', { loggedOut: true }); }
       return r;
     },
-    async logout() { await request('POST', '/logout', {}); setToken(''); closeEvents(); setConn(false); return { ok: true }; },
+    async logout() { await request('POST', '/logout', {}); setToken(''); closeEvents(); if (NET) setConn(false); return { ok: true }; },
     async img(p) { if (!/^\/img\/[a-f0-9]{32}\.(jpg|png)$/.test(String(p))) return null; const r = await request('GET', p, null, { raw: true, timeout: 20000 }); return r.ok ? 'data:' + r.type + ';base64,' + r.buf.toString('base64') : null; },
     async quit() { closeEvents(); await stopHost(); }
   };
