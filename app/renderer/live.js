@@ -206,7 +206,7 @@
   }
   function drawList() {
     listBox.replaceChildren();
-    if (!LIST) { listBox.append(el('p', 'lv-empty', loading ? 'Загружаю календарь… Если откроется окно сайта «Подтвердите, что вы человек» — поставьте галочку один раз, дальше всё загрузится само.' : 'Календарь ещё не загружен.')); return; }
+    if (!LIST) { listBox.append(loading ? window.mdaLoad('Загружаю календарь… Если откроется окно сайта «Подтвердите, что вы человек» — поставьте галочку один раз, дальше всё загрузится само.') : el('p', 'lv-empty', 'Календарь ещё не загружен.')); return; }
     LERR.filter((e, i) => LERR.findIndex(x => x.msg === e.msg) === i).forEach(e => { const w = el('div', 'lv-warn'); w.append(el('span', null, e.msg + (e.stale ? ' Показана последняя сохранённая версия.' : ''))); if (e.challenge && api.livePass) { const b = el('button', 'btn lv-btn', 'Пройти проверку'); b.type = 'button'; b.onclick = async () => { b.disabled = true; await api.livePass('list', e.y, e.m); loadList(false); }; w.append(b); } listBox.append(w); });
     const arr = filtered(), a = today();
     if (!arr.length) { listBox.append(el('p', 'lv-empty', 'Крупных серий по этим условиям нет — выберите другой регион, страну или месяц.')); return; }
@@ -249,7 +249,7 @@
     const acts = el('div', 'lv-dh-a'); acts.append(ln);
     if (!PREVIEW && api.liveFest) { const rb = el('button', 'btn lv-btn', 'Обновить'); rb.type = 'button'; rb.onclick = () => openFest(f, true); acts.append(rb); }
     h.append(t, acts); det.append(h);
-    if (OPEN.loading) { det.append(el('p', 'lv-empty', 'Загружаю расписание… Если откроется окно сайта «Подтвердите, что вы человек» — поставьте галочку один раз, дальше всё загрузится само.')); return; }
+    if (OPEN.loading) { det.append(window.mdaLoad('Загружаю расписание… Если откроется окно сайта «Подтвердите, что вы человек» — поставьте галочку один раз, дальше всё загрузится само.')); return; }
     if (OPEN.error && !OPEN.data) {
       const w = el('div', 'lv-warn'); w.append(el('span', null, OPEN.error));
       if (OPEN.challenge && api.livePass) { const b = el('button', 'btn lv-btn', 'Пройти проверку'); b.type = 'button'; b.onclick = async () => { b.disabled = true; const r = await api.livePass('fest', f.id); if (r && r.ok) openFest(f); else b.disabled = false; }; w.append(b, el('small', null, 'Откроется окно сайта — поставьте галочку «Я не робот», окно закроется само.')); }

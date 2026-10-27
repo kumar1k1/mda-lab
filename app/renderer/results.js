@@ -486,7 +486,7 @@
   function flush() {
     if (!STAGE || STAGE.gen !== GEN) return; const { host, box } = STAGE; STAGE = null;
     const keep = host.scrollTop; host.replaceChildren(...box.childNodes); host.scrollTop = keep; toAnchor(host); ANCHOR = null;
-    requestAnimationFrame(() => host.classList.remove('rs-busy'));
+    requestAnimationFrame(() => host.classList.remove('rs-busy')); if (host.__busy && window.mdaBusy) { host.__busy = false; window.mdaBusy(false); }
   }
   async function draw0(root) {
     if (root) { ROOT = root; WAIT = 0; if (!root.dataset.rsHook) { root.dataset.rsHook = '1'; const mark = (e) => { const cd = e.target.closest && e.target.closest('.rs-card'); LAST = cd ? [cd, Date.now()] : null; }; root.addEventListener('pointerdown', mark, true); root.addEventListener('keydown', mark, true); root.addEventListener('change', mark, true); } } if (!ROOT) return;
@@ -499,7 +499,7 @@
     const ckey = JSON.stringify(F) + '|' + DKEY + '|' + (typeof state !== 'undefined' ? state.alias : 0) + '|' + (typeof HERO_DB !== 'undefined' && HERO_DB ? HERO_DB.count : 0);
     if (DATA && DATA.db === (typeof HERO_DB !== 'undefined' ? HERO_DB : null) && CACHE.has(ckey)) { const R = HOST, keep = R.scrollTop, nodes = CACHE.get(ckey).map(n => n.classList && n.classList.contains('rs-filters') ? filtersBar(DATA) : n); R.replaceChildren(...nodes); R.scrollTop = keep; toAnchor(R); ANCHOR = null; R.classList.remove('rs-busy'); STAGE = null; return; }
     const keepTop = HOST.scrollTop;
-    if (staged) { STAGE = { host: HOST, box: R, gen }; HOST.classList.add('rs-busy'); const ofb = HOST.querySelector(':scope > .rs-filters'); if (ofb) ofb.replaceWith(filtersBar(DATA)); }
+    if (staged) { STAGE = { host: HOST, box: R, gen }; if (!HOST.classList.contains('rs-busy') && window.mdaBusy) { window.mdaBusy(true, 'Пересчитываю результаты…'); HOST.__busy = true; } HOST.classList.add('rs-busy'); const ofb = HOST.querySelector(':scope > .rs-filters'); if (ofb) ofb.replaceWith(filtersBar(DATA)); }
     else { STAGE = null; R.style.paddingBottom = R.scrollHeight + 'px'; R.replaceChildren(); R.scrollTop = keepTop; }
     const unpad = () => { HOST.style.paddingBottom = ''; };
     const head = el('div', 'rs-head'); head.append(el('h2', null, 'Результаты'), el('p', null, 'Где и когда вы играете лучше всего: число столов, ход сессии, время, дни и форматы турниров. Наведите на столбец — подробности; усы — 95% интервал.'));
@@ -529,7 +529,7 @@
     // базы, загруженные версиями до 0.6, хранят время и турнир не у всех раздач — такие раздачи «Результаты» не видят
     { const al = (typeof state !== 'undefined' && D.db.aliases && D.db.aliases.length > 1 && c.aid) ? state.alias : -1; let tot = 0, ok = 0; for (let i = 0; i < D.n; i++) { if (al >= 0 && c.aid[i] !== al) continue; tot++; if (D.t[i] >= 0) ok++; }
       if (tot && ok / tot < 0.95) { const w = el('div', 'rs-cov'); w.append(el('b', null, 'Учтено ' + num(ok) + ' из ' + num(tot) + ' раздач — остальные без времени и турнира'), el('span', null, 'Эта база (или её часть) загружена старой версией программы: тогда время, турнир и запись реплеера сохранялись только у раздач, где вы вступали в игру (открытие, колл, изолейт). Поэтому здесь видна лишь часть раздач, а EV завышен — это раздачи, в которых вы играли активно. Как исправить: «Моя база» → загрузите те же истории раздач ещё раз. Дубликатов не будет — программа только допишет недостающее этим раздачам, и «Результаты» посчитаются по всем.')); R.append(w); } }
-    { if (!staged) { const w = el('p', 'rs-note rs-busy-n', 'Считаю…'); R.append(w); await tick(); w.remove(); } else await tick(); if (gen !== GEN || !HOST.isConnected) return; }
+    { if (!staged) { const w = window.mdaLoad ? window.mdaLoad('Считаю результаты…') : el('p', 'rs-note', 'Считаю…'); R.append(w); await tick(); w.remove(); } else await tick(); if (gen !== GEN || !HOST.isConnected) return; }
     const X = select(D);
     if (!X.idx.length) { R.append(note('Под эти фильтры раздач нет. Ослабьте фильтры или нажмите «Сбросить».')); return; }
     const mName = (F.metric === 'net' ? 'Факт' : 'EV') + (+F.adj === 2 ? ', чистый эффект' : +F.adj === 1 ? ' с поправкой' : '');
@@ -602,7 +602,7 @@
     R.append(kp);
     const grid = el('div', 'rs-grid'); R.append(grid);
     const cI = card('Главное', 'Выводы под текущие фильтры. «Надёжно» — интервал не захватывает ноль; «тенденция» — может быть случайностью.', true);
-    cI.append(el('p', 'rs-note', 'Считаю…')); grid.append(cI);
+    cI.append(window.mdaLoad ? window.mdaLoad('Считаю…') : el('p', 'rs-note', 'Считаю…')); grid.append(cI);
     if (!staged) R.scrollTop = keepTop;
     let anchored = staged;
     const step = async () => { if (!anchored) anchored = toAnchor(R); await tick(); return gen !== GEN || !HOST.isConnected; };

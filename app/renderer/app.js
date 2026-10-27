@@ -1600,7 +1600,7 @@ function ccQuadBlock(r, idx) {
   card.append(numTag(9), el('b', 'pm-title', 'Колд-колл × Фолд на контбет флопа'), el('span', 'sm-s', 'ваша точка, равновесный ориентир и точка лучшего результата по игрокам базы'));
   const posList = ['TOT', 'MP', 'CO', 'BTN', 'SB', 'BB']; // UTG бывает только за полным столом — у соперников по нему данных нет
   const seg = segBtns(posList.map(p => [p, p === 'TOT' ? 'Все без BB' : p]), CC_QPOS, (k) => { CC_QPOS = k; draw(LAST); });
-  const body = el('div', 'qd-body'); body.append(el('p', 'muted small', 'Считаю игроков базы…')); card.append(seg, body);
+  const body = el('div', 'qd-body'); body.append(window.mdaLoad('Считаю игроков базы…')); card.append(seg, body);
   let LAST = null;
   const draw = (data) => {
     LAST = data; body.replaceChildren();
@@ -1785,7 +1785,7 @@ function renderCC(idx) {
   c8.classList.add('wide');
   const zone = el('div', 'summary'); const pair = el('div', 'sum-pair'); pair.append(c1, c8); zone.append(pair);
   c2.classList.add('cc-table');
-  zone.append(c2, ccGroupBlock(r), ccVsTable(r), ccOppBlock(r), ccSizeBlock(r), bbDefendBlock(r), ccAllinBlock(r), ccQuadBlock(r, idx));
+  zone.append(c2, ccGroupBlock(r), ccVsTable(r), ccOppBlock(r), ccSizeBlock(r), bbDefendBlock(r), ccAllinBlock(r)); // #9 «Колд-колл × Фолд на контбет» убран по просьбе (функция ccQuadBlock оставлена)
   page.append(zone);
   return page;
 }
@@ -1829,6 +1829,15 @@ function currentIdx() {
 
 // Отклик на нажатие — сразу: кнопка выделяется и экран слегка гаснет в этот же кадр, а пересчёт (у большой базы — доли
 // секунды) идёт следующим кадром. Раньше пересчёт шёл прямо в обработчике нажатия, и окно на это время «залипало».
+// Общий значок загрузки: «бегунок» с подписью над содержимым, пока считаются или грузятся данные (для всех разделов)
+window.mdaLoad = (text) => { const d = document.createElement('div'); d.className = 'mda-load'; d.setAttribute('role', 'status'); const i = document.createElement('i'); i.setAttribute('aria-hidden', 'true'); const b = document.createElement('span'); b.textContent = text || 'Загружаю данные…'; d.append(i, b); return d; };
+let BUSY_N = 0, BUSY_EL = null;
+window.mdaBusy = (on, text) => {
+  BUSY_N = Math.max(0, BUSY_N + (on ? 1 : -1));
+  if (!BUSY_EL) { BUSY_EL = document.createElement('div'); BUSY_EL.className = 'mda-busy'; BUSY_EL.setAttribute('role', 'status'); BUSY_EL.setAttribute('aria-live', 'polite'); BUSY_EL.append(document.createElement('i'), document.createElement('span')); document.body.append(BUSY_EL); }
+  if (on && text) BUSY_EL.lastChild.textContent = text; else if (on) BUSY_EL.lastChild.textContent = 'Загружаю данные…';
+  BUSY_EL.classList.toggle('on', BUSY_N > 0);
+};
 let RS_F = 0, LASTBTN = null;
 document.addEventListener('click', (e) => { LASTBTN = e.target && e.target.closest ? e.target.closest('button') : null; }, true);
 function renderNext() {
@@ -1837,9 +1846,9 @@ function renderNext() {
     const sib = [...b.parentElement.children].filter(x => x !== b && x.tagName === 'BUTTON' && (x.classList.contains('on') || x.classList.contains('active')));
     if (sib.length || b.classList.contains('tab')) { const c = b.classList.contains('tab') ? 'active' : 'on'; sib.forEach(x => x.classList.remove('on', 'active')); b.classList.add(c); }
   }
-  document.body.classList.add('rendering');
   if (RS_F) return;
-  RS_F = requestAnimationFrame(() => setTimeout(() => { RS_F = 0; try { render(); } finally { document.body.classList.remove('rendering'); } }, 0));
+  document.body.classList.add('rendering'); window.mdaBusy(true, 'Считаю статистику…');
+  RS_F = requestAnimationFrame(() => setTimeout(() => { RS_F = 0; try { render(); } finally { document.body.classList.remove('rendering'); window.mdaBusy(false); } }, 0));
 }
 function render() {
   hideHandPop(); hideMxTip(); hideGroupTip(); hidePushTip(); unpinSzMx(); if (qdTip) qdTip.hidden = true;
@@ -2757,7 +2766,10 @@ window.__importDemo = () => { $('importModal').hidden = false; showImport({ sour
 
 document.addEventListener('DOMContentLoaded', async () => {
   setupImport(); setupPlayerMenu(); setupHoverScrollHide();
-  const db = await loadDb();
+  // пока база открывается (у большой — до минуты), вместо пустого окна — бегунок с подписью
+  if (mda.dbMeta) $('content').replaceChildren(window.mdaLoad('Открываю вашу базу… У большой базы это может занять до минуты.'));
+  window.mdaBusy(true, 'Открываю базу…');
+  let db = null; try { db = await loadDb(); } finally { window.mdaBusy(false); }
   setDb(db);
   if (!db) openImportModal();
 });

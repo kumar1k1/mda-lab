@@ -290,7 +290,7 @@ async function openIdsList(title, ids) {
   sel('Рум', 'room', [['', 'все']].concat(roomsHere.map(r => [String(r), DB.rooms[r]])));
   sel('Итог', 'res', [['', 'все'], ['win', 'выиграл'], ['lose', 'проиграл']]);
   sel('Порядок', 'sort', [['new', 'сначала новые'], ['old', 'сначала старые'], ['worst', 'сначала худшие'], ['best', 'сначала лучшие']]);
-  const list = el('div', 'hp-rows il-rows'); list.append(el('p', 'muted small', 'Загружаю раздачи…'));
+  const list = el('div', 'hp-rows il-rows'); list.append(window.mdaLoad ? window.mdaLoad('Загружаю раздачи…') : el('p', 'muted small', 'Загружаю раздачи…'));
   box.append(head, bar, list); bg.append(box); document.body.append(bg);
   bg.addEventListener('click', (e) => { if (e.target === bg) closeIdsList(); });
   const keys = (e) => { if (e.key === 'Escape' && !RP) closeIdsList(); };

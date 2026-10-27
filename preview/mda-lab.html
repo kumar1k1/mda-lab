@@ -1646,6 +1646,14 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 /* пересчёт после нажатия: экран статистики чуть гаснет на долю секунды — видно, что нажатие принято */
 body.rendering #content{opacity:.72;transition:opacity .12s ease .05s}
 body.rendering{cursor:progress}
+/* общий бегунок загрузки: в пустом месте раздела (.mda-load) и плашка сверху, пока пересчитывается (.mda-busy) */
+.mda-load{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:40px 16px;color:var(--muted);font-size:13.5px;text-align:center;line-height:1.45;max-width:520px;margin:0 auto}
+.mda-load i,.mda-busy i{display:block;width:30px;height:30px;border-radius:50%;border:3px solid var(--line2);border-top-color:var(--amber);animation:mdaSpin .8s linear infinite;flex:0 0 auto}
+@keyframes mdaSpin{to{transform:rotate(360deg)}}
+.mda-busy{position:fixed;top:64px;left:50%;transform:translate(-50%,-8px);z-index:9000;display:flex;align-items:center;gap:10px;padding:8px 16px 8px 10px;border-radius:999px;background:var(--card2);border:1px solid var(--line2);box-shadow:0 8px 24px rgba(0,0,0,.35);color:var(--text);font-size:13px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .15s ease,transform .15s ease}
+.mda-busy i{width:16px;height:16px;border-width:2px}
+.mda-busy.on{opacity:1;transform:translate(-50%,0)}
+@media (prefers-reduced-motion:reduce){.mda-load i,.mda-busy i{animation-duration:2.4s}}
 
 /* Дополнения только для онлайн-превью: тёмная тема и узкие экраны */
 :root{color-scheme:dark}
@@ -3930,7 +3938,7 @@ function ccQuadBlock(r, idx) {
   card.append(numTag(9), el('b', 'pm-title', 'Колд-колл × Фолд на контбет флопа'), el('span', 'sm-s', 'ваша точка, равновесный ориентир и точка лучшего результата по игрокам базы'));
   const posList = ['TOT', 'MP', 'CO', 'BTN', 'SB', 'BB']; // UTG бывает только за полным столом — у соперников по нему данных нет
   const seg = segBtns(posList.map(p => [p, p === 'TOT' ? 'Все без BB' : p]), CC_QPOS, (k) => { CC_QPOS = k; draw(LAST); });
-  const body = el('div', 'qd-body'); body.append(el('p', 'muted small', 'Считаю игроков базы…')); card.append(seg, body);
+  const body = el('div', 'qd-body'); body.append(window.mdaLoad('Считаю игроков базы…')); card.append(seg, body);
   let LAST = null;
   const draw = (data) => {
     LAST = data; body.replaceChildren();
@@ -4115,7 +4123,7 @@ function renderCC(idx) {
   c8.classList.add('wide');
   const zone = el('div', 'summary'); const pair = el('div', 'sum-pair'); pair.append(c1, c8); zone.append(pair);
   c2.classList.add('cc-table');
-  zone.append(c2, ccGroupBlock(r), ccVsTable(r), ccOppBlock(r), ccSizeBlock(r), bbDefendBlock(r), ccAllinBlock(r), ccQuadBlock(r, idx));
+  zone.append(c2, ccGroupBlock(r), ccVsTable(r), ccOppBlock(r), ccSizeBlock(r), bbDefendBlock(r), ccAllinBlock(r)); // #9 «Колд-колл × Фолд на контбет» убран по просьбе (функция ccQuadBlock оставлена)
   page.append(zone);
   return page;
 }
@@ -4159,6 +4167,15 @@ function currentIdx() {
 
 // Отклик на нажатие — сразу: кнопка выделяется и экран слегка гаснет в этот же кадр, а пересчёт (у большой базы — доли
 // секунды) идёт следующим кадром. Раньше пересчёт шёл прямо в обработчике нажатия, и окно на это время «залипало».
+// Общий значок загрузки: «бегунок» с подписью над содержимым, пока считаются или грузятся данные (для всех разделов)
+window.mdaLoad = (text) => { const d = document.createElement('div'); d.className = 'mda-load'; d.setAttribute('role', 'status'); const i = document.createElement('i'); i.setAttribute('aria-hidden', 'true'); const b = document.createElement('span'); b.textContent = text || 'Загружаю данные…'; d.append(i, b); return d; };
+let BUSY_N = 0, BUSY_EL = null;
+window.mdaBusy = (on, text) => {
+  BUSY_N = Math.max(0, BUSY_N + (on ? 1 : -1));
+  if (!BUSY_EL) { BUSY_EL = document.createElement('div'); BUSY_EL.className = 'mda-busy'; BUSY_EL.setAttribute('role', 'status'); BUSY_EL.setAttribute('aria-live', 'polite'); BUSY_EL.append(document.createElement('i'), document.createElement('span')); document.body.append(BUSY_EL); }
+  if (on && text) BUSY_EL.lastChild.textContent = text; else if (on) BUSY_EL.lastChild.textContent = 'Загружаю данные…';
+  BUSY_EL.classList.toggle('on', BUSY_N > 0);
+};
 let RS_F = 0, LASTBTN = null;
 document.addEventListener('click', (e) => { LASTBTN = e.target && e.target.closest ? e.target.closest('button') : null; }, true);
 function renderNext() {
@@ -4167,9 +4184,9 @@ function renderNext() {
     const sib = [...b.parentElement.children].filter(x => x !== b && x.tagName === 'BUTTON' && (x.classList.contains('on') || x.classList.contains('active')));
     if (sib.length || b.classList.contains('tab')) { const c = b.classList.contains('tab') ? 'active' : 'on'; sib.forEach(x => x.classList.remove('on', 'active')); b.classList.add(c); }
   }
-  document.body.classList.add('rendering');
   if (RS_F) return;
-  RS_F = requestAnimationFrame(() => setTimeout(() => { RS_F = 0; try { render(); } finally { document.body.classList.remove('rendering'); } }, 0));
+  document.body.classList.add('rendering'); window.mdaBusy(true, 'Считаю статистику…');
+  RS_F = requestAnimationFrame(() => setTimeout(() => { RS_F = 0; try { render(); } finally { document.body.classList.remove('rendering'); window.mdaBusy(false); } }, 0));
 }
 function render() {
   hideHandPop(); hideMxTip(); hideGroupTip(); hidePushTip(); unpinSzMx(); if (qdTip) qdTip.hidden = true;
@@ -5087,7 +5104,10 @@ window.__importDemo = () => { $('importModal').hidden = false; showImport({ sour
 
 document.addEventListener('DOMContentLoaded', async () => {
   setupImport(); setupPlayerMenu(); setupHoverScrollHide();
-  const db = await loadDb();
+  // пока база открывается (у большой — до минуты), вместо пустого окна — бегунок с подписью
+  if (mda.dbMeta) $('content').replaceChildren(window.mdaLoad('Открываю вашу базу… У большой базы это может занять до минуты.'));
+  window.mdaBusy(true, 'Открываю базу…');
+  let db = null; try { db = await loadDb(); } finally { window.mdaBusy(false); }
   setDb(db);
   if (!db) openImportModal();
 });
@@ -5420,7 +5440,7 @@ async function openIdsList(title, ids) {
   sel('Рум', 'room', [['', 'все']].concat(roomsHere.map(r => [String(r), DB.rooms[r]])));
   sel('Итог', 'res', [['', 'все'], ['win', 'выиграл'], ['lose', 'проиграл']]);
   sel('Порядок', 'sort', [['new', 'сначала новые'], ['old', 'сначала старые'], ['worst', 'сначала худшие'], ['best', 'сначала лучшие']]);
-  const list = el('div', 'hp-rows il-rows'); list.append(el('p', 'muted small', 'Загружаю раздачи…'));
+  const list = el('div', 'hp-rows il-rows'); list.append(window.mdaLoad ? window.mdaLoad('Загружаю раздачи…') : el('p', 'muted small', 'Загружаю раздачи…'));
   box.append(head, bar, list); bg.append(box); document.body.append(bg);
   bg.addEventListener('click', (e) => { if (e.target === bg) closeIdsList(); });
   const keys = (e) => { if (e.key === 'Escape' && !RP) closeIdsList(); };
@@ -6028,7 +6048,7 @@ window.NEWS_SNAPSHOT = (function () {
   async function load(force) {
     if (loading || !window.mda || !window.mda.newsGet) return;
     loading = true; refresh.disabled = true; refresh.classList.add('spin');
-    if (!DATA) body.replaceChildren(el('div', 'nw-empty', 'Загружаю новости…'));
+    if (!DATA) body.replaceChildren(window.mdaLoad ? window.mdaLoad('Загружаю новости…') : el('div', 'nw-empty', 'Загружаю новости…'));
     try { DATA = await window.mda.newsGet(force); } catch (e) { if (!DATA) body.replaceChildren(el('div', 'nw-empty', 'Не удалось загрузить новости: ' + e.message)); }
     loading = false; refresh.disabled = false; refresh.classList.remove('spin');
     draw();
@@ -6518,7 +6538,7 @@ window.LIVE_SAMPLE = {"list":[[71951,"CashCowsPoker TV Championship Series Seaso
   }
   function drawList() {
     listBox.replaceChildren();
-    if (!LIST) { listBox.append(el('p', 'lv-empty', loading ? 'Загружаю календарь… Если откроется окно сайта «Подтвердите, что вы человек» — поставьте галочку один раз, дальше всё загрузится само.' : 'Календарь ещё не загружен.')); return; }
+    if (!LIST) { listBox.append(loading ? window.mdaLoad('Загружаю календарь… Если откроется окно сайта «Подтвердите, что вы человек» — поставьте галочку один раз, дальше всё загрузится само.') : el('p', 'lv-empty', 'Календарь ещё не загружен.')); return; }
     LERR.filter((e, i) => LERR.findIndex(x => x.msg === e.msg) === i).forEach(e => { const w = el('div', 'lv-warn'); w.append(el('span', null, e.msg + (e.stale ? ' Показана последняя сохранённая версия.' : ''))); if (e.challenge && api.livePass) { const b = el('button', 'btn lv-btn', 'Пройти проверку'); b.type = 'button'; b.onclick = async () => { b.disabled = true; await api.livePass('list', e.y, e.m); loadList(false); }; w.append(b); } listBox.append(w); });
     const arr = filtered(), a = today();
     if (!arr.length) { listBox.append(el('p', 'lv-empty', 'Крупных серий по этим условиям нет — выберите другой регион, страну или месяц.')); return; }
@@ -6561,7 +6581,7 @@ window.LIVE_SAMPLE = {"list":[[71951,"CashCowsPoker TV Championship Series Seaso
     const acts = el('div', 'lv-dh-a'); acts.append(ln);
     if (!PREVIEW && api.liveFest) { const rb = el('button', 'btn lv-btn', 'Обновить'); rb.type = 'button'; rb.onclick = () => openFest(f, true); acts.append(rb); }
     h.append(t, acts); det.append(h);
-    if (OPEN.loading) { det.append(el('p', 'lv-empty', 'Загружаю расписание… Если откроется окно сайта «Подтвердите, что вы человек» — поставьте галочку один раз, дальше всё загрузится само.')); return; }
+    if (OPEN.loading) { det.append(window.mdaLoad('Загружаю расписание… Если откроется окно сайта «Подтвердите, что вы человек» — поставьте галочку один раз, дальше всё загрузится само.')); return; }
     if (OPEN.error && !OPEN.data) {
       const w = el('div', 'lv-warn'); w.append(el('span', null, OPEN.error));
       if (OPEN.challenge && api.livePass) { const b = el('button', 'btn lv-btn', 'Пройти проверку'); b.type = 'button'; b.onclick = async () => { b.disabled = true; const r = await api.livePass('fest', f.id); if (r && r.ok) openFest(f); else b.disabled = false; }; w.append(b, el('small', null, 'Откроется окно сайта — поставьте галочку «Я не робот», окно закроется само.')); }
@@ -7543,7 +7563,7 @@ window.LIVE_SAMPLE = {"list":[[71951,"CashCowsPoker TV Championship Series Seaso
   function flush() {
     if (!STAGE || STAGE.gen !== GEN) return; const { host, box } = STAGE; STAGE = null;
     const keep = host.scrollTop; host.replaceChildren(...box.childNodes); host.scrollTop = keep; toAnchor(host); ANCHOR = null;
-    requestAnimationFrame(() => host.classList.remove('rs-busy'));
+    requestAnimationFrame(() => host.classList.remove('rs-busy')); if (host.__busy && window.mdaBusy) { host.__busy = false; window.mdaBusy(false); }
   }
   async function draw0(root) {
     if (root) { ROOT = root; WAIT = 0; if (!root.dataset.rsHook) { root.dataset.rsHook = '1'; const mark = (e) => { const cd = e.target.closest && e.target.closest('.rs-card'); LAST = cd ? [cd, Date.now()] : null; }; root.addEventListener('pointerdown', mark, true); root.addEventListener('keydown', mark, true); root.addEventListener('change', mark, true); } } if (!ROOT) return;
@@ -7556,7 +7576,7 @@ window.LIVE_SAMPLE = {"list":[[71951,"CashCowsPoker TV Championship Series Seaso
     const ckey = JSON.stringify(F) + '|' + DKEY + '|' + (typeof state !== 'undefined' ? state.alias : 0) + '|' + (typeof HERO_DB !== 'undefined' && HERO_DB ? HERO_DB.count : 0);
     if (DATA && DATA.db === (typeof HERO_DB !== 'undefined' ? HERO_DB : null) && CACHE.has(ckey)) { const R = HOST, keep = R.scrollTop, nodes = CACHE.get(ckey).map(n => n.classList && n.classList.contains('rs-filters') ? filtersBar(DATA) : n); R.replaceChildren(...nodes); R.scrollTop = keep; toAnchor(R); ANCHOR = null; R.classList.remove('rs-busy'); STAGE = null; return; }
     const keepTop = HOST.scrollTop;
-    if (staged) { STAGE = { host: HOST, box: R, gen }; HOST.classList.add('rs-busy'); const ofb = HOST.querySelector(':scope > .rs-filters'); if (ofb) ofb.replaceWith(filtersBar(DATA)); }
+    if (staged) { STAGE = { host: HOST, box: R, gen }; if (!HOST.classList.contains('rs-busy') && window.mdaBusy) { window.mdaBusy(true, 'Пересчитываю результаты…'); HOST.__busy = true; } HOST.classList.add('rs-busy'); const ofb = HOST.querySelector(':scope > .rs-filters'); if (ofb) ofb.replaceWith(filtersBar(DATA)); }
     else { STAGE = null; R.style.paddingBottom = R.scrollHeight + 'px'; R.replaceChildren(); R.scrollTop = keepTop; }
     const unpad = () => { HOST.style.paddingBottom = ''; };
     const head = el('div', 'rs-head'); head.append(el('h2', null, 'Результаты'), el('p', null, 'Где и когда вы играете лучше всего: число столов, ход сессии, время, дни и форматы турниров. Наведите на столбец — подробности; усы — 95% интервал.'));
@@ -7586,7 +7606,7 @@ window.LIVE_SAMPLE = {"list":[[71951,"CashCowsPoker TV Championship Series Seaso
     // базы, загруженные версиями до 0.6, хранят время и турнир не у всех раздач — такие раздачи «Результаты» не видят
     { const al = (typeof state !== 'undefined' && D.db.aliases && D.db.aliases.length > 1 && c.aid) ? state.alias : -1; let tot = 0, ok = 0; for (let i = 0; i < D.n; i++) { if (al >= 0 && c.aid[i] !== al) continue; tot++; if (D.t[i] >= 0) ok++; }
       if (tot && ok / tot < 0.95) { const w = el('div', 'rs-cov'); w.append(el('b', null, 'Учтено ' + num(ok) + ' из ' + num(tot) + ' раздач — остальные без времени и турнира'), el('span', null, 'Эта база (или её часть) загружена старой версией программы: тогда время, турнир и запись реплеера сохранялись только у раздач, где вы вступали в игру (открытие, колл, изолейт). Поэтому здесь видна лишь часть раздач, а EV завышен — это раздачи, в которых вы играли активно. Как исправить: «Моя база» → загрузите те же истории раздач ещё раз. Дубликатов не будет — программа только допишет недостающее этим раздачам, и «Результаты» посчитаются по всем.')); R.append(w); } }
-    { if (!staged) { const w = el('p', 'rs-note rs-busy-n', 'Считаю…'); R.append(w); await tick(); w.remove(); } else await tick(); if (gen !== GEN || !HOST.isConnected) return; }
+    { if (!staged) { const w = window.mdaLoad ? window.mdaLoad('Считаю результаты…') : el('p', 'rs-note', 'Считаю…'); R.append(w); await tick(); w.remove(); } else await tick(); if (gen !== GEN || !HOST.isConnected) return; }
     const X = select(D);
     if (!X.idx.length) { R.append(note('Под эти фильтры раздач нет. Ослабьте фильтры или нажмите «Сбросить».')); return; }
     const mName = (F.metric === 'net' ? 'Факт' : 'EV') + (+F.adj === 2 ? ', чистый эффект' : +F.adj === 1 ? ' с поправкой' : '');
@@ -7659,7 +7679,7 @@ window.LIVE_SAMPLE = {"list":[[71951,"CashCowsPoker TV Championship Series Seaso
     R.append(kp);
     const grid = el('div', 'rs-grid'); R.append(grid);
     const cI = card('Главное', 'Выводы под текущие фильтры. «Надёжно» — интервал не захватывает ноль; «тенденция» — может быть случайностью.', true);
-    cI.append(el('p', 'rs-note', 'Считаю…')); grid.append(cI);
+    cI.append(window.mdaLoad ? window.mdaLoad('Считаю…') : el('p', 'rs-note', 'Считаю…')); grid.append(cI);
     if (!staged) R.scrollTop = keepTop;
     let anchored = staged;
     const step = async () => { if (!anchored) anchored = toAnchor(R); await tick(); return gen !== GEN || !HOST.isConnected; };

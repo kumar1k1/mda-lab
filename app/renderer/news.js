@@ -116,7 +116,7 @@
   async function load(force) {
     if (loading || !window.mda || !window.mda.newsGet) return;
     loading = true; refresh.disabled = true; refresh.classList.add('spin');
-    if (!DATA) body.replaceChildren(el('div', 'nw-empty', 'Загружаю новости…'));
+    if (!DATA) body.replaceChildren(window.mdaLoad ? window.mdaLoad('Загружаю новости…') : el('div', 'nw-empty', 'Загружаю новости…'));
     try { DATA = await window.mda.newsGet(force); } catch (e) { if (!DATA) body.replaceChildren(el('div', 'nw-empty', 'Не удалось загрузить новости: ' + e.message)); }
     loading = false; refresh.disabled = false; refresh.classList.remove('spin');
     draw();

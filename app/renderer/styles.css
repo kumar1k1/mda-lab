@@ -1642,3 +1642,11 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 /* пересчёт после нажатия: экран статистики чуть гаснет на долю секунды — видно, что нажатие принято */
 body.rendering #content{opacity:.72;transition:opacity .12s ease .05s}
 body.rendering{cursor:progress}
+/* общий бегунок загрузки: в пустом месте раздела (.mda-load) и плашка сверху, пока пересчитывается (.mda-busy) */
+.mda-load{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:40px 16px;color:var(--muted);font-size:13.5px;text-align:center;line-height:1.45;max-width:520px;margin:0 auto}
+.mda-load i,.mda-busy i{display:block;width:30px;height:30px;border-radius:50%;border:3px solid var(--line2);border-top-color:var(--amber);animation:mdaSpin .8s linear infinite;flex:0 0 auto}
+@keyframes mdaSpin{to{transform:rotate(360deg)}}
+.mda-busy{position:fixed;top:64px;left:50%;transform:translate(-50%,-8px);z-index:9000;display:flex;align-items:center;gap:10px;padding:8px 16px 8px 10px;border-radius:999px;background:var(--card2);border:1px solid var(--line2);box-shadow:0 8px 24px rgba(0,0,0,.35);color:var(--text);font-size:13px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .15s ease,transform .15s ease}
+.mda-busy i{width:16px;height:16px;border-width:2px}
+.mda-busy.on{opacity:1;transform:translate(-50%,0)}
+@media (prefers-reduced-motion:reduce){.mda-load i,.mda-busy i{animation-duration:2.4s}}
