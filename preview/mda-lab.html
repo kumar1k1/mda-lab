@@ -5951,7 +5951,9 @@ window.NEWS_SNAPSHOT = (function () {
 (function () {
   const el = (t, c, txt) => { const e = document.createElement(t); if (c) e.className = c; if (txt != null) e.textContent = txt; return e; };
   const ico = (d, s) => '<svg width="' + (s || 18) + '" height="' + (s || 18) + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>';
-  const LS = { get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* без сохранения */ } } };
+  // хранилище окна; если браузер его не даёт (превью в чужом окне) — память этой страницы, чтобы вход не терялся
+  const MEM = {};
+  const LS = { get(k, d) { try { const v = localStorage.getItem(k); if (v != null) return JSON.parse(v); } catch (e) { /* ниже */ } return k in MEM ? MEM[k] : d; }, set(k, v) { MEM[k] = v; try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* только память */ } } };
   const now = () => Date.now(), MIN = 60e3, H = 3600e3;
   const COLORS = ['#F2B544', '#6EC3E8', '#7FD7A2', '#F08A7E', '#A99BF5', '#E9C46A', '#5CC8E6', '#F0A35E'];
   const colorOf = (s) => { let h = 0; for (const ch of s) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return COLORS[h % COLORS.length]; };
@@ -5985,7 +5987,7 @@ window.NEWS_SNAPSHOT = (function () {
     account: () => LS.get('mda.account', null),
     register: async (nick, email) => { const a = { nick, email: email || '', since: now(), rooms: {} }; LS.set('mda.account', a); return { ok: true, account: a }; },
     login: async (nick) => { const a = LS.get('mda.account', null) || { nick, email: '', since: now() }; a.nick = nick; LS.set('mda.account', a); return { ok: true, account: a }; },
-    logout: () => { try { localStorage.removeItem('mda.account'); } catch (e) { /* нет */ } },
+    logout: () => { delete MEM['mda.account']; try { localStorage.removeItem('mda.account'); } catch (e) { /* нет */ } },
     update: (patch) => { const a = Object.assign(API.account() || {}, patch); LS.set('mda.account', a); return a; },
     users: () => D.users, user: (id) => D.users.find(u => u.id === id),
     friends: () => D.friends.map(API.user).filter(Boolean), requests: () => D.requests.map(API.user).filter(Boolean),
@@ -6363,7 +6365,9 @@ window.NEWS_SNAPSHOT = (function () {
   const el = (t, c, txt) => { const e = document.createElement(t); if (c) e.className = c; if (txt != null) e.textContent = txt; return e; };
   const svgNS = 'http://www.w3.org/2000/svg';
   const sv = (t, a, txt) => { const e = document.createElementNS(svgNS, t); if (a) for (const k in a) e.setAttribute(k, a[k]); if (txt != null) e.textContent = txt; return e; };
-  const LS = { get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* нет */ } } };
+  // хранилище окна; если браузер его не даёт (превью в чужом окне) — память этой страницы, чтобы вход не терялся
+  const MEM = {};
+  const LS = { get(k, d) { try { const v = localStorage.getItem(k); if (v != null) return JSON.parse(v); } catch (e) { /* ниже */ } return k in MEM ? MEM[k] : d; }, set(k, v) { MEM[k] = v; try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* только память */ } } };
   const DEF = { tilt: 40, cmp: 'd30', period: 'all', room: -1, bounty: 'all', speed: 'all', kind: 'all', bi: 'all', tbl: 'all', metric: 'ev', adj: 1 };
   const F = Object.assign({}, DEF, LS.get('mda.res.f', {}));
   const saveF = () => LS.set('mda.res.f', F);
@@ -6605,7 +6609,7 @@ window.NEWS_SNAPSHOT = (function () {
     return s || 'Без названия';
   }
   // ---------- страница ----------
-  let ROOT = null;
+  let ROOT = null, WAIT = 0, WT = null;
   function seg(label, key, opts, onSet) {
     const w = el('div', 'rs-f'); w.append(el('span', 'rs-f-l', label));
     const s = el('div', 'seg bx-seg'); s.setAttribute('role', 'group'); s.setAttribute('aria-label', label);
@@ -6624,12 +6628,20 @@ window.NEWS_SNAPSHOT = (function () {
   function note(t) { return el('p', 'rs-note', t); }
 
   async function draw(root) {
-    if (root) ROOT = root; if (!ROOT) return;
+    if (root) { ROOT = root; WAIT = 0; } if (!ROOT) return;
     const R = ROOT; R.replaceChildren();
     const head = el('div', 'rs-head'); head.append(el('h2', null, 'Результаты'), el('p', null, 'Где и когда вы играете лучше всего: число столов, ход сессии, время, дни и форматы турниров. Наведите на столбец — подробности; усы — 95% интервал.'));
     R.append(head);
     const D = await load();
-    if (!D) { const e = el('div', 'rs-card'); e.append(el('h3', null, 'Нет данных'), el('p', 'rs-note', typeof HERO_DB !== 'undefined' && HERO_DB ? 'Не удалось прочитать время раздач из базы.' : 'Загрузите базу на вкладке «Моя база» — здесь появится статистика.')); R.append(e); return; }
+    if (!D) {
+      // база ещё грузится (или результаты не прочитались) — показать ожидание и попробовать снова, пока страница открыта
+      const e = el('div', 'rs-card'); const busy = WAIT < 120;
+      e.append(el('h3', null, busy ? 'Загружаю базу…' : 'Нет данных'), el('p', 'rs-note', busy ? 'Статистика появится, как только база загрузится.' : typeof HERO_DB !== 'undefined' && HERO_DB ? 'Не удалось прочитать время раздач из базы.' : 'Загрузите базу на вкладке «Моя база» — здесь появится статистика.'));
+      R.append(e);
+      if (busy) { WAIT++; clearTimeout(WT); WT = setTimeout(() => { if (ROOT === R && R.isConnected) draw(); }, 500); }
+      return;
+    }
+    WAIT = 0;
     if (R !== ROOT) return;
     const c = D.db.cols, rooms = D.db.rooms || [];
     // фильтры

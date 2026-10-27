@@ -6,7 +6,9 @@
 (function () {
   const el = (t, c, txt) => { const e = document.createElement(t); if (c) e.className = c; if (txt != null) e.textContent = txt; return e; };
   const ico = (d, s) => '<svg width="' + (s || 18) + '" height="' + (s || 18) + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>';
-  const LS = { get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* без сохранения */ } } };
+  // хранилище окна; если браузер его не даёт (превью в чужом окне) — память этой страницы, чтобы вход не терялся
+  const MEM = {};
+  const LS = { get(k, d) { try { const v = localStorage.getItem(k); if (v != null) return JSON.parse(v); } catch (e) { /* ниже */ } return k in MEM ? MEM[k] : d; }, set(k, v) { MEM[k] = v; try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* только память */ } } };
   const now = () => Date.now(), MIN = 60e3, H = 3600e3;
   const COLORS = ['#F2B544', '#6EC3E8', '#7FD7A2', '#F08A7E', '#A99BF5', '#E9C46A', '#5CC8E6', '#F0A35E'];
   const colorOf = (s) => { let h = 0; for (const ch of s) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return COLORS[h % COLORS.length]; };
@@ -40,7 +42,7 @@
     account: () => LS.get('mda.account', null),
     register: async (nick, email) => { const a = { nick, email: email || '', since: now(), rooms: {} }; LS.set('mda.account', a); return { ok: true, account: a }; },
     login: async (nick) => { const a = LS.get('mda.account', null) || { nick, email: '', since: now() }; a.nick = nick; LS.set('mda.account', a); return { ok: true, account: a }; },
-    logout: () => { try { localStorage.removeItem('mda.account'); } catch (e) { /* нет */ } },
+    logout: () => { delete MEM['mda.account']; try { localStorage.removeItem('mda.account'); } catch (e) { /* нет */ } },
     update: (patch) => { const a = Object.assign(API.account() || {}, patch); LS.set('mda.account', a); return a; },
     users: () => D.users, user: (id) => D.users.find(u => u.id === id),
     friends: () => D.friends.map(API.user).filter(Boolean), requests: () => D.requests.map(API.user).filter(Boolean),

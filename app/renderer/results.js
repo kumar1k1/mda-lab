@@ -7,7 +7,9 @@
   const el = (t, c, txt) => { const e = document.createElement(t); if (c) e.className = c; if (txt != null) e.textContent = txt; return e; };
   const svgNS = 'http://www.w3.org/2000/svg';
   const sv = (t, a, txt) => { const e = document.createElementNS(svgNS, t); if (a) for (const k in a) e.setAttribute(k, a[k]); if (txt != null) e.textContent = txt; return e; };
-  const LS = { get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* нет */ } } };
+  // хранилище окна; если браузер его не даёт (превью в чужом окне) — память этой страницы, чтобы вход не терялся
+  const MEM = {};
+  const LS = { get(k, d) { try { const v = localStorage.getItem(k); if (v != null) return JSON.parse(v); } catch (e) { /* ниже */ } return k in MEM ? MEM[k] : d; }, set(k, v) { MEM[k] = v; try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* только память */ } } };
   const DEF = { tilt: 40, cmp: 'd30', period: 'all', room: -1, bounty: 'all', speed: 'all', kind: 'all', bi: 'all', tbl: 'all', metric: 'ev', adj: 1 };
   const F = Object.assign({}, DEF, LS.get('mda.res.f', {}));
   const saveF = () => LS.set('mda.res.f', F);
@@ -249,7 +251,7 @@
     return s || 'Без названия';
   }
   // ---------- страница ----------
-  let ROOT = null;
+  let ROOT = null, WAIT = 0, WT = null;
   function seg(label, key, opts, onSet) {
     const w = el('div', 'rs-f'); w.append(el('span', 'rs-f-l', label));
     const s = el('div', 'seg bx-seg'); s.setAttribute('role', 'group'); s.setAttribute('aria-label', label);
@@ -268,12 +270,20 @@
   function note(t) { return el('p', 'rs-note', t); }
 
   async function draw(root) {
-    if (root) ROOT = root; if (!ROOT) return;
+    if (root) { ROOT = root; WAIT = 0; } if (!ROOT) return;
     const R = ROOT; R.replaceChildren();
     const head = el('div', 'rs-head'); head.append(el('h2', null, 'Результаты'), el('p', null, 'Где и когда вы играете лучше всего: число столов, ход сессии, время, дни и форматы турниров. Наведите на столбец — подробности; усы — 95% интервал.'));
     R.append(head);
     const D = await load();
-    if (!D) { const e = el('div', 'rs-card'); e.append(el('h3', null, 'Нет данных'), el('p', 'rs-note', typeof HERO_DB !== 'undefined' && HERO_DB ? 'Не удалось прочитать время раздач из базы.' : 'Загрузите базу на вкладке «Моя база» — здесь появится статистика.')); R.append(e); return; }
+    if (!D) {
+      // база ещё грузится (или результаты не прочитались) — показать ожидание и попробовать снова, пока страница открыта
+      const e = el('div', 'rs-card'); const busy = WAIT < 120;
+      e.append(el('h3', null, busy ? 'Загружаю базу…' : 'Нет данных'), el('p', 'rs-note', busy ? 'Статистика появится, как только база загрузится.' : typeof HERO_DB !== 'undefined' && HERO_DB ? 'Не удалось прочитать время раздач из базы.' : 'Загрузите базу на вкладке «Моя база» — здесь появится статистика.'));
+      R.append(e);
+      if (busy) { WAIT++; clearTimeout(WT); WT = setTimeout(() => { if (ROOT === R && R.isConnected) draw(); }, 500); }
+      return;
+    }
+    WAIT = 0;
     if (R !== ROOT) return;
     const c = D.db.cols, rooms = D.db.rooms || [];
     // фильтры
