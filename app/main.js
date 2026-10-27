@@ -223,7 +223,17 @@ ipcMain.handle('import:run', (e, opts) => new Promise((resolve) => {
 }));
 ipcMain.handle('app:version', () => app.getVersion());
 // снимок окна программы — для отправки скриншота в чат
-ipcMain.handle('app:capture', async () => { if (!win || win.isDestroyed()) return null; const img = await win.webContents.capturePage(); const sz = img.getSize(); return (sz.width > 1600 ? img.resize({ width: 1600 }) : img).toDataURL(); });
+ipcMain.handle('app:capture', async () => { if (!win || win.isDestroyed()) return null; const img = await win.webContents.capturePage(); const sz = img.getSize(); const r = sz.width > 1600 ? img.resize({ width: 1600 }) : img; return 'data:image/jpeg;base64,' + r.toJPEG(85).toString('base64'); });
+// аккаунт и чат (social-client.js → social-server.js): запросы к серверу идут отсюда, события — в окно
+let SOC = null;
+const soc = () => SOC || (SOC = require('./social-client.js').make(app.getPath('userData'), (kind, data) => { if (win && !win.isDestroyed()) win.webContents.send('social:ev', kind, data); }));
+ipcMain.handle('social:status', () => soc().status());
+ipcMain.handle('social:server', (_e, o) => soc().setServer(o && typeof o === 'object' ? { host: !!o.host, server: String(o.server || '') } : {}));
+ipcMain.handle('social:call', (_e, m, p, b) => (m === 'GET' || m === 'POST') && /^\/[a-z]+$/.test(String(p).split('?')[0]) ? soc().call(m, String(p), b && typeof b === 'object' ? b : null) : { ok: false, error: 'плохой запрос' });
+ipcMain.handle('social:logout', () => soc().logout());
+ipcMain.handle('social:img', (_e, p) => soc().img(String(p || '')));
+app.whenReady().then(() => { if (process.env.MDALAB_EVAL) return; soc().init().catch(() => {}); });
+app.on('before-quit', () => { if (SOC) SOC.quit(); });
 // лента новостей (news.js): открытые RSS покерных сайтов, кэш в папке данных программы
 let NEWS = null;
 const newsFn = () => NEWS || (NEWS = require('./news.js').make(app.getPath('userData')));

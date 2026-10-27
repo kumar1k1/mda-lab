@@ -1263,3 +1263,26 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .so-send{width:38px;height:38px;border-radius:50%;border:none;background:var(--amber);color:var(--amber-ink);display:flex;align-items:center;justify-content:center;cursor:pointer}
 .so-zoom{z-index:90;cursor:zoom-out}.so-zoom img{max-width:92vw;max-height:88vh;border-radius:12px}
 @media (max-width:760px){.so-meb span:last-child{display:none}.so-cab{flex-direction:column}.so-cab-nav{flex:0 0 auto;flex-direction:row;overflow-x:auto;border-right:none;border-bottom:1px solid var(--line);padding:8px}.so-cab-i em{display:none}.so-me{flex-wrap:wrap}.so-panel{top:56px;right:8px;left:8px;width:auto}}
+/* сервер чата */
+.so-offline{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;color:#FF8A7A}
+.so-offline::before{content:"";width:7px;height:7px;border-radius:50%;background:#FF8A7A}
+.so-srv{display:flex;flex-direction:column;gap:9px}
+.so-srv .seg{align-self:flex-start}
+.so-srv-in{min-height:40px;padding:0 12px;border-radius:10px;border:1px solid var(--line2);background:var(--card);color:var(--text);font:inherit;font-size:14px}
+.so-srv-in[hidden]{display:none}
+.so-srv-in:focus{outline:2px solid var(--amber);outline-offset:-1px}
+.so-srv-go{align-self:flex-start}
+.so-srv-w{display:flex;flex-direction:column;gap:7px;padding:12px;border:1px solid var(--line2);border-radius:12px;background:rgba(255,255,255,.02)}
+.so-srv-h{font-size:12.5px;font-weight:700;color:var(--soft)}
+.so-srv-cur{display:flex;align-items:center;gap:10px;font-size:13.5px}
+.so-srv-cur span{color:var(--muted)}.so-srv-cur b{flex:1}
+.so-srv-title{margin:0;font-size:20px}
+.so-addr{display:flex;flex-direction:column;gap:3px;padding:10px 12px;border-radius:10px;background:rgba(242,181,68,.08);border:1px solid rgba(242,181,68,.35)}
+.so-addr span{font-size:12px;color:var(--muted)}
+.so-addr b{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:18px;color:var(--amber);user-select:all}
+.so-pw{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.so-pw input{flex:1 1 140px;min-height:34px;padding:0 10px;border-radius:8px;border:1px solid var(--line2);background:var(--card);color:var(--text);font:inherit;font-size:13px}
+.so-pw .so-err{flex-basis:100%}
+.so-msg.pending{opacity:.6}
+.so-row .so-on-t{color:#7FDDAE}
+.so-welcome{max-height:calc(100vh - 32px);overflow-y:auto}
