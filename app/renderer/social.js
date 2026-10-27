@@ -216,17 +216,23 @@
 
   // ---------- «Личный кабинет»: слева разделы, «Мои данные» ----------
   const acc = document.getElementById('pgAcc');
-  let CAB = 'me'; // раздел кабинета: при запуске — «Мои данные»
+  let CAB = 'me', NAV = null; // раздел кабинета: при запуске — «Мои данные»
   function drawCabinet() {
     if (!acc) return;
     acc.className = 'app-page so-cab'; acc.replaceChildren();
-    const nav = el('nav', 'so-cab-nav'); nav.setAttribute('aria-label', 'Разделы кабинета');
+    // меню разделов строится один раз и потом только обновляется: при перестройке на каждое событие (вход, статус сети)
+    // нажатие, попавшее между «нажал» и «отпустил», терялось — «Результаты» открывались не с первого раза
+    if (!NAV) {
+      NAV = el('nav', 'so-cab-nav'); NAV.setAttribute('aria-label', 'Разделы кабинета');
     [['me', 'Мои данные', '<circle cx="12" cy="8" r="4"/><path d="M4.5 21c1-4 4-6.5 7.5-6.5s6.5 2.5 7.5 6.5"/>'], ['res', 'Результаты', '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'], ['bank', 'Банкролл', '<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/>'], ['focus', 'Фокус и сессии', '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'], ['goals', 'Цели', '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/>'], ['sub', 'Подписка', '<path d="M12 2l3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z"/>']].forEach(([k, l, d], n) => {
       const ready = k === 'me' || k === 'res'; // results.js грузится после этого файла — проверяется при нажатии
-      const b = el('button', 'so-cab-i' + (CAB === k ? ' on' : '')); b.type = 'button'; b.innerHTML = ico(d, 17); b.append(el('span', null, l));
-      if (!ready) { b.disabled = true; b.append(el('em', null, 'скоро')); } else { b.onclick = () => { CAB = k; drawCabinet(); }; if (CAB === k) b.setAttribute('aria-current', 'page'); }
-      nav.append(b);
+      const b = el('button', 'so-cab-i'); b.type = 'button'; b.dataset.k = k; b.innerHTML = ico(d, 17); b.append(el('span', null, l));
+      if (!ready) { b.disabled = true; b.append(el('em', null, 'скоро')); } else b.onclick = () => { if (CAB === k) return; CAB = k; drawCabinet(); };
+      NAV.append(b);
     });
+    }
+    NAV.querySelectorAll('.so-cab-i').forEach(b => { const on = b.dataset.k === CAB; b.classList.toggle('on', on); if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
+    const nav = NAV;
     const main = el('div', 'so-cab-main');
     if (CAB === 'res' && window.MDAResults) { main.classList.add('rs-main'); acc.append(nav, main); window.MDAResults.draw(main); return; }
     const a = A.account();

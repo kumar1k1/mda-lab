@@ -104,12 +104,28 @@ ipcMain.handle('db:meta', async () => {
 });
 ipcMain.handle('db:col', (_e, name) => { const s = source(); return s ? s.colBytes(name) : null; });
 // «Личный кабинет → Результаты»: время, турнир, столы и сессия каждой раздачи (parser/results.js); кэш до смены базы
-let RES = null;
+let RES = null, RESJOB = null;
 ipcMain.handle('results:data', async () => {
   const s = source(); if (!s) return null;
   const key = s.dir + '|' + s.meta.colDir + '|' + s.meta.count + '|' + (s.meta.mig ? JSON.stringify(s.meta.mig) : '');
-  if (!RES || RES.key !== key) { const R = require('./parser/results.js'); RES = { key, data: R.pack(R.compute(s)) }; }
-  return RES.data;
+  if (RES && RES.key === key) return RES.data;
+  // готовый расчёт с прошлого запуска — с диска (база не менялась)
+  const cf = path.join(s.dir, 'results-cache.v8'), v8 = require('v8');
+  try { const c = v8.deserialize(fs.readFileSync(cf)); if (c && c.key === key && c.data) { RES = { key, data: c.data }; return RES.data; } } catch (e) { /* нет или устарел */ }
+  // расчёт — в отдельном потоке: главный процесс (и окно) не замирает
+  if (!RESJOB || RESJOB.key !== key) RESJOB = { key, p: new Promise((resolve, reject) => {
+    const { Worker } = require('worker_threads'), w = new Worker(path.join(__dirname, 'parser', 'results-worker.js'), { workerData: { dir: s.dir } });
+    w.once('message', (m) => { if (m && m.ok) resolve(m.data); else reject(new Error(m && m.error || 'results')); w.terminate(); });
+    w.once('error', reject);
+  }) };
+  const job = RESJOB;
+  try {
+    const data = await job.p;
+    if (RESJOB === job) RESJOB = null;
+    RES = { key, data };
+    try { const t = cf + '.tmp'; fs.writeFileSync(t, v8.serialize({ key, data })); fs.renameSync(t, cf); } catch (e) { /* без кэша на диске */ }
+    return data;
+  } catch (e) { if (RESJOB === job) RESJOB = null; console.error('results', e); return null; }
 });
 ipcMain.handle('db:replays', (_e, ids) => { const s = source(); return s && Array.isArray(ids) ? s.replays(ids) : {}; });
 // соперники (база v3): список с поиском, описание и колонки одного игрока, записи реплеера с его позиции
