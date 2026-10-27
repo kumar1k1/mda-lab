@@ -223,7 +223,14 @@ ipcMain.handle('news:get', (_e, force) => newsFn()(!!force));
 // кто из покерных стримеров в эфире: превью трансляции на CDN Twitch есть только у идущего стрима
 // (у остальных адрес перенаправляет на заглушку 404_preview) — без ключей API и входа в Twitch
 const LIVE = new Map(); // login → { t, live }
+let TW = null; const tw = () => TW || (TW = require('./twitch.js').make(app.getPath('userData')));
+ipcMain.handle('twitch:status', () => tw().status());
+ipcMain.handle('twitch:set', (_e, id, sec) => tw().set(id, sec));
+ipcMain.handle('twitch:clear', () => tw().clear());
+ipcMain.handle('twitch:live', () => tw().live());
 ipcMain.handle('streams:live', async (_e, logins) => {
+  // с ключами Twitch API — точно (и с данными стрима); без них — по превью на CDN
+  if (tw().status().configured) { try { const r = await tw().who(Array.isArray(logins) ? logins.slice(0, 300) : []); if (r) return r; } catch (e) { /* ниже — запасной способ */ } }
   const { net } = require('electron'), now = Date.now(), out = {}, todo = [];
   for (const l of (Array.isArray(logins) ? logins : []).slice(0, 200)) { const k = String(l).toLowerCase(); if (!/^[a-z0-9_]{2,25}$/.test(k)) continue; const c = LIVE.get(k); if (c && now - c.t < 90e3) out[k] = c.live; else todo.push(k); }
   let i = 0;
