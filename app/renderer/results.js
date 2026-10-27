@@ -464,11 +464,18 @@
     R.append(head);
     const D = await load();
     if (!D) {
-      // база ещё грузится (или результаты не прочитались) — показать ожидание и попробовать снова, пока страница открыта
-      const e = el('div', 'rs-card'); const busy = WAIT < 120;
-      e.append(el('h3', null, busy ? 'Загружаю базу…' : 'Нет данных'), el('p', 'rs-note', busy ? 'Статистика появится, как только база загрузится.' : typeof HERO_DB !== 'undefined' && HERO_DB ? 'Не удалось прочитать время раздач из базы.' : 'Загрузите базу на вкладке «Моя база» — здесь появится статистика.'));
-      R.append(e);
-      if (busy) { WAIT++; clearTimeout(WT); WT = setTimeout(() => { if (ROOT === R && R.isConnected) draw(); }, 500); }
+      // база ещё грузится (на медленном интернете — дольше минуты): ждём, сколько нужно, пока страница открыта.
+      // База есть, а данные результатов не пришли — несколько попыток, потом кнопка «Повторить».
+      const hasDb = typeof HERO_DB !== 'undefined' && !!HERO_DB, inApp = !!(window.mda && window.mda.dbMeta);
+      const e = el('div', 'rs-card rs-wait');
+      if (!hasDb && WAIT > 20 && inApp && window.mda.dbInfo) { let st = null; try { st = await window.mda.dbInfo(); } catch (x) { /* нет */ } if (st && !st.stored) { e.append(el('h3', null, 'Нет базы'), el('p', 'rs-note', 'Загрузите базу на вкладке «Моя база» — здесь появится статистика.')); R.append(e); return; } }
+      if (hasDb && WAIT > 12) {
+        e.append(el('h3', null, 'Не удалось загрузить данные'), el('p', 'rs-note', 'Проверьте интернет и попробуйте ещё раз.'));
+        const again = el('button', 'btn-load', 'Повторить'); again.type = 'button'; again.onclick = () => { WAIT = 0; DATA = null; DKEY = null; draw(); }; e.append(again); R.append(e); return;
+      }
+      e.append(el('h3', null, hasDb ? 'Загружаю данные результатов…' : 'Загружаю базу…'), el('p', 'rs-note', hasDb ? 'Ещё несколько секунд.' : 'Статистика появится сама, как только база загрузится. При медленном интернете это может занять минуту-другую.'));
+      const bar = el('div', 'rs-spin'); e.append(bar); R.append(e);
+      WAIT++; clearTimeout(WT); WT = setTimeout(() => { if (ROOT === R && R.isConnected) draw(); }, hasDb ? 1500 : 700);
       return;
     }
     WAIT = 0;
