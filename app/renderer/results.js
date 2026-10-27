@@ -12,6 +12,7 @@
   const LS = { get(k, d) { try { const v = localStorage.getItem(k); if (v != null) return JSON.parse(v); } catch (e) { /* ниже */ } return k in MEM ? MEM[k] : d; }, set(k, v) { MEM[k] = v; try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* только память */ } } };
   const DEF = { tilt: 40, cmp: 'd30', period: 'all', room: -1, bounty: 'all', speed: 'all', kind: 'all', bi: 'all', tbl: 'all', metric: 'ev', adj: 2, pFrom: '', pTo: '', biFrom: '', biTo: '' };
   const F = Object.assign({}, DEF, LS.get('mda.res.f', {}));
+  F.metric = 'ev'; // считается всегда в EV (переключатель «Считать» убран)
   const saveF = () => LS.set('mda.res.f', F);
   const fmt = (v, d) => v == null || !Number.isFinite(v) ? '—' : (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(d == null ? 1 : d);
   const num = (n) => Math.round(n).toLocaleString('ru-RU');
@@ -171,7 +172,8 @@
     if (hi - lo < 1e-6) { lo = Math.min(lo, -1); hi = Math.max(hi, 1); } // почти ноль (одна сессия после поправки) — обычная шкала
     const span = hi - lo, step0 = span / (n || 4), mag = Math.pow(10, Math.floor(Math.log10(step0))), f = step0 / mag;
     const step = (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * mag, out = [];
-    for (let v = Math.ceil(lo / step) * step, k = 0; v <= hi + step * 1e-6 && k < 50; v += step, k++) out.push(Math.abs(v) < step * 1e-6 ? 0 : v);
+    const dec = Math.max(0, -Math.floor(Math.log10(step)));
+    for (let v = Math.ceil(lo / step) * step, k = 0; v <= hi + step * 1e-6 && k < 50; v += step, k++) out.push(Math.abs(v) < step * 1e-6 ? 0 : +v.toFixed(dec));
     return out;
   }
   // мало раздач для выводов — вместо графика надпись (порог — 300 раздач хотя бы в одной группе)
@@ -187,7 +189,8 @@
     if (!list.some(r => r.n >= minN)) return lack();
     const maxN = Math.max(...list.map(r => r.n));
     const solid = list.filter(r => r.n >= minN), vs = (solid.length ? solid : list).map(r => r.v); let lo = Math.min(0, ...vs), hi = Math.max(0, ...vs);
-    if (hi - lo < 1e-6) { lo = -5; hi = 5; }
+    // минимальный размах шкалы — ±5 BB/100: иначе разница в десятые доли выглядит как огромные столбцы
+    if (hi - lo < 10) { const mid = (hi + lo) / 2; lo = Math.min(lo, mid - 5, 0); hi = Math.max(hi, mid + 5, 0); if (lo > -5 && hi < 5) { lo = -5; hi = 5; } }
     const pad = (hi - lo) * 0.18 || 5; lo -= lo < 0 ? pad : 0; hi += hi > 0 ? pad : 0;
     // усы не раздувают шкалу больше чем вдвое
     (solid.length ? solid : list).forEach(r => { if (Number.isFinite(r.lo)) { lo = Math.min(lo, Math.max(r.lo, lo * 2 - 5)); hi = Math.max(hi, Math.min(r.hi, hi * 2 + 5)); } });
@@ -359,7 +362,7 @@
       full: 'Всё, что делает «На ситуацию», плюс программа разделяет факторы между собой. Например, 1–2 стола у вас часто бывают поздно ночью в глубоких стадиях. Без разделения график столов показал бы смесь «мало столов» и «поздняя стадия». «Полная» оценивает столы, час сессии, время суток, день, длину сессии, скорость и рум одновременно и показывает чистое влияние каждого.', when: 'Лучше всего для решений «сколько столов», «когда устаю», «в какое время играть».' },
     1: { name: 'На ситуацию', short: 'Сравнение с вами же в тех же спотах', tip: 'Из каждой раздачи вычитается ваш обычный результат в такой же ситуации: позиция, стек, игроков за столом, размер стола, баунти, анте.',
       full: 'На баттоне почти все в плюсе, на большом блайнде — в минусе; с глубоким стеком и в пуш-фолде результаты тоже разные. Программа знает ваш обычный результат в каждой ситуации по всей истории и вычитает его. Ноль — ваш обычный уровень, плюс — играли лучше себя, минус — хуже. Вклад одной раздачи ограничен ±100 BB.', when: 'Подходит, когда интересно «лучше или хуже обычного», но факторы смешаны между собой.' },
-    0: { name: 'Без', short: 'Сколько вы реально заработали', tip: 'Обычный EV (или факт) в BB на 100 раздач, без поправок.',
+    0: { name: 'Без', short: 'Сколько вы реально заработали', tip: 'Обычный EV в BB на 100 раздач, без поправок.',
       full: 'Показывает реальный заработок в BB/100, как в Hand2Note. Но в сравнениях он смешивает вашу игру со стадией турнира: например, в начале сессии больше ранних стадий с глубокими стеками, в конце — коротких стеков. Поэтому для выводов о фокусе он менее точен.', when: 'Для вопроса «сколько я заработал там-то», а не «где я играю лучше».' }
   };
   function adjBox() {
@@ -412,7 +415,6 @@
       biBox(),
       seg('Стол', 'tbl', [['all', 'Все'], ['1', '6-max'], ['2', '7–8'], ['3', '9-max']]),
       seg('Тип', 'kind', [['all', 'Все'], ['0', 'Обычные'], ['1', 'Сателлиты']]),
-      seg('Считать', 'metric', [['ev', 'EV'], ['net', 'Факт']]),
       adjBox()
     );
     const reset = el('button', 'rs-reset', 'Сбросить'); reset.type = 'button'; reset.onclick = () => { Object.assign(F, DEF); saveF(); draw(); };
