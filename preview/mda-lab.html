@@ -6403,20 +6403,28 @@ window.LIVE_SAMPLE = {"list":[[71951,"CashCowsPoker TV Championship Series Seaso
     try {
       if (api.liveRates) { try { FX = await api.liveRates() || FX; } catch (e) { /* запасные */ } } else FX = { rates: { USD: 1, EUR: 0.93, GBP: 0.79, CAD: 1.38, AUD: 1.52, KRW: 1380, TWD: 32.5, HKD: 7.8, ZAR: 18, CZK: 23.4, PHP: 57, BRL: 5.6, SEK: 10.6, NOK: 10.9, DKK: 6.95, CHF: 0.86, ISK: 138 }, src: 'превью', t: Date.UTC(2026, 9, 27) };
       if (api.liveSum) { try { SUM = await api.liveSum(null) || {}; } catch (e) { SUM = {}; } }
-      let all = [], errs = [];
-      if (PREVIEW) all = fromSample();
+      let errs = [], old = [];
+      if (PREVIEW) MH.sample = fromSample();
       else {
         for (const [y, m] of months()) {
           const r = await api.liveList(y, m, force, !root.hidden); // вкладка не открыта — окно проверки не показывать
-          if (r && r.html) all = all.concat(P.list(r.html));
+          if (r && r.html) MH[y + '-' + m] = P.list(r.html);
+          if (r && r.old) old.push([y, m]);
           if (r && r.error) errs.push({ y, m, msg: r.error, challenge: r.challenge, stale: r.stale });
         }
       }
-      const a = today(), b = a + WINDOW, seen = new Set();
-      LIST = all.filter(f => { if (seen.has(f.id) || f.e < a || f.s > b || f.e - f.s > 60) return false; seen.add(f.id); return true; }).sort((x, y) => x.s - y.s || x.e - y.e);
-      LERR = errs;
+      buildList(); LERR = errs;
+      if (old.length) setTimeout(() => refreshMonths(old), 300); // сохранённый календарь — сразу, свежий — следом
     } catch (e) { LERR = [{ msg: 'Не удалось загрузить календарь: ' + (e && e.message || e) }]; }
     loading = false; drawAll(); bgStart();
+  }
+  const MH = {}; // серии по месяцам календаря
+  function buildList() {
+    const a = today(), b = a + WINDOW, seen = new Set(), all = Object.values(MH).flat();
+    LIST = all.filter(f => { if (seen.has(f.id) || f.e < a || f.s > b || f.e - f.s > 60) return false; seen.add(f.id); return true; }).sort((x, y) => x.s - y.s || x.e - y.e);
+  }
+  async function refreshMonths(list) {
+    for (const [y, m] of list) { try { const r = await api.liveList(y, m, true, !root.hidden); if (r && r.html && !r.error) { MH[y + '-' + m] = P.list(r.html); buildList(); drawRegions(); drawCountries(); drawList(); } } catch (e) { /* остаётся сохранённый */ } }
   }
   function summary(f, d) {
     const ev = d.rows.filter(r => r.buy && !r.sat), cur = (r) => curOf(r.sym, d.country || f.country);
@@ -6431,14 +6439,16 @@ window.LIVE_SAMPLE = {"list":[[71951,"CashCowsPoker TV Championship Series Seaso
     const d = P.festival(r.html);
     if (d.challenge) return { error: 'Сайт The Hendon Mob попросил подтвердить, что вы не робот.', challenge: true };
     const out = { data: d, stale: r.stale, t: r.t };
-    if (d.rows.length) { const s = summary(f, d); SUM[f.id] = s; if (api.liveSum) api.liveSum(f.id, s).catch(() => {}); }
+    // сохранённое расписание показано сразу; если оно старше 3 дней — свежее подгружается следом и подменяет его
+    if (r.old && !bg && !force) setTimeout(async () => { const n = await getFest(f, true, root.hidden).catch(() => null); if (n && n.data && OPEN && OPEN.f.id === f.id && !OPEN.loading) { OPEN = Object.assign({ f }, n); drawDet(); drawList(); } }, 200);
+    if (d.rows.length) { const s = summary(f, d); s.at = r.t || Date.now(); SUM[f.id] = s; if (api.liveSum) api.liveSum(f.id, s).catch(() => {}); }
     else { SUM[f.id] = { n: 0, at: Date.now() }; if (api.liveSum) api.liveSum(f.id, SUM[f.id]).catch(() => {}); }
     if (r.challenge) out.challenge = true;
     return out;
   }
 
   // ---------- фоновая подкачка расписаний ----------
-  let bgT = null, bgGap = 25e3, bgPause = 0, bgBusy = false;
+  let bgT = null, bgGap = 6e3, bgPause = 0, bgBusy = false;
   function bgNext() {
     if (!LIST) return null;
     const fresh = (s) => s && Date.now() - s.at < 3 * DAY;
@@ -6446,7 +6456,7 @@ window.LIVE_SAMPLE = {"list":[[71951,"CashCowsPoker TV Championship Series Seaso
     todo.sort((a, b) => (isBig(b) - isBig(a)) || a.s - b.s);
     return todo[0] || null;
   }
-  function bgStart() { if (PREVIEW || !api.liveFest || bgT) return; bgT = setTimeout(bgTick, 8e3); }
+  function bgStart() { if (PREVIEW || !api.liveFest || bgT) return; bgT = setTimeout(bgTick, 3e3); }
   async function bgTick() {
     bgT = null; if (bgBusy) return;
     if (Date.now() < bgPause) { bgT = setTimeout(bgTick, bgPause - Date.now() + 1e3); return; }
@@ -6620,7 +6630,7 @@ window.LIVE_SAMPLE = {"list":[[71951,"CashCowsPoker TV Championship Series Seaso
   const start = () => { if (started) return; started = true; loadList(false).then(() => { if (ST.sel && LIST) { const f = LIST.find(x => x.id === ST.sel); if (f && !root.hidden) openFest(f); } }); };
   // календарь грузится при первом открытии вкладки, а в программе — и сам через минуту после запуска (для фоновой подкачки)
   const tab = document.getElementById('tabLive'); if (tab) tab.addEventListener('click', () => { if (!started) start(); else if (!loading && LERR.some(e => e.challenge)) loadList(false); });
-  if (!root.hidden) start(); else if (!PREVIEW && api.liveList) setTimeout(start, 60e3);
+  if (!root.hidden) start(); else if (!PREVIEW && api.liveList) setTimeout(start, 10e3);
   window.MDALive = { reload: () => loadList(true) };
 })();
 

@@ -9,7 +9,7 @@ const path = require('path');
 
 const BASE = 'https://pokerdb.thehendonmob.com';
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
-const GAP = 1500; // пауза между страницами сайта
+const GAP = 700; // пауза между страницами сайта
 // запасные курсы (единиц валюты за 1 $), если сервис курсов недоступен
 const FX0 = { USD: 1, EUR: 0.93, GBP: 0.79, CAD: 1.38, AUD: 1.52, NZD: 1.68, CHF: 0.86, SEK: 10.6, NOK: 10.9, DKK: 6.95, ISK: 138, CZK: 23.4, PLN: 4.0, HUF: 365, BGN: 1.82, RON: 4.65, TRY: 34, KRW: 1380, JPY: 152, CNY: 7.2, TWD: 32.5, HKD: 7.8, MOP: 8.05, SGD: 1.34, PHP: 57, VND: 25300, THB: 34, MYR: 4.4, IDR: 15800, INR: 84, ZAR: 18, MAD: 9.9, KES: 129, TZS: 2700, MXN: 19.5, BRL: 5.6, ARS: 980, CLP: 950, COP: 4200, PEN: 3.75, UYU: 41, GEL: 2.7, AMD: 388, KZT: 480, RUB: 95, UAH: 41, BYN: 3.27, AED: 3.67, ILS: 3.7, EGP: 49 };
 
@@ -17,7 +17,21 @@ function make(userData) {
   const dir = path.join(userData, 'live');
   try { fs.mkdirSync(dir, { recursive: true }); } catch (e) { /* нет */ }
   let ses = null, last = 0, chain = Promise.resolve();
-  const S = () => { if (!ses) { const { session } = require('electron'); ses = session.fromPartition('persist:mdalive'); ses.setUserAgent(UA); } return ses; };
+  let showing = false; // окно с проверкой на экране — тогда картинки грузятся (видна галочка)
+  // Скорость: скрытому браузеру не нужны картинки, шрифты, видео, реклама и счётчики — их не грузим
+  // (проверку Cloudflare не трогаем). Страница берётся, как только разобран её текст, не дожидаясь баннеров.
+  const AD = /doubleclick|googlesyndication|googletagmanager|google-analytics|googleadservices|adservice|facebook\.(?:net|com)|connect\.facebook|twitter\.com\/widgets|hotjar|clarity\.ms|quantserve|scorecardresearch|criteo|taboola|outbrain|amazon-adsystem|adnxs|pubmatic|rubiconproject|openx|load_banner|banners?\//i;
+  const S = () => {
+    if (!ses) {
+      const { session } = require('electron'); ses = session.fromPartition('persist:mdalive'); ses.setUserAgent(UA);
+      ses.webRequest.onBeforeRequest({ urls: ['*://*/*'] }, (d, cb) => {
+        const cf = /cloudflare|turnstile|cdn-cgi/i.test(d.url);
+        const heavy = (d.resourceType === 'image' || d.resourceType === 'media' || d.resourceType === 'font') && !showing;
+        cb({ cancel: !cf && (heavy || AD.test(d.url)) }); // всё, что относится к проверке Cloudflare, грузится всегда
+      });
+    }
+    return ses;
+  };
   const file = (k) => path.join(dir, k.replace(/[^a-z0-9_-]/gi, '_') + '.json');
   const readC = (k) => { try { return JSON.parse(fs.readFileSync(file(k), 'utf8')); } catch (e) { return null; } };
   const writeC = (k, v) => { try { const f = file(k), t = f + '.tmp'; fs.writeFileSync(t, JSON.stringify(v)); fs.renameSync(t, f); } catch (e) { /* без кэша */ } };
@@ -40,27 +54,29 @@ function make(userData) {
     return bw;
   }
   async function viaWindow(url, interactive) {
-    const w = win(); w.__cancel = false; S();
+    S(); const w = win(); w.__cancel = false;
     w.loadURL(url, { userAgent: UA }).catch(() => {});
     const t0 = Date.now(); let shown = false;
+    const done = (h) => { try { w.webContents.stop(); } catch (e) { /* остановлено */ } if (shown) { w.hide(); showing = false; } return h; };
     for (;;) {
-      await sleep(600);
+      await sleep(250);
       if (w.isDestroyed()) throw new Error('окно закрыто');
-      let h = ''; try { h = await w.webContents.executeJavaScript('document.documentElement.outerHTML'); } catch (e) { /* ещё грузится */ }
-      if (h && !isChal(h) && /db-list__entry|table--festival-schedule|content-meta|was not found|<\/footer>/i.test(h) && !w.webContents.isLoading()) { if (shown) w.hide(); return h; }
+      let h = '', rs = ''; try { const x = await w.webContents.executeJavaScript('document.readyState + "\\u0001" + document.documentElement.outerHTML'); const k = x.indexOf('\u0001'); rs = x.slice(0, k); h = x.slice(k + 1); } catch (e) { /* ещё грузится */ }
+      // текст страницы разобран (readyState interactive/complete) и в нём есть календарь или расписание — готово
+      if (h && rs !== 'loading' && !isChal(h) && /db-list__entry|table--festival-schedule|content-meta|was not found/i.test(h) && (w.webContents.getURL() || '').includes('hendonmob')) return done(h);
       const wait = Date.now() - t0;
       // обычная проверка Cloudflare проходит сама за 1–5 секунд; не прошла — нужна галочка человека
       if (!shown && wait > 7000 && h && isChal(h)) {
         if (!interactive) { const e = new Error('challenge'); e.challenge = true; throw e; }
-        shown = true; w.show(); w.focus();
+        shown = true; showing = true; w.show(); w.focus();
       }
-      if (w.__cancel) { const e = new Error('challenge'); e.challenge = true; e.cancelled = true; throw e; }
-      if (wait > (shown ? 5 * 60e3 : 45e3)) { if (shown) w.hide(); const e = new Error(isChal(h) ? 'challenge' : 'нет ответа'); e.challenge = isChal(h); throw e; }
+      if (w.__cancel) { showing = false; const e = new Error('challenge'); e.challenge = true; e.cancelled = true; throw e; }
+      if (wait > (shown ? 5 * 60e3 : 45e3)) { if (shown) { w.hide(); showing = false; } const e = new Error(isChal(h) ? 'challenge' : 'нет ответа'); e.challenge = isChal(h); throw e; }
     }
   }
   async function page(url, key, maxAge, force, interactive) {
     const c = readC(key);
-    if (c && !force && Date.now() - c.t < maxAge) return { html: c.html, t: c.t, cached: true };
+    if (c && !force) return { html: c.html, t: c.t, cached: true, old: Date.now() - c.t >= maxAge }; // сохранённое — сразу; устарело — окно попросит обновить в фоне
     try {
       const html = await queue(() => viaWindow(url, interactive));
       writeC(key, { t: Date.now(), html });
