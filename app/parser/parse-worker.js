@@ -8,6 +8,7 @@ const zlib = require('zlib');
 const { parseTextAll } = require('./parse.js');
 const { eachText } = require('./build.js');
 const { hash53, SCHEMA } = require('./store.js');
+const { ckOf } = require('./dedupe.js'); // ключ содержания раздачи — ловит копии из разных выгрузок
 const { rowVals } = require('./ingest.js');
 const { encodeRec } = require('./rpbin.js');
 const NC = SCHEMA.length, CNAMES = SCHEMA.map(c => c[0]);
@@ -47,7 +48,7 @@ async function work(fi) {
         const heroRp = !!(h.hero && h.hero.rp); if (h.hero) delete h.hero.rp; // запись реплеера — у каждой вашей раздачи
         const vi = h.hero ? addRow(h.hero) : nRows;
         for (const o of h.opps) addRow(o);
-        hands.push({ k: hash53(h.id + '|' + h.tour), room: h.room, hn: h.hero ? h.hero.hero : null, hhc: h.hero ? h.hero.hc : -1, vi, on: h.opps.map(o => o.hero), os: h.opps.map(o => o.seatIdx), onr: h.opps.map(o => (o.needRp ? 1 : 0)), heroRp, rpz: rp ? encodeRec(rp) : null }); // двоичная запись (parser/rpbin.js)
+        hands.push({ k: hash53(h.id + '|' + h.tour), ck: rp ? ckOf(rp) : 0, room: h.room, hn: h.hero ? h.hero.hero : null, hhc: h.hero ? h.hero.hc : -1, vi, on: h.opps.map(o => o.hero), os: h.opps.map(o => o.seatIdx), onr: h.opps.map(o => (o.needRp ? 1 : 0)), heroRp, rpz: rp ? encodeRec(rp) : null }); // двоичная запись (parser/rpbin.js)
       }
       if (hands.length >= BATCH) await flush(false);
     });

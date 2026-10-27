@@ -178,6 +178,10 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
     // раздачи, загруженные без героя (датамайнинг), есть только среди строк соперников
     if (old.oppN) { const ro = new ColumnReader(colFile(old.og, 'key'), 'f64', old.oppN); for (let i = 0; i < old.oppN; i++) handSeen.add(ro.get(i)); ro.close(); }
   }
+  // копии раздач из разных выгрузок (у GG — с другими номерами): ключ содержания (parser/dedupe.js)
+  const DD = require('./dedupe.js'), oldCk = old ? DD.readKeys(dir) : new Float64Array(0);
+  const ckSeen = new HashSet53(oldCk.length + 1024), newCk = []; for (const x of oldCk) ckSeen.add(x);
+  const ckDup = (h) => !!h.ck && ckSeen.has(h.ck), ckAdd = (h) => { if (h.ck && ckSeen.add(h.ck)) newCk.push(h.ck); };
   const addedBy = new Float64Array(aliases.length);
   const players = old ? old.players.map(p => ({ n: p.n, r: p.r, c: p.c, sh: p.sh || 0 })) : [];
   const pmap = new Map(players.map((p, i) => [p.r + '\u0001' + p.n, i]));
@@ -215,7 +219,8 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
   const pushRow = (cols, vals, row, roomIdx) => { const o = row * NC; for (let c = 0; c < NC; c++) cols[c].push(c === RC ? roomIdx : vals[o + c]); };
   const errors = await parseParallel(files, heroes, (h) => {
     if (!h.hn) { // раздача без героя: только соперники, если такой раздачи ещё нет в базе
-      if (!handSeen.add(h.k)) { dup++; return; }
+      if (ckDup(h) || !handSeen.add(h.k)) { dup++; return; }
+      ckAdd(h);
       let ri = rooms.indexOf(h.room); if (ri < 0) { rooms.push(h.room); ri = rooms.length - 1; }
       const ref = h.rpz && h.onr.some(x => x) ? addRec(h.rpz, h, ri, true) : null;
       addOpps(h, ri, ref, h.vi); nD++;
@@ -224,7 +229,9 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
     const aid = target;
     const po = prevOwners.get(h.hn);
     if (po && po.some(a => seen.has(hk2(h.k, a)))) { dup++; return; }
+    if (ckDup(h)) { dup++; return; }
     if (!seen.add(hk2(h.k, aid))) { dup++; return; }
+    ckAdd(h);
     const newHand = handSeen.add(h.k); // раздачи ещё не было в базе (ни у одного алиаса)
     const roomIdx = rooms.indexOf(nicksAll[h.hn]);
     const needRef = h.rpz && (h.heroRp || (newHand && h.onr.some(x => x)));
@@ -334,6 +341,7 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
     mig: old ? (old.meta.mig || []) : require('./migrate.js').ALL_IDS,
     evPending: opts.deferEv && nJobs ? { colDir: 'g' + gen, heroJobs: nHeroJobs, jobs: nJobs, n: nTot } : undefined, opp: { rows: (old ? old.oppN : 0) + nO, players: plist.length }, rpParts: rpw.parts, rpz: 2
   };
+  DD.writeKeys(dir, Array.from(oldCk).concat(newCk)); // ключи содержания всех раздач базы
   const mt = path.join(dir, 'meta.json.tmp'); fs.writeFileSync(mt, JSON.stringify(meta)); fs.renameSync(mt, path.join(dir, 'meta.json'));
   if (old) fs.rmSync(old.g, { recursive: true, force: true });
   fs.rmSync(tmp, { recursive: true, force: true });

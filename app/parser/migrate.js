@@ -40,7 +40,7 @@ const MIGRATIONS = [
   { id: 'cbs', col: ['cbs', 'i16'], uses: ['fcb'], need: (C, i) => C.fcb[i] >= 0 && C.cbs[i] < 0, calc: (rec) => cbsOf(rec) }
 ];
 // обновления формата (после досчёта колонок): двоичный реплеер и сжатые колонки (0.7)
-const FORMAT_IDS = ['rpbin', 'colz', 'names']; // names (0.7.2) — ники за столом в записях реплеера
+const FORMAT_IDS = ['rpbin', 'colz', 'names', 'dedup']; // names (0.7.2) — ники за столом; dedup (0.7.8) — копии раздач из разных выгрузок
 const ALL_IDS = MIGRATIONS.map(m => m.id).concat(FORMAT_IDS);
 
 // какие обновления ещё не сделаны для этой базы (только база v3 — у неё записи реплеера на каждую строку)
@@ -65,7 +65,9 @@ async function doMigrate(dir, post) {
   for (const id of FORMAT_IDS) {
     const meta = JSON.parse(fs.readFileSync(mf, 'utf8'));
     if (!pending(meta).includes(id)) continue;
-    if (id === 'rpbin') await migRpbin(dir, meta, post); else if (id === 'names') migNames(dir, meta, post); else migColz(dir, meta, post);
+    let res = null;
+    if (id === 'rpbin') await migRpbin(dir, meta, post); else if (id === 'names') migNames(dir, meta, post); else if (id === 'dedup') res = require('./dedupe.js').migDedup(dir, meta, post); else migColz(dir, meta, post);
+    if (res === 'defer') continue; // отложено (досчитывается фоновый EV) — при следующем запуске
     const m2 = JSON.parse(fs.readFileSync(mf, 'utf8'));
     m2.mig = Array.from(new Set((m2.mig || []).concat([id])));
     const tmp = mf + '.tmp'; fs.writeFileSync(tmp, JSON.stringify(m2)); fs.renameSync(tmp, mf);
