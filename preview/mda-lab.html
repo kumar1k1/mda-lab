@@ -1641,6 +1641,8 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .lv-empty{color:var(--muted);font-size:13px}
 .lv-note{margin:0;color:var(--faint);font-size:11.5px;line-height:1.45}
 @media (max-width:700px){.lv-tr{grid-template-columns:44px minmax(0,1fr) 86px}.lv-tr > :nth-child(4),.lv-tr > :nth-child(5){display:none}}
+.rs-cov{display:flex;flex-direction:column;gap:4px;padding:12px 16px;border-radius:12px;border:1px solid rgba(var(--bad-rgb),.5);background:rgba(var(--bad-rgb),.08);font-size:13px;line-height:1.45}
+.rs-cov b{color:var(--bad);font-size:14px}.rs-cov span{color:var(--soft)}
 
 /* Дополнения только для онлайн-превью: тёмная тема и узкие экраны */
 :root{color-scheme:dark}
@@ -5009,8 +5011,8 @@ async function runImport() {
   $('progText').textContent = mined
     ? 'Загружено раздач без героя: ' + (res.mined || 0).toLocaleString('ru-RU') + (res.dup ? ', уже были в базе: ' + res.dup.toLocaleString('ru-RU') : '') + '. Игроков в базе: ' + (res.players || 0).toLocaleString('ru-RU') + '.'
     : mode === 'append'
-    ? (res.added ? 'Добавлено ' + res.added.toLocaleString('ru-RU') + ' раздач' : 'Новых раздач нет') + (res.dup ? ', повторов пропущено: ' + res.dup.toLocaleString('ru-RU') : '') + '. Всего в базе: ' + res.hands.toLocaleString('ru-RU') + ' раздач, соперников: ' + (res.players || 0).toLocaleString('ru-RU') + '.'
-    : 'Готово: ' + res.hands.toLocaleString('ru-RU') + ' раздач' + (res.players ? ', соперников: ' + res.players.toLocaleString('ru-RU') : '') + (res.dup ? ', повторов пропущено: ' + res.dup.toLocaleString('ru-RU') : '') + '.';
+    ? (res.added ? 'Добавлено ' + res.added.toLocaleString('ru-RU') + ' раздач' : 'Новых раздач нет') + (res.dup ? ', повторов пропущено: ' + res.dup.toLocaleString('ru-RU') : '') + (res.refilled ? '; у ' + res.refilled.toLocaleString('ru-RU') + ' уже загруженных раздач дописаны время, турнир и реплеер' : '') + '. Всего в базе: ' + res.hands.toLocaleString('ru-RU') + ' раздач, соперников: ' + (res.players || 0).toLocaleString('ru-RU') + '.'
+    : 'Готово: ' + res.hands.toLocaleString('ru-RU') + ' раздач' + (res.players ? ', соперников: ' + res.players.toLocaleString('ru-RU') : '') + (res.dup ? ', повторов пропущено: ' + res.dup.toLocaleString('ru-RU') : '') + (res.refilled ? '; у ' + res.refilled.toLocaleString('ru-RU') + ' уже загруженных раздач дописаны время, турнир и реплеер' : '') + '.';
   const ndb = await loadDb();
   if (ndb) { // открыть алиас, в который только что загрузили
     const list = ndb.aliases || [];
@@ -7552,6 +7554,9 @@ window.LIVE_SAMPLE = {"list":[[71951,"CashCowsPoker TV Championship Series Seaso
     // фильтры
     const fb = filtersBar(D);
     R.append(fb);
+    // базы, загруженные версиями до 0.6, хранят время и турнир не у всех раздач — такие раздачи «Результаты» не видят
+    { const al = (typeof state !== 'undefined' && D.db.aliases && D.db.aliases.length > 1 && c.aid) ? state.alias : -1; let tot = 0, ok = 0; for (let i = 0; i < D.n; i++) { if (al >= 0 && c.aid[i] !== al) continue; tot++; if (D.t[i] >= 0) ok++; }
+      if (tot && ok / tot < 0.95) { const w = el('div', 'rs-cov'); w.append(el('b', null, 'Учтено ' + num(ok) + ' из ' + num(tot) + ' раздач — остальные без времени и турнира'), el('span', null, 'Эта база (или её часть) загружена старой версией программы: тогда время, турнир и запись реплеера сохранялись только у раздач, где вы вступали в игру (открытие, колл, изолейт). Поэтому здесь видна лишь часть раздач, а EV завышен — это раздачи, в которых вы играли активно. Как исправить: «Моя база» → загрузите те же истории раздач ещё раз. Дубликатов не будет — программа только допишет недостающее этим раздачам, и «Результаты» посчитаются по всем.')); R.append(w); } }
     const X = select(D);
     if (!X.idx.length) { R.append(note('Под эти фильтры раздач нет. Ослабьте фильтры или нажмите «Сбросить».')); return; }
     const mName = (F.metric === 'net' ? 'Факт' : 'EV') + (+F.adj === 2 ? ', чистый эффект' : +F.adj === 1 ? ' с поправкой' : '');

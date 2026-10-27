@@ -2684,8 +2684,8 @@ async function runImport() {
   $('progText').textContent = mined
     ? 'Загружено раздач без героя: ' + (res.mined || 0).toLocaleString('ru-RU') + (res.dup ? ', уже были в базе: ' + res.dup.toLocaleString('ru-RU') : '') + '. Игроков в базе: ' + (res.players || 0).toLocaleString('ru-RU') + '.'
     : mode === 'append'
-    ? (res.added ? 'Добавлено ' + res.added.toLocaleString('ru-RU') + ' раздач' : 'Новых раздач нет') + (res.dup ? ', повторов пропущено: ' + res.dup.toLocaleString('ru-RU') : '') + '. Всего в базе: ' + res.hands.toLocaleString('ru-RU') + ' раздач, соперников: ' + (res.players || 0).toLocaleString('ru-RU') + '.'
-    : 'Готово: ' + res.hands.toLocaleString('ru-RU') + ' раздач' + (res.players ? ', соперников: ' + res.players.toLocaleString('ru-RU') : '') + (res.dup ? ', повторов пропущено: ' + res.dup.toLocaleString('ru-RU') : '') + '.';
+    ? (res.added ? 'Добавлено ' + res.added.toLocaleString('ru-RU') + ' раздач' : 'Новых раздач нет') + (res.dup ? ', повторов пропущено: ' + res.dup.toLocaleString('ru-RU') : '') + (res.refilled ? '; у ' + res.refilled.toLocaleString('ru-RU') + ' уже загруженных раздач дописаны время, турнир и реплеер' : '') + '. Всего в базе: ' + res.hands.toLocaleString('ru-RU') + ' раздач, соперников: ' + (res.players || 0).toLocaleString('ru-RU') + '.'
+    : 'Готово: ' + res.hands.toLocaleString('ru-RU') + ' раздач' + (res.players ? ', соперников: ' + res.players.toLocaleString('ru-RU') : '') + (res.dup ? ', повторов пропущено: ' + res.dup.toLocaleString('ru-RU') : '') + (res.refilled ? '; у ' + res.refilled.toLocaleString('ru-RU') + ' уже загруженных раздач дописаны время, турнир и реплеер' : '') + '.';
   const ndb = await loadDb();
   if (ndb) { // открыть алиас, в который только что загрузили
     const list = ndb.aliases || [];

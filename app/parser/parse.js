@@ -477,17 +477,27 @@ function parseText(text, heroes) {
 }
 
 // Как parseText, но раздача целиком: герой + соперники (parseHandAll)
+// В базу идут только турниры по безлимитному холдему (МТТ, сит-н-гоу, спины): кэш, омаха, стад и другие игры
+// отсеиваются ещё при разборе и никуда не сохраняются. Решение — по первой строке раздачи.
+function nlhTour(c) {
+  const h = c.slice(0, c.indexOf('\n') > 0 ? c.indexOf('\n') : 400);
+  if (!/tournament/i.test(h)) return false; // кэш-игры (у Winamax — «CashGame», у PokerStars/GG/WPN — без «Tournament»)
+  // игра — словами рядом: «Hold'em No Limit» (PokerStars, GG), «Holdem no limit» (Winamax), «Holdem (No Limit)» (WPN);
+  // по названию турнира не судим (в нём бывают «Omaha», «Draw» и т. п.)
+  return /hold'?em\s*\(?\s*no ?limit/i.test(h);
+}
 function parseTextAll(text, heroes, observer, exclude) {
   text = text.replace(/^\uFEFF/, '').replace(/^\s+/, '');
   const fmt = detectFormat(text.slice(0, 40));
   if (!fmt || !HEADERS.test(text)) return { fmt: null, hands: [], errors: 0 };
-  const out = []; let errors = 0;
+  const out = []; let errors = 0, skipped = 0;
   for (const chunk of text.split(SPLIT)) {
     const c = chunk.replace(/^\s+/, '');
     if (!detectFormat(c.slice(0, 40))) continue;
+    if (!nlhTour(c)) { skipped++; continue; }
     try { const r = parseHandAll(c, fmt, heroes, observer, exclude); if (r) out.push(r); else errors++; } catch (e) { errors++; }
   }
-  return { fmt, hands: out, errors };
+  return { fmt, hands: out, errors, skipped };
 }
 
-module.exports = { parseText, parseTextAll, parseHand, parseHandAll, assignPositions, handClass, heroNet, POS_IDX, cbetPct };
+module.exports = { nlhTour, parseText, parseTextAll, parseHand, parseHandAll, assignPositions, handClass, heroNet, POS_IDX, cbetPct };

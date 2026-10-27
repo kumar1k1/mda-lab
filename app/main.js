@@ -107,7 +107,7 @@ ipcMain.handle('db:col', (_e, name) => { const s = source(); return s ? s.colByt
 let RES = null;
 ipcMain.handle('results:data', async () => {
   const s = source(); if (!s) return null;
-  const key = s.dir + '|' + s.meta.count + '|' + (s.meta.mig ? JSON.stringify(s.meta.mig) : '');
+  const key = s.dir + '|' + s.meta.colDir + '|' + s.meta.count + '|' + (s.meta.mig ? JSON.stringify(s.meta.mig) : '');
   if (!RES || RES.key !== key) { const R = require('./parser/results.js'); RES = { key, data: R.pack(R.compute(s)) }; }
   return RES.data;
 });
