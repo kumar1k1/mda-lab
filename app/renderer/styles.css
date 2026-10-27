@@ -1615,10 +1615,10 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .lv-tg{min-height:30px;padding:0 12px;border-radius:8px;border:1px solid var(--line2);background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:700;cursor:pointer}
 .lv-tg.on{border-color:var(--amber);color:var(--amber);background:rgba(var(--amber-rgb),.12)}
 .lv-tb{display:flex;flex-direction:column}
-.lv-tr{display:grid;grid-template-columns:54px minmax(0,1fr) 104px 104px 150px;gap:10px;align-items:start;padding:8px 4px;border-bottom:1px solid var(--line);font-size:13px}
+.lv-tr{display:grid;grid-template-columns:54px minmax(0,1fr) 104px 104px 150px;gap:10px;align-items:start;padding:8px 22px 8px 4px;border-bottom:1px solid var(--line);font-size:13px}
 .lv-th{position:sticky;top:-16px;background:var(--panel);z-index:1;font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);padding-top:10px}
 .lv-th span:nth-child(n+3){text-align:right}
-.lv-day{margin-top:10px;padding:6px 4px;font-size:12px;font-weight:800;color:var(--amber);border-bottom:1px solid var(--line2)}
+.lv-day{margin-top:10px;padding:6px 22px 6px 4px;font-size:12px;font-weight:800;color:var(--amber);border-bottom:1px solid var(--line2)}
 .lv-tm{font-family:var(--mono);font-size:12.5px;color:var(--soft)}
 .lv-nm{display:flex;flex-direction:column;gap:3px;min-width:0}.lv-nm b{font-size:13px;line-height:1.3}
 .lv-nm small{font-size:11.5px;color:var(--faint);line-height:1.35}

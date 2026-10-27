@@ -65,15 +65,15 @@
     const title = name.replace(/^(No Limit Hold'?em|Pot Limit Omaha(?:\s*\d\/?\d?)?|NLH|NLHE|PLO\d?)\s*[-–:]\s*/i, '').trim() || name;
     const sat = /satellite|\bsat\b|qualifier|\bstep\s*\d|mega\s*sat|super\s*sat|one\s*shot\s+to|accumulator/i.test(name);
     const g1 = gtd0 || (!sat ? gtdOf(name) : null) || gtdOf(notes);
-    const st = /(\d[\d.,]*)\s*(k|K)?\s*(?:starting\s*)?(?:stack|chips)/.exec(notes); const stack = st ? num(st[1]) * (st[2] ? 1000 : 1) : null;
+    const st = /(\d[\d.,]*)\s*(k|K)?\s*(?:starting\s*)?(?:stack|chips)/.exec(notes) || /(?:chips|stack|starting stack)\s*:\s*(\d[\d.,\s]*\d|\d)\s*(k|K)?/i.exec(notes); const stack = st ? num(String(st[1]).replace(/\s/g, '')) * (st[2] ? 1000 : 1) : null;
     const lv = /(\d{1,3}(?:\/\d{1,3})?)\s*[- ]?\s*min(?:ute)?s?\b/i.exec(notes); const clock = lv ? lv[1] : '';
     const bounty = /bount|\bko\b|knockout|pko/i.test(name + ' ' + notes), myst = /myster/i.test(name + ' ' + notes);
     const flight = /\bday\s*(1[a-z]?|\d+[a-z]?)\b|\bflight\s*[a-z0-9]+|final\s*table|\bday\s*2\b/i.exec(name); const cont = !parts && /day\s*[2-9]|final\s*table|day\s*\d+\s*(?:&|and)|restart/i.test(name);
     // поздняя регистрация и ре-энтри: «Late reg Lvl 10», «Late reg 8 Levels», «UNL RE», «Single Re-entry», «Freezeout»
     const both = name + ' ' + notes;
-    const lr = /late\s*reg(?:istration)?\.?\s*(?:until\s*)?(?:lvl|level)?\s*(\d{1,2})\b|late\s*reg(?:istration)?\.?\s*(\d{1,2})\s*(?:lvls?|levels?)/i.exec(notes), lrs = /late\s*reg(?:istration)?\.?\s*(?:until\s*)?(start of day \d|closed|day \d)/i.exec(notes);
+    const lr = /late\s*reg(?:istration)?\.?\s*:?\s*(?:until\s*)?(?:lvl|level)?\s*(\d{1,2})\b|late\s*reg(?:istration)?\.?\s*(\d{1,2})\s*(?:lvls?|levels?)/i.exec(notes), lrs = /late\s*reg(?:istration)?\.?\s*(?:until\s*)?(start of day \d|closed|day \d)/i.exec(notes);
     const late = lr ? 'до ' + (lr[1] || lr[2]) + '-го уровня' : lrs ? (/closed/i.test(lrs[1]) ? 'закрыта' : 'до начала ' + lrs[1].replace(/start of /i, '').replace(/day/i, 'дня')) : '';
-    const re = /\bUNL\s*RE\b|unlimited\s*re-?entr/i.test(both) ? 'безлимитный ре-энтри' : /single\s*re-?entr|1\s*re-?entr/i.test(both) ? '1 ре-энтри' : (/(\d)\s*x?\s*re-?entr/i.exec(both) || [])[1] ? (/(\d)\s*x?\s*re-?entr/i.exec(both))[1] + ' ре-энтри' : /freeze\s*out/i.test(both) ? 'фризаут' : /re-?entr/i.test(both) ? 'ре-энтри' : /re-?buy/i.test(both) ? 'ребаи' : '';
+    const re = /\bUNL\s*RE\b|unlimited\s*re-?entr|re-?entr(?:y|ies)\s*:\s*unlimited/i.test(both) ? 'безлимитный ре-энтри' : /single\s*re-?entr|1\s*re-?entr/i.test(both) ? '1 ре-энтри' : (/(\d)\s*x?\s*re-?entr/i.exec(both) || [])[1] ? (/(\d)\s*x?\s*re-?entr/i.exec(both))[1] + ' ре-энтри' : /freeze\s*out/i.test(both) ? 'фризаут' : /re-?entr/i.test(both) ? 'ре-энтри' : /re-?buy/i.test(both) ? 'ребаи' : '';
     return { late, re, t0, sym, parts, buy: parts ? parts.reduce((a, b) => a + b, 0) : null, name: title, full: name, game, sat, gtd: g1, stack, clock, bounty, myst, flight: flight ? flight[0] : '', cont, main: /main\s*event/i.test(name), hr: /high\s*roller|super\s*high|\bhr\b/i.test(name), notes };
   }
   function festival(html) {
@@ -123,6 +123,7 @@
       if (!e.game) { const tg = tags.join(' '); e.game = /omaha|plo/i.test(tg) ? 'PLO' : /hold/i.test(tg) ? 'NLH' : tg ? 'Mix' : ''; }
       if (/registration closed/i.test(tags.join(' ')) && !e.parts) e.cont = true;
       e.tags = tags; e.total = txt(r.querySelector('.col-3 .block-medium'));
+      if (!e.parts && e.total) { const bm2 = /^([€$£¥₩])?\s?(\d[\d .,]*\d|\d)\s?([€$£¥₩]|[A-Z]{3})?$/.exec(e.total); if (bm2) { const v = num(bm2[2].replace(/\s/g, '')); if (v > 0) { e.parts = [v]; e.buy = v; e.sym = bm2[1] || (bm2[3] && bm2[3].length === 1 ? bm2[3] : '') || (bm2[3] === 'EUR' ? '€' : bm2[3] === 'GBP' ? '£' : bm2[3] === 'USD' ? '$' : ''); e.cont = false; if (!e.game) e.game = 'NLH'; } } }
       rows.push(e);
     });
     const h1 = d.querySelector('h1'), org = [...d.querySelectorAll('*')].find(x => x.children.length === 0 && /^Organizer:/.test(txt(x)));
