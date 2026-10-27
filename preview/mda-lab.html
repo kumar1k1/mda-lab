@@ -5567,18 +5567,14 @@ window.NEWS_SNAPSHOT = (function () {
     ['PokerRoomKings', 'PokerRoomKings', 'en', 11001], ['WisternJL', 'WisternJL', 'en', 10889], ['kdogwin', '懂事的懂', 'zh', 10859],
     ['TritonPoker', 'Triton Poker', 'en', 0], ['WSOP', 'WSOP', 'en', 0], ['PokerGO', 'PokerGO', 'en', 0], ['WPT', 'World Poker Tour', 'en', 0]
   ];
-  // формат игры: mtt — турниры, cash — кэш, both — и то и другое; кого не знаем — без отметки (показываются в обоих)
-  // отметку можно поменять кликом по значку формата у стримера — запоминается
-  const FMT0 = { lexveldhuis: 'mtt', spraggy: 'mtt', kmartpoker: 'mtt', dnegspoker: 'mtt', girafganger7: 'mtt', innerpsycho: 'mtt', minthon19: 'mtt',
-    jenzoou: 'mtt', danielpetersenpoker: 'mtt', kalthorr: 'mtt', allinpav: 'mtt', wsop: 'mtt', wpt: 'mtt', pokernighttv: 'cash',
-    tritonpoker: 'both', pokergo: 'both', pokerroomkings: 'both', pokerroomkingsde: 'both' };
-  const FMT_T = { mtt: 'Турниры', cash: 'Кэш', both: 'Турниры и кэш', '': 'Формат не отмечен' }, FMT_S = { mtt: 'MTT', cash: 'Кэш', both: 'MTT+кэш', '': '?' };
+  // каналы серий, румов и шоу (не личные стримеры) — отдельной группой
+  const ORG = new Set(['pokernighttv', 'pokerstars', 'ggpokerofficial', 'pokerroomkingsde', 'pokerroomkings', 'natural8_hongkong', 'wintvlive', 'tritonpoker', 'wsop', 'pokergo', 'wpt', 'itcpokerteam', 'arquibancadapoker']);
+  const isOrg = (login) => ORG.has(login.toLowerCase());
   const COL = { en: '#6EC3E8', ru: '#F2B544', es: '#F08A7E', pt: '#7FD7A2', de: '#A99BF5', zh: '#F0A35E' };
   const el = (t, c, txt) => { const e = document.createElement(t); if (c) e.className = c; if (txt != null) e.textContent = txt; return e; };
   const ST = (() => { try { return JSON.parse(localStorage.getItem('mda.streams') || '{}') || {}; } catch (e) { return {}; } })();
-  const save = () => { try { localStorage.setItem('mda.streams', JSON.stringify({ lang: ST.lang, only: ST.only, game: ST.game, fmt: ST.fmt })); } catch (e) { /* без сохранения */ } };
-  ST.lang = ST.lang || ''; ST.only = !!ST.only; ST.game = ST.game || ''; ST.fmt = ST.fmt || {};
-  const fmtOf = (login) => { const k = login.toLowerCase(); return ST.fmt[k] != null ? ST.fmt[k] : (FMT0[k] || ''); };
+  const save = () => { try { localStorage.setItem('mda.streams', JSON.stringify({ lang: ST.lang, only: ST.only, kind: ST.kind })); } catch (e) { /* без сохранения */ } };
+  ST.lang = ST.lang || ''; ST.only = !!ST.only; ST.kind = ST.kind || '';
   const LIVE = {}; let liveAt = 0, liveBusy = false; // кто в эфире (login в нижнем регистре → true / false / null — не узнали)
   const inApp = /Electron/.test(navigator.userAgent);
   const icon = (d) => '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>';
@@ -5601,40 +5597,57 @@ window.NEWS_SNAPSHOT = (function () {
   const langSeg = el('div', 'seg bx-seg st-lang'); langSeg.setAttribute('role', 'group'); langSeg.setAttribute('aria-label', 'Язык');
   [['', 'Все'], ['ru', 'RU'], ['en', 'EN'], ['other', 'Другие']].forEach(([v, l]) => { const b = el('button', null, l); b.type = 'button'; b.dataset.v = v; b.onclick = () => { ST.lang = v; save(); drawList(); }; langSeg.append(b); });
   const list = el('ol', 'st-list');
-  const gameSeg = el('div', 'seg bx-seg st-lang st-game'); gameSeg.setAttribute('role', 'group'); gameSeg.setAttribute('aria-label', 'Формат игры');
-  [['', 'Все'], ['mtt', 'Турниры'], ['cash', 'Кэш']].forEach(([v, l]) => { const b = el('button', null, l); b.type = 'button'; b.dataset.v = v; b.onclick = () => { ST.game = v; save(); drawList(); }; gameSeg.append(b); });
-  side.append(sh, gameSeg, langSeg, list);
+  const kindSeg = el('div', 'seg bx-seg st-lang st-kind'); kindSeg.setAttribute('role', 'group'); kindSeg.setAttribute('aria-label', 'Кто стримит');
+  [['', 'Все'], ['solo', 'Стримеры'], ['org', 'Серии и румы']].forEach(([v, l]) => { const b = el('button', null, l); b.type = 'button'; b.dataset.v = v; b.onclick = () => { ST.kind = v; save(); drawList(); }; kindSeg.append(b); });
+  side.append(sh, kindSeg, langSeg, list);
   const stage = el('div', 'st-stage');
   body.append(side, stage);
   root.append(head, body);
 
   let view = null, curUrl = DIR, curCh = null;
+  // перерисовка списка — только когда что-то изменилось (статусы, фильтры, открытый канал): иначе каждые 2 минуты
+  // список собирался заново и картинки превью перекачивались — открытый стрим на секунду подтормаживал
+  let lastKey = '';
+  function updSub() {
+    const st = (login) => LIVE[login.toLowerCase()];
+    const nLive = LIST.filter(x => st(x[0]) === true).length, known = LIST.some(x => st(x[0]) === true || st(x[0]) === false);
+    const t = liveAt && !known ? 'не удалось проверить, кто в эфире — нет связи с Twitch' : liveAt ? 'в эфире ' + nLive + ' из ' + LIST.length + ' · проверено в ' + new Date(liveAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : inApp ? 'проверяю, кто в эфире…' : 'кто в эфире — видно в программе';
+    if (shSub.textContent !== t) shSub.textContent = t;
+  }
+  const THUMBS = new Map(); // login → { img, at } — картинка превью переиспользуется, новая — не чаще раза в 5 минут
+  const thumbOf = (login) => {
+    const k = login.toLowerCase(), now = Date.now(); let t = THUMBS.get(k);
+    if (!t || now - t.at > 300e3) {
+      const img = (t && t.img) || el('img', 'st-thumb'); img.alt = ''; img.decoding = 'async'; img.loading = 'lazy';
+      img.onerror = () => { img.hidden = true; }; img.onload = () => { img.hidden = false; };
+      img.src = 'https://static-cdn.jtvnw.net/previews-ttv/live_user_' + k + '-160x90.jpg?t=' + Math.floor(now / 300e3);
+      t = { img, at: now }; THUMBS.set(k, t);
+    }
+    return t.img;
+  };
   function drawList() {
+    const key = [ST.lang, ST.only, ST.kind, curCh, LIST.map(x => { const v = LIVE[x[0].toLowerCase()]; return v === true ? 1 : v === false ? 0 : '-'; }).join('')].join('|');
+    updSub();
+    if (key === lastKey) return; lastKey = key;
     langSeg.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === ST.lang));
-    gameSeg.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === ST.game));
+    kindSeg.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === ST.kind));
     liveB.classList.toggle('on', ST.only); liveB.setAttribute('aria-pressed', String(ST.only));
     list.replaceChildren();
     const top = LIST.reduce((m, x) => Math.max(m, x[3]), 1);
     const st = (login) => LIVE[login.toLowerCase()];
-    const rows = LIST.filter(x => !ST.lang || (ST.lang === 'other' ? !['ru', 'en'].includes(x[2]) : x[2] === ST.lang)).filter(x => !ST.only || st(x[0]) === true).filter(x => { const f = fmtOf(x[0]); return !ST.game || f === ST.game || f === 'both' || f === ''; });
+    const rows = LIST.filter(x => !ST.lang || (ST.lang === 'other' ? !['ru', 'en'].includes(x[2]) : x[2] === ST.lang)).filter(x => !ST.only || st(x[0]) === true).filter(x => !ST.kind || (ST.kind === 'org') === isOrg(x[0]));
     rows.sort((a, b) => (st(b[0]) === true) - (st(a[0]) === true) || b[3] - a[3]); // в эфире — сверху
-    const nLive = LIST.filter(x => st(x[0]) === true).length;
-    const known = LIST.some(x => st(x[0]) === true || st(x[0]) === false);
-    shSub.textContent = liveAt && !known ? 'не удалось проверить, кто в эфире — нет связи с Twitch' : liveAt ? 'в эфире ' + nLive + ' из ' + LIST.length + ' · проверено в ' + new Date(liveAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : inApp ? 'проверяю, кто в эфире…' : 'кто в эфире — видно в программе';
     if (!rows.length) list.append(el('li', 'st-empty', ST.only ? 'Сейчас никто из списка не в эфире.' : 'Нет стримеров.'));
     rows.forEach(([login, name, lang, h]) => {
       const live = st(login);
       const li = el('li'); const b = el('button', 'st-item' + (curCh === login ? ' on' : '')); b.type = 'button'; b.title = 'Открыть канал ' + name;
       const av = el('span', 'st-av', name.replace(/^[^\p{L}\p{N}]+/u, '').slice(0, 1).toUpperCase()); av.style.setProperty('--c', COL[lang] || '#9AA3B2');
-      const tx = el('span', 'st-tx'); tx.append(el('b', null, name), el('em', null, lang.toUpperCase() + (h ? ' · ' + (h / 1000).toFixed(h >= 100000 ? 0 : 1).replace('.', ',') + ' тыс. ч' : ' · турниры')));
+      const tx = el('span', 'st-tx'); tx.append(el('b', null, name), el('em', null, lang.toUpperCase() + (h ? ' · ' + (h / 1000).toFixed(h >= 100000 ? 0 : 1).replace('.', ',') + ' тыс. ч' : '') + (isOrg(login) ? ' · канал' : '')));
       const bar = el('i', 'st-bar'); bar.style.width = Math.max(4, Math.round(h / top * 100)) + '%'; bar.style.background = COL[lang] || '#9AA3B2';
       const badge = live === true ? el('span', 'st-live', 'В эфире') : live === false ? el('span', 'st-off', 'не в сети') : null;
-      if (live === true) { const th = el('img', 'st-thumb'); th.alt = ''; th.loading = 'lazy'; th.src = 'https://static-cdn.jtvnw.net/previews-ttv/live_user_' + login.toLowerCase() + '-160x90.jpg?t=' + Math.floor(liveAt / 60000); th.onerror = () => th.remove(); b.classList.add('is-live'); b.append(th); }
-      const f = fmtOf(login), fb = el('span', 'st-fmt f-' + (f || 'none'), FMT_S[f]); fb.title = FMT_T[f] + ' — клик: изменить'; fb.setAttribute('role', 'button'); fb.tabIndex = 0;
-      const cyc = (e) => { e.stopPropagation(); e.preventDefault(); const order = ['mtt', 'cash', 'both', '']; ST.fmt[login.toLowerCase()] = order[(order.indexOf(f) + 1) % order.length]; save(); drawList(); };
-      fb.addEventListener('click', cyc); fb.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') cyc(e); });
+      if (live === true) { b.classList.add('is-live'); b.append(thumbOf(login)); }
       if (badge) tx.querySelector('b').append(badge);
-      b.append(av, tx, fb, bar); b.onclick = () => openUrl('https://www.twitch.tv/' + login, login);
+      b.append(av, tx, bar); b.onclick = () => openUrl('https://www.twitch.tv/' + login, login);
       b.setAttribute('aria-label', name + (live === true ? ', в эфире' : live === false ? ', не в сети' : ''));
       li.append(b); list.append(li);
     });
@@ -5673,7 +5686,7 @@ window.NEWS_SNAPSHOT = (function () {
     if (!window.mda || !window.mda.streamsLive || liveBusy) return;
     if (!force && Date.now() - liveAt < 100e3) return;
     liveBusy = true;
-    try { const r = await window.mda.streamsLive(LIST.map(x => x[0])); Object.assign(LIVE, r); const ok = Object.values(r).some(v => v === true || v === false); liveAt = ok ? Date.now() : Date.now() - 85e3; /* без ответа — повтор через ~15 с */ } catch (e) { /* нет сети — без значков */ }
+    try { const r = await window.mda.streamsLive(LIST.map(x => x[0])); for (const k in r) LIVE[k] = r[k] && typeof r[k] === 'object' ? true : r[k]; const ok = Object.values(r).some(v => v === true || v === false); liveAt = ok ? Date.now() : Date.now() - 85e3; /* без ответа — повтор через ~15 с */ } catch (e) { /* нет сети — без значков */ }
     liveBusy = false; drawList();
   }
   setInterval(() => { if (!root.hidden) checkLive(false); }, 120e3);
@@ -5682,6 +5695,16 @@ window.NEWS_SNAPSHOT = (function () {
   let mounted = false;
   const onShow = () => { if (root.hidden) return; checkLive(false); if (!mounted) { mounted = true; mount(); setNav(); } };
   const tab = document.getElementById('tabStreams'); if (tab) tab.addEventListener('click', onShow);
+  // ушли на другую вкладку — стрим на паузе (и без звука); вернулись — продолжается с того же места
+  const PAUSE = "document.querySelectorAll('video').forEach(v => { if (!v.paused) { v.dataset.mdaPaused = '1'; v.pause(); } }); true";
+  const RESUME = "document.querySelectorAll('video').forEach(v => { if (v.dataset.mdaPaused === '1') { delete v.dataset.mdaPaused; v.play().catch(() => {}); } }); true";
+  new MutationObserver(() => {
+    if (!view) return;
+    try {
+      if (root.hidden) { view.setAudioMuted(true); view.executeJavaScript(PAUSE).catch(() => {}); }
+      else { view.executeJavaScript(RESUME).catch(() => {}).finally(() => { try { view.setAudioMuted(false); } catch (e) { /* окно ещё не готово */ } }); }
+    } catch (e) { /* окно Twitch ещё не загружено */ }
+  }).observe(root, { attributes: true, attributeFilter: ['hidden'] });
   setTimeout(onShow, 0);
 })();
 

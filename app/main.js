@@ -4,6 +4,11 @@ const path = require('path');
 const fs = require('fs');
 
 let win = null;
+// Видео (Twitch в разделе «Покерные стримы») не должно открывать входящие соединения: иначе брандмауэр Windows
+// спрашивает «Разрешить доступ к сетям». Отключаем поиск устройств трансляции (Media Router: mDNS/SSDP)
+// и прямые UDP-соединения WebRTC — видео идёт обычным путём, как в браузере.
+app.commandLine.appendSwitch('disable-features', 'MediaRouter,DialMediaRouteProvider,CastMediaRouteProvider,GlobalMediaControlsCastStartStop');
+app.commandLine.appendSwitch('force-webrtc-ip-handling-policy', 'disable_non_proxied_udp');
 // для автотестов: отдельная папка данных
 if (process.env.MDALAB_USERDATA) app.setPath('userData', process.env.MDALAB_USERDATA);
 
@@ -240,7 +245,7 @@ ipcMain.handle('streams:live', async (_e, logins) => {
       const live = r.status === 200 && !/404_preview/.test(r.url || ''); LIVE.set(k, { t: Date.now(), live }); out[k] = live;
     } catch (e) { out[k] = null; }
   };
-  await Promise.all(Array.from({ length: 8 }, async () => { while (i < todo.length) await one(todo[i++]); }));
+  await Promise.all(Array.from({ length: 4 }, async () => { while (i < todo.length) await one(todo[i++]); })); // 4 запроса одновременно — не мешают открытому стриму
   return out;
 });
 // новости собираются сами: через 15 с после запуска и каждые 3 часа, пока программа открыта (накапливаются за месяц)
@@ -255,6 +260,7 @@ app.on('web-contents-created', (_e, wc) => {
     if (!TWITCH_OK.test(params.src || '') || params.partition !== 'persist:twitch') ev.preventDefault();
   });
   if (wc.getType() === 'webview') {
+    try { wc.setWebRTCIPHandlingPolicy('disable_non_proxied_udp'); } catch (e) { /* старый Electron */ }
     wc.setWindowOpenHandler(({ url }) => { if (TWITCH_OK.test(url)) wc.loadURL(url); else if (/^https:\/\//.test(url)) shell.openExternal(url); return { action: 'deny' }; });
     wc.on('will-navigate', (ev, url) => { if (!TWITCH_OK.test(url)) { ev.preventDefault(); if (/^https:\/\//.test(url)) shell.openExternal(url); } });
   }

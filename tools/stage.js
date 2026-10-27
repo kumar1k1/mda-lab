@@ -12,6 +12,8 @@ const PRIVATE = /(^|[\\/])data[\\/](my-base.*|demo-base.*|.*\.off)$/; // лич�
 
 fs.rmSync(out, { recursive: true, force: true });
 fs.cpSync(electronDir, out, { recursive: true });
+// свойства файла программы: «MDA Lab» вместо «Electron / GitHub, Inc.» (их показывают окна Windows)
+{ const exe = fs.readdirSync(out).find(f => /\.exe$/i.test(f) && !/unins/i.test(f)); if (exe) console.log(exe + ':', JSON.stringify(require('./brand-exe.js').brand(path.join(out, exe)).changed)); }
 const dst = path.join(out, 'resources', 'app');
 fs.cpSync(APP, dst, { recursive: true, filter: (src) => !PRIVATE.test(path.relative(APP, src)) });
 fs.copyFileSync(path.join(__dirname, '..', 'build', 'icon.ico'), path.join(out, 'icon.ico'));
