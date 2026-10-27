@@ -6397,6 +6397,16 @@ window.NEWS_SNAPSHOT = (function () {
       const d = await window.mda.resultsData(); if (!d) return null;
       const cls = d.titles.map(x => classify(x.t));
       DATA = { db, n: d.n, t: new Int32Array(cp(d.t)), conc: new Int8Array(cp(d.conc)), ses: new Int32Array(cp(d.ses)), since: new Int32Array(cp(d.since)), tour: new Int32Array(cp(d.tour)), tours: d.tours, titles: d.titles, sessions: d.sessions, cls, tz: d.tz };
+      // местное время, час, день недели и месяц каждой раздачи — один раз (смещение пояса — по дню, не по раздаче)
+      const N = d.n, T = DATA.t, LT = new Int32Array(N), HOUR = new Int8Array(N), DOW = new Int8Array(N), MON = new Int32Array(N), offDay = new Map();
+      for (let i = 0; i < N; i++) {
+        const t = T[i]; if (t < 0) { LT[i] = -1; HOUR[i] = -1; DOW[i] = -1; MON[i] = -1; continue; }
+        const dk = Math.floor(t / 1440); let o = offDay.get(dk); if (o == null) { o = new Date(t * 60000).getTimezoneOffset(); offDay.set(dk, o); }
+        const m = t - o; LT[i] = m; const md = ((m % 1440) + 1440) % 1440; HOUR[i] = Math.floor(md / 60);
+        const day = Math.floor(m / 1440); DOW[i] = ((day + 3) % 7 + 7) % 7; // 1 янв 1970 — четверг (пн = 0)
+        let mo = offDay.get('m' + day); if (mo == null) { const dt = new Date(day * 864e5); mo = dt.getUTCFullYear() * 12 + dt.getUTCMonth(); offDay.set('m' + day, mo); } MON[i] = mo;
+      }
+      Object.assign(DATA, { LT, HOUR, DOW, MON });
       DKEY = key; return DATA;
     })().finally(() => { LOADING = null; });
     return LOADING;
@@ -6452,15 +6462,11 @@ window.NEWS_SNAPSHOT = (function () {
     const n = new Float64Array(K), sum = new Float64Array(K), sesN = new Float64Array(K), sesSeen = new Uint8Array(Sn * K);
     X.idx.forEach((i, j) => { const k = keyOf(i, j); if (k < 0 || k >= K) return; const q = sid[j] * K + k; sn[q]++; ss[q] += vals[j]; n[k]++; sum[k] += vals[j]; if (!sesSeen[q]) { sesSeen[q] = 1; sesN[k]++; } });
     const rows = []; for (let k = 0; k < K; k++) rows.push({ k, n: n[k], v: n[k] ? sum[k] / n[k] * 100 : NaN, sum: sum[k], ses: sesN[k], lo: NaN, hi: NaN });
+    // 95% интервал: ошибка среднего с учётом того, что раздачи одной сессии связаны (кластерная оценка по сессиям)
     if (opt.ci !== false && Sn > 2) {
-      const B = opt.B || 200, bs = rows.map(() => []); seed = 7 + K;
-      const bn = new Float64Array(K), bsum = new Float64Array(K);
-      for (let b = 0; b < B; b++) {
-        bn.fill(0); bsum.fill(0);
-        for (let z = 0; z < Sn; z++) { const s = Math.floor(rnd() * Sn) * K; for (let k = 0; k < K; k++) { bn[k] += sn[s + k]; bsum[k] += ss[s + k]; } }
-        for (let k = 0; k < K; k++) if (bn[k]) bs[k].push(bsum[k] / bn[k] * 100);
-      }
-      rows.forEach((r, k) => { const a = bs[k].sort((x, y) => x - y); if (a.length > 20) { r.lo = a[Math.floor(a.length * 0.025)]; r.hi = a[Math.floor(a.length * 0.975)]; } });
+      const vr = new Float64Array(K), ns = new Float64Array(K), m = rows.map(r => r.n ? r.sum / r.n : 0);
+      for (let z = 0; z < Sn; z++) { const b = z * K; for (let k = 0; k < K; k++) { const c = sn[b + k]; if (!c) continue; const d = ss[b + k] - m[k] * c; vr[k] += d * d; ns[k]++; } }
+      rows.forEach((r, k) => { if (r.n && ns[k] >= 3) { const se = Math.sqrt(vr[k] * ns[k] / (ns[k] - 1)) / r.n * 100; r.lo = r.v - 1.96 * se; r.hi = r.v + 1.96 * se; } });
     }
     return rows;
   }
@@ -6609,7 +6615,9 @@ window.NEWS_SNAPSHOT = (function () {
     return s || 'Без названия';
   }
   // ---------- страница ----------
-  let ROOT = null, WAIT = 0, WT = null;
+  let ROOT = null, WAIT = 0, WT = null, GEN = 0;
+  const CACHE = new Map(); // ключ фильтров → готовые блоки страницы (переключение назад — мгновенно)
+  const tick = () => new Promise(r => setTimeout(r, 0));
   function seg(label, key, opts, onSet) {
     const w = el('div', 'rs-f'); w.append(el('span', 'rs-f-l', label));
     const s = el('div', 'seg bx-seg'); s.setAttribute('role', 'group'); s.setAttribute('aria-label', label);
@@ -6629,7 +6637,10 @@ window.NEWS_SNAPSHOT = (function () {
 
   async function draw(root) {
     if (root) { ROOT = root; WAIT = 0; } if (!ROOT) return;
-    const R = ROOT; R.replaceChildren();
+    const R = ROOT, gen = ++GEN;
+    const ckey = JSON.stringify(F) + '|' + DKEY + '|' + (typeof state !== 'undefined' ? state.alias : 0) + '|' + (typeof HERO_DB !== 'undefined' && HERO_DB ? HERO_DB.count : 0);
+    if (DATA && DATA.db === (typeof HERO_DB !== 'undefined' ? HERO_DB : null) && CACHE.has(ckey)) { const keep = R.scrollTop; R.replaceChildren(...CACHE.get(ckey)); R.scrollTop = keep; return; }
+    const keepTop = R.scrollTop; R.replaceChildren();
     const head = el('div', 'rs-head'); head.append(el('h2', null, 'Результаты'), el('p', null, 'Где и когда вы играете лучше всего: число столов, ход сессии, время, дни и форматы турниров. Наведите на столбец — подробности; усы — 95% интервал.'));
     R.append(head);
     const D = await load();
@@ -6664,7 +6675,7 @@ window.NEWS_SNAPSHOT = (function () {
     if (!X.idx.length) { R.append(note('Под эти фильтры раздач нет. Ослабьте фильтры или нажмите «Сбросить».')); return; }
     const mName = (F.metric === 'net' ? 'Факт' : 'EV') + (F.adj ? ' с поправкой' : '');
     const tzOff = (m) => new Date(m * 60000).getTimezoneOffset();
-    const lt = (i) => D.t[i] - tzOff(D.t[i]); // местное время
+    const lt = (i) => D.LT[i]; // местное время (посчитано при загрузке)
     // ---- ключевые числа ----
     const sesSet = new Set(), tourSet = new Set(); let evS = 0, netS = 0;
     X.idx.forEach((i, j) => { sesSet.add(D.ses[i]); if (D.tour[i] >= 0) tourSet.add(D.tour[i]); evS += X.ev[j]; netS += X.net[j]; });
@@ -6677,6 +6688,11 @@ window.NEWS_SNAPSHOT = (function () {
     kpi('Везение', fmt((netS - evS) / nH * 100), netS - evS >= 0 ? 'pos' : 'neg', 'факт минус EV'); kpi('EV в час', fmt(evS / (mins / 60)), evS >= 0 ? 'pos' : 'neg', 'BB/ч');
     R.append(kp);
     const grid = el('div', 'rs-grid'); R.append(grid);
+    const cI = card('Главное', 'Выводы под текущие фильтры. «Надёжно» — интервал не захватывает ноль; «тенденция» — может быть случайностью.', true);
+    cI.append(el('p', 'rs-note', 'Считаю…')); grid.append(cI);
+    R.scrollTop = keepTop;
+    const step = async () => { await tick(); return gen !== GEN || !R.isConnected; };
+    if (await step()) return;
     // ---- сколько столов ----
     const cb = (n) => n <= 2 ? 0 : n <= 4 ? 1 : n <= 6 ? 2 : n <= 8 ? 3 : n <= 10 ? 4 : n <= 13 ? 5 : 6;
     const CBL = ['1–2', '3–4', '5–6', '7–8', '9–10', '11–13', '14+'];
@@ -6692,22 +6708,23 @@ window.NEWS_SNAPSHOT = (function () {
     cT.append(bars(gT.map((r, q) => Object.assign(r, { label: CBL[q], best: r === bestT, sub: tm[q] ? Math.round(r.n / tm[q] * 60) + ' рук/ч' : '', sub2: tm[q] ? fmt(r.sum / tm[q] * 60, 1) + ' BB/ч' : '', tip: tm[q] ? Math.round(tm[q] / 60) + ' ч игры' : '' })), { sub: true, sub2: true, h: 260, aria: 'результат по числу столов' }));
     cT.append(legend([['lg-pos', 'плюс'], ['lg-neg', 'минус'], ['lg-best', 'лучшее'], ['lg-small', 'мало раздач — ненадёжно']]));
     grid.append(cT);
+    if (await step()) return;
     // ---- ход сессии ----
     const gS = groups(D, X, (i) => Math.min(9, Math.floor(D.since[i] / 60)), 10);
     const cS = card('По ходу сессии', 'Результат по часам от начала сессии (сессия — игра без перерыва больше 45 минут). Видно, когда падает концентрация.');
     cS.append(bars(gS.map((r, q) => Object.assign(r, { label: q === 9 ? '9+ ч' : q + '–' + (q + 1) })), { sub: true, aria: 'результат по ходу сессии' }));
     // наклон
     {
-      const reg = (pick) => { let sx = 0, sy = 0, sxx = 0, sxy = 0, n = 0; for (const j of pick) { const xx = D.since[X.idx[j]] / 60, yy = X.v[j] * 100; sx += xx; sy += yy; sxx += xx * xx; sxy += xx * yy; n++; } return (n * sxy - sx * sy) / (n * sxx - sx * sx); };
-      const bySes = new Map(); X.idx.forEach((i, j) => { if (!bySes.has(D.ses[i])) bySes.set(D.ses[i], []); bySes.get(D.ses[i]).push(j); });
-      const SS = [...bySes.values()], all = SS.flat(), sl = reg(all), bs = []; seed = 11;
-      for (let b = 0; b < 150; b++) { const p = []; for (let z = 0; z < SS.length; z++) p.push(...SS[Math.floor(rnd() * SS.length)]); bs.push(reg(p)); }
-      bs.sort((a, b) => a - b); const lo = bs[3], hi = bs[146];
+      let n = 0, sx = 0, sy = 0; X.idx.forEach((i, j) => { n++; sx += D.since[i] / 60; sy += X.v[j] * 100; });
+      const mx = sx / n, my = sy / n; let sxx = 0, sxy = 0; X.idx.forEach((i, j) => { const dx = D.since[i] / 60 - mx; sxx += dx * dx; sxy += dx * (X.v[j] * 100 - my); });
+      const sl = sxx ? sxy / sxx : 0, cs = new Map(); X.idx.forEach((i, j) => { const dx = D.since[i] / 60 - mx, e = X.v[j] * 100 - my - sl * dx; cs.set(D.ses[i], (cs.get(D.ses[i]) || 0) + dx * e); });
+      let v2 = 0; for (const x of cs.values()) v2 += x * x; const se = sxx ? Math.sqrt(v2) / sxx : 0, lo = sl - 1.96 * se, hi = sl + 1.96 * se;
       const s = el('p', 'rs-verdict ' + (hi < 0 ? 'neg' : lo > 0 ? 'pos' : ''));
       s.append(el('b', null, (sl < 0 ? 'Каждый час сессии: ' : 'Каждый час сессии: ') + fmt(sl, 2) + ' BB/100'), document.createTextNode(hi < 0 ? ' — результат надёжно падает к концу сессии. ' : lo > 0 ? ' — к концу сессии вы играете даже лучше. ' : ' — ровного падения нет, разница в пределах случайности. '), el('span', 'rs-muted', '95%: от ' + fmt(lo, 2) + ' до ' + fmt(hi, 2)));
       cS.append(s);
     }
     grid.append(cS);
+    if (await step()) return;
     // ---- длина сессии ----
     const SL = [[0, 120, 'до 2 ч'], [120, 240, '2–4 ч'], [240, 360, '4–6 ч'], [360, 480, '6–8 ч'], [480, 600, '8–10 ч'], [600, 1e9, '10+ ч']];
     const slOf = (s) => { const z = D.sessions[s], L = z[1] - z[0]; return SL.findIndex(b => L >= b[0] && L < b[1]); };
@@ -6715,37 +6732,42 @@ window.NEWS_SNAPSHOT = (function () {
     const cL = card('Длина сессии', 'Весь результат сессий разной длины. Под столбцом — сколько было таких сессий.');
     cL.append(bars(gL.map((r, q) => Object.assign(r, { label: SL[q][2], sub: r.ses ? r.ses + ' ' + plural(r.ses, 'сессия', 'сессии', 'сессий') : '' })), { sub: true, aria: 'результат по длине сессии' }));
     grid.append(cL);
+    if (await step()) return;
     // ---- дни недели ----
-    const gD = groups(D, X, (i) => (new Date(lt(i) * 60000).getUTCDay() + 6) % 7, 7);
+    const gD = groups(D, X, (i) => D.DOW[i], 7);
     const okD = gD.filter(r => r.n >= nH * 0.04); const bestD = okD.length ? okD.reduce((a, b) => b.v > a.v ? b : a) : null;
     const cD = card('Дни недели', 'По вашему времени (часовой пояс компьютера).');
     cD.append(bars(gD.map((r, q) => Object.assign(r, { label: DOW[q], best: r === bestD })), { sub: true, aria: 'результат по дням недели' }));
     grid.append(cD);
+    if (await step()) return;
     // ---- время суток ----
-    const gH = groups(D, X, (i) => Math.floor(((lt(i) % 1440) + 1440) % 1440 / 60), 24);
+    const gH = groups(D, X, (i) => D.HOUR[i], 24);
     const cH = card('Время суток', 'Результат по часу начала раздачи, по вашему времени. Бледные часы — мало раздач.', true);
     cH.append(bars(gH.map((r, q) => Object.assign(r, { label: String(q).padStart(2, '0') })), { w: 1150, h: 260, sub: true, aria: 'результат по часам', minN: Math.max(300, nH * 0.01) }));
     grid.append(cH);
+    if (await step()) return;
     // ---- неделя × часы ----
-    const gW = groups(D, X, (i) => { const m = lt(i), d = (new Date(m * 60000).getUTCDay() + 6) % 7, h = Math.floor(((m % 1440) + 1440) % 1440 / 60); return d * 24 + h; }, 168, { ci: false });
+    const gW = groups(D, X, (i) => D.DOW[i] * 24 + D.HOUR[i], 168, { ci: false });
     const cW = card('Неделя × часы', 'Каждая клетка — день недели и час. Зелёный — плюс, красный — минус; чем ярче, тем сильнее. Бледные клетки — мало раздач.', true);
     cW.append(heat(gW, { minN: Math.max(150, nH * 0.004) }));
     grid.append(cW);
+    if (await step()) return;
     // ---- накопленный результат ----
     {
       const step = Math.max(1, Math.floor(nH / 700)), pe = [], pn = []; let a = 0, b = 0;
       const ord = X.idx.map((i, j) => j).sort((p, q) => D.t[X.idx[p]] - D.t[X.idx[q]]);
       ord.forEach((j, q) => { a += X.ev[j]; b += X.net[j]; if (q % step === 0 || q === ord.length - 1) { pe.push([q + 1, a]); pn.push([q + 1, b]); } });
-      const marks = []; let pm = -1; ord.forEach((j, q) => { const d = new Date(lt(X.idx[j]) * 60000), m = d.getUTCFullYear() * 12 + d.getUTCMonth(); if (m !== pm) { if (pm >= 0) marks.push([q, ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'][d.getUTCMonth()] + (d.getUTCMonth() === 0 ? ' ' + d.getUTCFullYear() : '')]); pm = m; } });
+      const marks = []; let pm = -1; ord.forEach((j, q) => { const m = D.MON[X.idx[j]]; if (m !== pm) { if (pm >= 0) marks.push([q, ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'][m % 12] + (m % 12 === 0 ? ' ' + Math.floor(m / 12) : '')]); pm = m; } });
       const cG = card('Накопленный результат', 'Сумма BB по раздачам по порядку: янтарная — EV, голубая — фактический результат. Разница между ними — везение.', true);
       const mk2 = []; marks.forEach(m => { if (!mk2.length || (m[0] - mk2[mk2.length - 1][0]) / nH * 1080 > 70) mk2.push(m); });
       cG.append(lines([{ pts: pe, cls: 'ev' }, { pts: pn, cls: 'net' }], { marks: mk2, aria: 'накопленный результат' }));
       cG.append(legend([['lg-ev', 'EV, BB'], ['lg-net', 'факт, BB']]));
       grid.append(cG);
     }
+    if (await step()) return;
     // ---- месяцы ----
     {
-      const mk = (i) => { const d = new Date(lt(i) * 60000); return d.getUTCFullYear() * 12 + d.getUTCMonth(); };
+      const mk = (i) => D.MON[i];
       const ms = [...new Set(X.idx.map(mk))].sort((a, b) => a - b).slice(-18), mi = new Map(ms.map((m, k) => [m, k]));
       const gM = groups(D, X, (i) => { const k = mi.get(mk(i)); return k == null ? -1 : k; }, ms.length);
       const MN = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
@@ -6753,6 +6775,7 @@ window.NEWS_SNAPSHOT = (function () {
       cM.append(bars(gM.map((r, q) => Object.assign(r, { label: MN[ms[q] % 12] + (ms.length > 12 || q === 0 || ms[q] % 12 === 0 ? ' ' + String(Math.floor(ms[q] / 12)).slice(2) : '') })), { sub: true, aria: 'результат по месяцам' }));
       grid.append(cM);
     }
+    if (await step()) return;
     // ---- позиции и глубина стека (без поправки — иначе они обнуляются) ----
     {
       const raw = F.metric === 'net' ? X.net : X.ev;
@@ -6765,6 +6788,7 @@ window.NEWS_SNAPSHOT = (function () {
       cK.append(bars(gK.map((r, q) => Object.assign(r, { label: STK[q] })), { sub: true, aria: 'результат по глубине стека' }));
       grid.append(cK);
     }
+    if (await step()) return;
     // ---- форматы турниров: таблица ----
     {
       const cF = card('Форматы турниров', 'Нажмите на строку — она станет фильтром для всей страницы.', true);
@@ -6808,6 +6832,7 @@ window.NEWS_SNAPSHOT = (function () {
       cF.append(note('«~» — интервал захватывает ноль: разница может быть случайной. Везение — факт минус EV (олл-ины, которые выиграли или проиграли сверх ожидания).'));
       grid.append(cF);
     }
+    if (await step()) return;
     // ---- сравнение двух периодов (остальные фильтры действуют, «Период» — нет) ----
     {
       const cC = card('Сравнение периодов', 'Последний период против предыдущего такой же длины. Остальные фильтры страницы действуют, «Период» — нет.', true);
@@ -6867,6 +6892,7 @@ window.NEWS_SNAPSHOT = (function () {
       for (const [s, a] of sesStart) a.sort((p, q) => p[0] - q[0]);
       const lastBefore = (arr, t, strict) => { let lo = 0, hi = arr.length - 1, r = -1; while (lo <= hi) { const m = (lo + hi) >> 1; if (strict ? arr[m] < t : arr[m] <= t) { r = m; lo = m + 1; } else hi = m - 1; } return r >= 0 ? arr[r] : null; };
 
+      if (await step()) return;
       // #16 после крупного проигрыша
       {
         const cA = card('После крупного проигрыша', 'Как вы играете сразу после проигранной раздачи на ' + thr + '+ BB (на любом столе) — проверка на тильт. «Обычно» — все остальные раздачи.');
@@ -6878,6 +6904,7 @@ window.NEWS_SNAPSHOT = (function () {
         if (b0.n && b1.n) cA.append(el('p', 'rs-verdict ' + (b1.v < b0.v ? 'neg' : 'pos'), 'Первые 10 минут после крупного проигрыша: ' + fmt(b1.v) + ' против обычных ' + fmt(b0.v) + ' BB/100' + (sure(b1) && b1.v < 0 ? ' — похоже на тильт: после такого банка стоит взять минуту паузы.' : '.')));
         grid.append(cA);
       }
+      if (await step()) return;
       // #17 после регистрации в новом турнире
       {
         const L = ['Без нового стола', '0–5 мин', '5–15 мин', '15–30 мин'];
@@ -6886,6 +6913,7 @@ window.NEWS_SNAPSHOT = (function () {
         cN.append(bars(g.map((r, q) => Object.assign(r, { label: L[q] })), { sub: true, aria: 'результат после открытия нового турнира' }));
         grid.append(cN);
       }
+      if (await step()) return;
       // #18 столы × ход сессии
       {
         const TB = ['1–2', '3–4', '5–6', '7–8', '9+'], tb = (n) => n <= 2 ? 0 : n <= 4 ? 1 : n <= 6 ? 2 : n <= 8 ? 3 : 4, SH = ['0–1', '1–2', '2–3', '3–4', '4–5', '5–6', '6–7', '7+'];
@@ -6894,15 +6922,17 @@ window.NEWS_SNAPSHOT = (function () {
         cX.append(grid2({ rows: TB.map(x => x + ' ст.'), cols: SH.map(x => x + ' ч'), get: (r, cc) => g[r * 8 + cc], text: true, aria: 'столы и ход сессии', minN: 500 }));
         grid.append(cX);
       }
+      if (await step()) return;
       // #19 час суток × час сессии
       {
         const HB = ['00–02', '02–04', '04–06', '06–08', '08–10', '10–12', '12–14', '14–16', '16–18', '18–20', '20–22', '22–24'], SH = ['0–1', '1–2', '2–3', '3–4', '4–5', '5–6', '6–7', '7+'];
-        const g = groups(D, X, (i) => Math.floor(((lt(i) % 1440) + 1440) % 1440 / 120) * 8 + Math.min(7, Math.floor(D.since[i] / 60)), 96, { ci: false });
+        const g = groups(D, X, (i) => (D.HOUR[i] >> 1) * 8 + Math.min(7, Math.floor(D.since[i] / 60)), 96, { ci: false });
         const used = HB.map((_, r) => g.slice(r * 8, r * 8 + 8).some(x => x.n)).map((u, r) => u ? r : -1).filter(r => r >= 0);
         const cY = card('Время суток × час сессии', 'Отделяет «поздно по часам» от «устали за длинную сессию»: если краснеет столбец — дело в длине сессии, если строка — во времени суток.');
         cY.append(grid2({ rows: used.map(r => HB[r]), cols: SH.map(x => x + ' ч'), get: (r, cc) => g[used[r] * 8 + cc], text: true, aria: 'время суток и ход сессии', minN: 500 }));
         grid.append(cY);
       }
+      if (await step()) return;
       // #20 стиль игры по ходу сессии и по столам
       {
         const sit = c.sit, act = c.act, rz = c.rz, cl = c.cl, lr = c.lr, f3b = c.f3b, fcb = c.fcb, pos = c.pos;
@@ -6924,6 +6954,7 @@ window.NEWS_SNAPSHOT = (function () {
         two.append(tbl('Час сессии', (i) => Math.min(6, Math.floor(D.since[i] / 60)), ['0–1 ч', '1–2 ч', '2–3 ч', '3–4 ч', '4–5 ч', '5–6 ч', '6+ ч']), tbl('Столов', (i) => { const n = D.conc[i]; return n <= 2 ? 0 : n <= 4 ? 1 : n <= 6 ? 2 : n <= 8 ? 3 : 4; }, ['1–2', '3–4', '5–6', '7–8', '9+']));
         cZ.append(two); grid.append(cZ);
       }
+      if (await step()) return;
       // #21 рейтинг турниров по названию
       {
         const nameIdx = new Map(), names = []; const tn = D.titles.map(x => { const k = x.room + '|' + tourName(x.t); let q = nameIdx.get(k); if (q == null) { q = names.length; nameIdx.set(k, q); names.push({ room: rooms[x.room] || '', name: tourName(x.t) }); } return q; });
@@ -6944,6 +6975,7 @@ window.NEWS_SNAPSHOT = (function () {
         if (!list.length) cR.append(note('Ни один турнир не набрал ' + num(minH) + ' раздач под эти фильтры.'));
         grid.append(cR);
       }
+      if (await step()) return;
       // #22 столы × скорость, #23 бай-ин × рум
       {
         const TB = ['1–2', '3–4', '5–6', '7–8', '9+'], tb = (n) => n <= 2 ? 0 : n <= 4 ? 1 : n <= 6 ? 2 : n <= 8 ? 3 : 4;
@@ -6957,6 +6989,7 @@ window.NEWS_SNAPSHOT = (function () {
         const c2 = card('Бай-ин × рум', 'Где каждый уровень бай-инов играется лучше.');
         c2.append(grid2({ rows: usedR.map(r => rooms[r]), cols: BIL, get: (r, cc) => g2[usedR[r] * 5 + cc], text: true, aria: 'бай-ин и рум', minN: 500 })); grid.append(c2);
       }
+      if (await step()) return;
       // #24 один рум или несколько одновременно
       {
         const ev2 = []; D.tours.forEach((x, k) => { const room = D.titles[x[0]] ? D.titles[x[0]].room : -1; ev2.push([x[1], 1, room], [x[2] + 1, -1, room]); }); ev2.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
@@ -6966,6 +6999,7 @@ window.NEWS_SNAPSHOT = (function () {
         const cM = card('Один рум или несколько', 'Результат, когда открыт один клиент, два или три и больше одновременно.');
         cM.append(bars(g.map((r, q) => Object.assign(r, { label: ['1 рум', '2 рума', '3+ рума'][q] })), { sub: true, aria: 'один или несколько румов' })); grid.append(cM);
       }
+      if (await step()) return;
       // #25 календарь
       {
         const days = new Map(); X.idx.forEach((i, j) => { const d = Math.floor(lt(i) / 1440); const z = days.get(d) || { n: 0, sum: 0 }; z.n++; z.sum += raw[j]; days.set(d, z); });
@@ -6974,6 +7008,7 @@ window.NEWS_SNAPSHOT = (function () {
         const cK = card('Календарь', 'Каждый игровой день — клетка: зелёный — день в плюсе по ' + (F.metric === 'net' ? 'факту' : 'EV') + ', красный — в минусе. В плюсе ' + pos + ' из ' + days.size + ' ' + plural(days.size, 'дня', 'дней', 'дней') + '.', true);
         cK.append(calendar(days, {})); grid.append(cK);
       }
+      if (await step()) return;
       // #26 все сессии точками + лучшие и худшие
       {
         const S = new Map(); X.idx.forEach((i, j) => { const s = D.ses[i]; const z = S.get(s) || { n: 0, sum: 0 }; z.n++; z.sum += raw[j]; S.set(s, z); });
@@ -6985,6 +7020,7 @@ window.NEWS_SNAPSHOT = (function () {
         lst.append(block('Лучшие сессии', srt.slice(0, 3), 'pos'), block('Худшие сессии', srt.slice(-3).reverse(), 'neg'));
         two.append(lst); cP.append(two); grid.append(cP);
       }
+      if (await step()) return;
       // #27 перерывы
       {
         const brk = new Map(); for (const [s, a] of sesT) { const b = []; for (let k = 1; k < a.length; k++) if (a[k] - a[k - 1] >= 10) b.push([a[k - 1], a[k]]); brk.set(s, b); }
@@ -6995,14 +7031,15 @@ window.NEWS_SNAPSHOT = (function () {
         two.append(bars(g.map((r, q) => Object.assign(r, { label: ['без пауз', '1 пауза', '2+ паузы'][q], sub: r.ses ? r.ses + ' ' + plural(r.ses, 'сессия', 'сессии', 'сессий') : '' })), { w: 300, sub: true, aria: 'сессии с паузами' }), bars(g2.map((r, q) => Object.assign(r, { label: ['до паузы', 'после паузы'][q] })), { w: 300, sub: true, aria: 'до и после паузы' }));
         cB.append(two); grid.append(cB);
       }
+      if (await step()) return;
       // #28 красные и зелёные зоны: все пары условий
       {
         const HB3 = ['00–03', '03–06', '06–09', '09–12', '12–15', '15–18', '18–21', '21–24'];
         const dims = [
-          ['время', 8, (i) => Math.floor(((lt(i) % 1440) + 1440) % 1440 / 180), (k) => HB3[k]],
+          ['время', 8, (i) => Math.floor(D.HOUR[i] / 3), (k) => HB3[k]],
           ['столы', 3, (i) => { const n = D.conc[i]; return n <= 4 ? 0 : n <= 6 ? 1 : 2; }, (k) => ['1–4 стола', '5–6 столов', '7+ столов'][k]],
           ['сессия', 3, (i) => { const h = D.since[i] / 60; return h < 2 ? 0 : h < 5 ? 1 : 2; }, (k) => ['первые 2 ч', '2–5 ч сессии', 'после 5 ч'][k]],
-          ['день', 7, (i) => (new Date(lt(i) * 60000).getUTCDay() + 6) % 7, (k) => DOW[k]],
+          ['день', 7, (i) => D.DOW[i], (k) => DOW[k]],
           ['скорость', 3, (i) => { const tr = D.tour[i], q = tr >= 0 ? D.tours[tr][0] : -1; return q >= 0 ? D.cls[q].speed : 0; }, (k) => SPEED[k].toLowerCase()],
           ['рум', rooms.length, (i) => c.room[i], (k) => rooms[k]]
         ];
@@ -7019,6 +7056,7 @@ window.NEWS_SNAPSHOT = (function () {
         two.append(lst('Красные зоны — где теряете', all.slice(0, 6), 'bad'), lst('Зелёные зоны — где зарабатываете', all.slice(-6).reverse(), 'good'));
         cZ.append(two); grid.append(cZ);
       }
+      if (await step()) return;
       // #29 позиция × стек
       {
         const g = groups(D, X, (i) => c.pos[i] * 5 + stkB(c.bb[i] / 10), 35, { ci: false, vals: raw });
@@ -7042,17 +7080,20 @@ window.NEWS_SNAPSHOT = (function () {
       const s01 = gS.slice(0, 2).reduce((a, r) => [a[0] + r.sum, a[1] + r.n], [0, 0]), sLate = gS.slice(5).reduce((a, r) => [a[0] + r.sum, a[1] + r.n], [0, 0]);
       if (s01[1] > 500 && sLate[1] > 500) add(sLate[0] / sLate[1] < s01[0] / s01[1] ? 'bad' : 'good', 'Начало и конец сессии', 'Первые 2 часа: ' + fmt(s01[0] / s01[1] * 100) + ', после 5-го часа: ' + fmt(sLate[0] / sLate[1] * 100) + ' BB/100.', null);
       const luck = (netS - evS) / nH * 100; add(luck >= 0 ? 'good' : 'bad', luck >= 0 ? 'Вам везёт' : 'Вам не везёт', 'Факт отличается от EV на ' + fmt(luck) + ' BB/100 — это олл-ины, не ваша игра.', null);
-      const cI = card('Главное', 'Выводы под текущие фильтры. «Надёжно» — интервал не захватывает ноль; «тенденция» — может быть случайностью.', true);
       const list = el('div', 'rs-ins');
       ins.forEach(x => { const d = el('div', 'rs-in ' + x.cls); const h = el('b', null, x.title); if (x.badge) h.append(el('em', x.badge === 'надёжно' ? 'sure' : null, x.badge)); d.append(h, el('p', null, x.text)); list.append(d); });
-      cI.append(list); grid.prepend(cI);
+      cI.lastChild.remove(); cI.append(list);
     }
     // номера блоков — чтобы было удобно обсуждать, что убрать или поменять
     { let k = 0; const tag = (node) => { const t = el('span', 'rs-num', '#' + (++k)); node.append(t); };
       tag(fb); tag(kp); grid.querySelectorAll(':scope > .rs-card').forEach(c => tag(c.querySelector('.rs-card-h') || c)); }
+    if (gen !== GEN) return;
     R.append(note('Расчёт: ' + mName + ' в BB на 100 раздач. Поправка вычитает средний результат вашей позиции и глубины стека, чтобы ранние стадии и короткие стеки не искажали сравнение времени и столов. Время румов приведено к одному часовому поясу. Деньги, ICM и баунти не учитываются — только фишки.'));
+    CACHE.set(ckey, [...R.childNodes]); if (CACHE.size > 10) CACHE.delete(CACHE.keys().next().value);
   }
-  window.MDAResults = { draw, reset: () => { DATA = null; DKEY = null; } };
+  // данные «Результатов» грузятся заранее, в свободное время после загрузки базы — вкладка открывается без ожидания
+  (function pre(k) { if (k > 240) return; if (typeof HERO_DB !== 'undefined' && HERO_DB) { const go = () => load().catch(() => {}); setTimeout(() => (window.requestIdleCallback ? window.requestIdleCallback(go, { timeout: 4000 }) : go()), 1500); return; } setTimeout(() => pre(k + 1), 500); })(0);
+  window.MDAResults = { draw, reset: () => { DATA = null; DKEY = null; CACHE.clear(); } };
 })();
 
 </script>
