@@ -492,7 +492,7 @@
     // «Полная» поправка: совместная модель всех факторов (обратная подгонка аддитивной модели). Для блока фактора берётся
     // «частичный остаток»: результат минус вклад всех ОСТАЛЬНЫХ факторов — то есть влияние только этого фактора при прочих равных.
     const PR = {};
-    let T_HEAD = null, S_HEAD = null, L_HEAD = null, D_HEAD = null; // выводы #4 и #5 — те же слова попадают в «Главное» (#3)
+    let T_HEAD = null, S_HEAD = null, L_HEAD = null, D_HEAD = null, H_HEAD = null, CUM = null; // выводы #4 и #5 — те же слова попадают в «Главное» (#3)
     if (+F.adj === 2) {
       const cbF = (n) => n <= 2 ? 0 : n <= 4 ? 1 : n <= 6 ? 2 : n <= 8 ? 3 : n <= 10 ? 4 : n <= 13 ? 5 : 6;
       const slF = (s) => { const z = D.sessions[s], L = z[1] - z[0]; return L < 120 ? 0 : L < 240 ? 1 : L < 360 ? 2 : L < 480 ? 3 : L < 600 ? 4 : 5; };
@@ -537,6 +537,18 @@
     X.idx.forEach((i, j) => { sesSet.add(D.ses[i]); if (D.tour[i] >= 0) tourSet.add(D.tour[i]); evS += X.ev[j]; netS += X.net[j]; });
     let mins = 0; for (const s of sesSet) { const z = D.sessions[s]; mins += Math.max(15, z[1] - z[0]); }
     const nH = X.idx.length;
+    // ---- накопленный результат (сразу под фильтрами) ----
+    {
+      const step = Math.max(1, Math.floor(nH / 700)), pe = [], pn = []; let a = 0, b = 0;
+      const ord = X.idx.map((i, j) => j).sort((p, q) => D.t[X.idx[p]] - D.t[X.idx[q]]);
+      ord.forEach((j, q) => { a += X.ev[j]; b += X.net[j]; if (q % step === 0 || q === ord.length - 1) { pe.push([q + 1, a]); pn.push([q + 1, b]); } });
+      const marks = []; let pm = -1; ord.forEach((j, q) => { const m = D.MON[X.idx[j]]; if (m !== pm) { if (pm >= 0) marks.push([q, ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'][m % 12] + (m % 12 === 0 ? ' ' + Math.floor(m / 12) : '')]); pm = m; } });
+      const cG = card('Накопленный результат', 'Сумма BB по раздачам по порядку: янтарная — EV, голубая — фактический результат. Разница между ними — везение.', true);
+      const mk2 = []; marks.forEach(m => { if (!mk2.length || (m[0] - mk2[mk2.length - 1][0]) / nH * 1080 > 70) mk2.push(m); });
+      if (nH < MINN) cG.append(lack());
+      else { cG.append(lines([{ pts: pe, cls: 'ev' }, { pts: pn, cls: 'net' }], { marks: mk2, aria: 'накопленный результат' })); cG.append(legend([['lg-ev', 'EV, BB'], ['lg-net', 'факт, BB']])); }
+      R.append(cG); CUM = cG;
+    }
     const kp = el('div', 'rs-kpis');
     const kpi = (l, v, cls, sub) => { const k = el('div', 'rs-kpi'); k.append(el('span', null, l), el('b', cls || null, v)); if (sub) k.append(el('small', null, sub)); kp.append(k); };
     kpi('Раздач', num(nH)); kpi('Турниров', num(tourSet.size)); kpi('Сессий', num(sesSet.size), null, num(mins / 60) + ' ч игры');
@@ -701,50 +713,94 @@
     if (await step()) return;
     // ---- время суток ----
     const gH = groups(D, X, (i) => D.HOUR[i], 24, pure('hour'));
-    const cH = card('Время суток', 'Результат по часу начала раздачи, по вашему времени. Бледные часы — мало раздач.', true);
-    cH.append(bars(gH.map((r, q) => Object.assign(r, { label: String(q).padStart(2, '0') })), { w: 1150, h: 260, sub: true, aria: 'результат по часам', minN: Math.max(300, nH * 0.01) }));
-    addPure(cH, 'число столов, час сессии, день, длина сессии, скорость и рум', gH); grid.append(cH);
-    if (await step()) return;
-    // ---- неделя × часы ----
-    const gW = groups(D, X, (i) => D.DOW[i] * 24 + D.HOUR[i], 168);
-    const cW = card('Неделя × часы', 'Каждая клетка — день недели и час. Зелёный — плюс, красный — минус; чем ярче, тем сильнее. Бледные клетки — мало раздач.', true);
-    cW.append(heat(gW, { minN: Math.max(150, nH * 0.004) }));
-    grid.append(cW);
-    if (await step()) return;
-    // ---- накопленный результат ----
+    const cH = card('В какое время играть?', 'Как вы играете в разные часы суток — по вашему времени.', true, 'Каждая клетка — час суток, когда шла раздача (по часовому поясу вашего компьютера). Показаны только часы, в которые вы играли.\n\nЧисло — на сколько BB/100 вы играете в этот час лучше (плюс) или хуже (минус) своего среднего; что такое «ваш средний» — в подсказке «в тех же ситуациях». Ниже — сколько раздач сыграно в этот час.\n\nЦвет: зелёный — лучше среднего, серый — как в среднем, красный — хуже; бледный — «чуть» (может быть случайностью), пунктир — мало данных.');
     {
-      const step = Math.max(1, Math.floor(nH / 700)), pe = [], pn = []; let a = 0, b = 0;
-      const ord = X.idx.map((i, j) => j).sort((p, q) => D.t[X.idx[p]] - D.t[X.idx[q]]);
-      ord.forEach((j, q) => { a += X.ev[j]; b += X.net[j]; if (q % step === 0 || q === ord.length - 1) { pe.push([q + 1, a]); pn.push([q + 1, b]); } });
-      const marks = []; let pm = -1; ord.forEach((j, q) => { const m = D.MON[X.idx[j]]; if (m !== pm) { if (pm >= 0) marks.push([q, ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'][m % 12] + (m % 12 === 0 ? ' ' + Math.floor(m / 12) : '')]); pm = m; } });
-      const cG = card('Накопленный результат', 'Сумма BB по раздачам по порядку: янтарная — EV, голубая — фактический результат. Разница между ними — везение.', true);
-      const mk2 = []; marks.forEach(m => { if (!mk2.length || (m[0] - mk2[mk2.length - 1][0]) / nH * 1080 > 70) mk2.push(m); });
-      if (nH < MINN) cG.append(lack());
-      else { cG.append(lines([{ pts: pe, cls: 'ev' }, { pts: pn, cls: 'net' }], { marks: mk2, aria: 'накопленный результат' })); cG.append(legend([['lg-ev', 'EV, BB'], ['lg-net', 'факт, BB']])); }
-      grid.append(cG);
+      const ref = 0, hh = (q) => String(q).padStart(2, '0') + ':00', span = (q) => String(q).padStart(2, '0') + '–' + String((q + 1) % 24).padStart(2, '0');
+      gH.forEach((r, q) => { r.label = hh(q); });
+      const used = gH.filter(r => r.n);
+      if (!used.some(r => r.n >= MINN)) cH.append(lack());
+      else {
+        const ev = used.filter(r => verdictOf(r, ref)[0] !== 'small'), bad = ev.filter(r => verdictOf(r, ref)[0] === 'down'), good = ev.filter(r => verdictOf(r, ref)[0] === 'up');
+        const sb = ev.filter(r => verdictOf(r, ref)[0] === 'down-soft'), sg = ev.filter(r => verdictOf(r, ref)[0] === 'up-soft');
+        // основное игровое время: часы с 5%+ раздач, по кругу от полудня (чтобы вечер и ночь шли подряд)
+        const keys = used.filter(r => r.n >= nH * 0.05).map(r => (r.k + 12) % 24); const when = keys.length ? 'Чаще всего вы играете с ' + hh((Math.min(...keys) + 12) % 24) + ' до ' + hh((Math.max(...keys) + 13) % 24) + '. ' : '';
+        const list = (a) => a.map(r => span(r.k)).join(', ');
+        const head = el('div', 'rs-head2'); let hb, ht, hc = null;
+        if (bad.length || good.length) {
+          hb = (good.length ? 'Лучше всего вы играете в ' + list(good) : '') + (good.length && bad.length ? '; хуже — в ' : bad.length ? 'Хуже всего вы играете в ' : '') + (bad.length ? list(bad) : '');
+          hc = bad.length && !good.length ? 'neg' : good.length && !bad.length ? 'pos' : null;
+          ht = when + [...good, ...bad].map(r => span(r.k) + ' ' + fmt(r.v, 1)).join(', ') + ' BB/100 к вашему среднему.' + (bad.length ? ' В это время стоит играть меньше столов или сделать перерыв.' : '');
+        } else {
+          hb = 'Время суток на игру не влияет'; ht = when + 'Разница между часами в пределах случайности.' + (sg.length || sb.length ? ' Слегка ' + [sg.length ? 'лучше в ' + list(sg) : '', sb.length ? 'хуже в ' + list(sb) : ''].filter(Boolean).join(', ') + ' — но это может быть шумом.' : '');
+        }
+        head.append(el('b', hc, hb), el('span', null, ht)); cH.append(head, avgLine());
+        H_HEAD = { cls: hc === 'neg' ? 'bad' : 'good', title: hb, text: ht };
+        const tl = el('div', 'rs-tl rs-tlh');
+        // по кругу от самого раннего «игрового» часа — чтобы ночь шла после вечера
+        const start = used.length ? used.map(r => r.k).sort((a, b) => ((a + 12) % 24) - ((b + 12) % 24))[0] : 0;
+        for (let d = 0; d < 24; d++) { const r = gH[(start + d) % 24]; if (!r.n) continue; const [cls, txt] = verdictOf(r, ref); const c2 = el('div', 'rs-tl-c ' + cls); c2.append(el('span', 'h', span(r.k)), el('b', null, cls !== 'small' ? fmt(r.v - ref, 1) : '—'), el('small', null, txt), el('em', null, num(r.n) + ' р.')); c2.title = span(r.k) + ': ' + num(r.n) + ' раздач, ' + r.ses + ' ' + plural(r.ses, 'сессия', 'сессии', 'сессий') + (Number.isFinite(r.se) ? ' · погрешность ±' + (1.96 * r.se).toFixed(0) + ' BB/100' : ''); tl.append(c2); }
+        cH.append(tl);
+      }
     }
+    grid.append(cH);
     if (await step()) return;
     // ---- месяцы ----
     {
-      const mk = (i) => D.MON[i];
-      const ms = [...new Set(X.idx.map(mk))].sort((a, b) => a - b).slice(-18), mi = new Map(ms.map((m, k) => [m, k]));
-      const gM = groups(D, X, (i) => { const k = mi.get(mk(i)); return k == null ? -1 : k; }, ms.length);
-      const MN = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
-      const cM = card('По месяцам', 'Последние ' + ms.length + ' ' + plural(ms.length, 'месяц', 'месяца', 'месяцев') + ' с игрой.');
-      cM.append(bars(gM.map((r, q) => Object.assign(r, { label: MN[ms[q] % 12] + (ms.length > 12 || q === 0 || ms[q] % 12 === 0 ? ' ' + String(Math.floor(ms[q] / 12)).slice(2) : '') })), { sub: true, aria: 'результат по месяцам' }));
+      const mk = (i) => D.MON[i], MN = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'];
+      const ms = [...new Set(X.idx.map(mk))].sort((a, b) => a - b).slice(-18), mi = new Map(ms.map((m, k) => [m, k])), K = ms.length, key = (i) => { const k = mi.get(mk(i)); return k == null ? -1 : k; };
+      const gM = groups(D, X, key, K), gME = groups(D, X, key, K, { vals: X.ev, ci: false, shrink: false });
+      gM.forEach((r, q) => { r.label = MN[ms[q] % 12] + ' ' + Math.floor(ms[q] / 12); r.ev100 = gME[q].v; r.evSum = gME[q].sum; });
+      const cM = card('Как менялся результат по месяцам?', 'Ваш EV по месяцам и как вы играли в каждом месяце по сравнению со своим средним.', false, 'В каждой строке — месяц.\n\n«EV/100» — ваш EV в BB на 100 раздач без поправок; «Всего, BB» — сколько BB вы набрали по EV за месяц. «Игра» — лучше или хуже своего среднего вы играли в этом месяце с учётом позиций и стеков (что такое «ваш средний» — в подсказке «в тех же ситуациях»).\n\n«Мало данных» — меньше 5 сессий или погрешность больше ±20 BB/100.');
+      const rowsM = gM.filter(r => r.n);
+      if (!rowsM.some(r => r.n >= MINN)) cM.append(lack());
+      else {
+        const ev = rowsM.filter(r => verdictOf(r, 0)[0] !== 'small'), bad = ev.filter(r => verdictOf(r, 0)[0] === 'down'), good = ev.filter(r => verdictOf(r, 0)[0] === 'up');
+        const best = ev.length ? ev.reduce((a, b) => b.ev100 > a.ev100 ? b : a) : null, worst = ev.length ? ev.reduce((a, b) => b.ev100 < a.ev100 ? b : a) : null;
+        const head = el('div', 'rs-head2'); let hb, hc = null;
+        if (bad.length) { hb = 'Слабые месяцы: ' + bad.map(r => r.label).join(', '); hc = 'neg'; } else if (good.length) { hb = 'Сильные месяцы: ' + good.map(r => r.label).join(', '); hc = 'pos'; } else hb = 'Игра стабильна от месяца к месяцу';
+        const ht = (best && worst && best !== worst ? 'Больше всего EV — ' + best.label + ': ' + fmt(best.ev100, 1) + ' BB/100 (' + fmt(best.evSum, 0) + ' BB), меньше всего — ' + worst.label + ': ' + fmt(worst.ev100, 1) + ' BB/100.' : '') + (bad.length || good.length ? ' Отмеченные месяцы — заметно ' + (bad.length ? 'хуже' : 'лучше') + ' вашего среднего уровня игры.' : ' Качество игры в пределах случайности одинаковое во все месяцы.');
+        head.append(el('b', hc, hb), el('span', null, ht)); cM.append(head);
+        const tb = el('div', 'rs-rows rs-rows-m'); const hdr = el('div', 'rs-row rs-row-h'); ['Месяц', 'Игра', 'Раздач', 'EV/100', 'Всего, BB'].forEach(t => hdr.append(el('span', null, t))); tb.append(hdr);
+        rowsM.slice().reverse().forEach(r => { const [cls, txt] = verdictOf(r, 0), row = el('div', 'rs-row ' + (cls === 'small' ? 'small' : '')); row.append(el('b', null, r.label), el('span', 'rs-chip ' + cls, txt), el('span', 'num dim', num(r.n)), el('span', 'num ' + (r.ev100 >= 0 ? 'pos' : 'neg'), fmt(r.ev100, 1)), el('span', 'num ' + (r.evSum >= 0 ? 'pos' : 'neg'), fmt(r.evSum, 0))); row.title = r.label + ': ' + r.ses + ' ' + plural(r.ses, 'сессия', 'сессии', 'сессий') + (Number.isFinite(r.se) ? ' · погрешность ±' + (1.96 * r.se).toFixed(0) + ' BB/100' : ''); tb.append(row); });
+        cM.append(tb);
+      }
       grid.append(cM);
     }
     if (await step()) return;
-    // ---- позиции и глубина стека (без поправки — иначе они обнуляются) ----
+    // ---- позиции и глубина стека: реальный заработок (без поправки — иначе они обнуляются) ----
     {
-      const raw = F.metric === 'net' ? X.net : X.ev;
-      const gP = groups(D, X, (i) => c.pos[i], 7, { vals: raw });
-      const cP = card('Позиции', 'Без поправки: сколько BB/100 приносит каждая позиция (блайнды всегда в минусе — это нормально).');
-      cP.append(bars(gP.map((r, q) => Object.assign(r, { label: POS[q] })).filter(r => r.n), { sub: true, aria: 'результат по позициям' }));
+      const raw = X.ev;
+      // в плюсе / в минусе надёжно, около нуля, мало данных
+      const vRaw = (r) => { if (!r.n || r.n < MINN || (r.ses != null && r.ses < 5) || (Number.isFinite(r.se) && 1.96 * r.se > 20)) return ['small', 'мало данных']; if (sure(r)) return r.v > 0 ? ['up', 'в плюсе'] : ['down', 'в минусе']; return ['eq', 'около нуля']; };
+      const rowsRaw = (rows, labels, cd, title1) => {
+        const tb = el('div', 'rs-rows rs-rows-p'); const hdr = el('div', 'rs-row rs-row-h'); [title1, 'Итог', 'Раздач', 'EV/100', 'Всего, BB'].forEach(t => hdr.append(el('span', null, t))); tb.append(hdr);
+        rows.forEach(r => { if (!r.n) return; const [cls, txt] = vRaw(r), row = el('div', 'rs-row ' + (cls === 'small' ? 'small' : '')); row.append(el('b', null, labels[r.k]), el('span', 'rs-chip ' + cls, txt), el('span', 'num dim', num(r.n)), el('span', 'num ' + (r.v >= 0 ? 'pos' : 'neg'), fmt(r.raw != null ? r.raw : r.v, 1)), el('span', 'num ' + (r.sumRaw >= 0 ? 'pos' : 'neg'), fmt(r.sumRaw, 0))); row.title = labels[r.k] + ': ' + r.ses + ' ' + plural(r.ses, 'сессия', 'сессии', 'сессий') + (Number.isFinite(r.se) ? ' · погрешность ±' + (1.96 * r.se).toFixed(0) + ' BB/100' : ''); tb.append(row); });
+        cd.append(tb);
+      };
+      const gP = groups(D, X, (i) => c.pos[i], 7, { vals: raw, shrink: false }), gPs = groups(D, X, (i) => c.pos[i], 7, { vals: raw, ci: false, shrink: false });
+      gP.forEach((r, q) => { r.sumRaw = gPs[q].sum; });
+      const cP = card('Где вы зарабатываете: позиции', 'Реальный EV по позициям, без поправок.', false, 'В каждой строке — позиция за столом.\n\n«EV/100» — ваш EV в BB на 100 раздач с этой позиции, «Всего, BB» — сколько BB она принесла (или отняла) за всё время.\n\n«В плюсе» и «в минусе» — надёжно, с учётом случайности; «около нуля» — разница с нулём в пределах случайности. Блайнды почти у всех в минусе — это нормально: вы платите их вслепую.');
+      if (!gP.some(r => r.n >= MINN)) cP.append(lack());
+      else {
+        const nonBl = gP.filter(r => r.n && r.k <= 4), bl = gP.filter(r => r.n && r.k >= 5), ok = nonBl.filter(r => vRaw(r)[0] !== 'small');
+        const best = ok.length ? ok.reduce((a, b) => b.v > a.v ? b : a) : null, losing = ok.filter(r => vRaw(r)[0] === 'down');
+        const head = el('div', 'rs-head2');
+        head.append(el('b', losing.length ? 'neg' : null, losing.length ? 'В минусе позиция ' + losing.map(r => POS[r.k]).join(', ') : best ? 'Больше всего приносит ' + POS[best.k] : 'Позиции'),
+          el('span', null, (best ? POS[best.k] + ': ' + fmt(best.v, 1) + ' BB/100, всего ' + fmt(best.sumRaw, 0) + ' BB. ' : '') + (losing.length ? 'Обычно ранние и поздние позиции в плюсе — игру с ' + losing.map(r => POS[r.k]).join(', ') + ' стоит разобрать. ' : '') + (bl.length ? 'Блайнды: ' + bl.map(r => POS[r.k] + ' ' + fmt(r.v, 1)).join(', ') + ' BB/100 — минус на блайндах нормален.' : '')));
+        cP.append(head); rowsRaw(gP, POS, cP, 'Позиция');
+      }
       grid.append(cP);
-      const gK = groups(D, X, (i) => stkB(c.bb[i] / 10), 5, { vals: raw });
-      const cK = card('Глубина стека', 'Без поправки: результат при разном вашем стеке — ранняя стадия (глубоко) против пуш-фолда.');
-      cK.append(bars(gK.map((r, q) => Object.assign(r, { label: STK[q] })), { sub: true, aria: 'результат по глубине стека' }));
+      const gK = groups(D, X, (i) => stkB(c.bb[i] / 10), 5, { vals: raw, shrink: false }), gKs = groups(D, X, (i) => stkB(c.bb[i] / 10), 5, { vals: raw, ci: false, shrink: false });
+      gK.forEach((r, q) => { r.sumRaw = gKs[q].sum; });
+      const cK = card('Где вы зарабатываете: глубина стека', 'Реальный EV при разном вашем стеке, без поправок.', false, 'В каждой строке — ваш стек в больших блайндах на начало раздачи: 70+ BB — обычно ранняя стадия, до 10 BB — пуш-фолд.\n\n«EV/100» — ваш EV в BB на 100 раздач при таком стеке, «Всего, BB» — сколько BB это принесло за всё время.\n\n«В плюсе» и «в минусе» — надёжно, с учётом случайности; «около нуля» — разница с нулём в пределах случайности.');
+      if (!gK.some(r => r.n >= MINN)) cK.append(lack());
+      else {
+        const ok = gK.filter(r => r.n && vRaw(r)[0] !== 'small'), best = ok.length ? ok.reduce((a, b) => b.v > a.v ? b : a) : null, worst = ok.length ? ok.reduce((a, b) => b.v < a.v ? b : a) : null, losing = ok.filter(r => vRaw(r)[0] === 'down');
+        const head = el('div', 'rs-head2');
+        head.append(el('b', losing.length ? 'neg' : null, losing.length ? 'Вы теряете со стеком ' + losing.map(r => STK[r.k]).join(', ') : best ? 'Лучше всего — со стеком ' + STK[best.k] : 'Глубина стека'),
+          el('span', null, (best ? STK[best.k] + ': ' + fmt(best.v, 1) + ' BB/100. ' : '') + (worst && worst !== best ? 'Меньше всего — ' + STK[worst.k] + ': ' + fmt(worst.v, 1) + ' BB/100. ' : '') + (losing.length ? 'Этот диапазон стека стоит подтянуть.' : 'Во всех диапазонах стека вы в плюсе или около нуля.')));
+        cK.append(head); rowsRaw(gK, STK, cK, 'Стек');
+      }
       grid.append(cK);
     }
     if (await step()) return;
@@ -1034,11 +1090,7 @@
       const ins = [];
       const add = (cls, title, text, r) => ins.push({ cls, title, text, badge: r ? (sure(r) ? 'надёжно' : 'тенденция') : null });
       if (T_HEAD) add(T_HEAD.cls, T_HEAD.title, T_HEAD.text, null);
-      const okH = gH.filter(r => r.n >= nH * 0.03);
-      if (okH.length && gH.flat) add('good', 'Время суток: разницы не видно', 'Отличия между часами в пределах случайности — по этим данным время суток на игру не влияет.', null);
-      else if (okH.length) { const w = okH.reduce((a, b) => b.v < a.v ? b : a), bst = okH.reduce((a, b) => b.v > a.v ? b : a);
-        add('bad', 'Слабый час: ' + String(w.k).padStart(2, '0') + ':00–' + String((w.k + 1) % 24).padStart(2, '0') + ':00', fmt(w.v) + ' BB/100 на ' + num(w.n) + ' раздачах.' + (sure(w) && w.v < 0 ? ' Попробуйте в это время короткий перерыв или меньше столов.' : ''), w);
-        add('good', 'Сильный час: ' + String(bst.k).padStart(2, '0') + ':00–' + String((bst.k + 1) % 24).padStart(2, '0') + ':00', fmt(bst.v) + ' BB/100.', bst); }
+      if (H_HEAD) add(H_HEAD.cls, H_HEAD.title, H_HEAD.text, null);
       if (D_HEAD) add(D_HEAD.cls, D_HEAD.title, D_HEAD.text, null);
       if (L_HEAD) add(L_HEAD.cls, L_HEAD.title, L_HEAD.text, null);
       const s01 = gS.slice(0, 2).reduce((a, r) => [a[0] + r.sum, a[1] + r.n], [0, 0]), sLate = gS.slice(5).reduce((a, r) => [a[0] + r.sum, a[1] + r.n], [0, 0]);
@@ -1051,7 +1103,7 @@
     grid.querySelectorAll(':scope > .rs-card').forEach(cd => { if (cd.querySelector('.rs-lack') && !cd.querySelector('svg.rs-svg, table')) cd.querySelectorAll('.rs-leg, .rs-verdict').forEach(x => x.remove()); });
     // номера блоков — чтобы было удобно обсуждать, что убрать или поменять
     { let k = 1; const tag = (node) => { const t = el('span', 'rs-num', '#' + (++k)); node.append(t); }; // #1 — панель фильтров
-      tag(kp); grid.querySelectorAll(':scope > .rs-card').forEach(c => tag(c.querySelector('.rs-card-h') || c)); }
+      if (CUM) tag(CUM.querySelector('.rs-card-h')); tag(kp); grid.querySelectorAll(':scope > .rs-card').forEach(c => tag(c.querySelector('.rs-card-h') || c)); }
     if (gen !== GEN) return;
     R.append(note('Как считается. ' + mName + ' в BB на 100 раздач. «На ситуацию» — из каждой раздачи вычитается ваш ожидаемый результат в такой же ситуации по всей истории: позиция, стек, игроков за столом, размер стола, баунти и анте (редкие ситуации сглажены к общим). «Полная» — дополнительно совместная модель столов, часа сессии, времени суток, дня, длины сессии, скорости и рума: в блоках #4–#8 видно влияние только одного фактора при прочих равных. С поправкой вклад одной раздачи ограничен ±100 BB. Маленькие группы подтянуты к среднему (наведите — видно значение без сглаживания), «надёжно» — с учётом числа сравнений. Ключевые числа (#2), позиции и стек — без поправки. Деньги, ICM и стоимость баунти не учитываются — только фишки.'));
     CACHE.set(ckey, [...R.childNodes]); if (CACHE.size > 10) CACHE.delete(CACHE.keys().next().value);

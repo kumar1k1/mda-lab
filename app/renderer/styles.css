@@ -1522,3 +1522,7 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .rs-tip.left > .rs-tip-b{left:auto;right:0}
 .rs-tl.rs-tl7{grid-template-columns:repeat(7,minmax(0,1fr))}
 .rs-tl-c em{font-style:normal;font-size:9.5px;color:var(--faint);font-family:var(--mono)}
+.rs-tl.rs-tlh{grid-template-columns:repeat(auto-fill,minmax(64px,1fr))}
+.rs-rows-m .rs-row,.rs-rows-p .rs-row{grid-template-columns:minmax(70px,1.3fr) minmax(84px,1.2fr) repeat(3,minmax(50px,1fr))}
+.rs-rows-m{max-height:420px;overflow-y:auto}
+.rs-rows-m .rs-row-h{position:sticky;top:0;background:var(--card);z-index:1}
