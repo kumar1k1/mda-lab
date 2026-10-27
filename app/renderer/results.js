@@ -10,7 +10,7 @@
   // хранилище окна; если браузер его не даёт (превью в чужом окне) — память этой страницы, чтобы вход не терялся
   const MEM = {};
   const LS = { get(k, d) { try { const v = localStorage.getItem(k); if (v != null) return JSON.parse(v); } catch (e) { /* ниже */ } return k in MEM ? MEM[k] : d; }, set(k, v) { MEM[k] = v; try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* только память */ } } };
-  const DEF = { tilt: 40, cmp: 'd30', period: 'all', room: -1, bounty: 'all', speed: 'all', kind: 'all', bi: 'all', tbl: 'all', metric: 'ev', adj: 1 };
+  const DEF = { tilt: 40, cmp: 'd30', period: 'all', room: -1, bounty: 'all', speed: 'all', kind: 'all', bi: 'all', tbl: 'all', metric: 'ev', adj: 1, pFrom: '', pTo: '', biFrom: '', biTo: '' };
   const F = Object.assign({}, DEF, LS.get('mda.res.f', {}));
   const saveF = () => LS.set('mda.res.f', F);
   const fmt = (v, d) => v == null || !Number.isFinite(v) ? '—' : (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(d == null ? 1 : d);
@@ -67,9 +67,15 @@
     const c = D.db.cols, N = D.n, out = [];
     const alias = (typeof state !== 'undefined' && D.db.aliases && D.db.aliases.length > 1 && c.aid) ? state.alias : -1;
     let tMax = 0; for (let i = 0; i < N; i++) if (D.t[i] > tMax) tMax = D.t[i];
-    const from = range ? range[0] : F.period === 'all' ? -Infinity : tMax - ({ m1: 30, m3: 91, m6: 182, y1: 365 }[F.period] || 0) * 1440, to = range ? range[1] : Infinity;
+    // свой период — по местным датам «с» и «по» включительно
+    const cust = !range && F.period === 'custom', dayM = (v) => { const t = Date.parse(v + 'T00:00:00Z'); return Number.isFinite(t) ? t / 60000 : NaN; };
+    const cf = cust && Number.isFinite(dayM(F.pFrom)) ? dayM(F.pFrom) : -Infinity, ct = cust && Number.isFinite(dayM(F.pTo)) ? dayM(F.pTo) + 1440 : Infinity;
+    // свой бай-ин — от и до (в валюте турнира; в базе — центы)
+    const bcu = F.bi === 'custom', bf = bcu && F.biFrom !== '' && Number.isFinite(+F.biFrom) ? Math.round(+F.biFrom * 100) : -Infinity, bt = bcu && F.biTo !== '' && Number.isFinite(+F.biTo) ? Math.round(+F.biTo * 100) : Infinity;
+    const from = range ? range[0] : F.period === 'all' || F.period === 'custom' ? -Infinity : tMax - ({ m1: 30, m3: 91, m6: 182, y1: 365 }[F.period] || 0) * 1440, to = range ? range[1] : Infinity;
     for (let i = 0; i < N; i++) {
       if (D.t[i] < 0 || D.t[i] < from || D.t[i] >= to) continue;
+      if (cust && (D.LT[i] < cf || D.LT[i] >= ct)) continue;
       if (alias >= 0 && c.aid[i] !== alias) continue;
       if (F.room >= 0 && c.room[i] !== F.room) continue;
       const tr = D.tour[i], k = tr >= 0 ? D.tours[tr][0] : -1, cl = k >= 0 ? D.cls[k] : { speed: 0, myst: false, sat: false };
@@ -77,7 +83,8 @@
       if (F.bounty !== 'all' && bty !== +F.bounty) continue;
       if (F.speed !== 'all' && cl.speed !== +F.speed) continue;
       if (F.kind !== 'all' && (cl.sat ? 1 : 0) !== +F.kind) continue;
-      if (F.bi !== 'all' && biBand(c.bi ? c.bi[i] : -1) !== +F.bi.slice(1)) continue;
+      if (bcu) { const b = c.bi ? c.bi[i] : -1; if (b < 0 || b < bf || b > bt) continue; }
+      else if (F.bi !== 'all' && biBand(c.bi ? c.bi[i] : -1) !== +F.bi.slice(1)) continue;
       if (F.tbl !== 'all' && tblOf(c.tmx ? c.tmx[i] : 0) !== +F.tbl) continue;
       out.push(i);
     }
@@ -281,6 +288,38 @@
     const s = el('select', 'rs-sel'); opts.forEach(([v, l]) => { const o = el('option', null, l); o.value = String(v); if (String(F[key]) === String(v)) o.selected = true; s.append(o); });
     s.onchange = () => { F[key] = typeof DEF[key] === 'number' ? +s.value : s.value; saveF(); draw(); }; w.append(s); return w;
   }
+  // «Период» со своим интервалом дат
+  const isoDay = (m) => new Date(Math.floor(m / 1440) * 864e5).toISOString().slice(0, 10);
+  function periodBox(D) {
+    if (D.dMin == null) { let a = Infinity, b = -Infinity; for (let i = 0; i < D.n; i++) { const v = D.LT[i]; if (v < 0) continue; if (v < a) a = v; if (v > b) b = v; } D.dMin = isoDay(a); D.dMax = isoDay(b); D.dMaxM = b; }
+    const w = seg('Период', 'period', [['all', 'Всё'], ['y1', 'Год'], ['m6', '6 мес'], ['m3', '3 мес'], ['m1', '30 дней'], ['custom', 'Свой']], () => {
+      if (F.period === 'custom') { if (!F.pTo) F.pTo = D.dMax; if (!F.pFrom) F.pFrom = isoDay(D.dMaxM - 30 * 1440) < D.dMin ? D.dMin : isoDay(D.dMaxM - 30 * 1440); saveF(); }
+      draw();
+    });
+    if (F.period === 'custom') {
+      const r = el('div', 'rs-range'); const a = el('input'), b = el('input'); a.type = b.type = 'date'; a.min = b.min = D.dMin; a.max = b.max = D.dMax; a.value = F.pFrom; b.value = F.pTo;
+      a.setAttribute('aria-label', 'Период с'); b.setAttribute('aria-label', 'Период по');
+      const apply = () => { let x = a.value, y = b.value; if (x && y && x > y) { const t = x; x = y; y = t; } F.pFrom = x; F.pTo = y; saveF(); draw(); };
+      a.onchange = b.onchange = apply;
+      r.append(el('span', null, 'с'), a, el('span', null, 'по'), b); w.append(r);
+    }
+    return w;
+  }
+  // «Бай-ин» со своим интервалом
+  function biBox() {
+    const w = sel('Бай-ин', 'bi', BI.concat([['custom', 'Свой…']]));
+    if (F.bi === 'custom') {
+      const r = el('div', 'rs-range'); const a = el('input'), b = el('input');
+      for (const x of [a, b]) { x.type = 'number'; x.min = '0'; x.step = 'any'; x.inputMode = 'decimal'; x.className = 'rs-num-in'; }
+      a.placeholder = 'от'; b.placeholder = 'до'; a.value = F.biFrom; b.value = F.biTo; a.setAttribute('aria-label', 'Бай-ин от'); b.setAttribute('aria-label', 'Бай-ин до');
+      const apply = () => { let x = a.value.trim(), y = b.value.trim(); if (x !== '' && y !== '' && +x > +y) { const t = x; x = y; y = t; } if (F.biFrom === x && F.biTo === y) return; F.biFrom = x; F.biTo = y; saveF(); draw(); };
+      // применяется по Enter или когда курсор ушёл из обоих полей (переход «от» → «до» не пересчитывает)
+      a.onkeydown = b.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); apply(); } };
+      r.addEventListener('focusout', (e) => { if (!r.contains(e.relatedTarget)) apply(); });
+      r.append(a, el('span', null, '—'), b, el('small', null, '$ / €')); w.append(r);
+    }
+    return w;
+  }
   function card(title, hint, wide) {
     const c = el('section', 'rs-card' + (wide ? ' wide' : '')); const h = el('div', 'rs-card-h'); h.append(el('h3', null, title)); if (hint) h.append(el('p', null, hint)); c.append(h); return c;
   }
@@ -315,18 +354,18 @@
     // фильтры
     const fb = el('div', 'rs-filters');
     fb.append(
-      seg('Период', 'period', [['all', 'Всё'], ['y1', 'Год'], ['m6', '6 мес'], ['m3', '3 мес'], ['m1', '30 дней']]),
+      periodBox(D),
       sel('Рум', 'room', [[-1, 'Все румы']].concat(rooms.map((r, k) => [k, r]))),
       seg('Баунти', 'bounty', [['all', 'Все'], ['0', 'Без'], ['1', 'PKO'], ['2', 'Mystery']]),
       seg('Скорость', 'speed', [['all', 'Все'], ['0', 'Обычная'], ['1', 'Турбо'], ['2', 'Гипер']]),
-      sel('Бай-ин', 'bi', BI),
+      biBox(),
       seg('Стол', 'tbl', [['all', 'Все'], ['1', '6-max'], ['2', '7–8'], ['3', '9-max']]),
       seg('Тип', 'kind', [['all', 'Все'], ['0', 'Обычные'], ['1', 'Сателлиты']]),
       seg('Считать', 'metric', [['ev', 'EV'], ['net', 'Факт']]),
       seg('Поправка', 'adj', [[1, 'На позицию и стек'], [0, 'Без']])
     );
     const reset = el('button', 'rs-reset', 'Сбросить'); reset.type = 'button'; reset.onclick = () => { Object.assign(F, DEF); saveF(); draw(); };
-    if (Object.keys(DEF).some(k => k !== 'cmp' && k !== 'tilt' && String(F[k]) !== String(DEF[k]))) fb.append(reset);
+    if (Object.keys(DEF).some(k => !['cmp', 'tilt', 'pFrom', 'pTo', 'biFrom', 'biTo'].includes(k) && String(F[k]) !== String(DEF[k]))) fb.append(reset);
     R.append(fb);
     const X = select(D);
     if (!X.idx.length) { R.append(note('Под эти фильтры раздач нет. Ослабьте фильтры или нажмите «Сбросить».')); return; }

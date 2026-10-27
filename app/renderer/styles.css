@@ -1397,3 +1397,8 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .rs-lack b{font-size:14px;color:var(--soft)}
 .rs-lack span{font-size:12.5px;color:var(--muted)}
 .rs-two > .rs-lack{min-height:200px}
+.rs-range{display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap}
+.rs-range span,.rs-range small{font-size:12px;color:var(--muted)}
+.rs-range input{min-height:30px;padding:0 8px;border-radius:8px;border:1px solid var(--line2);background:var(--panel);color:var(--text);font:inherit;font-size:12.5px;color-scheme:dark}
+.rs-range input:focus{outline:2px solid var(--amber);outline-offset:-1px}
+.rs-range .rs-num-in{width:84px}
