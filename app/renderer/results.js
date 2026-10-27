@@ -98,9 +98,8 @@
   const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
   function groups(D, X, keyOf, K, opt) {
     opt = opt || {}; const vals = opt.vals || X.v;
-    const sesMap = new Map(); const sid = new Int32Array(X.idx.length);
-    X.idx.forEach((i, j) => { let s = sesMap.get(D.ses[i]); if (s == null) { s = sesMap.size; sesMap.set(D.ses[i], s); } sid[j] = s; });
-    const Sn = sesMap.size, sn = new Float64Array(Sn * K), ss = new Float64Array(Sn * K);
+    if (!X.sid) { const sesMap = new Map(); X.sid = new Int32Array(X.idx.length); X.idx.forEach((i, j) => { let s = sesMap.get(D.ses[i]); if (s == null) { s = sesMap.size; sesMap.set(D.ses[i], s); } X.sid[j] = s; }); X.Sn = sesMap.size; } // один раз на выборку
+    const sid = X.sid, Sn = X.Sn, sn = new Float64Array(Sn * K), ss = new Float64Array(Sn * K);
     const n = new Float64Array(K), sum = new Float64Array(K), sesN = new Float64Array(K), sesSeen = new Uint8Array(Sn * K);
     X.idx.forEach((i, j) => { const k = keyOf(i, j); if (k < 0 || k >= K) return; const q = sid[j] * K + k; sn[q]++; ss[q] += vals[j]; n[k]++; sum[k] += vals[j]; if (!sesSeen[q]) { sesSeen[q] = 1; sesN[k]++; } });
     const rows = []; for (let k = 0; k < K; k++) rows.push({ k, n: n[k], v: n[k] ? sum[k] / n[k] * 100 : NaN, sum: sum[k], ses: sesN[k], lo: NaN, hi: NaN });
@@ -116,9 +115,11 @@
 
   // ---------- графики ----------
   function niceTicks(lo, hi, n) {
-    const span = hi - lo || 1, step0 = span / (n || 4), mag = Math.pow(10, Math.floor(Math.log10(step0))), f = step0 / mag;
+    if (!Number.isFinite(lo) || !Number.isFinite(hi)) return [0];
+    if (hi - lo < 1e-6) { lo = Math.min(lo, -1); hi = Math.max(hi, 1); } // почти ноль (одна сессия после поправки) — обычная шкала
+    const span = hi - lo, step0 = span / (n || 4), mag = Math.pow(10, Math.floor(Math.log10(step0))), f = step0 / mag;
     const step = (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * mag, out = [];
-    for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) out.push(Math.abs(v) < 1e-9 ? 0 : v);
+    for (let v = Math.ceil(lo / step) * step, k = 0; v <= hi + step * 1e-6 && k < 50; v += step, k++) out.push(Math.abs(v) < step * 1e-6 ? 0 : v);
     return out;
   }
   // столбцы со знаком: зелёные — плюс, красные — минус; бледные — мало раздач; усы — 95% интервал; best — янтарная обводка
@@ -130,6 +131,7 @@
     if (!list.length) { svg.append(sv('text', { x: W / 2, y: H / 2, 'text-anchor': 'middle', class: 'rs-empty' }, 'нет раздач под эти фильтры')); return svg; }
     const maxN = Math.max(...list.map(r => r.n)), minN = o.minN || 300;
     const solid = list.filter(r => r.n >= minN), vs = (solid.length ? solid : list).map(r => r.v); let lo = Math.min(0, ...vs), hi = Math.max(0, ...vs);
+    if (hi - lo < 1e-6) { lo = -5; hi = 5; }
     const pad = (hi - lo) * 0.18 || 5; lo -= lo < 0 ? pad : 0; hi += hi > 0 ? pad : 0;
     // усы не раздувают шкалу больше чем вдвое
     (solid.length ? solid : list).forEach(r => { if (Number.isFinite(r.lo)) { lo = Math.min(lo, Math.max(r.lo, lo * 2 - 5)); hi = Math.max(hi, Math.min(r.hi, hi * 2 + 5)); } });
@@ -277,7 +279,12 @@
   function legend(items) { const l = el('div', 'rs-leg'); items.forEach(([cls, t]) => { const i = el('span'); i.append(el('i', cls), document.createTextNode(t)); l.append(i); }); return l; }
   function note(t) { return el('p', 'rs-note', t); }
 
+  // ошибка в одном расчёте не должна оставлять страницу недорисованной
   async function draw(root) {
+    try { await draw0(root); }
+    catch (e) { console.error('results', e); if (ROOT) { ROOT.querySelectorAll('.rs-card .rs-note').forEach(n => { if (n.textContent === 'Считаю…') n.textContent = 'Не удалось досчитать под эти фильтры.'; }); ROOT.append(note('Ошибка расчёта: ' + (e && e.message || e) + '. Измените фильтры или нажмите «Сбросить».')); } }
+  }
+  async function draw0(root) {
     if (root) { ROOT = root; WAIT = 0; } if (!ROOT) return;
     const R = ROOT, gen = ++GEN;
     const ckey = JSON.stringify(F) + '|' + DKEY + '|' + (typeof state !== 'undefined' ? state.alias : 0) + '|' + (typeof HERO_DB !== 'undefined' && HERO_DB ? HERO_DB.count : 0);
@@ -360,10 +367,12 @@
       let n = 0, sx = 0, sy = 0; X.idx.forEach((i, j) => { n++; sx += D.since[i] / 60; sy += X.v[j] * 100; });
       const mx = sx / n, my = sy / n; let sxx = 0, sxy = 0; X.idx.forEach((i, j) => { const dx = D.since[i] / 60 - mx; sxx += dx * dx; sxy += dx * (X.v[j] * 100 - my); });
       const sl = sxx ? sxy / sxx : 0, cs = new Map(); X.idx.forEach((i, j) => { const dx = D.since[i] / 60 - mx, e = X.v[j] * 100 - my - sl * dx; cs.set(D.ses[i], (cs.get(D.ses[i]) || 0) + dx * e); });
-      let v2 = 0; for (const x of cs.values()) v2 += x * x; const se = sxx ? Math.sqrt(v2) / sxx : 0, lo = sl - 1.96 * se, hi = sl + 1.96 * se;
+      let v2 = 0; for (const x of cs.values()) v2 += x * x; const G = cs.size, se = sxx && G >= 3 ? Math.sqrt(v2 * G / (G - 1)) / sxx : NaN, lo = sl - 1.96 * se, hi = sl + 1.96 * se;
       const s = el('p', 'rs-verdict ' + (hi < 0 ? 'neg' : lo > 0 ? 'pos' : ''));
+      if (!Number.isFinite(se)) { s.append(el('b', null, 'Мало сессий'), document.createTextNode(' — чтобы оценить, падает ли игра к концу сессии, нужно хотя бы 3 сессии под эти фильтры.')); cS.append(s); }
+      else {
       s.append(el('b', null, (sl < 0 ? 'Каждый час сессии: ' : 'Каждый час сессии: ') + fmt(sl, 2) + ' BB/100'), document.createTextNode(hi < 0 ? ' — результат надёжно падает к концу сессии. ' : lo > 0 ? ' — к концу сессии вы играете даже лучше. ' : ' — ровного падения нет, разница в пределах случайности. '), el('span', 'rs-muted', '95%: от ' + fmt(lo, 2) + ' до ' + fmt(hi, 2)));
-      cS.append(s);
+      cS.append(s); }
     }
     grid.append(cS);
     if (await step()) return;
