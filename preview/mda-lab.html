@@ -6368,7 +6368,7 @@ window.LIVE_SAMPLE = {"list":[[71951,"CashCowsPoker TV Championship Series Seaso
 
   // ---------- состояние ----------
   const ST = (() => { try { return JSON.parse(localStorage.getItem('mda.live') || '{}') || {}; } catch (e) { return {}; } })();
-  ST.reg = ST.reg || ''; ST.cs = Array.isArray(ST.cs) ? ST.cs : []; ST.mon = ST.mon || ''; ST.big = ST.big !== false; ST.q = '';
+  ST.reg = ST.reg || ''; ST.cs = Array.isArray(ST.cs) ? ST.cs : []; ST.mon = ST.mon || ''; ST.big = true; // только крупные серии: гарантия от $100 000, бай-ины от $1 000, крупные туры ST.q = '';
   ST.noSat = ST.noSat !== false; ST.gtdOnly = !!ST.gtdOnly; ST.game = ST.game || ''; ST.bi = ST.bi || '';
   const save = () => { try { localStorage.setItem('mda.live', JSON.stringify({ reg: ST.reg, cs: ST.cs, mon: ST.mon, big: ST.big, noSat: ST.noSat, gtdOnly: ST.gtdOnly, game: ST.game, bi: ST.bi, sel: ST.sel })); } catch (e) { /* без сохранения */ } };
   let LIST = null, LERR = [], loading = false, FEST = {}, OPEN = null; // OPEN — { id, data | error | loading }
@@ -6377,14 +6377,11 @@ window.LIVE_SAMPLE = {"list":[[71951,"CashCowsPoker TV Championship Series Seaso
   // ---------- каркас ----------
   root.classList.add('lv-page');
   const head = el('div', 'lv-head');
-  const ht = el('div', 'nw-ht'); ht.append(el('h1', null, 'Офлайн-серии'), el('p', 'nw-sub', 'Живые покерные фестивали по всему миру на ближайшие 2 месяца. Нажмите на серию — справа откроется полное расписание: бай-ины и гарантии в долларах, стек и длина уровней.'));
+  const ht = el('div', 'nw-ht'); ht.append(el('h1', null, 'Офлайн-серии'), el('p', 'nw-sub', 'Крупные живые покерные фестивали по всему миру на ближайшие 2 месяца: гарантия от $100 000 или бай-ины от $1 000, туры WSOP, EPT, WPT, APT, Triton и другие. Нажмите на серию — справа откроется полное расписание: бай-ины и гарантии в долларах, стек и длина уровней.'));
   const tools = el('div', 'lv-tools');
   const qIn = el('input', 'lv-q'); qIn.type = 'search'; qIn.placeholder = 'Поиск: серия, город, тур'; qIn.setAttribute('aria-label', 'Поиск серии');
   qIn.oninput = () => { ST.q = qIn.value.trim().toLowerCase(); drawList(); };
-  const sizeSeg = el('div', 'seg bx-seg'); sizeSeg.setAttribute('role', 'group'); sizeSeg.setAttribute('aria-label', 'Какие серии');
-  [[true, 'Крупные'], [false, 'Все серии']].forEach(([v, l]) => { const b = el('button', null, l); b.type = 'button'; b.dataset.v = String(v); b.onclick = () => { ST.big = v; save(); drawAll(); }; sizeSeg.append(b); });
-  sizeSeg.title = 'Крупные — гарантия от $100 000 или бай-ины от $1 000, туры WSOP, EPT, WPT, APT, Triton и другие';
-  tools.append(qIn, sizeSeg);
+  tools.append(qIn);
   head.append(ht, tools);
   const regBar = el('div', 'lv-regs'); regBar.setAttribute('role', 'group'); regBar.setAttribute('aria-label', 'Регион');
   const cBar = el('div', 'lv-cs'); cBar.setAttribute('role', 'group'); cBar.setAttribute('aria-label', 'Страны');
@@ -6511,11 +6508,10 @@ window.LIVE_SAMPLE = {"list":[[71951,"CashCowsPoker TV Championship Series Seaso
   }
   function drawList() {
     listBox.replaceChildren();
-    sizeSeg.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === String(ST.big)));
     if (!LIST) { listBox.append(el('p', 'lv-empty', loading ? 'Загружаю календарь…' : 'Календарь ещё не загружен.')); return; }
     LERR.forEach(e => { const w = el('div', 'lv-warn'); w.append(el('span', null, e.msg + (e.stale ? ' Показана последняя сохранённая версия.' : ''))); if (e.challenge && api.livePass) { const b = el('button', 'btn lv-btn', 'Пройти проверку'); b.type = 'button'; b.onclick = async () => { b.disabled = true; await api.livePass('list', e.y, e.m); loadList(false); }; w.append(b); } listBox.append(w); });
     const arr = filtered(), a = today();
-    if (!arr.length) { listBox.append(el('p', 'lv-empty', ST.big ? 'Крупных серий по этим условиям нет. Переключите «Все серии» или выберите другой регион.' : 'Серий по этим условиям нет.')); return; }
+    if (!arr.length) { listBox.append(el('p', 'lv-empty', 'Крупных серий по этим условиям нет — выберите другой регион, страну или месяц.')); return; }
     let grp = null;
     arr.forEach(f => {
       const g = f.s <= a ? 'now' : (() => { const d = dOf(f.s); return d.getUTCFullYear() + '-' + d.getUTCMonth(); })();
