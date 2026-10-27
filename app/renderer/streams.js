@@ -154,15 +154,12 @@
   let mounted = false;
   const onShow = () => { if (root.hidden) return; checkLive(false); if (!mounted) { mounted = true; mount(); setNav(); } };
   const tab = document.getElementById('tabStreams'); if (tab) tab.addEventListener('click', onShow);
-  // ушли на другую вкладку — стрим на паузе (и без звука); вернулись — продолжается с того же места
-  const PAUSE = "document.querySelectorAll('video').forEach(v => { if (!v.paused) { v.dataset.mdaPaused = '1'; v.pause(); } }); true";
-  const RESUME = "document.querySelectorAll('video').forEach(v => { if (v.dataset.mdaPaused === '1') { delete v.dataset.mdaPaused; v.play().catch(() => {}); } }); true";
+  // ушли на другую вкладку — окно Twitch закрывается совсем: ни звука, ни трафика, ни нагрузки на компьютер.
+  // Вернулись — открывается снова на той же странице (стрим — с текущего момента прямого эфира). Вход в Twitch сохраняется.
   new MutationObserver(() => {
-    if (!view) return;
-    try {
-      if (root.hidden) { view.setAudioMuted(true); view.executeJavaScript(PAUSE).catch(() => {}); }
-      else { view.executeJavaScript(RESUME).catch(() => {}).finally(() => { try { view.setAudioMuted(false); } catch (e) { /* окно ещё не готово */ } }); }
-    } catch (e) { /* окно Twitch ещё не загружено */ }
+    if (!inApp) return;
+    if (root.hidden && view) { try { view.setAudioMuted(true); } catch (e) { /* окно ещё не готово */ } view.remove(); view = null; stage.replaceChildren(); }
+    else if (!root.hidden && !view && mounted) { mount(); setNav(); }
   }).observe(root, { attributes: true, attributeFilter: ['hidden'] });
   setTimeout(onShow, 0);
 })();
