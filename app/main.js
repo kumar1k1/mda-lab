@@ -220,6 +220,22 @@ ipcMain.handle('app:version', () => app.getVersion());
 let NEWS = null;
 const newsFn = () => NEWS || (NEWS = require('./news.js').make(app.getPath('userData')));
 ipcMain.handle('news:get', (_e, force) => newsFn()(!!force));
+// кто из покерных стримеров в эфире: превью трансляции на CDN Twitch есть только у идущего стрима
+// (у остальных адрес перенаправляет на заглушку 404_preview) — без ключей API и входа в Twitch
+const LIVE = new Map(); // login → { t, live }
+ipcMain.handle('streams:live', async (_e, logins) => {
+  const { net } = require('electron'), now = Date.now(), out = {}, todo = [];
+  for (const l of (Array.isArray(logins) ? logins : []).slice(0, 200)) { const k = String(l).toLowerCase(); if (!/^[a-z0-9_]{2,25}$/.test(k)) continue; const c = LIVE.get(k); if (c && now - c.t < 90e3) out[k] = c.live; else todo.push(k); }
+  let i = 0;
+  const one = async (k) => {
+    try {
+      const r = await net.fetch('https://static-cdn.jtvnw.net/previews-ttv/live_user_' + k + '-320x180.jpg', { method: 'HEAD', redirect: 'manual', cache: 'no-store' });
+      const live = r.status === 200 && !/404_preview/.test(r.url || ''); LIVE.set(k, { t: Date.now(), live }); out[k] = live;
+    } catch (e) { out[k] = null; }
+  };
+  await Promise.all(Array.from({ length: 8 }, async () => { while (i < todo.length) await one(todo[i++]); }));
+  return out;
+});
 // новости собираются сами: через 15 с после запуска и каждые 3 часа, пока программа открыта (накапливаются за месяц)
 app.whenReady().then(() => { if (process.env.MDALAB_EVAL || process.env.MDALAB_TEST) return; const tick = () => newsFn()(false).catch(() => {}); setTimeout(tick, 15e3); setInterval(tick, 3 * 3600e3); });
 

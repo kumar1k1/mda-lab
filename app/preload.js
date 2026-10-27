@@ -31,6 +31,7 @@ contextBridge.exposeInMainWorld('mda', {
   droppedPaths: (paths) => ipcRenderer.invoke('import:paths', Array.from(paths || []).map(String)),
   version: () => ipcRenderer.invoke('app:version'),
   newsGet: (force) => ipcRenderer.invoke('news:get', !!force),
+  streamsLive: (logins) => ipcRenderer.invoke('streams:live', Array.from(logins || []).map(String)),
   // только для автотестов: выбрать папку без диалога
   scanPathsForTest: (process.env.MDALAB_EVAL || process.env.MDALAB_SNAPSHOT || process.env.MDALAB_TEST) ? (paths) => ipcRenderer.invoke('import:paths', paths) : undefined
 });
