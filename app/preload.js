@@ -31,6 +31,7 @@ contextBridge.exposeInMainWorld('mda', {
   droppedPaths: (paths) => ipcRenderer.invoke('import:paths', Array.from(paths || []).map(String)),
   version: () => ipcRenderer.invoke('app:version'),
   capture: () => ipcRenderer.invoke('app:capture'),
+  resultsData: () => ipcRenderer.invoke('results:data'),
   social: {
     status: () => ipcRenderer.invoke('social:status'),
     server: (o) => ipcRenderer.invoke('social:server', o),

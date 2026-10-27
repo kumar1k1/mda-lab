@@ -103,6 +103,14 @@ ipcMain.handle('db:meta', async () => {
   return s.meta;
 });
 ipcMain.handle('db:col', (_e, name) => { const s = source(); return s ? s.colBytes(name) : null; });
+// «Личный кабинет → Результаты»: время, турнир, столы и сессия каждой раздачи (parser/results.js); кэш до смены базы
+let RES = null;
+ipcMain.handle('results:data', async () => {
+  const s = source(); if (!s) return null;
+  const key = s.dir + '|' + s.meta.count + '|' + (s.meta.mig ? JSON.stringify(s.meta.mig) : '');
+  if (!RES || RES.key !== key) { const R = require('./parser/results.js'); RES = { key, data: R.pack(R.compute(s)) }; }
+  return RES.data;
+});
 ipcMain.handle('db:replays', (_e, ids) => { const s = source(); return s && Array.isArray(ids) ? s.replays(ids) : {}; });
 // соперники (база v3): список с поиском, описание и колонки одного игрока, записи реплеера с его позиции
 ipcMain.handle('players:list', (_e, q, limit) => { const s = source(); return s && s.v3 ? s.playerList(q, limit) : { total: 0, players: [] }; });

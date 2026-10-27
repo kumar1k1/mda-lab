@@ -113,6 +113,7 @@
     estimate: async () => { const b = LAST_BYTES || 1; const cpus = navigator.hardwareConcurrency || 4, threads = Math.max(1, Math.min(8, cpus - 1)); const hands = Math.round(b / 1411), opp = Math.round(hands * 5.46); return { totalBytes: b, sampleBytes: Math.min(b, 16777216), hands, opp, bytes: Math.round(hands * 985), seconds: Math.round(b / 5.2e6 / threads * 1.25 + hands * 0.55 * 3.4 / 1000 / threads + 3), threads, cpus }; },
     baseLocation: async () => ({ dir: 'C:\\Users\\Игрок\\AppData\\Roaming\\MDA Lab\\base', free: 412e9 }),
     pickBaseDir: async () => ({ dir: 'D:\\Poker\\MDA Lab база', free: 1.6e12 }),
+    resultsData: async () => { try { const r = await fetch(BASE + 'results.json'); if (!r.ok) return null; const d = await r.json(); for (const k of ['t', 'conc', 'ses', 'since', 'tour']) { const bin = atob(d[k]), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); d[k] = u; } return d; } catch (e) { return null; } },
     dbInfo: async () => { const m = await window.mda.dbMeta(); return { stored: !!m, canAppend: !!(m && m.format === 'mdalab-cols-v3'), count: m ? m.count : 0 }; },
     deleteDb: async () => true,
     runImport: async () => ({ error: 'в онлайн-превью загрузка не работает' }),

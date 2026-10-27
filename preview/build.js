@@ -21,6 +21,13 @@ if (!process.env.MDALAB_BASE) for (const f of fs.readdirSync(BD)) {
   if (/\.(bin|idx)$/.test(f)) { fs.writeFileSync(p + '.b64.json', JSON.stringify(fs.readFileSync(p).toString('base64'))); fs.rmSync(p); }
   else if (/\.dat$/.test(f)) fs.renameSync(p, p.replace(/\.dat$/, '.txt'));
 }
+// «Результаты»: время, турнир, столы и сессия раздач — как считает программа (часовой пояс — Минск)
+if (process.env.MDALAB_BASE) {
+  process.env.TZ = 'Europe/Minsk';
+  const R = require('../app/parser/results.js'), d = R.pack(R.compute(new (require('../app/parser/store.js').BaseDir)(process.env.MDALAB_BASE)));
+  for (const k of ['t', 'conc', 'ses', 'since', 'tour']) d[k] = Buffer.from(d[k]).toString('base64');
+  fs.writeFileSync(path.join(BD, 'results.json'), JSON.stringify(d));
+}
 const icon = 'data:image/png;base64,' + fs.readFileSync(path.join(R, 'icon.png')).toString('base64');
 
 const out = [
@@ -38,7 +45,8 @@ const out = [
   '<script>', fs.readFileSync(path.join(__dirname, 'news-snapshot.js'), 'utf8'), '</script>',
   '<script>', read('news.js'), '</script>',
   '<script>', read('streams.js'), '</script>',
-  '<script>', read('social.js'), '</script>'
+  '<script>', read('social.js'), '</script>',
+  '<script>', read('results.js'), '</script>'
 ].join('\n');
 fs.writeFileSync(path.join(__dirname, 'MDA-Lab-preview.html'), out);
 console.log('bytes', Buffer.byteLength(out));
