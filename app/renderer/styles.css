@@ -1404,3 +1404,4 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .rs-range .rs-num-in{width:84px}
 .rs-sel:focus{outline:2px solid var(--amber);outline-offset:-1px}
 .rs-sel:not(:focus){outline:none}
+.rs-pure{margin:0;font-size:11.5px;color:var(--faint);line-height:1.45;padding-left:10px;border-left:2px solid rgba(var(--amber-rgb),.45)}
