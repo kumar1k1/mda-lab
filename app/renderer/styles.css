@@ -1361,3 +1361,6 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .rs-svg .rs-cut{fill:none;stroke:var(--text);stroke-width:1.5;stroke-opacity:.7}
 .rs-filters{position:static}
 .rs-svg .rs-sub.pos{fill:var(--good)}.rs-svg .rs-sub.neg{fill:var(--bad)}
+.rs-cmp td.rs-dim{color:var(--muted)}
+.rs-cmp tbody tr{cursor:default!important}
+.rs-cmp tbody tr:hover{background:none!important}

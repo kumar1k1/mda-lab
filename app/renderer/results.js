@@ -8,7 +8,7 @@
   const svgNS = 'http://www.w3.org/2000/svg';
   const sv = (t, a, txt) => { const e = document.createElementNS(svgNS, t); if (a) for (const k in a) e.setAttribute(k, a[k]); if (txt != null) e.textContent = txt; return e; };
   const LS = { get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* нет */ } } };
-  const DEF = { period: 'all', room: -1, bounty: 'all', speed: 'all', kind: 'all', bi: 'all', tbl: 'all', metric: 'ev', adj: 1 };
+  const DEF = { cmp: 'd30', period: 'all', room: -1, bounty: 'all', speed: 'all', kind: 'all', bi: 'all', tbl: 'all', metric: 'ev', adj: 1 };
   const F = Object.assign({}, DEF, LS.get('mda.res.f', {}));
   const saveF = () => LS.set('mda.res.f', F);
   const fmt = (v, d) => v == null || !Number.isFinite(v) ? '—' : (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(d == null ? 1 : d);
@@ -51,13 +51,13 @@
   const STK = ['до 10 BB', '10–20', '20–40', '40–70', '70+ BB'];
   const POS = ['UTG', 'MP', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
   const DOW = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'];
-  function select(D) {
+  function select(D, range) {
     const c = D.db.cols, N = D.n, out = [];
     const alias = (typeof state !== 'undefined' && D.db.aliases && D.db.aliases.length > 1 && c.aid) ? state.alias : -1;
     let tMax = 0; for (let i = 0; i < N; i++) if (D.t[i] > tMax) tMax = D.t[i];
-    const from = F.period === 'all' ? -Infinity : tMax - ({ m1: 30, m3: 91, m6: 182, y1: 365 }[F.period] || 0) * 1440;
+    const from = range ? range[0] : F.period === 'all' ? -Infinity : tMax - ({ m1: 30, m3: 91, m6: 182, y1: 365 }[F.period] || 0) * 1440, to = range ? range[1] : Infinity;
     for (let i = 0; i < N; i++) {
-      if (D.t[i] < 0 || D.t[i] < from) continue;
+      if (D.t[i] < 0 || D.t[i] < from || D.t[i] >= to) continue;
       if (alias >= 0 && c.aid[i] !== alias) continue;
       if (F.room >= 0 && c.room[i] !== F.room) continue;
       const tr = D.tour[i], k = tr >= 0 ? D.tours[tr][0] : -1, cl = k >= 0 ? D.cls[k] : { speed: 0, myst: false, sat: false };
@@ -225,7 +225,7 @@
       seg('Поправка', 'adj', [[1, 'На позицию и стек'], [0, 'Без']])
     );
     const reset = el('button', 'rs-reset', 'Сбросить'); reset.type = 'button'; reset.onclick = () => { Object.assign(F, DEF); saveF(); draw(); };
-    if (Object.keys(DEF).some(k => String(F[k]) !== String(DEF[k]))) fb.append(reset);
+    if (Object.keys(DEF).some(k => k !== 'cmp' && String(F[k]) !== String(DEF[k]))) fb.append(reset);
     R.append(fb);
     const X = select(D);
     if (!X.idx.length) { R.append(note('Под эти фильтры раздач нет. Ослабьте фильтры или нажмите «Сбросить».')); return; }
@@ -374,6 +374,46 @@
       tb.append(body); const wrap = el('div', 'rs-table-w'); wrap.append(tb); cF.append(wrap);
       cF.append(note('«~» — интервал захватывает ноль: разница может быть случайной. Везение — факт минус EV (олл-ины, которые выиграли или проиграли сверх ожидания).'));
       grid.append(cF);
+    }
+    // ---- сравнение двух периодов (остальные фильтры действуют, «Период» — нет) ----
+    {
+      const cC = card('Сравнение периодов', 'Последний период против предыдущего такой же длины. Остальные фильтры страницы действуют, «Период» — нет.', true);
+      const CMP = [['d30', '30 дней'], ['d90', '3 месяца'], ['d182', '6 месяцев'], ['d365', 'Год']];
+      if (!CMP.some(x => x[0] === F.cmp)) F.cmp = 'd30';
+      const segC = el('div', 'seg bx-seg'); CMP.forEach(([v, l]) => { const b = el('button', F.cmp === v ? 'on' : null, l); b.type = 'button'; b.setAttribute('aria-pressed', String(F.cmp === v)); b.onclick = () => { F.cmp = v; saveF(); draw(); }; segC.append(b); });
+      cC.append(segC);
+      let tMax = 0; for (let i = 0; i < D.n; i++) if (D.t[i] > tMax) tMax = D.t[i];
+      const L = +F.cmp.slice(1) * 1440, A = select(D, [tMax - L + 1, tMax + 1]), B = select(D, [tMax - 2 * L + 1, tMax - L + 1]);
+      const stat = (Y) => {
+        const n = Y.idx.length, ses = new Set(), tours = new Set(); let e = 0, f = 0, v = 0;
+        Y.idx.forEach((i, j) => { ses.add(D.ses[i]); if (D.tour[i] >= 0) tours.add(D.tour[i]); e += Y.ev[j]; f += Y.net[j]; v += Y.v[j]; });
+        let m = 0; for (const z of ses) { const q = D.sessions[z]; m += Math.max(15, q[1] - q[0]); }
+        let cs = 0; Y.idx.forEach(i => { cs += D.conc[i]; });
+        return { n, ses: ses.size, tours: tours.size, h: m / 60, ev: n ? e / n * 100 : NaN, net: n ? f / n * 100 : NaN, v: n ? v / n * 100 : NaN, evh: m ? e / (m / 60) : NaN, conc: n ? cs / n : NaN, len: ses.size ? m / 60 / ses.size : NaN };
+      };
+      const a = stat(A), b = stat(B);
+      const dfmt = (d, digits) => !Number.isFinite(d) ? '' : (d > 0 ? '▲ ' : d < 0 ? '▼ ' : '') + Math.abs(d).toFixed(digits == null ? 1 : digits);
+      const rows = [
+        ['Раздач', num(a.n), num(b.n), a.n - b.n, 0, 0],
+        ['Турниров', num(a.tours), num(b.tours), a.tours - b.tours, 0, 0],
+        ['Сессий', num(a.ses), num(b.ses), a.ses - b.ses, 0, 0],
+        ['Часов игры', num(a.h), num(b.h), a.h - b.h, 0, 0],
+        ['Средняя сессия, ч', a.len.toFixed(1), b.len.toFixed(1), a.len - b.len, 1, 0],
+        ['Столов одновременно (в среднем)', a.conc.toFixed(1), b.conc.toFixed(1), a.conc - b.conc, 1, 0],
+        ['EV, BB/100', fmt(a.ev), fmt(b.ev), a.ev - b.ev, 1, 1],
+        ['Факт, BB/100', fmt(a.net), fmt(b.net), a.net - b.net, 1, 1],
+        ['Везение, BB/100', fmt(a.net - a.ev), fmt(b.net - b.ev), (a.net - a.ev) - (b.net - b.ev), 1, 1],
+        ['EV в час, BB', fmt(a.evh), fmt(b.evh), a.evh - b.evh, 1, 1]
+      ];
+      const lab = CMP.find(x => x[0] === F.cmp)[1].toLowerCase();
+      const tb = el('table', 'rs-table rs-cmp'); const hr = el('tr');
+      ['', 'Последние ' + lab, 'Предыдущие ' + lab, 'Разница'].forEach((t, q) => { const h = el('th', q ? 'num' : null, t); h.scope = 'col'; hr.append(h); });
+      const th = el('thead'); th.append(hr); tb.append(th); const body = el('tbody');
+      rows.forEach(([l, x, y, d, dg, good]) => { const tr = el('tr'); const h = el('th', null, l); h.scope = 'row'; tr.append(h, el('td', 'num', x), el('td', 'num rs-dim', y), el('td', 'num' + (good && Number.isFinite(d) ? (d >= 0 ? ' pos' : ' neg') : ''), (a.n && b.n) ? dfmt(d, dg) : '')); body.append(tr); });
+      tb.append(body); const w = el('div', 'rs-table-w'); w.append(tb); cC.append(w);
+      if (!a.n || !b.n) cC.append(note('В одном из периодов нет раздач под эти фильтры.'));
+      else if (Math.min(a.n, b.n) < 5000) cC.append(note('Меньше 5 000 раздач в периоде — разница в BB/100 почти наверняка случайна.'));
+      grid.append(cC);
     }
     // ---- выводы ----
     {
