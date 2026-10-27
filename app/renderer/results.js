@@ -286,7 +286,10 @@
   function sel(label, key, opts) {
     const w = el('label', 'rs-f'); w.append(el('span', 'rs-f-l', label));
     const s = el('select', 'rs-sel'); opts.forEach(([v, l]) => { const o = el('option', null, l); o.value = String(v); if (String(F[key]) === String(v)) o.selected = true; s.append(o); });
-    s.onchange = () => { F[key] = typeof DEF[key] === 'number' ? +s.value : s.value; saveF(); draw(); }; w.append(s); return w;
+    // жёлтая рамка — только пока список открыт: после выбора фокус снимается
+    s.onchange = () => { s.blur(); F[key] = typeof DEF[key] === 'number' ? +s.value : s.value; saveF(); draw(); };
+    s.onkeydown = (e) => { if (e.key === 'Escape') s.blur(); };
+    w.append(s); return w;
   }
   // «Период» со своим интервалом дат
   const isoDay = (m) => new Date(Math.floor(m / 1440) * 864e5).toISOString().slice(0, 10);

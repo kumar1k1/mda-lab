@@ -1402,3 +1402,5 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .rs-range input{min-height:30px;padding:0 8px;border-radius:8px;border:1px solid var(--line2);background:var(--panel);color:var(--text);font:inherit;font-size:12.5px;color-scheme:dark}
 .rs-range input:focus{outline:2px solid var(--amber);outline-offset:-1px}
 .rs-range .rs-num-in{width:84px}
+.rs-sel:focus{outline:2px solid var(--amber);outline-offset:-1px}
+.rs-sel:not(:focus){outline:none}
