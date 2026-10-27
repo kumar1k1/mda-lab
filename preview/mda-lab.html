@@ -1477,6 +1477,7 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .rs-row{grid-template-columns:64px minmax(104px,auto) minmax(50px,1fr) 62px 66px 44px;gap:8px}
 .rs-row-h span{white-space:normal;line-height:1.2}
 .rs-tl{grid-template-columns:repeat(5,minmax(0,1fr))}
+.rs-head2 b.warn{color:#F5C46B}
 
 /* Дополнения только для онлайн-превью: тёмная тема и узкие экраны */
 :root{color-scheme:dark}
@@ -7022,12 +7023,18 @@ window.NEWS_SNAPSHOT = (function () {
         if (!Number.isFinite(se)) head.append(el('b', null, 'Мало сессий'), el('span', null, 'Нужно хотя бы 3 сессии под эти фильтры, чтобы оценить усталость.'));
         else if (hi < 0) head.append(el('b', 'neg', 'Да, к концу сессии вы играете хуже'), el('span', null, 'В среднем ' + fmt(sl, 1) + ' BB/100 за каждый час сессии' + (firstBad ? '; заметный спад — с ' + firstBad.label.replace(' ч', '') + ' часа.' : '.') + ' Подумайте о более коротких сессиях или перерывах.'));
         else if (lo > 0) head.append(el('b', 'pos', 'Усталости нет — к концу вы играете даже лучше'), el('span', null, 'В среднем ' + fmt(sl, 1) + ' BB/100 за каждый час сессии.'));
-        else head.append(el('b', null, firstBad ? 'В целом усталость не видна' : 'Усталость не видна'), el('span', null, 'Результат к концу сессии ровно не падает — изменения в пределах случайности' + (firstBad ? ', но в отрезке ' + firstBad.label + ' игра заметно хуже обычного.' : '.')));
+        else {
+          // поздние часы (с 6-го) в минусе и тренд вниз — честно «возможен спад, пока не доказан»
+          const late = gS.slice(5).filter(r => r.n), ln = late.reduce((a, r) => a + r.n, 0), lv = ln ? late.reduce((a, r) => a + (r.v - ref) * r.n, 0) / ln : 0;
+          if (sl < 0 && lv <= -2 && ln >= MINN) head.append(el('b', 'warn', 'Возможен спад к концу сессии — пока не доказан'), el('span', null, 'После 5-го часа в среднем ' + fmt(lv, 1) + ' BB/100 к вашему обычному уровню, тренд ' + fmt(sl, 1) + ' BB/100 за час. Но это ещё в пределах случайности: длинных сессий пока мало. Стоит следить — если спад сохранится, он станет надёжным.'));
+          else head.append(el('b', null, 'Усталость не видна'), el('span', null, 'Результат к концу сессии ровно не падает — изменения по часам в пределах случайности' + (firstBad ? ', но в отрезке ' + firstBad.label + ' игра заметно хуже обычного.' : '.')));
+        }
         cS.append(head);
         // лента часов: цвет — оценка, число — отклонение от обычного уровня
         const tl = el('div', 'rs-tl');
         gS.forEach(r => { if (!r.n) return; const [cls, txt] = verdictOf(r, ref); const c = el('div', 'rs-tl-c ' + cls); c.append(el('span', 'h', r.label), el('b', null, r.n >= MINN ? fmt(r.v - ref, 1) : '—'), el('small', null, txt)); c.title = r.label + ': ' + fmt(r.v) + ' BB/100 · ' + num(r.n) + ' раздач' + (Number.isFinite(r.lo) ? ' · 95%: от ' + fmt(r.lo) + ' до ' + fmt(r.hi) : ''); tl.append(c); });
         cS.append(tl);
+        cS.append(el('p', 'rs-note', 'Число в клетке — EV в BB на 100 раздач относительно вашего обычного уровня (0 — как обычно, минус — хуже). Учтены позиции, стеки, число столов, время суток и формат.'));
         cS.append(legendWords());
       }
     }

@@ -1473,3 +1473,4 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .rs-row{grid-template-columns:64px minmax(104px,auto) minmax(50px,1fr) 62px 66px 44px;gap:8px}
 .rs-row-h span{white-space:normal;line-height:1.2}
 .rs-tl{grid-template-columns:repeat(5,minmax(0,1fr))}
+.rs-head2 b.warn{color:#F5C46B}
