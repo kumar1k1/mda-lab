@@ -1165,3 +1165,4 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .st-fmt.f-cash{color:#7FDDAE;border-color:rgba(95,211,154,.4)}
 .st-fmt.f-both{color:#BDB2F8;border-color:rgba(169,155,245,.4)}
 .st-fmt.f-none{color:var(--muted)}
+.mig-err{max-height:160px;overflow:auto;white-space:pre-wrap;font-size:11.5px;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px;color:var(--soft)}

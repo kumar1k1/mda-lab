@@ -94,7 +94,8 @@ ipcMain.handle('db:meta', async () => {
       const send = (m) => { if (win && !win.isDestroyed()) win.webContents.send('db:migrate', m); };
       send({ done: 0, total: 0 });
       heavy(true);
-      MIGRATING = mig.run(s.dir, send).catch((e) => { console.error('migrate', e); }).finally(() => { heavy(false); send({ end: true }); MIGRATING = null; SRC = null; });
+      let err = null;
+      MIGRATING = mig.run(s.dir, send).catch((e) => { console.error('migrate', e); err = e && e.message || String(e); }).finally(() => { heavy(false); send({ end: true, error: err }); MIGRATING = null; SRC = null; });
     }
     await MIGRATING; s = source(); if (!s) return null;
   }

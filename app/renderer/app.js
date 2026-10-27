@@ -7,7 +7,7 @@ const MONTHS = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'и�
 let DB = null;
 let CURRENT_IDX = [];
 let LAST_NET_ITEMS = [];
-const state = { tab: 'rfi', sub: 'TOT', alias: 0, nickView: null, nickA: null, room: null, player: null, type: null, from: null, to: null };
+const state = { tab: 'rfi', sub: 'TOT', alias: 0, nickView: null, nickA: null, room: null, player: null, type: null, from: null, to: null, noDup: (() => { try { return localStorage.getItem('mda.noDup') !== '0'; } catch (e) { return true; } })() }; // повторы раздач по умолчанию убраны
 
 // ---------- вкладки (группы и список будем менять) ----------
 const GROUPS = [
@@ -1823,7 +1823,7 @@ function renderSoon(tab) {
 
 // ---------- отрисовка ----------
 function currentIdx() {
-  const idx = Stats.selectHands(DB, { aid: DB === HERO_DB && !state.player ? state.alias : null, room: state.room, type: state.type, from: state.from, to: state.to, biFrom: state.biFrom, biTo: state.biTo, tbl: state.sub === 'TOT' ? null : state.sub });
+  const idx = Stats.selectHands(DB, { aid: DB === HERO_DB && !state.player ? state.alias : null, room: state.room, type: state.type, from: state.from, to: state.to, biFrom: state.biFrom, biTo: state.biTo, noDup: state.noDup, tbl: state.sub === 'TOT' ? null : state.sub });
   return idx; // у соперника своя база (DB) — все его раздачи
 }
 
@@ -1887,6 +1887,11 @@ function setupFilters() {
   const bis = Object.keys(cnt).map(Number).filter(v => cnt[v] >= 30).sort((a, b) => a - b);
   const biLab = (v) => '$' + (v / 100).toLocaleString('ru-RU', { maximumFractionDigits: 2 });
   $('fBiFrom').parentElement.hidden = !bis.length;
+  // повторы раздач (одна раздача из двух выгрузок): по умолчанию убраны; «как в Hand2Note» — учитывать (для сверки)
+  let nCopy = 0; if (DB.cols.dup) for (let i = 0; i < DB.count; i++) if (DB.cols.dup[i] === 1) nCopy++;
+  $('fDupWrap').hidden = !nCopy;
+  opt($('fDup'), [['1', 'убраны (' + nCopy.toLocaleString('ru-RU') + ')'], ['', 'учитывать, как в Hand2Note']], state.noDup ? '1' : '');
+  $('fDup').onchange = (e) => { state.noDup = e.target.value === '1'; try { localStorage.setItem('mda.noDup', state.noDup ? '1' : '0'); } catch (x) { /* без сохранения */ } render(); };
   opt($('fBiFrom'), [['', 'любой']].concat(bis.map(v => [v, biLab(v)])), state.biFrom ?? '');
   opt($('fBiTo'), [['', 'любой']].concat(bis.map(v => [v, biLab(v)])), state.biTo ?? '');
   $('fBiFrom').onchange = (e) => { state.biFrom = e.target.value === '' ? null : +e.target.value; if (state.biTo != null && state.biFrom != null && state.biTo < state.biFrom) { state.biTo = state.biFrom; $('fBiTo').value = String(state.biTo); } render(); };
@@ -2417,8 +2422,15 @@ function typedCol(bytes, type) {
 }
 // окно «Обновляю базу»: новая версия программы досчитывает данные из уже загруженных рук (без перезаливки)
 let migBox = null, MIG_T = null;
+// обновление базы не удалось — сказать об этом (база не тронута там, где обновление не дошло; при следующем запуске — повтор)
+function migError(msg) {
+  const bg = el('div', 'modal-bg mig-bg'), box = el('div', 'modal mig');
+  box.append(el('h2', null, 'Обновление базы не завершилось'), el('p', 'muted', 'Программа попробует ещё раз при следующем запуске. Если ошибка повторится — пришлите этот текст разработчику.'), el('pre', 'mig-err', String(msg).slice(0, 600)));
+  const ok = el('button', 'btn-load', 'Понятно'); ok.type = 'button'; ok.onclick = () => bg.remove(); box.append(ok);
+  bg.append(box); document.body.append(bg); ok.focus();
+}
 function onMigrate(m) {
-  if (m.end) { if (migBox) { migBox.remove(); migBox = null; } MIG_T = null; return; }
+  if (m.end) { if (migBox) { migBox.remove(); migBox = null; } MIG_T = null; if (m.error) migError(m.error); return; }
   if (!migBox) {
     migBox = el('div', 'modal-bg mig-bg'); const box = el('div', 'modal mig');
     box.append(el('h2', null, 'Обновляю базу до новой версии'), el('p', 'muted', 'Новая версия программы хранит базу компактнее и считает больше статистики. Всё делается из уже загруженных раздач — перезаливать руки не нужно. Это происходит один раз.'),

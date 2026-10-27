@@ -18,6 +18,7 @@
       if ((f.biFrom != null || f.biTo != null) && (!c.bi || c.bi[i] < 0)) continue; // при фильтре по бай-ину — только раздачи с известным бай-ином
       if (f.biFrom != null && c.bi[i] < f.biFrom) continue;
       if (f.biTo != null && c.bi[i] > f.biTo) continue;
+      if (f.noDup && c.dup && c.dup[i] === 1) continue; // копия раздачи из другой выгрузки (как в Hand2Note — учитывается)
       if (f.minBB != null && c.bb[i] < f.minBB * 10) continue;
       if (f.maxBB != null && c.bb[i] >= f.maxBB * 10) continue;
       idx.push(i);
