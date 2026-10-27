@@ -60,7 +60,7 @@
   const ST = (() => { try { return JSON.parse(localStorage.getItem('mda.live') || '{}') || {}; } catch (e) { return {}; } })();
   ST.reg = ST.reg || ''; ST.cs = Array.isArray(ST.cs) ? ST.cs : []; ST.mon = ST.mon || ''; ST.big = true; // только крупные серии: гарантия от $100 000, бай-ины от $1 000, крупные туры ST.q = '';
   ST.noSat = ST.noSat !== false; ST.gtdOnly = !!ST.gtdOnly; ST.game = ST.game || ''; ST.bi = ST.bi || '';
-  const save = () => { try { localStorage.setItem('mda.live', JSON.stringify({ reg: ST.reg, cs: ST.cs, mon: ST.mon, big: ST.big, noSat: ST.noSat, gtdOnly: ST.gtdOnly, game: ST.game, bi: ST.bi, sel: ST.sel })); } catch (e) { /* без сохранения */ } };
+  const save = () => { try { localStorage.setItem('mda.live', JSON.stringify({ reg: ST.reg, cs: ST.cs, mon: ST.mon, big: ST.big, noSat: ST.noSat, gtdOnly: ST.gtdOnly, game: ST.game, bi: ST.bi, sel: ST.sel, pk: ST.pk })); } catch (e) { /* без сохранения */ } };
   let LIST = null, LERR = [], loading = false, FEST = {}, OPEN = null; // OPEN — { id, data | error | loading }
   const PREVIEW = !!window.LIVE_SAMPLE && !(api.liveList && api.liveFest && !api.livePreview);
 
@@ -71,7 +71,9 @@
   const tools = el('div', 'lv-tools');
   const qIn = el('input', 'lv-q'); qIn.type = 'search'; qIn.placeholder = 'Поиск: серия, город, тур'; qIn.setAttribute('aria-label', 'Поиск серии');
   qIn.oninput = () => { ST.q = qIn.value.trim().toLowerCase(); drawList(); };
-  tools.append(qIn);
+  const pickB = el('button', 'btn lv-btn lv-pickb', 'Подобрать под бюджет'); pickB.type = 'button'; pickB.title = 'Подобрать серии и план турниров под вашу сумму';
+  pickB.onclick = () => { if (PICK) { PICK = false; drawDet(); } else openPick(); pickB.classList.toggle('on', PICK); };
+  tools.append(pickB, qIn);
   head.append(ht, tools);
   const regBar = el('div', 'lv-regs'); regBar.setAttribute('role', 'group'); regBar.setAttribute('aria-label', 'Регион');
   const cBar = el('div', 'lv-cs'); cBar.setAttribute('role', 'group'); cBar.setAttribute('aria-label', 'Страны');
@@ -94,7 +96,7 @@
       if (api.liveRates) { try { FX = await api.liveRates() || FX; } catch (e) { /* запасные */ } } else FX = { rates: { USD: 1, EUR: 0.93, GBP: 0.79, CAD: 1.38, AUD: 1.52, KRW: 1380, TWD: 32.5, HKD: 7.8, ZAR: 18, CZK: 23.4, PHP: 57, BRL: 5.6, SEK: 10.6, NOK: 10.9, DKK: 6.95, CHF: 0.86, ISK: 138 }, src: 'превью', t: Date.UTC(2026, 9, 27) };
       if (api.liveSum) { try { SUM = await api.liveSum(null) || {}; } catch (e) { SUM = {}; } }
       let errs = [], old = [];
-      if (PREVIEW) MH.sample = fromSample();
+      if (PREVIEW) { MH.sample = fromSample(); MH.sample.forEach(f => { const d = sampleFest(f.id); if (d) SUM[f.id] = summary(f, d); }); }
       else if (api.livePdList && !SRC_HM) {
         // основной источник — PokerDiscover: весь календарь одной страницей, без проверок «вы человек»
         const r = await api.livePdList(force, !root.hidden);
@@ -126,27 +128,39 @@
     const ev = d.rows.filter(r => r.buy && !r.sat), cur = (r) => curOf(r.sym, d.country || f.country);
     const bs = ev.map(r => usd(r.buy, cur(r))).filter(v => v != null), gs = d.rows.filter(r => r.gtd && !r.sat).map(r => usd(r.gtd.v, curOf(r.gtd.sym || r.sym, d.country || f.country))).filter(v => v != null);
     const me = ev.filter(r => r.main).map(r => usd(r.buy, cur(r))).filter(v => v != null);
-    return { n: d.rows.filter(r => r.buy).length, minB: bs.length ? Math.min(...bs) : null, maxB: bs.length ? Math.max(...bs) : null, gtd: gs.length ? Math.max(...gs) : null, me: me.length ? Math.max(...me) : null, at: Date.now() };
+    return { v: 2, ev: compact(f, d), n: d.rows.filter(r => r.buy).length, minB: bs.length ? Math.min(...bs) : null, maxB: bs.length ? Math.max(...bs) : null, gtd: gs.length ? Math.max(...gs) : null, me: me.length ? Math.max(...me) : null, at: Date.now() };
+  }
+  // турниры серии в сжатом виде — для подбора под бюджет (бай-ин и гарантия в $, флаги, сколько входов можно)
+  function compact(f, d) {
+    const country = d.country || f.country;
+    return d.rows.filter(r => r.buy && !r.cont).map(r => {
+      const b = usd(r.buy, curOf(r.sym, country)); if (b == null) return null;
+      const g = r.gtd ? usd(r.gtd.v, curOf(r.gtd.sym || r.sym, country)) : null, re = r.re || '', mx = /^(\d) ре-энтри/.exec(re);
+      const k = (r.name || '').replace(/[\s,(\-–:]*\b(?:day\s*1\s*[a-z]?|flight\s*[a-z0-9]+)\b.*$/i, '').trim().toLowerCase(); // флайты одного турнира (Day 1A, 1B…) — один ключ
+      return { t: r.t0 || '', b: Math.round(b), g: g ? Math.round(g) : 0, f: (r.main ? 'm' : '') + (r.hr ? 'h' : '') + (r.sat ? 's' : '') + (r.bounty || r.myst ? 'x' : '') + (r.game && r.game !== 'NLH' ? 'o' : ''), n: String(r.name || '').slice(0, 100), c: /фризаут/.test(re) ? 1 : mx ? +mx[1] + 1 : 99, k };
+    }).filter(Boolean);
   }
   async function getFest(f, force, bg) {
     if (f.slug && api.livePdFest) {
       const r = await api.livePdFest(f.slug, force, !bg);
+      if (bg && !force && r && r.old) return getFest(f, true, bg); // фон: сохранённое устарело — берём свежее с сайта
       if (!r || (!r.html && r.error)) return { error: r ? r.error : 'Нет ответа', challenge: r && r.challenge };
       const d0 = P.pdFestival(r.html, dOf(f.s).getUTCFullYear()), d = { name: f.name, venue: f.venue ? f.venue + (f.city ? ', ' + f.city : '') : d0.venue, country: f.country, rows: d0.rows };
-      const out = { data: d, stale: r.stale, t: r.t };
+      const out = { data: d, stale: r.stale, t: r.t, cached: !!r.cached };
       if (r.old && !bg && !force) setTimeout(async () => { const n = await getFest(f, true, root.hidden).catch(() => null); if (n && n.data && OPEN && OPEN.f.id === f.id && !OPEN.loading) { OPEN = Object.assign({ f }, n); drawDet(); drawList(); } }, 200);
-      const s = d.rows.length ? summary(f, d) : { n: 0 }; s.at = r.t || Date.now(); SUM[f.id] = s; if (api.liveSum) api.liveSum(f.id, s).catch(() => {});
+      const s = d.rows.length ? summary(f, d) : { n: 0 }; s.at = r.stale ? Date.now() : r.t || Date.now(); /* сайт не ответил — не опрашивать каждые 2 с */ SUM[f.id] = s; if (api.liveSum) api.liveSum(f.id, s).catch(() => {});
       return out;
     }
     if (PREVIEW) { const d = sampleFest(f.id); return d ? { data: d } : { error: 'В превью полное расписание есть у трёх серий: Battle of Malta, WSOPC Dusk Till Dawn и Circus Poker Series. В программе — у всех.', preview: true }; }
     const r = await api.liveFest(f.id, force, !bg); // фон окно проверки не показывает
+    if (bg && !force && r && r.old) return getFest(f, true, bg);
     if (!r || (!r.html && r.error)) return { error: r ? r.error : 'Нет ответа', challenge: r && r.challenge };
     const d = P.festival(r.html);
     if (d.challenge) return { error: 'Сайт The Hendon Mob попросил подтвердить, что вы не робот.', challenge: true };
     const out = { data: d, stale: r.stale, t: r.t };
     // сохранённое расписание показано сразу; если оно старше 3 дней — свежее подгружается следом и подменяет его
     if (r.old && !bg && !force) setTimeout(async () => { const n = await getFest(f, true, root.hidden).catch(() => null); if (n && n.data && OPEN && OPEN.f.id === f.id && !OPEN.loading) { OPEN = Object.assign({ f }, n); drawDet(); drawList(); } }, 200);
-    if (d.rows.length) { const s = summary(f, d); s.at = r.t || Date.now(); SUM[f.id] = s; if (api.liveSum) api.liveSum(f.id, s).catch(() => {}); }
+    if (d.rows.length) { const s = summary(f, d); s.at = r.stale ? Date.now() : r.t || Date.now(); /* сайт не ответил — не опрашивать каждые 2 с */ SUM[f.id] = s; if (api.liveSum) api.liveSum(f.id, s).catch(() => {}); }
     else { SUM[f.id] = { n: 0, at: Date.now() }; if (api.liveSum) api.liveSum(f.id, SUM[f.id]).catch(() => {}); }
     if (r.challenge) out.challenge = true;
     return out;
@@ -156,7 +170,7 @@
   let bgT = null, bgGap = 6e3, bgPause = 0, bgBusy = false, SRC_HM = false; // SRC_HM — запасной источник (The Hendon Mob)
   function bgNext() {
     if (!LIST) return null;
-    const fresh = (s) => s && Date.now() - s.at < 3 * DAY;
+    const fresh = (s) => s && Date.now() - s.at < 3 * DAY && (s.v === 2 || !s.n); // v2 — со списком турниров для подбора
     const todo = LIST.filter(f => !fresh(SUM[f.id]));
     todo.sort((a, b) => (isBig(b) - isBig(a)) || a.s - b.s);
     return todo[0] || null;
@@ -168,10 +182,11 @@
     const f = bgNext(); if (!f) { drawStatus(); return; }
     if (OPEN && OPEN.loading) { bgT = setTimeout(bgTick, 5e3); return; }
     bgBusy = true;
-    try { const r = await getFest(f, false, true); if (r.challenge && !r.data) { bgPause = Date.now() + 20 * 60e3; bgGap = Math.min(bgGap * 2, 120e3); } }
+    let quick = false;
+    try { const r = await getFest(f, false, true); quick = !!r.cached; if (r.challenge && !r.data) { bgPause = Date.now() + 20 * 60e3; bgGap = Math.min(bgGap * 2, 120e3); } }
     catch (e) { /* следующая */ }
-    bgBusy = false; drawList(); drawStatus();
-    bgT = setTimeout(bgTick, SRC_HM || PREVIEW ? bgGap : 2e3);
+    bgBusy = false; drawList(); drawStatus(); if (PICK) pickSoon(4e3);
+    bgT = setTimeout(bgTick, quick ? 120 : SRC_HM || PREVIEW ? bgGap : 2e3); // взято с диска — следующая сразу
   }
 
   // ---------- рисование ----------
@@ -221,7 +236,9 @@
     if (ST.mon && !ms.includes(ST.mon)) ST.mon = '';
     [['', 'Все месяцы']].concat(ms.map(k => { const [y, m] = k.split('-').map(Number); return [k, MONR[m - 1].replace(/^./, c => c.toUpperCase()) + (y !== new Date().getFullYear() ? ' ' + y : '')]; })).forEach(([v, l]) => { const b = el('button', ST.mon === v ? 'on' : null, l); b.type = 'button'; b.onclick = () => { ST.mon = v; save(); drawAll(); }; monSeg.append(b); });
   }
-  function drawList() {
+  // список перерисовывается на месте: прокрутка сохраняется, двигается только колёсиком
+  function drawList() { const top = listBox.scrollTop; drawList0(); listBox.scrollTop = top; }
+  function drawList0() {
     listBox.replaceChildren();
     if (!LIST) { listBox.append(loading ? window.mdaLoad('Загружаю календарь…' + (SRC_HM ? ' Если откроется окно сайта «Подтвердите, что вы человек» — поставьте галочку один раз, дальше всё загрузится само.' : '')) : el('p', 'lv-empty', 'Календарь ещё не загружен.')); return; }
     LERR.filter((e, i) => LERR.findIndex(x => x.msg === e.msg) === i).forEach(e => { const w = el('div', 'lv-warn'); w.append(el('span', null, e.msg + (e.stale ? ' Показана последняя сохранённая версия.' : ''))); if (e.challenge && api.livePass) { const b = el('button', 'btn lv-btn', 'Пройти проверку'); b.type = 'button'; b.onclick = async () => { b.disabled = true; await api.livePass('list', e.y, e.m); loadList(false); }; w.append(b); } listBox.append(w); });
@@ -248,6 +265,7 @@
 
   // ---------- расписание серии ----------
   async function openFest(f, force) {
+    if (PICK) { FROMPICK = true; PICK = false; pickB.classList.remove('on'); } else if (!force) FROMPICK = false;
     ST.sel = f.id; save(); drawList();
     OPEN = { f, loading: true }; drawDet();
     let r; try { r = await getFest(f, force); } catch (e) { r = { error: String(e && e.message || e) }; }
@@ -257,13 +275,17 @@
   const fmtDay = (iso) => { const d = new Date(iso.slice(0, 10) + 'T00:00:00Z'); return d.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'long', timeZone: 'UTC' }).replace(/^./, c => c.toUpperCase()); };
   const kNum = (v) => v >= 1000 ? (v / 1000).toFixed(v % 1000 ? 1 : 0).replace('.', ',') + 'K' : String(v);
   function drawDet() {
+    if (PICK) return drawPick();
     det.replaceChildren();
     if (!OPEN) { const p = el('div', 'lv-ph'); p.append(el('b', null, 'Выберите серию слева'), el('span', null, 'Здесь появится её полное расписание: дни и время, бай-ины и гарантии в долларах, стартовый стек и длина уровней.')); det.append(p); return; }
     const f = OPEN.f, c = cOf(f.country);
     const h = el('div', 'lv-dh');
     const t = el('div'); t.append(el('h2', null, (OPEN.data && OPEN.data.name) || f.name), el('p', null, [OPEN.data && OPEN.data.venue || f.city, c.ru, dTxt(f.s, f.e)].filter(Boolean).join(' · ')));
-    const ln = el('a', 'lv-src', f.slug ? 'PokerDiscover ↗' : 'The Hendon Mob ↗'); ln.href = f.slug ? 'https://pokerdiscover.com/series/' + f.slug : 'https://pokerdb.thehendonmob.com/festival.php?a=r&n=' + f.id; ln.target = '_blank'; ln.rel = 'noopener'; ln.title = 'Страница серии на сайте The Hendon Mob';
-    const acts = el('div', 'lv-dh-a'); acts.append(ln);
+    const pd = !!f.slug || PREVIEW;
+    const ln = el('a', 'lv-src', pd ? 'PokerDiscover ↗' : 'The Hendon Mob ↗'); ln.href = f.slug ? 'https://pokerdiscover.com/series/' + f.slug : PREVIEW ? 'https://pokerdiscover.com/series' : 'https://pokerdb.thehendonmob.com/festival.php?a=r&n=' + f.id; ln.target = '_blank'; ln.rel = 'noopener'; ln.title = pd ? 'Страница серии на сайте PokerDiscover' : 'Страница серии на сайте The Hendon Mob';
+    const acts = el('div', 'lv-dh-a');
+    if (FROMPICK) { const bb = el('button', 'btn lv-btn', '← К подбору'); bb.type = 'button'; bb.onclick = openPick; acts.append(bb); }
+    acts.append(ln);
     if (!PREVIEW && api.liveFest) { const rb = el('button', 'btn lv-btn', 'Обновить'); rb.type = 'button'; rb.onclick = () => openFest(f, true); acts.append(rb); }
     h.append(t, acts); det.append(h);
     if (OPEN.loading) { det.append(window.mdaLoad('Загружаю расписание…' + (SRC_HM ? ' Если откроется окно сайта «Подтвердите, что вы человек» — поставьте галочку один раз, дальше всё загрузится само.' : ''))); return; }
@@ -328,7 +350,132 @@
       tb.append(tr);
     });
     det.append(tb);
-    det.append(el('p', 'lv-note', 'Бай-ины и гарантии пересчитаны в доллары по курсу ' + (FX.src === 'запасные курсы' ? '(примерному)' : 'на ' + (FX.t ? new Date(FX.t).toLocaleDateString('ru-RU') : 'сегодня')) + '; ниже мелко — в валюте серии. Время — местное время площадки. Источник — ' + (f.slug ? 'PokerDiscover' : 'The Hendon Mob') + '; перед поездкой сверяйте расписание с организатором.'));
+    det.append(el('p', 'lv-note', 'Бай-ины и гарантии пересчитаны в доллары по курсу ' + (FX.src === 'запасные курсы' ? '(примерному)' : 'на ' + (FX.t ? new Date(FX.t).toLocaleDateString('ru-RU') : 'сегодня')) + '; ниже мелко — в валюте серии. Время — местное время площадки. ' + (PREVIEW ? 'Превью — сохранённый пример расписания; в программе оно загружается с PokerDiscover' : 'Источник — ' + (f.slug ? 'PokerDiscover' : 'The Hendon Mob')) + '; перед поездкой сверяйте расписание с организатором.'));
+  }
+
+  // ---------- подбор серии под бюджет ----------
+  // Игрок задаёт сумму, диапазон бай-инов, какие турниры играет, сколько турниров и сколько входов в каждый.
+  // Для каждой серии строится план: главное событие (если выбрано) — первым, дальше по выбранному порядку;
+  // из флайтов одного турнира — один, два турнира со стартом ближе 3 часов не ставятся, прошедшие — пропускаются.
+  // Серии ранжируются: больше турниров / крупнее гарантии / раньше. План можно поправить галочками.
+  let PICK = false, FROMPICK = false, pickT = null, pickForm = null, pickRes = null;
+  const PEDIT = {}, POPEN = new Set();
+  const PK0 = { bud: 3000, lo: 0, hi: 0, trav: 0, n: 6, ent: 1.5, main: true, side: true, hr: false, bnt: true, sat: false, nlh: true, sort: 'n' };
+  ST.pk = Object.assign({}, PK0, ST.pk && typeof ST.pk === 'object' ? ST.pk : {});
+  const pickSoon = (ms) => { if (pickT) return; pickT = setTimeout(() => { pickT = null; if (PICK) drawPickRes(); }, ms || 150); };
+  function openPick() { PICK = true; FROMPICK = false; pickB.classList.add('on'); pickForm = null; drawPick(); }
+  const tms = (t) => { if (!t) return null; const v = Date.parse(t.length > 10 ? t.slice(0, 16) + ':00Z' : t.slice(0, 10) + 'T00:00:00Z'); return Number.isFinite(v) ? v : null; };
+  const kind = (e) => e.f.includes('s') ? 'sat' : e.f.includes('m') ? 'main' : e.f.includes('h') ? 'hr' : e.f.includes('x') ? 'bnt' : 'side';
+  const entOf = (e, ent) => Math.min(ent, e.c);
+  function cands(f) {
+    const s = SUM[f.id]; if (!s || !s.ev) return null;
+    const k = ST.pk, now = Math.floor((Date.now() - new Date().getTimezoneOffset() * 60e3) / DAY) * DAY; // сегодня по местной дате
+    return s.ev.map((e, i) => Object.assign({ i, ms: tms(e.t) }, e)).filter(e => {
+      if (e.ms != null && e.ms < now) return false; // уже прошёл
+      if (k.lo && e.b < k.lo) return false; if (k.hi && e.b > k.hi) return false;
+      if (k.nlh && e.f.includes('o')) return false;
+      return !!k[kind(e)];
+    });
+  }
+  function plan(f) {
+    const C = cands(f); if (!C) return null;
+    const k = ST.pk, avail = Math.max(0, k.bud - (k.trav || 0)), cost = (e) => e.b * entOf(e, k.ent);
+    let pick;
+    if (PEDIT[f.id]) pick = C.filter(e => PEDIT[f.id].has(e.i));
+    else {
+      const ord = C.slice().sort((a, b) => ((kind(b) === 'main') - (kind(a) === 'main')) || (k.sort === 'g' ? (b.g - a.g) || (b.b - a.b) : (a.b - b.b) || (b.g - a.g)) || ((a.ms || 0) - (b.ms || 0)));
+      pick = []; let tot = 0; const used = new Set();
+      for (const e of ord) {
+        if (pick.length >= k.n) break;
+        const c = cost(e); if (tot + c > avail || used.has(e.k)) continue;
+        if (e.ms != null && pick.some(p => p.ms != null && Math.abs(p.ms - e.ms) < 3 * 3600e3)) continue;
+        pick.push(e); tot += c; used.add(e.k);
+      }
+    }
+    pick.sort((a, b) => (a.ms || 0) - (b.ms || 0));
+    const tot = pick.reduce((a, e) => a + cost(e), 0), gtd = pick.reduce((a, e) => a + (e.g || 0), 0);
+    const days = pick.filter(e => e.ms != null).map(e => Math.floor(e.ms / DAY));
+    return { f, C, pick, tot, gtd, main: pick.find(e => kind(e) === 'main'), d0: days.length ? Math.min(...days) : null, d1: days.length ? Math.max(...days) : null, over: tot + (k.trav || 0) > k.bud };
+  }
+  function drawPick() {
+    if (!pickForm) {
+      det.replaceChildren();
+      const h = el('div', 'lv-dh'); const t = el('div'); t.append(el('h2', null, 'Подобрать серию под бюджет'), el('p', null, 'Укажите, сколько готовы потратить и что играете — программа соберёт план турниров для каждой серии и покажет, какие серии вам по карману. Учитываются регион, страны и месяц, выбранные выше.'));
+      const x = el('button', 'btn lv-btn', 'Закрыть'); x.type = 'button'; x.onclick = () => { PICK = false; pickB.classList.remove('on'); drawDet(); };
+      const a = el('div', 'lv-dh-a'); a.append(x); h.append(t, a); det.append(h);
+      pickForm = el('div', 'lv-pk'); pickRes = el('div', 'lv-pk-res');
+      const k = ST.pk, upd = () => { save(); Object.keys(PEDIT).forEach(i => delete PEDIT[i]); pickSoon(200); };
+      const num = (label, key, help, step) => { const w = el('label', 'lv-pk-f'); w.append(el('span', null, label)); const i = el('input', 'lv-pk-in'); i.type = 'number'; i.min = '0'; i.step = String(step || 50); i.value = k[key] || ''; i.placeholder = key === 'hi' ? 'любой' : '0'; i.oninput = () => { k[key] = Math.max(0, +i.value || 0); upd(); }; w.append(i); if (help) w.append(el('small', null, help)); return w; };
+      const row1 = el('div', 'lv-pk-row');
+      row1.append(num('Ваш бюджет, $', 'bud', 'вся сумма на серию', 100), num('Бай-ин от, $', 'lo', '', 50), num('Бай-ин до, $', 'hi', 'пусто — любой', 50), num('Дорога и жильё, $', 'trav', 'вычтется из бюджета', 100));
+      const row2 = el('div', 'lv-pk-row');
+      const nW = el('label', 'lv-pk-f'); nW.append(el('span', null, 'Сколько турниров готовы сыграть')); const nI = el('input', 'lv-pk-in'); nI.type = 'number'; nI.min = '1'; nI.max = '60'; nI.value = k.n; nI.oninput = () => { k.n = Math.max(1, Math.min(60, +nI.value || 1)); upd(); }; nW.append(nI, el('small', null, 'не больше этого числа'));
+      const segW = (label, key, opts, help) => { const w = el('div', 'lv-pk-f'); w.append(el('span', null, label)); const g = el('div', 'seg bx-seg'); g.setAttribute('role', 'group'); g.setAttribute('aria-label', label); opts.forEach(([v, l]) => { const b = el('button', k[key] === v ? 'on' : null, l); b.type = 'button'; b.onclick = () => { k[key] = v; [...g.children].forEach(c => c.classList.toggle('on', c === b)); upd(); }; g.append(b); }); w.append(g); if (help) w.append(el('small', null, help)); return w; };
+      row2.append(nW, segW('Входов в турнир в среднем', 'ent', [[1, '1'], [1.5, '1,5'], [2, '2'], [3, '3']], 'с ре-энтри; во фризаут — всегда 1'), segW('Что важнее', 'sort', [['n', 'Больше турниров'], ['g', 'Крупнее гарантии'], ['d', 'Ближе по дате']]));
+      const row3 = el('div', 'lv-pk-types'); row3.append(el('span', 'lv-pk-l', 'Какие турниры играете:'));
+      [['main', 'Главное событие'], ['side', 'Обычные турниры'], ['bnt', 'Баунти и мистери'], ['hr', 'Хайроллеры'], ['sat', 'Сателлиты'], ['nlh', 'Только холдем']].forEach(([key, l]) => { const b = el('button', 'lv-tg' + (k[key] ? ' on' : ''), l); b.type = 'button'; b.setAttribute('aria-pressed', String(!!k[key])); b.onclick = () => { k[key] = !k[key]; b.classList.toggle('on', k[key]); b.setAttribute('aria-pressed', String(k[key])); upd(); }; row3.append(b); });
+      pickForm.append(row1, row2, row3);
+      det.append(pickForm, pickRes);
+    }
+    drawPickRes();
+  }
+  function drawPickRes() {
+    if (!pickRes) return;
+    const top = det.scrollTop; pickRes.replaceChildren();
+    const k = ST.pk;
+    if (!LIST) { pickRes.append(window.mdaLoad('Загружаю календарь…')); return; }
+    if (!k.bud) { pickRes.append(el('p', 'lv-empty', 'Введите бюджет — сумму, которую готовы потратить на серию.')); return; }
+    const base = filtered(), wait = base.filter(f => !SUM[f.id] || (SUM[f.id].n && !SUM[f.id].ev)).length;
+    let P = base.map(plan).filter(p => p && p.pick.length);
+    const none = base.filter(f => SUM[f.id] && SUM[f.id].ev).length - P.length;
+    P.sort(k.sort === 'g' ? (a, b) => b.gtd - a.gtd || b.pick.length - a.pick.length : k.sort === 'd' ? (a, b) => (a.d0 || a.f.s * DAY) - (b.d0 || b.f.s * DAY) : (a, b) => b.pick.length - a.pick.length || a.tot - b.tot);
+    const info = el('p', 'lv-pk-info', P.length ? 'Подходит ' + P.length + ' ' + plural(P.length, 'серия', 'серии', 'серий') + '.' : 'Под эти условия серий нет — увеличьте бюджет, расширьте диапазон бай-инов или выберите больше видов турниров.');
+    if (none > 0) info.append(' Не подошли: ' + none + ' (нет турниров в вашем диапазоне или не хватает бюджета).');
+    if (wait && PREVIEW) info.append(' В превью расписание есть у трёх серий, в программе подбор идёт по всем.');
+    else if (wait) info.append(' Ещё ' + wait + ' ' + plural(wait, 'серия ждёт', 'серии ждут', 'серий ждут') + ' загрузки расписания — подбор обновится сам.');
+    pickRes.append(info);
+    P.slice(0, 40).forEach(p => pickRes.append(pickCard(p)));
+    det.scrollTop = top;
+  }
+  const dShort = (d) => { const x = dOf(d); return x.getUTCDate() + ' ' + MONS[x.getUTCMonth()]; };
+  function pickCard(p) {
+    const f = p.f, c = cOf(f.country), k = ST.pk, open = POPEN.has(f.id);
+    const card = el('div', 'lv-pc' + (p.over ? ' over' : ''));
+    const hd = el('div', 'lv-pc-h');
+    const t = el('div'); t.append(el('b', null, f.name), el('span', null, [(f.city ? f.city + ', ' : '') + c.ru, dTxt(f.s, f.e)].join(' · ')));
+    const sb = el('button', 'btn lv-btn', 'Расписание →'); sb.type = 'button'; sb.onclick = () => openFest(f);
+    hd.append(t, sb); card.append(hd);
+    const load = Math.round((p.tot + (k.trav || 0)) / k.bud * 100);
+    const st = el('div', 'lv-pc-s');
+    const cell = (a, b, cls) => { const x = el('div', cls || null); x.append(el('span', null, a), el('b', null, b)); st.append(x); };
+    cell('Турниров в плане', p.pick.length + (p.pick.length < k.n ? ' из ' + k.n : ''));
+    cell('Стоимость', money(p.tot) + (k.trav ? ' + ' + money(k.trav) : ''));
+    cell('Загрузка бюджета', load + '%', p.over ? 'bad' : null);
+    cell('Остаток', money(Math.max(0, k.bud - p.tot - (k.trav || 0))));
+    if (p.gtd) cell('Сумма гарантий', big(p.gtd), 'g');
+    if (p.d0 != null) cell('Дни на серии', (p.d0 === p.d1 ? dShort(p.d0) : dShort(p.d0) + ' – ' + dShort(p.d1)) + ' (' + (p.d1 - p.d0 + 1) + ' ' + plural(p.d1 - p.d0 + 1, 'день', 'дня', 'дней') + ')');
+    card.append(st);
+    const bar = el('div', 'lv-pc-bar'); const fill = el('i'); fill.style.width = Math.min(100, load) + '%'; bar.append(fill); card.append(bar);
+    if (k.main) { const me = p.C.find(e => kind(e) === 'main'); card.append(el('p', 'lv-pc-n', p.main ? 'Главное событие в плане: ' + p.main.n + ' — ' + money(p.main.b) : me ? 'Главное событие (' + money(me.b) + (entOf(me, k.ent) > 1 ? ' × ' + String(entOf(me, k.ent)).replace('.', ',') : '') + ') не помещается в бюджет' : 'Главного события в вашем диапазоне бай-инов нет')); }
+    const tg = el('button', 'lv-pc-t', open ? 'Скрыть план ▴' : 'Показать план и поправить ▾'); tg.type = 'button';
+    tg.onclick = () => { if (POPEN.has(f.id)) POPEN.delete(f.id); else POPEN.add(f.id); card.replaceWith(pickCard(plan(f))); };
+    card.append(tg);
+    if (open) {
+      const tb = el('div', 'lv-pc-tb'), sel = new Set(p.pick.map(e => e.i));
+      if (PEDIT[f.id]) { const rb = el('button', 'lv-pc-t', 'Вернуть автоматический план'); rb.type = 'button'; rb.onclick = () => { delete PEDIT[f.id]; card.replaceWith(pickCard(plan(f))); }; tb.append(rb); }
+      p.C.slice().sort((a, b) => (a.ms || 0) - (b.ms || 0)).forEach(e => {
+        const on = sel.has(e.i), r = el('label', 'lv-pc-r' + (on ? ' on' : ''));
+        const cb = el('input'); cb.type = 'checkbox'; cb.checked = on;
+        cb.onchange = () => { const s = PEDIT[f.id] || new Set(sel); if (cb.checked) s.add(e.i); else s.delete(e.i); PEDIT[f.id] = s; card.replaceWith(pickCard(plan(f))); };
+        const en = entOf(e, k.ent), K = kind(e);
+        const nm = el('span', 'nm'); nm.append(el('b', null, e.n)); const tags = { main: 'главное', hr: 'хайроллер', bnt: 'баунти', sat: 'сателлит' }; if (tags[K]) nm.append(el('i', K, tags[K])); if (e.c === 1) nm.append(el('i', null, 'фризаут'));
+        r.append(cb, el('span', 'dt', e.ms != null ? dShort(Math.floor(e.ms / DAY)) + (e.t.length > 10 ? ' ' + e.t.slice(11, 16) : '') : '—'), nm, el('span', 'bi', money(e.b) + (en > 1 ? ' × ' + String(en).replace('.', ',') + ' = ' + money(e.b * en) : '')), el('span', 'gt', e.g ? big(e.g) : ''));
+        tb.append(r);
+      });
+      card.append(tb);
+      if (p.over) card.append(el('p', 'lv-pc-n bad', 'План дороже бюджета на ' + money(p.tot + (k.trav || 0) - k.bud) + '.'));
+    }
+    return card;
   }
 
   // ---------- запуск ----------
