@@ -507,9 +507,16 @@
       for (const nm of names) { const L = lev[nm], e = eff[nm], K = FAC[nm][0], pr = new Float64Array(n); for (let j = 0; j < n; j++) { const l = L[j]; pr[j] = y[j] - (fit[j] - (l >= 0 && l < K ? e[l] : 0)); } PR[nm] = pr; }
     }
     const pure = (nm) => PR[nm] ? { vals: PR[nm] } : {};
-    // «ваш средний» — EV/100 по всей вашей базе (для подписи «с чем сравнивается»)
-    let AVG = 0; { const al = (typeof state !== 'undefined' && D.db.aliases && D.db.aliases.length > 1 && c.aid) ? state.alias : -1; let an = 0, as = 0; for (let i = 0; i < D.n; i++) { if (D.t[i] < 0 || (al >= 0 && c.aid[i] !== al)) continue; an++; as += evOf(c, i); } AVG = an ? as / an * 100 : 0; }
-    const avgLine = () => { const p = el('p', 'rs-avg-l'); p.append(document.createTextNode('Сравнение с вашим средним: '), el('b', AVG >= 0 ? 'pos' : 'neg', fmt(AVG, 1) + ' BB/100'), document.createTextNode(+F.adj ? ' по всей базе, в тех же ситуациях' : ' по всей базе')); return p; };
+    // «ваш средний» — EV/100 по всей вашей базе; при наведении — по диапазонам стека (сравнение идёт именно с ними)
+    let AVG = 0; const SB = ['до 6 BB', '6–10', '10–15', '15–20', '20–30', '30–45', '45–70', '70+ BB'], sbN = new Float64Array(8), sbS = new Float64Array(8);
+    { const al = (typeof state !== 'undefined' && D.db.aliases && D.db.aliases.length > 1 && c.aid) ? state.alias : -1; let an = 0, as = 0; for (let i = 0; i < D.n; i++) { if (D.t[i] < 0 || (al >= 0 && c.aid[i] !== al)) continue; const e = evOf(c, i), k = stk8(c.bb[i] / 10); an++; as += e; sbN[k]++; sbS[k] += e; } AVG = an ? as / an * 100 : 0; }
+    const avgLine = () => {
+      const p = el('p', 'rs-avg-l');
+      if (!+F.adj) { p.append(document.createTextNode('Сравнение с вашим средним по всей базе: '), el('b', AVG >= 0 ? 'pos' : 'neg', fmt(AVG, 1) + ' BB/100')); return p; }
+      const help = 'Каждая раздача сравнивается с вашим средним в такой же ситуации: тот же стек, позиция, число игроков за столом, размер стола, баунти и анте. Поэтому короткий стек не «тянет вниз», а глубокий — не «тянет вверх».\n\nВаш средний EV по стеку, BB/100: ' + SB.map((l, k) => sbN[k] >= 200 ? l + ' ' + fmt(sbS[k] / sbN[k] * 100, 1) : null).filter(Boolean).join(' · ') + '.\n\nВ целом по базе: ' + fmt(AVG, 1) + ' BB/100.';
+      p.append(document.createTextNode('Сравнение с вашим средним '), tipEl('в тех же ситуациях', help), document.createTextNode(' — стек, позиция, стол. В целом по базе: '), el('b', AVG >= 0 ? 'pos' : 'neg', fmt(AVG, 1) + ' BB/100'));
+      return p;
+    };
     const addPure = (cd, txt, g) => { if (g && g.flat && g.filter(r => r.n >= MINN).length >= 2) cd.append(el('p', 'rs-verdict', 'Разницы нет: отличия между столбцами объясняются случайностью — по этим данным вариант не влияет на результат.')); };
     const tzOff = (m) => new Date(m * 60000).getTimezoneOffset();
     const lt = (i) => D.LT[i]; // местное время (посчитано при загрузке)
