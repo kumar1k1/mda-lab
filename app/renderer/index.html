@@ -19,6 +19,10 @@
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h13a2 2 0 0 1 2 2v11a2 2 0 0 0 2 2H6a2 2 0 0 1-2-2z"/><path d="M8 9h7M8 13h7M8 17h4"/></svg>
       Лента новостей
     </button>
+    <button class="apptab" type="button" role="tab" id="tabStreams" data-page="streams" aria-controls="pgStreams" aria-selected="false">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5" width="19" height="13" rx="2.5"/><path d="M10 9l5 3-5 3z"/><path d="M8 21h8"/></svg>
+      Покерные стримы
+    </button>
     <button class="apptab" type="button" role="tab" id="tabDm" data-page="dm" aria-controls="pgDm" aria-selected="false">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5.5" rx="7.5" ry="2.5"/><path d="M4.5 5.5v6c0 1.4 3.4 2.5 7.5 2.5s7.5-1.1 7.5-2.5v-6M4.5 11.5v6c0 1.4 3.4 2.5 7.5 2.5s7.5-1.1 7.5-2.5v-6"/></svg>
       Датамайнинг
@@ -41,6 +45,8 @@
     <p>Раздел появится позже.</p>
   </div>
 </section>
+
+<section class="app-page" id="pgStreams" role="tabpanel" aria-labelledby="tabStreams" hidden></section>
 
 <section class="app-page page-soon" id="pgDm" role="tabpanel" aria-labelledby="tabDm" hidden>
   <div class="soon-card">
@@ -199,5 +205,6 @@
 <script src="hands-ui.js"></script>
 <script src="replayer.js"></script>
 <script src="news.js"></script>
+<script src="streams.js"></script>
 </body>
 </html>

@@ -223,6 +223,20 @@ ipcMain.handle('news:get', (_e, force) => newsFn()(!!force));
 // новости собираются сами: через 15 с после запуска и каждые 3 часа, пока программа открыта (накапливаются за месяц)
 app.whenReady().then(() => { if (process.env.MDALAB_EVAL || process.env.MDALAB_TEST) return; const tick = () => newsFn()(false).catch(() => {}); setTimeout(tick, 15e3); setInterval(tick, 3 * 3600e3); });
 
+// «Покерные стримы»: окно Twitch внутри программы (тег webview). Пускаем только адреса Twitch, без доступа к программе:
+// без preload и Node, отдельная сессия persist:twitch (вход в Twitch сохраняется), сторонние ссылки — во внешний браузер.
+const TWITCH_OK = /^https:\/\/([a-z0-9-]+\.)*(twitch\.tv|twitchcdn\.net|ttvnw\.net|jtvnw\.net)(\/|$)/i;
+app.on('web-contents-created', (_e, wc) => {
+  wc.on('will-attach-webview', (ev, prefs, params) => {
+    delete prefs.preload; prefs.nodeIntegration = false; prefs.contextIsolation = true; prefs.sandbox = true;
+    if (!TWITCH_OK.test(params.src || '') || params.partition !== 'persist:twitch') ev.preventDefault();
+  });
+  if (wc.getType() === 'webview') {
+    wc.setWindowOpenHandler(({ url }) => { if (TWITCH_OK.test(url)) wc.loadURL(url); else if (/^https:\/\//.test(url)) shell.openExternal(url); return { action: 'deny' }; });
+    wc.on('will-navigate', (ev, url) => { if (!TWITCH_OK.test(url)) { ev.preventDefault(); if (/^https:\/\//.test(url)) shell.openExternal(url); } });
+  }
+});
+
 function createWindow() {
   win = new BrowserWindow({
     width: 1380, height: 900, minWidth: 1080, minHeight: 680,
@@ -230,7 +244,7 @@ function createWindow() {
     title: 'MDA Lab',
     icon: path.join(__dirname, 'renderer', 'icon.png'),
     show: false,
-    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true }
+    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true, webviewTag: true } // webview — только Twitch (раздел «Покерные стримы»)
   });
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
   win.once('ready-to-show', () => win.show());
