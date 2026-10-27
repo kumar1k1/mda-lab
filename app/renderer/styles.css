@@ -1511,3 +1511,12 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .rs-spin::after{content:"";position:absolute;inset:0;width:35%;border-radius:999px;background:var(--amber);animation:rsSpin 1.2s ease-in-out infinite}
 @keyframes rsSpin{0%{transform:translateX(-100%)}100%{transform:translateX(300%)}}
 @media (prefers-reduced-motion:reduce){.rs-spin::after{animation:none;width:100%;opacity:.4}}
+.rs-tip-t{width:100%;border-collapse:collapse;font-size:12px;margin-top:2px}
+.rs-tip-t th,.rs-tip-t td{padding:4px 6px;border-bottom:1px solid var(--line);text-align:left;font-weight:600}
+.rs-tip-t thead th{font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.05em;font-weight:800}
+.rs-tip-t .num{text-align:right;font-family:var(--mono)}
+.rs-tip-t .pos{color:var(--good)}.rs-tip-t .neg{color:var(--bad)}.rs-tip-t .dim{color:var(--muted);font-weight:500}
+.rs-tip-t tr.all th,.rs-tip-t tr.all td{border-top:1px solid var(--line2);border-bottom:none;color:var(--text)}
+.rs-avg-l .rs-tip-b{width:320px}
+.rs-tip.up > .rs-tip-b{top:auto;bottom:calc(100% + 6px)}
+.rs-tip.left > .rs-tip-b{left:auto;right:0}
