@@ -529,6 +529,7 @@
     // базы, загруженные версиями до 0.6, хранят время и турнир не у всех раздач — такие раздачи «Результаты» не видят
     { const al = (typeof state !== 'undefined' && D.db.aliases && D.db.aliases.length > 1 && c.aid) ? state.alias : -1; let tot = 0, ok = 0; for (let i = 0; i < D.n; i++) { if (al >= 0 && c.aid[i] !== al) continue; tot++; if (D.t[i] >= 0) ok++; }
       if (tot && ok / tot < 0.95) { const w = el('div', 'rs-cov'); w.append(el('b', null, 'Учтено ' + num(ok) + ' из ' + num(tot) + ' раздач — остальные без времени и турнира'), el('span', null, 'Эта база (или её часть) загружена старой версией программы: тогда время, турнир и запись реплеера сохранялись только у раздач, где вы вступали в игру (открытие, колл, изолейт). Поэтому здесь видна лишь часть раздач, а EV завышен — это раздачи, в которых вы играли активно. Как исправить: «Моя база» → загрузите те же истории раздач ещё раз. Дубликатов не будет — программа только допишет недостающее этим раздачам, и «Результаты» посчитаются по всем.')); R.append(w); } }
+    { if (!staged) { const w = el('p', 'rs-note rs-busy-n', 'Считаю…'); R.append(w); await tick(); w.remove(); } else await tick(); if (gen !== GEN || !HOST.isConnected) return; }
     const X = select(D);
     if (!X.idx.length) { R.append(note('Под эти фильтры раздач нет. Ослабьте фильтры или нажмите «Сбросить».')); return; }
     const mName = (F.metric === 'net' ? 'Факт' : 'EV') + (+F.adj === 2 ? ', чистый эффект' : +F.adj === 1 ? ' с поправкой' : '');
@@ -545,6 +546,7 @@
       let mu = 0; for (let j = 0; j < n; j++) mu += y[j]; mu /= n;
       for (const nm of names) { const L = new Int16Array(n), f = FAC[nm][1]; X.idx.forEach((i, j) => { L[j] = f(i); }); lev[nm] = L; eff[nm] = new Float64Array(FAC[nm][0]); }
       for (let it = 0; it < 12; it++) {
+        if (it && n > 60000) { await tick(); if (gen !== GEN || !HOST.isConnected) return; } // большая база — окно не замирает
         let moved = 0;
         for (const nm of names) {
           const K = FAC[nm][0], L = lev[nm], e = eff[nm], sm = new Float64Array(K), ct = new Float64Array(K);

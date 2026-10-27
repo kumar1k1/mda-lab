@@ -1639,3 +1639,6 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 @media (max-width:700px){.lv-tr{grid-template-columns:44px minmax(0,1fr) 86px}.lv-tr > :nth-child(4),.lv-tr > :nth-child(5){display:none}}
 .rs-cov{display:flex;flex-direction:column;gap:4px;padding:12px 16px;border-radius:12px;border:1px solid rgba(var(--bad-rgb),.5);background:rgba(var(--bad-rgb),.08);font-size:13px;line-height:1.45}
 .rs-cov b{color:var(--bad);font-size:14px}.rs-cov span{color:var(--soft)}
+/* пересчёт после нажатия: экран статистики чуть гаснет на долю секунды — видно, что нажатие принято */
+body.rendering #content{opacity:.72;transition:opacity .12s ease .05s}
+body.rendering{cursor:progress}

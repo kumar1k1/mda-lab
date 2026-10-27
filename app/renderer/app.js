@@ -1198,11 +1198,11 @@ function renderRFISummary(idx, r) {
   const b13 = el('section', 'block'); b13.append(numTag(13));
   const h13 = el('div', 'block-head'); h13.append(el('h2', null, 'Какие руки вы открываете'), el('p', null, 'процент открытия каждой руки, когда до вас все сбросили'));
   const seg = el('div', 'seg');
-  ['UTG', 'MP', 'CO', 'BTN', 'SB'].forEach(p => { const b = el('button', uiState.mxPos === p ? 'on' : '', p); b.type = 'button'; b.onclick = () => { uiState.mxPos = p; render(); }; seg.append(b); });
+  ['UTG', 'MP', 'CO', 'BTN', 'SB'].forEach(p => { const b = el('button', uiState.mxPos === p ? 'on' : '', p); b.type = 'button'; b.onclick = () => { uiState.mxPos = p; renderNext(); }; seg.append(b); });
   const mxBody = el('div', 'block-body'); mxBody.append(handMatrix(x.mx));
   const mxSide = el('div', 'mx-side');
   const segS = el('div', 'seg');
-  MX_STK.forEach(([id, lab]) => { const b = el('button', uiState.mxStk === id ? 'on' : '', lab); b.type = 'button'; b.onclick = () => { uiState.mxStk = id; render(); }; segS.append(b); });
+  MX_STK.forEach(([id, lab]) => { const b = el('button', uiState.mxStk === id ? 'on' : '', lab); b.type = 'button'; b.onclick = () => { uiState.mxStk = id; renderNext(); }; segS.append(b); });
   // свой диапазон стека: от … до … BB
   const cr = el('form', 'mx-range'); cr.setAttribute('aria-label', 'Свой диапазон стека');
   const mkIn = (id, ph, val) => { const i = el('input'); i.type = 'number'; i.id = id; i.min = '0'; i.max = '1000'; i.step = '0.5'; i.placeholder = ph; i.inputMode = 'decimal'; if (val != null) i.value = String(val); return i; };
@@ -1462,13 +1462,13 @@ function ccOppBlock(r) {
   const b = el('section', 'block cc-table'); b.append(numTag(5));
   const h = el('div', 'block-head'); h.append(el('h2', null, 'Ваш ответ против стека открывающего'), el('p', null, 'колл, 3-бет, олл-ин или фолд каждой рукой, когда перед вами был один рейз; стеки задаёте сами'));
   const seg = el('div', 'seg');
-  ['MP', 'CO', 'BTN', 'SB', 'BB'].filter(p => r.cc[p].n >= SMALL).forEach(p => { const bt = el('button', uiState.ccOPos === p ? 'on' : '', p); bt.type = 'button'; bt.onclick = () => { uiState.ccOPos = p; uiState.ccOOpen = []; render(); }; seg.append(bt); });
+  ['MP', 'CO', 'BTN', 'SB', 'BB'].filter(p => r.cc[p].n >= SMALL).forEach(p => { const bt = el('button', uiState.ccOPos === p ? 'on' : '', p); bt.type = 'button'; bt.onclick = () => { uiState.ccOPos = p; uiState.ccOOpen = []; renderNext(); }; seg.append(bt); });
   // позиция открывающего: можно выбрать одну или несколько — ответ считается суммарно против них
   const segO = el('div', 'seg seg-multi');
   const opts = ['UTG', 'MP', 'CO', 'BTN', 'SB'].filter(op => r.vs[uiState.ccOPos] && r.vs[uiState.ccOPos][op] && r.vs[uiState.ccOPos][op].n > 0);
   const sel = uiState.ccOOpen.filter(op => opts.includes(op));
-  const ball = el('button', sel.length ? '' : 'on', 'Все'); ball.type = 'button'; ball.setAttribute('aria-pressed', String(!sel.length)); ball.onclick = () => { uiState.ccOOpen = []; render(); }; segO.append(ball);
-  opts.forEach(op => { const on = sel.includes(op); const bt = el('button', on ? 'on' : '', op); bt.type = 'button'; bt.setAttribute('aria-pressed', String(on)); bt.onclick = () => { uiState.ccOOpen = on ? sel.filter(x => x !== op) : sel.concat([op]); render(); }; segO.append(bt); });
+  const ball = el('button', sel.length ? '' : 'on', 'Все'); ball.type = 'button'; ball.setAttribute('aria-pressed', String(!sel.length)); ball.onclick = () => { uiState.ccOOpen = []; renderNext(); }; segO.append(ball);
+  opts.forEach(op => { const on = sel.includes(op); const bt = el('button', on ? 'on' : '', op); bt.type = 'button'; bt.setAttribute('aria-pressed', String(on)); bt.onclick = () => { uiState.ccOOpen = on ? sel.filter(x => x !== op) : sel.concat([op]); renderNext(); }; segO.append(bt); });
   const body = el('div', 'block-body'); body.append(handMatrix(r.mxO, ['3-бет', 'олл-ин', 'колл', 'фолд']));
   const side = el('div', 'mx-side');
   const leg = el('div', 'resp-legend row'); [['3-бет', 'var(--mx-raise)'], ['олл-ин', 'var(--mx-push)'], ['колл', 'var(--mx-limp)'], ['фолд', 'var(--mx-empty)']].forEach(([l, col]) => { const it = el('span'); const i = el('i'); i.style.background = col; if (col === 'var(--mx-empty)') i.style.border = '1px solid var(--line2)'; it.append(i, document.createTextNode(l)); leg.append(it); });
@@ -1486,7 +1486,7 @@ function ccOppBlock(r) {
   const err = el('span', 'mx-err');
   const go = el('button', 'btn mx-go' + (uiState.ccOStkR || uiState.ccOMyR ? ' on' : ''), 'Показать'); go.type = 'submit';
   const clr = el('button', 'btn mx-clr', 'Сброс'); clr.type = 'button'; clr.hidden = !(uiState.ccOStkR || uiState.ccOMyR);
-  clr.onclick = () => { uiState.ccOStkR = null; uiState.ccOMyR = null; render(); };
+  clr.onclick = () => { uiState.ccOStkR = null; uiState.ccOMyR = null; renderNext(); };
   const btns = el('div', 'cc-opp-btns'); btns.append(go, clr);
   form.append(el('span', 'mx-cap', 'Стек открывающего'), po.row, el('span', 'mx-cap', 'Мой диапазон'), pm.row, btns, err);
   const read = (p) => {
@@ -1514,11 +1514,11 @@ function ccRangeBlock(r, o) {
   const b = el('section', 'block cc-table'); b.append(numTag(o.tag));
   const h = el('div', 'block-head'); h.append(el('h2', null, o.title), el('p', null, o.sub));
   const seg = el('div', 'seg');
-  ['MP', 'CO', 'BTN', 'SB', 'BB'].filter(p => r.cc[p].n >= SMALL).forEach(p => { const bt = el('button', uiState[o.pos] === p ? 'on' : '', p); bt.type = 'button'; bt.onclick = () => { uiState[o.pos] = p; render(); }; seg.append(bt); });
+  ['MP', 'CO', 'BTN', 'SB', 'BB'].filter(p => r.cc[p].n >= SMALL).forEach(p => { const bt = el('button', uiState[o.pos] === p ? 'on' : '', p); bt.type = 'button'; bt.onclick = () => { uiState[o.pos] = p; renderNext(); }; seg.append(bt); });
   const body = el('div', 'block-body'); body.append(handMatrix(o.mx, ['3-бет', 'олл-ин', 'колл', 'фолд']));
   const side = el('div', 'mx-side');
   const segS = el('div', 'seg');
-  MX_STK.forEach(([id, lab]) => { const bt = el('button', uiState[o.stk] === id ? 'on' : '', lab); bt.type = 'button'; bt.onclick = () => { uiState[o.stk] = id; render(); }; segS.append(bt); });
+  MX_STK.forEach(([id, lab]) => { const bt = el('button', uiState[o.stk] === id ? 'on' : '', lab); bt.type = 'button'; bt.onclick = () => { uiState[o.stk] = id; renderNext(); }; segS.append(bt); });
   const cr = el('form', 'mx-range'); cr.setAttribute('aria-label', 'Свой диапазон стека');
   const mkIn = (id, ph, val) => { const i = el('input'); i.type = 'number'; i.id = id; i.min = '0'; i.max = '1000'; i.step = '0.5'; i.placeholder = ph; i.inputMode = 'decimal'; if (val != null) i.value = String(val); return i; };
   const cur = uiState[o.stk] === 'custom' && uiState[o.custom] ? uiState[o.custom] : null;
@@ -1827,6 +1827,20 @@ function currentIdx() {
   return idx; // у соперника своя база (DB) — все его раздачи
 }
 
+// Отклик на нажатие — сразу: кнопка выделяется и экран слегка гаснет в этот же кадр, а пересчёт (у большой базы — доли
+// секунды) идёт следующим кадром. Раньше пересчёт шёл прямо в обработчике нажатия, и окно на это время «залипало».
+let RS_F = 0, LASTBTN = null;
+document.addEventListener('click', (e) => { LASTBTN = e.target && e.target.closest ? e.target.closest('button') : null; }, true);
+function renderNext() {
+  const b = LASTBTN; LASTBTN = null;
+  if (b && b.isConnected && b.parentElement) {
+    const sib = [...b.parentElement.children].filter(x => x !== b && x.tagName === 'BUTTON' && (x.classList.contains('on') || x.classList.contains('active')));
+    if (sib.length || b.classList.contains('tab')) { const c = b.classList.contains('tab') ? 'active' : 'on'; sib.forEach(x => x.classList.remove('on', 'active')); b.classList.add(c); }
+  }
+  document.body.classList.add('rendering');
+  if (RS_F) return;
+  RS_F = requestAnimationFrame(() => setTimeout(() => { RS_F = 0; try { render(); } finally { document.body.classList.remove('rendering'); } }, 0));
+}
 function render() {
   hideHandPop(); hideMxTip(); hideGroupTip(); hidePushTip(); unpinSzMx(); if (qdTip) qdTip.hidden = true;
   const rail = $('rail'); rail.replaceChildren();
@@ -1838,7 +1852,7 @@ function render() {
       b.append(el('span', 'code', t.code), el('span', 'name', t.label), el('span', 'dot'));
       b.title = t.render ? t.label : t.label + ' — в работе';
       if (t.id === state.tab) b.setAttribute('aria-current', 'page');
-      b.onclick = () => { if (t.id === 'aliases' && state.tab !== 'aliases') PREV_TAB = state.tab; state.tab = t.id; render(); $('content').scrollTop = 0; };
+      b.onclick = () => { if (t.id === 'aliases' && state.tab !== 'aliases') PREV_TAB = state.tab; state.tab = t.id; renderNext(); $('content').scrollTop = 0; };
       box.append(b);
     });
     rail.append(box);
@@ -1847,7 +1861,7 @@ function render() {
   [['TOT', 'Все столы'], ['6max', '6-max'], ['9max', '7–9 max']].forEach(([id, label]) => {
     const b = el('button', state.sub === id ? 'on' : '', label);
     b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', state.sub === id);
-    b.onclick = () => { state.sub = id; render(); };
+    b.onclick = () => { state.sub = id; renderNext(); };
     subs.append(b);
   });
   const tab = TABS.find(t => t.id === state.tab);
@@ -1879,9 +1893,9 @@ function setupFilters() {
   opt($('fFrom'), ml, state.from ?? 0);
   opt($('fTo'), ml, state.to ?? months - 1);
   $('fRoom').onchange = (e) => { const r = e.target.value === '' ? null : +e.target.value; choosePlayer(r == null ? 'alias' : 'hero', r); }; // смена рума — снова ваш ник этого рума
-  $('fType').onchange = (e) => { state.type = e.target.value === '' ? null : +e.target.value; render(); };
-  $('fFrom').onchange = (e) => { state.from = +e.target.value; render(); };
-  $('fTo').onchange = (e) => { state.to = +e.target.value; render(); };
+  $('fType').onchange = (e) => { state.type = e.target.value === '' ? null : +e.target.value; renderNext(); };
+  $('fFrom').onchange = (e) => { state.from = +e.target.value; renderNext(); };
+  $('fTo').onchange = (e) => { state.to = +e.target.value; renderNext(); };
   // бай-ины: реальные значения из базы (не реже 30 раздач), в долларах
   const cnt = {}; if (DB.cols.bi) DB.cols.bi.forEach(v => { if (v >= 0) cnt[v] = (cnt[v] || 0) + 1; });
   const bis = Object.keys(cnt).map(Number).filter(v => cnt[v] >= 30).sort((a, b) => a - b);
@@ -2134,7 +2148,7 @@ function openPlayerMenu() {
     });
   });
   const ed = el('button', 'pm-edit', 'Редактор алиасов'); ed.type = 'button';
-  ed.onclick = () => { closePlayerMenu(); if (state.tab !== 'aliases') PREV_TAB = state.tab; state.tab = 'aliases'; render(); };
+  ed.onclick = () => { closePlayerMenu(); if (state.tab !== 'aliases') PREV_TAB = state.tab; state.tab = 'aliases'; renderNext(); };
   mine.append(ed);
   // 2) другие игроки базы
   const oth = el('div', 'pm-sec pm-oth');
@@ -2274,7 +2288,7 @@ function renderAliasEditor() {
     const b = el('button', 'als-chip' + (A.k === EDIT_A ? ' on' : '')); b.type = 'button'; b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', A.k === EDIT_A);
     const nm = el('b', null, A.name); chipNames[A.k] = nm;
     b.append(nm, el('span', null, nicksLabel(nickCount(A)) + ' · ' + aliasCount(A).toLocaleString('ru-RU')));
-    b.onclick = () => { EDIT_A = A.k; EDIT_NEW = false; render(); };
+    b.onclick = () => { EDIT_A = A.k; EDIT_NEW = false; renderNext(); };
     const w = el('div', 'als-chipw'); w.append(b);
     // крестик — распустить алиас сразу: игроки базы возвращаются в «Другие игроки», ваши ники остаются в своих алиасах.
     // Алиас, где лежат раздачи ваших ников, распустить нельзя — у него крестика нет.
@@ -2288,7 +2302,7 @@ function renderAliasEditor() {
   if (EDIT_NEW) {
     const f = el('form', 'als-newform'); const ni = el('input'); NEW_INPUT = ni; ni.placeholder = 'Имя нового алиаса'; ni.maxLength = 40; ni.setAttribute('aria-label', 'Имя нового алиаса');
     const ok = el('button', 'btn small primary', 'ОК'); ok.type = 'submit';
-    const no = el('button', 'btn small', 'Отмена'); no.type = 'button'; no.onclick = () => { EDIT_NEW = false; render(); };
+    const no = el('button', 'btn small', 'Отмена'); no.type = 'button'; no.onclick = () => { EDIT_NEW = false; renderNext(); };
     f.onsubmit = (e) => { e.preventDefault(); const name = ni.value.trim(); if (!name) { ni.focus(); return; } if (AL.some(A => !A.gone && A.name.toLowerCase() === name.toLowerCase())) { EDIT_MSG = 'Алиас «' + name + '» уже есть'; render(); return; } EDIT_NEW = false;
       // новый алиас создаётся сразу (можно пустым) — ники добавите потом
       if (!DRAFT) DRAFT = aliasList(HERO_DB).map(a => JSON.parse(JSON.stringify(a)));
@@ -2299,7 +2313,7 @@ function renderAliasEditor() {
     const full = live.length >= MAX_ALIASES;
     const nb = el('button', 'als-chip als-new', full ? 'Максимум ' + MAX_ALIASES + ' алиасов' : '+ Новый алиас'); nb.type = 'button'; nb.disabled = full;
     if (full) nb.title = 'Распустите ненужный алиас крестиком, чтобы создать новый';
-    nb.onclick = () => { EDIT_NEW = true; render(); }; chips.append(nb);
+    nb.onclick = () => { EDIT_NEW = true; renderNext(); }; chips.append(nb);
   }
   c.append(chips);
   if (EDIT_MSG) c.append(el('p', 'als-msg', EDIT_MSG));
