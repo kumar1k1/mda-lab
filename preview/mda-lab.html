@@ -6698,6 +6698,27 @@ window.NEWS_SNAPSHOT = (function () {
   function legend(items) { const l = el('div', 'rs-leg'); items.forEach(([cls, t]) => { const i = el('span'); i.append(el('i', cls), document.createTextNode(t)); l.append(i); }); return l; }
   function note(t) { return el('p', 'rs-note', t); }
 
+  // панель фильтров (#1) — всегда строится заново по текущим настройкам (в кэше страницы её не хранить:
+  // списки и поля там помнят то, что вы выбирали в прошлый раз)
+  function filtersBar(D) {
+    const rooms = D.db.rooms || [];
+    const fb = el('div', 'rs-filters');
+    fb.append(
+      periodBox(D),
+      sel('Рум', 'room', [[-1, 'Все румы']].concat(rooms.map((r, k) => [k, r]))),
+      seg('Баунти', 'bounty', [['all', 'Все'], ['0', 'Без'], ['1', 'PKO'], ['2', 'Mystery']]),
+      seg('Скорость', 'speed', [['all', 'Все'], ['0', 'Обычная'], ['1', 'Турбо'], ['2', 'Гипер']]),
+      biBox(),
+      seg('Стол', 'tbl', [['all', 'Все'], ['1', '6-max'], ['2', '7–8'], ['3', '9-max']]),
+      seg('Тип', 'kind', [['all', 'Все'], ['0', 'Обычные'], ['1', 'Сателлиты']]),
+      seg('Считать', 'metric', [['ev', 'EV'], ['net', 'Факт']]),
+      seg('Поправка', 'adj', [[1, 'На позицию и стек'], [0, 'Без']])
+    );
+    const reset = el('button', 'rs-reset', 'Сбросить'); reset.type = 'button'; reset.onclick = () => { Object.assign(F, DEF); saveF(); draw(); };
+    if (Object.keys(DEF).some(k => !['cmp', 'tilt', 'pFrom', 'pTo', 'biFrom', 'biTo'].includes(k) && String(F[k]) !== String(DEF[k]))) fb.append(reset);
+    fb.append(el('span', 'rs-num', '#1'));
+    return fb;
+  }
   // ошибка в одном расчёте не должна оставлять страницу недорисованной
   async function draw(root) {
     try { await draw0(root); }
@@ -6707,7 +6728,7 @@ window.NEWS_SNAPSHOT = (function () {
     if (root) { ROOT = root; WAIT = 0; } if (!ROOT) return;
     const R = ROOT, gen = ++GEN;
     const ckey = JSON.stringify(F) + '|' + DKEY + '|' + (typeof state !== 'undefined' ? state.alias : 0) + '|' + (typeof HERO_DB !== 'undefined' && HERO_DB ? HERO_DB.count : 0);
-    if (DATA && DATA.db === (typeof HERO_DB !== 'undefined' ? HERO_DB : null) && CACHE.has(ckey)) { const keep = R.scrollTop; R.replaceChildren(...CACHE.get(ckey)); R.scrollTop = keep; return; }
+    if (DATA && DATA.db === (typeof HERO_DB !== 'undefined' ? HERO_DB : null) && CACHE.has(ckey)) { const keep = R.scrollTop, nodes = CACHE.get(ckey).map(n => n.classList && n.classList.contains('rs-filters') ? filtersBar(DATA) : n); R.replaceChildren(...nodes); R.scrollTop = keep; return; }
     const keepTop = R.scrollTop; R.replaceChildren();
     const head = el('div', 'rs-head'); head.append(el('h2', null, 'Результаты'), el('p', null, 'Где и когда вы играете лучше всего: число столов, ход сессии, время, дни и форматы турниров. Наведите на столбец — подробности; усы — 95% интервал.'));
     R.append(head);
@@ -6724,20 +6745,7 @@ window.NEWS_SNAPSHOT = (function () {
     if (R !== ROOT) return;
     const c = D.db.cols, rooms = D.db.rooms || [];
     // фильтры
-    const fb = el('div', 'rs-filters');
-    fb.append(
-      periodBox(D),
-      sel('Рум', 'room', [[-1, 'Все румы']].concat(rooms.map((r, k) => [k, r]))),
-      seg('Баунти', 'bounty', [['all', 'Все'], ['0', 'Без'], ['1', 'PKO'], ['2', 'Mystery']]),
-      seg('Скорость', 'speed', [['all', 'Все'], ['0', 'Обычная'], ['1', 'Турбо'], ['2', 'Гипер']]),
-      biBox(),
-      seg('Стол', 'tbl', [['all', 'Все'], ['1', '6-max'], ['2', '7–8'], ['3', '9-max']]),
-      seg('Тип', 'kind', [['all', 'Все'], ['0', 'Обычные'], ['1', 'Сателлиты']]),
-      seg('Считать', 'metric', [['ev', 'EV'], ['net', 'Факт']]),
-      seg('Поправка', 'adj', [[1, 'На позицию и стек'], [0, 'Без']])
-    );
-    const reset = el('button', 'rs-reset', 'Сбросить'); reset.type = 'button'; reset.onclick = () => { Object.assign(F, DEF); saveF(); draw(); };
-    if (Object.keys(DEF).some(k => !['cmp', 'tilt', 'pFrom', 'pTo', 'biFrom', 'biTo'].includes(k) && String(F[k]) !== String(DEF[k]))) fb.append(reset);
+    const fb = filtersBar(D);
     R.append(fb);
     const X = select(D);
     if (!X.idx.length) { R.append(note('Под эти фильтры раздач нет. Ослабьте фильтры или нажмите «Сбросить».')); return; }
@@ -7157,8 +7165,8 @@ window.NEWS_SNAPSHOT = (function () {
     }
     grid.querySelectorAll(':scope > .rs-card').forEach(cd => { if (cd.querySelector('.rs-lack') && !cd.querySelector('svg.rs-svg, table')) cd.querySelectorAll('.rs-leg, .rs-verdict').forEach(x => x.remove()); });
     // номера блоков — чтобы было удобно обсуждать, что убрать или поменять
-    { let k = 0; const tag = (node) => { const t = el('span', 'rs-num', '#' + (++k)); node.append(t); };
-      tag(fb); tag(kp); grid.querySelectorAll(':scope > .rs-card').forEach(c => tag(c.querySelector('.rs-card-h') || c)); }
+    { let k = 1; const tag = (node) => { const t = el('span', 'rs-num', '#' + (++k)); node.append(t); }; // #1 — панель фильтров
+      tag(kp); grid.querySelectorAll(':scope > .rs-card').forEach(c => tag(c.querySelector('.rs-card-h') || c)); }
     if (gen !== GEN) return;
     R.append(note('Расчёт: ' + mName + ' в BB на 100 раздач. Поправка вычитает средний результат вашей позиции и глубины стека, чтобы ранние стадии и короткие стеки не искажали сравнение времени и столов. Время румов приведено к одному часовому поясу. Деньги, ICM и баунти не учитываются — только фишки.'));
     CACHE.set(ckey, [...R.childNodes]); if (CACHE.size > 10) CACHE.delete(CACHE.keys().next().value);
