@@ -1370,3 +1370,26 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .rs-filters > .rs-num{top:8px;right:10px}
 .rs-kpis > .rs-num{top:-9px;right:-6px;z-index:1}
 .rs-filters{top:auto}
+/* фильтры «Результатов» всегда сверху */
+.rs-filters{position:sticky;top:-22px;z-index:8;background:rgba(22,27,37,.97);box-shadow:0 8px 18px rgba(0,0,0,.35)}
+.rs-two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;align-items:start}
+.rs-svg .rs-cellv{fill:var(--text);font:700 11px var(--mono)}.rs-svg .rs-cellv.small{fill:var(--muted)}
+.rs-dot.pos{fill:rgba(var(--good-rgb),.55);stroke:var(--good)}.rs-dot.neg{fill:rgba(var(--bad-rgb),.55);stroke:var(--bad)}
+.rs-dot:hover{stroke:var(--text);stroke-width:2}
+.rs-style td.up{color:var(--amber);font-weight:800}.rs-style td.down{color:var(--ice);font-weight:800}
+.rs-style tbody tr{cursor:default!important}.rs-style tbody tr:hover{background:none!important}
+.rs-table tr.rs-avg th,.rs-table tr.rs-avg td{color:var(--muted);border-top:1px solid var(--line2)}
+.rs-table tbody tr.rs-norow{cursor:default}
+.rs-table tbody tr.rs-norow th{max-width:420px;overflow:hidden;text-overflow:ellipsis}
+.rs-scroll{max-height:440px;overflow-y:auto}
+.rs-scroll thead th{position:sticky;top:0;background:var(--card);z-index:1}
+.rs-best h4,.rs-zone h4{margin:0 0 8px;font-size:13px}
+.rs-best ol{margin:0 0 14px;padding-left:20px;font-size:12.5px;color:var(--soft);line-height:1.7}
+.rs-best b{font-family:var(--mono)}.rs-best b.pos,.rs-zone b.pos{color:var(--good)}.rs-best b.neg,.rs-zone b.neg{color:var(--bad)}
+.rs-zone{padding:12px 14px;border-radius:12px;background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line2)}
+.rs-zone.bad{border-left-color:var(--bad)}.rs-zone.good{border-left-color:var(--good)}
+.rs-zone-i{display:grid;grid-template-columns:1fr auto;gap:0 12px;padding:6px 0;border-bottom:1px solid var(--line);font-size:13px}
+.rs-zone-i:last-child{border-bottom:none}
+.rs-zone-i b{font-family:var(--mono);text-align:right}
+.rs-zone-i small{grid-column:1/-1;font-size:11px;color:var(--faint)}
+@media (max-width:1100px){.rs-two{grid-template-columns:1fr}}
