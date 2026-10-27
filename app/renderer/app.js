@@ -7,7 +7,7 @@ const MONTHS = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'и�
 let DB = null;
 let CURRENT_IDX = [];
 let LAST_NET_ITEMS = [];
-const state = { tab: 'rfi', sub: 'TOT', alias: 0, nickView: null, nickA: null, room: null, player: null, type: null, from: null, to: null, noDup: (() => { try { return localStorage.getItem('mda.noDup') !== '0'; } catch (e) { return true; } })() }; // повторы раздач по умолчанию убраны
+const state = { tab: 'rfi', sub: 'TOT', alias: 0, nickView: null, nickA: null, room: null, player: null, type: null, from: null, to: null,  };
 
 // ---------- вкладки (группы и список будем менять) ----------
 const GROUPS = [
@@ -1823,7 +1823,7 @@ function renderSoon(tab) {
 
 // ---------- отрисовка ----------
 function currentIdx() {
-  const idx = Stats.selectHands(DB, { aid: DB === HERO_DB && !state.player ? state.alias : null, room: state.room, type: state.type, from: state.from, to: state.to, biFrom: state.biFrom, biTo: state.biTo, noDup: state.noDup, tbl: state.sub === 'TOT' ? null : state.sub });
+  const idx = Stats.selectHands(DB, { aid: DB === HERO_DB && !state.player ? state.alias : null, room: state.room, type: state.type, from: state.from, to: state.to, biFrom: state.biFrom, biTo: state.biTo, tbl: state.sub === 'TOT' ? null : state.sub });
   return idx; // у соперника своя база (DB) — все его раздачи
 }
 
@@ -1887,11 +1887,6 @@ function setupFilters() {
   const bis = Object.keys(cnt).map(Number).filter(v => cnt[v] >= 30).sort((a, b) => a - b);
   const biLab = (v) => '$' + (v / 100).toLocaleString('ru-RU', { maximumFractionDigits: 2 });
   $('fBiFrom').parentElement.hidden = !bis.length;
-  // повторы раздач (одна раздача из двух выгрузок): по умолчанию убраны; «как в Hand2Note» — учитывать (для сверки)
-  let nCopy = 0; if (DB.cols.dup) for (let i = 0; i < DB.count; i++) if (DB.cols.dup[i] === 1) nCopy++;
-  $('fDupWrap').hidden = !nCopy;
-  opt($('fDup'), [['1', 'убраны (' + nCopy.toLocaleString('ru-RU') + ')'], ['', 'учитывать, как в Hand2Note']], state.noDup ? '1' : '');
-  $('fDup').onchange = (e) => { state.noDup = e.target.value === '1'; try { localStorage.setItem('mda.noDup', state.noDup ? '1' : '0'); } catch (x) { /* без сохранения */ } render(); };
   opt($('fBiFrom'), [['', 'любой']].concat(bis.map(v => [v, biLab(v)])), state.biFrom ?? '');
   opt($('fBiTo'), [['', 'любой']].concat(bis.map(v => [v, biLab(v)])), state.biTo ?? '');
   $('fBiFrom').onchange = (e) => { state.biFrom = e.target.value === '' ? null : +e.target.value; if (state.biTo != null && state.biFrom != null && state.biTo < state.biFrom) { state.biTo = state.biFrom; $('fBiTo').value = String(state.biTo); } render(); };
@@ -2444,7 +2439,7 @@ function onMigrate(m) {
   if (!MIG_T || MIG_T.id !== m.id) MIG_T = { id: m.id, t0: now, d0: m.done };
   const el2 = (now - MIG_T.t0) / 1000, rate = el2 > 1.5 ? (m.done - MIG_T.d0) / el2 : 0;
   const left = rate > 0 && m.total ? (m.total - m.done) / rate : null;
-  const stage = { rpbin: 'Перевожу записи раздач в компактный вид', colz: 'Сжимаю колонки статистики', names: 'Добавляю ники игроков в записи раздач', dedup: 'Убираю повторы раздач', fcb: 'Досчитываю фолд на контбет', ant: 'Досчитываю анте', cbs: 'Досчитываю размеры контбетов' }[m.id] || 'Обновляю';
+  const stage = { rpbin: 'Перевожу записи раздач в компактный вид', colz: 'Сжимаю колонки статистики', names: 'Добавляю ники игроков в записи раздач', dedup: 'Ищу повторы раздач', dedupw: 'Убираю повторы раздач', fcb: 'Досчитываю фолд на контбет', ant: 'Досчитываю анте', cbs: 'Досчитываю размеры контбетов' }[m.id] || 'Обновляю';
   migBox.querySelector('.mig-t').textContent = m.total ? stage + ': ' + m.done.toLocaleString('ru-RU') + ' из ' + m.total.toLocaleString('ru-RU') + ' (' + pct + '%)' + (left != null ? ' · осталось ' + fmtDur(left) : '') : 'Подготовка…';
 }
 // EV последней загрузки досчитывается в фоне: значок в панели; по окончании — свежая колонка nev

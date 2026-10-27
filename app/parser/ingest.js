@@ -26,11 +26,10 @@ const { internTitle, appendNames, playersIn } = require('./rpbin.js');
 const FORMAT = 'mdalab-cols-v3';
 // колонки ваших раздач: статы + ссылка на запись реплеера + отпечаток раздачи
 // aid — номер алиаса (в базе может быть несколько игроков со своими никами: вы, друг…)
-// dup — 1 у копии раздачи из другой выгрузки (parser/dedupe.js): строка хранится (как в Hand2Note), фильтр «без повторов» её убирает
-const HERO_SCHEMA = SCHEMA.concat([['rpp', 'i32'], ['rpo', 'u32'], ['rpl', 'u32'], ['key', 'f64'], ['aid', 'i16'], ['nk', 'i16'], ['dup', 'i8']]);
+const HERO_SCHEMA = SCHEMA.concat([['rpp', 'i32'], ['rpo', 'u32'], ['rpl', 'u32'], ['key', 'f64'], ['aid', 'i16'], ['nk', 'i16']]);
 // nk — номер ника героя в meta.heroNicks (у одного алиаса может быть несколько ников в одном руме)
 // колонки раздач соперников: статы + игрок, его место в раздаче, ссылка на запись реплеера, отпечаток раздачи
-const OPP_SCHEMA = SCHEMA.concat([['pid', 'i32'], ['seat', 'i8'], ['rpp', 'i32'], ['rpo', 'u32'], ['rpl', 'u32'], ['key', 'f64'], ['dup', 'i8']]);
+const OPP_SCHEMA = SCHEMA.concat([['pid', 'i32'], ['seat', 'i8'], ['rpp', 'i32'], ['rpo', 'u32'], ['rpl', 'u32'], ['key', 'f64']]);
 
 // значения строки по записи игрока (тот же набор и порядок, что SCHEMA); месяц и день — абсолютные
 function rowVals(h, roomIdx) {
@@ -182,7 +181,6 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
   // копии раздач из разных выгрузок (у GG — с другими номерами): ключ содержания (parser/dedupe.js)
   const DD = require('./dedupe.js'), oldCk = old ? DD.readKeys(dir) : new Float64Array(0);
   const ckSeen = new HashSet53(oldCk.length + 1024), newCk = []; for (const x of oldCk) ckSeen.add(x);
-  let nCopy = 0;
   const ckDup = (h) => !!h.ck && ckSeen.has(h.ck), ckAdd = (h) => { if (h.ck && ckSeen.add(h.ck)) newCk.push(h.ck); };
   const addedBy = new Float64Array(aliases.length);
   const players = old ? old.players.map(p => ({ n: p.n, r: p.r, c: p.c, sh: p.sh || 0 })) : [];
@@ -221,9 +219,8 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
   const pushRow = (cols, vals, row, roomIdx) => { const o = row * NC; for (let c = 0; c < NC; c++) cols[c].push(c === RC ? roomIdx : vals[o + c]); };
   const errors = await parseParallel(files, heroes, (h) => {
     if (!h.hn) { // раздача без героя: только соперники, если такой раздачи ещё нет в базе
-      if (!handSeen.add(h.k)) { dup++; return; }
-      const cp = ckDup(h); if (cp) nCopy++; else ckAdd(h);
-      h.cp = cp ? 1 : 0;
+      if (ckDup(h) || !handSeen.add(h.k)) { dup++; return; }
+      ckAdd(h);
       let ri = rooms.indexOf(h.room); if (ri < 0) { rooms.push(h.room); ri = rooms.length - 1; }
       const ref = h.rpz && h.onr.some(x => x) ? addRec(h.rpz, h, ri, true) : null;
       addOpps(h, ri, ref, h.vi); nD++;
@@ -232,16 +229,16 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
     const aid = target;
     const po = prevOwners.get(h.hn);
     if (po && po.some(a => seen.has(hk2(h.k, a)))) { dup++; return; }
+    if (ckDup(h)) { dup++; return; }
     if (!seen.add(hk2(h.k, aid))) { dup++; return; }
-    const cp = ckDup(h); if (cp) nCopy++; else ckAdd(h);
-    h.cp = cp ? 1 : 0;
+    ckAdd(h);
     const newHand = handSeen.add(h.k); // раздачи ещё не было в базе (ни у одного алиаса)
     const roomIdx = rooms.indexOf(nicksAll[h.hn]);
     const needRef = h.rpz && (h.heroRp || (newHand && h.onr.some(x => x)));
     const ref = needRef ? addRec(h.rpz, h, roomIdx, newHand) : null;
     pushRow(HC, h.vals, h.vi, roomIdx);
     const hr = h.heroRp && ref && h.hhc >= 0; // запись реплеера у каждой вашей раздачи с вашими картами
-    H.rpp.push(hr ? ref[0] : -1); H.rpo.push(hr ? ref[1] : 0); H.rpl.push(hr ? ref[2] : 0); H.key.push(h.k); H.aid.push(aid); H.nk.push(nkOf.has(h.hn) ? nkOf.get(h.hn) : -1); H.dup.push(h.cp);
+    H.rpp.push(hr ? ref[0] : -1); H.rpo.push(hr ? ref[1] : 0); H.rpl.push(hr ? ref[2] : 0); H.key.push(h.k); H.aid.push(aid); H.nk.push(nkOf.has(h.hn) ? nkOf.get(h.hn) : -1);
     nH++; addedBy[aid]++;
     if (newHand) addOpps(h, roomIdx, ref, h.vi + 1);
   }, (d, t) => prog('parse', d, t, nH + nD), opts.parseThreads, { observer, exclude: others });
@@ -253,7 +250,7 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
       const pid = pidOf(roomIdx, name, true);
       pushRow(OC, h.vals, row0 + j, roomIdx);
       const orr = h.onr[j] && ref;
-      O.pid.push(pid); O.seat.push(h.os[j]); O.rpp.push(orr ? ref[0] : -1); O.rpo.push(orr ? ref[1] : 0); O.rpl.push(orr ? ref[2] : 0); O.key.push(h.k); O.dup.push(h.cp || 0);
+      O.pid.push(pid); O.seat.push(h.os[j]); O.rpp.push(orr ? ref[0] : -1); O.rpo.push(orr ? ref[1] : 0); O.rpl.push(orr ? ref[2] : 0); O.key.push(h.k);
       nO++;
     }
   }
@@ -339,7 +336,7 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
   const meta = {
     format: FORMAT, demo: false, hero: aliases.length ? aliases[0].name : '', nicks: nicksAll, aliases: aliases.map((a, i) => Object.assign({}, a, { count: a.count + addedBy[i] })), heroNicks, rooms, types: ['Обычный', 'PKO'],
     periodStart: Math.floor(m0 / 12) + '-' + String(m0 % 12 + 1).padStart(2, '0'), count: (old ? old.heroN : 0) + nH,
-    cols: SCHEMA.concat([['aid', 'i16'], ['nk', 'i16'], ['dup', 'i8']]), colDir: 'g' + gen, copies: (old ? old.meta.copies || 0 : 0) + nCopy,
+    cols: SCHEMA.concat([['aid', 'i16'], ['nk', 'i16']]), colDir: 'g' + gen,
     // обновления базы (parser/migrate.js): новая база посчитана целиком; при дозагрузке — как было у старой (её строки досчитаются при открытии)
     mig: old ? (old.meta.mig || []) : require('./migrate.js').ALL_IDS,
     evPending: opts.deferEv && nJobs ? { colDir: 'g' + gen, heroJobs: nHeroJobs, jobs: nJobs, n: nTot } : undefined, opp: { rows: (old ? old.oppN : 0) + nO, players: plist.length }, rpParts: rpw.parts, rpz: 2
@@ -348,7 +345,7 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
   const mt = path.join(dir, 'meta.json.tmp'); fs.writeFileSync(mt, JSON.stringify(meta)); fs.renameSync(mt, path.join(dir, 'meta.json'));
   if (old) fs.rmSync(old.g, { recursive: true, force: true });
   fs.rmSync(tmp, { recursive: true, force: true });
-  return { hands: meta.count, copies: nCopy, added: nH, mined: nD, dup, errors, rooms, opp: meta.opp.rows, oppAdded: nO, players: plist.length, aliases: meta.aliases.map(a => a.name + ' (' + a.count + ')') };
+  return { hands: meta.count, added: nH, mined: nD, dup, errors, rooms, opp: meta.opp.rows, oppAdded: nO, players: plist.length, aliases: meta.aliases.map(a => a.name + ' (' + a.count + ')') };
 }
 
 // Очень большие загрузки идут группами по ~4 ГБ историй: первая группа создаёт базу (или дописывается),
