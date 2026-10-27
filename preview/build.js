@@ -45,6 +45,9 @@ const out = [
   '<script>', fs.readFileSync(path.join(__dirname, 'news-snapshot.js'), 'utf8'), '</script>',
   '<script>', read('news.js'), '</script>',
   '<script>', read('streams.js'), '</script>',
+  '<script>', fs.readFileSync(path.join(__dirname, 'live-sample.js'), 'utf8'), '</script>',
+  '<script>', read('live-parse.js'), '</script>',
+  '<script>', read('live.js'), '</script>',
   '<script>', read('social.js'), '</script>',
   '<script>', read('results.js'), '</script>'
 ].join('\n');

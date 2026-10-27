@@ -41,6 +41,11 @@ contextBridge.exposeInMainWorld('mda', {
     on: (fn) => { ipcRenderer.on('social:ev', (_e, kind, data) => fn(kind, data)); }
   },
   newsGet: (force) => ipcRenderer.invoke('news:get', !!force),
+  liveList: (y, m, force) => ipcRenderer.invoke('live:list', +y, +m, !!force),
+  liveFest: (id, force) => ipcRenderer.invoke('live:fest', +id, !!force),
+  livePass: (kind, a, b) => ipcRenderer.invoke('live:pass', String(kind), +a, +b || 0),
+  liveRates: () => ipcRenderer.invoke('live:rates'),
+  liveSum: (id, v) => ipcRenderer.invoke('live:sum', id == null ? null : +id, v),
   streamsLive: (logins) => ipcRenderer.invoke('streams:live', Array.from(logins || []).map(String)),
   twitchStatus: () => ipcRenderer.invoke('twitch:status'),
   twitchSet: (id, sec) => ipcRenderer.invoke('twitch:set', String(id || ''), String(sec || '')),

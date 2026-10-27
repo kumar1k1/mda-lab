@@ -246,6 +246,13 @@ app.on('before-quit', () => { if (SOC) SOC.quit(); });
 let NEWS = null;
 const newsFn = () => NEWS || (NEWS = require('./news.js').make(app.getPath('userData')));
 ipcMain.handle('news:get', (_e, force) => newsFn()(!!force));
+// «Офлайн-серии» (live.js): календарь фестивалей и расписания с The Hendon Mob, курсы валют
+let LIVEM = null; const liveFn = () => LIVEM || (LIVEM = require('./live.js').make(app.getPath('userData')));
+ipcMain.handle('live:list', (_e, y, m, force) => liveFn().list(y, m, !!force));
+ipcMain.handle('live:fest', (_e, id, force) => liveFn().fest(id, !!force));
+ipcMain.handle('live:pass', (_e, kind, a, b) => liveFn().pass(String(kind), a, b));
+ipcMain.handle('live:rates', () => liveFn().rates());
+ipcMain.handle('live:sum', (_e, id, v) => id == null ? liveFn().sumGet() : liveFn().sumSet(id, v && typeof v === 'object' ? v : {}));
 // кто из покерных стримеров в эфире: превью трансляции на CDN Twitch есть только у идущего стрима
 // (у остальных адрес перенаправляет на заглушку 404_preview) — без ключей API и входа в Twitch
 const LIVE = new Map(); // login → { t, live }
