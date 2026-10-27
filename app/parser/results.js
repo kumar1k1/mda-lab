@@ -23,7 +23,7 @@ function compute(base, post) {
     for (const i of part) {
       const r = R[i]; if (!r) continue;
       raw[i] = minuteOf(r.d);
-      const t = r.t || '', num = (/#(\d{5,})/.exec(t) || [])[1];
+      const t = r.t || '', num = (/ · \((\d{5,})\)$/.exec(t) || /#(\d{5,})/.exec(t) || [])[1]; // Winamax: « · (номер)» в конце
       const key = room[i] + '|' + (num || t);
       let k = titleIdx.get(key); if (k == null) { k = titles.length; titleIdx.set(key, k); titles.push({ t: t.slice(0, 120), room: room[i] }); }
       tid[i] = k;

@@ -319,7 +319,7 @@
   function tourName(t) {
     let s = fixText(String(t || ''));
     if (/^Турнир #\d+$/.test(s)) return 'Без названия (в истории только номер)';
-    s = s.replace(/\s*·\s*#\d+\s*$/, '').replace(/^#\d+\s*-\s*/, '').replace(/\[(Day|Stage|День)[^\]]*\]/gi, '').replace(/\b(Day|Stage)\s*\d+\w*/gi, '').replace(/\s{2,}/g, ' ').trim();
+    s = s.replace(/\s*·\s*\(\d{5,}\)\s*$/, '').replace(/\s*·\s*#\d+\s*$/, '').replace(/^#\d+\s*-\s*/, '').replace(/\[(Day|Stage|День)[^\]]*\]/gi, '').replace(/\b(Day|Stage)\s*\d+\w*/gi, '').replace(/\s{2,}/g, ' ').trim();
     return s || 'Без названия';
   }
   // ---------- страница ----------
@@ -979,7 +979,7 @@
         opt = opt || {}; const V = opt.verdict || ((r) => verdictOf(r, 0)), val = opt.val || dv;
         const m = el('div', 'rs-mx'); m.style.gridTemplateColumns = 'minmax(56px,auto) repeat(' + colL.length + ',minmax(0,1fr))';
         m.append(el('span', 'rs-mx-h', opt.corner || '')); colL.forEach(c => m.append(el('span', 'rs-mx-h', c)));
-        rowL.forEach((rl, a) => { m.append(el('span', 'rs-mx-r', rl)); colL.forEach((cl, b) => { const r = get(a, b); if (!r || !r.n) { m.append(el('div', 'rs-tl-c none')); return; } const [cls, txt] = V(r); const c = el('div', 'rs-tl-c ' + cls); c.append(el('b', null, cls === 'small' ? '—' : val(r)), el('small', null, txt)); c.title = rl + ' · ' + cl + ': ' + sesTip(r); m.append(c); }); });
+        rowL.forEach((rl, a) => { m.append(el('span', 'rs-mx-r', rl)); colL.forEach((cl, b) => { const r = get(a, b); if (!r || !r.n) { m.append(el('div', 'rs-tl-c none')); return; } const [cls, txt] = V(r); const c = el('div', 'rs-tl-c ' + cls); c.dataset.lab = rl + ' · ' + cl; c.append(el('b', null, cls === 'small' ? '—' : val(r)), el('small', null, txt)); if (opt.showN) c.append(el('em', null, num(r.n) + ' р.')); c.title = rl + ' · ' + cl + ': ' + sesTip(r); m.append(c); }); });
         const w = el('div', 'rs-mx-w'); w.append(m); return w;
       };
       // вывод по сочетаниям: самые слабые и сильные надёжные, иначе — заметные, но не доказанные
@@ -994,70 +994,47 @@
         const soft = [...sb.slice(0, 3), ...sg.slice(0, 3)].map(x => x.label + ' — ' + verdictOf(x.r, 0)[1] + ' (' + dv(x.r) + ')');
         return [ev.length ? 'Надёжных отличий нет' : 'Пока без вывода', null, (ev.length ? 'Все сочетания в пределах случайности.' + (soft.length ? ' Не доказано, но заметно: ' + soft.join(', ') + '.' : '') : 'Ни в одном сочетании не хватает данных.') + (ev.length ? cnt : '')];
       };
-      // #15 после крупного проигрыша
+      // #15 после крупного проигрыша: короткие отрезки — тильт виден в первые минуты, на длинном отрезке растворяется
       {
-        const cA = card('После крупного проигрыша', 'Проверка на тильт: как вы играете сразу после проигранной раздачи на ' + thr + '+ BB (на любом столе).', false, 'Строки — сколько времени прошло после крупного проигрыша. «Обычно» — все остальные раздачи (больше часа после проигрыша или без него).\n\nПорог крупного проигрыша можно выбрать: 25, 40 или 70 BB.\n\n' + HV);
+        const cA = card('После крупного проигрыша', 'Проверка на тильт: как вы играете в первые минуты после проигранной раздачи на ' + thr + '+ BB (на любом столе).', false, 'Строки — сколько минут прошло после крупного проигрыша: 0–5, 5–10 и 10–15 минут. Тильт обычно виден сразу, поэтому отрезки короткие. «Обычно» — все остальные раздачи (больше 15 минут после проигрыша или без него).\n\nПорог крупного проигрыша можно выбрать: 25, 40 или 70 BB.\n\n' + HV);
         const sg = el('div', 'seg bx-seg'); [[25, '25+ BB'], [40, '40+ BB'], [70, '70+ BB']].forEach(([v, l]) => { const b = el('button', thr === v ? 'on' : null, l); b.type = 'button'; b.onclick = () => { F.tilt = v; saveF(); draw(); }; sg.append(b); }); cA.append(sg);
-        const L = ['Обычно', '0–10 мин', '10–30 мин', '30–60 мин'];
-        const g = groups(D, X, (i) => { const lt0 = lastBefore(sesLoss.get(D.ses[i]) || [], D.t[i], true); if (lt0 == null) return 0; const d = D.t[i] - lt0; return d < 10 ? 1 : d < 30 ? 2 : d < 60 ? 3 : 0; }, 4);
+        const L = ['Обычно', '0–5 мин', '5–10 мин', '10–15 мин'];
+        const g = groups(D, X, (i) => { const lt0 = lastBefore(sesLoss.get(D.ses[i]) || [], D.t[i], true); if (lt0 == null) return 0; const d = D.t[i] - lt0; return d < 5 ? 1 : d < 10 ? 2 : d < 15 ? 3 : 0; }, 4);
         g.forEach((r, q) => { r.label = L[q]; });
         if (!g.slice(1).some(r => r.n >= MINN)) cA.append(lack());
         else {
-          const r1 = g[1], v1 = vk(r1), after = g.slice(1).filter(r => r.n), { bad, good } = split(after);
+          const after = g.slice(1).filter(r => r.n), { ev, bad, sb } = split(after);
+          const worst = ev.length ? ev.reduce((a, b) => (b.raw != null ? b.raw : b.v) < (a.raw != null ? a.raw : a.v) ? b : a) : null;
           let hb, hc = null, ht;
-          if (v1 === 'small') { hb = 'Мало данных о первых минутах после проигрыша'; ht = 'Таких раздач ' + num(r1.n) + ' — оценить тильт пока нельзя.'; }
-          else if (v1 === 'down' || v1 === 'down-soft') { hb = v1 === 'down' ? 'Похоже на тильт' : 'Возможен тильт — пока не доказан'; hc = v1 === 'down' ? 'neg' : 'warn'; ht = 'Первые 10 минут после проигрыша на ' + thr + '+ BB вы играете ' + verdictOf(r1, 0)[1] + ' обычного: ' + dv(r1) + ' BB/100 к вашему среднему.' + (v1 === 'down' ? ' После такого банка стоит взять минуту паузы.' : ' Разница может быть случайностью — стоит последить.'); }
-          else if (bad.length) { hb = 'Сразу тильта нет, но позже игра проседает'; hc = 'warn'; ht = bad.map(r => r.label + ' после проигрыша: ' + dv(r)).join(', ') + ' BB/100 к вашему среднему.'; }
-          else { hb = 'Тильта не видно'; hc = 'pos'; ht = 'После проигрыша на ' + thr + '+ BB вы играете ' + (v1 === 'eq' ? 'как обычно' : verdictOf(r1, 0)[1] + ' обычного') + ': первые 10 минут — ' + dv(r1) + ' BB/100 к вашему среднему.' + (good.length ? '' : ''); }
+          if (!ev.length) { hb = 'Мало данных о минутах после проигрыша'; ht = 'Раздач в первые 15 минут после проигрыша на ' + thr + '+ BB — ' + num(after.reduce((a, r) => a + r.n, 0)) + ', оценить тильт пока нельзя.'; }
+          else if (bad.length) { hb = 'Похоже на тильт'; hc = 'neg'; ht = bad.map(r => r.label + ' после проигрыша — ' + verdictOf(r, 0)[1] + ' обычного (' + dv(r) + ' BB/100)').join('; ') + '. После такого банка стоит сделать паузу на пару минут или не открывать новые столы.'; }
+          else if (sb.length) { hb = 'Возможен тильт — пока не доказан'; hc = 'warn'; ht = sb.map(r => r.label + ' — ' + verdictOf(r, 0)[1] + ' (' + dv(r) + ' BB/100)').join('; ') + '. Разница может быть случайностью — стоит последить.'; }
+          else { hb = 'Тильта не видно'; hc = 'pos'; ht = 'В первые 15 минут после проигрыша на ' + thr + '+ BB вы играете в пределах обычного' + (worst ? ': худший отрезок — ' + worst.label + ' (' + dv(worst) + ' BB/100 к вашему среднему).' : '.'); }
           headTo(cA, hb, hc, ht); cA.append(cmpRows(g, 'После проигрыша'));
         }
         grid.append(cA);
       }
       if (await step()) return;
-      // #16 после открытия нового турнира
+      // #16 открытие новых турниров: сколько минут прошло и сколько турниров открыто разом
       {
-        const L = ['Без нового стола', '0–5 мин', '5–15 мин', '15–30 мин'];
-        const g = groups(D, X, (i) => { const st = sesStart.get(D.ses[i]) || []; let best = null; for (let k = st.length - 1; k >= 0; k--) { if (st[k][0] > D.t[i]) continue; if (st[k][1] === D.tour[i]) continue; best = st[k][0]; break; } if (best == null) return 0; const d = D.t[i] - best; return d < 5 ? 1 : d < 15 ? 2 : d < 30 ? 3 : 0; }, 4);
-        g.forEach((r, q) => { r.label = L[q]; });
-        const cN = card('Когда открываете новый турнир', 'Как вы играете на остальных столах в первые минуты после того, как сели за новый турнир.', false, 'Строки — сколько минут прошло с момента, когда открылся новый турнир. Считаются раздачи на других столах: проверка, отвлекает ли регистрация и новый стол. «Без нового стола» — 30+ минут без новых турниров.\n\n' + HV);
-        if (!g.slice(1).some(r => r.n >= MINN)) cN.append(lack());
+        const others = (i) => { const st = sesStart.get(D.ses[i]) || [], out = []; for (let k = st.length - 1; k >= 0; k--) { if (st[k][0] > D.t[i]) continue; if (D.t[i] - st[k][0] >= 30) break; if (st[k][1] !== D.tour[i]) out.push(D.t[i] - st[k][0]); } return out; };
+        const cap = (x) => x.charAt(0).toUpperCase() + x.slice(1);
+        const LT = ['Без новых турниров', '0–5 мин', '5–15 мин', '15–30 мин'], LC = ['Ни одного', '1 новый', '2 новых', '3+ новых'];
+        const g = groups(D, X, (i) => { const o = others(i); if (!o.length) return 0; const d = Math.min(...o); return d < 5 ? 1 : d < 15 ? 2 : 3; }, 4);
+        const gC = groups(D, X, (i) => { const o = others(i).filter(d => d < 10).length; return Math.min(3, o); }, 4);
+        g.forEach((r, q) => { r.label = LT[q]; }); gC.forEach((r, q) => { r.label = LC[q]; });
+        const cN = card('Когда открываете новые турниры', 'Как вы играете на остальных столах, пока садитесь за новые турниры — за один и за несколько сразу.', true, 'Левая таблица — сколько минут прошло с момента, когда открылся новый турнир. Правая — сколько новых турниров вы открыли за последние 10 минут: один, два или три и больше. Считаются раздачи на остальных столах: проверка, отвлекают ли регистрация и новые столы.\n\n«Без новых турниров» / «Ни одного» — за последние 30 / 10 минут новых турниров не было.\n\n' + HV);
+        if (!g.slice(1).some(r => r.n >= MINN) && !gC.slice(1).some(r => r.n >= MINN)) cN.append(lack());
         else {
-          const r1 = g[1], v1 = vk(r1); let hb, hc = null, ht;
-          if (v1 === 'small') { hb = 'Мало данных'; ht = 'Раздач в первые 5 минут после открытия турнира — ' + num(r1.n) + ', оценить пока нельзя.'; }
-          else if (v1 === 'down') { hb = 'Новый турнир отвлекает'; hc = 'neg'; ht = 'Первые 5 минут после открытия нового стола на остальных вы играете ' + verdictOf(r1, 0)[1] + ' обычного: ' + dv(r1) + ' BB/100. Регистрируйтесь в паузах между раздачами или заранее.'; }
-          else if (v1 === 'down-soft') { hb = 'Возможно, новый турнир отвлекает — пока не доказано'; hc = 'warn'; ht = 'Первые 5 минут: ' + dv(r1) + ' BB/100 к вашему среднему. Может быть случайностью.'; }
-          else { hb = 'Новые столы не мешают игре'; hc = 'pos'; ht = 'Первые 5 минут после открытия турнира вы играете ' + (v1 === 'eq' ? 'как обычно' : verdictOf(r1, 0)[1] + ' обычного') + ': ' + dv(r1) + ' BB/100 к вашему среднему.'; }
-          headTo(cN, hb, hc, ht); cN.append(cmpRows(g, 'После открытия'));
+          const c1 = split(gC.slice(1)), t1 = split(g.slice(1)); let hb, hc = null, ht;
+          const many = gC.slice(2).filter(r => r.n), manyEv = many.filter(r => !['small', 'none'].includes(vk(r)));
+          if (c1.bad.length || t1.bad.length) { const bb = [...c1.bad, ...t1.bad]; hb = 'Новые турниры отвлекают'; hc = 'neg'; ht = cap(bb.map(r => (gC.includes(r) ? r.label.replace('новый', 'новый турнир').replace('новых', 'новых турнира') + ' за 10 минут' : 'первые ' + r.label + ' после открытия') + ' — ' + verdictOf(r, 0)[1] + ' (' + dv(r) + ' BB/100)').join('; ')) + '. Регистрируйтесь заранее или по одному турниру, а не пачкой.'; }
+          else if (c1.sb.length || t1.sb.length) { const bb = [...c1.sb, ...t1.sb]; hb = 'Возможно, новые турниры отвлекают — пока не доказано'; hc = 'warn'; ht = cap(bb.map(r => (gC.includes(r) ? r.label.replace('новый', 'новый турнир').replace('новых', 'новых турнира') + ' за 10 минут' : 'первые ' + r.label + ' после открытия') + ' — ' + verdictOf(r, 0)[1] + ' обычного (' + dv(r) + ' BB/100)').join('; ')) + '. Может быть случайностью — стоит последить.'; }
+          else { hb = 'Новые турниры не мешают игре'; hc = 'pos'; ht = 'И после одного нового турнира, и после нескольких сразу вы играете в пределах обычного.' + (many.length && !manyEv.length ? ' Для 2–3 турниров за 10 минут данных пока мало — вывод только по одному.' : ''); }
+          headTo(cN, hb, hc, ht);
+          const two = el('div', 'rs-two'); two.append(cmpRows(g, 'После открытия'), cmpRows(gC, 'Открыто за 10 мин')); cN.append(two);
         }
         grid.append(cN);
-      }
-      if (await step()) return;
-      // #17 столы × ход сессии
-      {
-        const TB = ['1–2', '3–4', '5–6', '7–8', '9+'], tb = (n) => n <= 2 ? 0 : n <= 4 ? 1 : n <= 6 ? 2 : n <= 8 ? 3 : 4, SH = ['0–1', '1–2', '2–3', '3–4', '4–5', '5–6', '6–7', '7+'];
-        const g = groups(D, X, (i) => tb(D.conc[i]) * 8 + Math.min(7, Math.floor(D.since[i] / 60)), 40, {});
-        const cX = card('Столы × ход сессии', 'Сколько столов выдерживаете на разных часах сессии: например, 7–8 столов нормально в начале, но плохо к концу.', true, 'Строки — сколько столов было открыто, столбцы — час от начала сессии.\n\nЧисло в клетке — на сколько BB/100 вы играете лучше (плюс) или хуже (минус) своего среднего в этом сочетании. Наведите на клетку — сколько раздач и сессий.\n\n' + HV);
-        const used = TB.map((_, a) => g.slice(a * 8, a * 8 + 8).some(x => x.n) ? a : -1).filter(a => a >= 0);
-        if (!g.some(r => r.n >= MINN)) cX.append(lack());
-        else {
-          const [hb, hc, ht] = mxHead(g.map((r, k) => ({ r, label: TB[Math.floor(k / 8)] + ' ст. · ' + SH[k % 8] + ' ч' })), 'В этих сочетаниях стоит играть меньше столов или заканчивать сессию раньше.');
-          headTo(cX, hb, hc, ht); cX.append(matrix(used.map(a => TB[a] + ' ст.'), SH.map(x => x + ' ч'), (a, b) => g[used[a] * 8 + b], { corner: 'столов' }));
-        }
-        grid.append(cX);
-      }
-      if (await step()) return;
-      // #18 время суток × час сессии
-      {
-        const HB = ['00–02', '02–04', '04–06', '06–08', '08–10', '10–12', '12–14', '14–16', '16–18', '18–20', '20–22', '22–24'], SH = ['0–1', '1–2', '2–3', '3–4', '4–5', '5–6', '6–7', '7+'];
-        const g = groups(D, X, (i) => (D.HOUR[i] >> 1) * 8 + Math.min(7, Math.floor(D.since[i] / 60)), 96, {});
-        const used = HB.map((_, r) => g.slice(r * 8, r * 8 + 8).some(x => x.n >= 50) ? r : -1).filter(r => r >= 0);
-        const cY = card('Время суток × час сессии', 'Что мешает больше: поздний час или долгая сессия.', true, 'Строки — время суток (по часовому поясу компьютера), столбцы — час от начала сессии. Если хуже весь столбец — дело в длине сессии; если вся строка — во времени суток.\n\nЧисло в клетке — на сколько BB/100 вы играете лучше (плюс) или хуже (минус) своего среднего. Показаны часы, где сыграно хотя бы 50 раздач.\n\n' + HV);
-        if (!g.some(r => r.n >= MINN)) cY.append(lack());
-        else {
-          const [hb, hc, ht] = mxHead(g.map((r, k) => ({ r, label: HB[Math.floor(k / 8)] + ' · ' + SH[k % 8] + ' ч сессии' })), 'В это время и на этом часу сессии лучше делать перерыв.');
-          headTo(cY, hb, hc, ht); cY.append(matrix(used.map(r => HB[r]), SH.map(x => x + ' ч'), (a, b) => g[used[a] * 8 + b], { corner: 'время' }));
-        }
-        grid.append(cY);
       }
       if (await step()) return;
       // #20 стиль игры по ходу сессии и по столам
@@ -1102,27 +1079,51 @@
         grid.append(cR);
       }
       if (await step()) return;
-      // #21 столы × скорость, #22 бай-ин × рум
+      // #21 сочетание обычных и быстрых (турбо + гипер) столов: какое даёт больше всего EV в час без потери качества
       {
-        const TB = ['1–2', '3–4', '5–6', '7–8', '9+'], tb = (n) => n <= 2 ? 0 : n <= 4 ? 1 : n <= 6 ? 2 : n <= 8 ? 3 : 4;
-        const spd = (i) => { const tr = D.tour[i], k = tr >= 0 ? D.tours[tr][0] : -1; return k >= 0 ? D.cls[k].speed : 0; };
-        const g = groups(D, X, (i) => spd(i) * 5 + tb(D.conc[i]), 15, {});
-        const c1 = card('Столы × скорость', 'Сколько столов вы выдерживаете в обычных, турбо и гипер-турнирах.', true, 'Строки — скорость турнира, столбцы — сколько столов было открыто.\n\nЧисло в клетке — на сколько BB/100 вы играете лучше (плюс) или хуже (минус) своего среднего. Наведите на клетку — сколько раздач и сессий.\n\n' + HV);
-        const usedS = SPEED.map((_, a) => g.slice(a * 5, a * 5 + 5).some(x => x.n) ? a : -1).filter(a => a >= 0);
-        if (!g.some(r => r.n >= MINN)) c1.append(lack());
+        const RB = ['0', '1–2', '3–4', '5–6', '7+'], FB = ['0', '1–2', '3–4', '5+'], rb = (n) => n <= 0 ? 0 : n <= 2 ? 1 : n <= 4 ? 2 : n <= 6 ? 3 : 4, fb = (n) => n <= 0 ? 0 : n <= 2 ? 1 : n <= 4 ? 2 : 3;
+        const fastT = (k) => { const q = D.tours[k][0]; return q >= 0 && D.cls[q] && D.cls[q].speed > 0 ? 1 : 0; };
+        // все турниры этого ника: события «открылся / закрылся» с признаком скорости
+        const al = (typeof state !== 'undefined' && D.db.aliases && D.db.aliases.length > 1 && c.aid) ? state.alias : -1, tAl = new Set(); if (al >= 0) { for (let i = 0; i < D.n; i++) if (D.tour[i] >= 0 && c.aid[i] === al) tAl.add(D.tour[i]); }
+        const evs = []; D.tours.forEach((x, k) => { if (al >= 0 && !tAl.has(k)) return; const f = fastT(k); evs.push([x[1], 1, f], [x[2] + 1, -1, f]); }); evs.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+        // сочетание у каждой раздачи
+        const combo = new Int8Array(X.idx.length).fill(-1); { const ord = X.idx.map((i, j) => j).sort((p, q) => D.t[X.idx[p]] - D.t[X.idx[q]]); let e = 0, nR = 0, nF = 0; for (const j of ord) { const t = D.t[X.idx[j]]; while (e < evs.length && evs[e][0] <= t) { const [, d, f] = evs[e++]; if (f) nF += d; else nR += d; } combo[j] = rb(nR) * 4 + fb(nF); } }
+        // время на каждом сочетании — по минутам выбранных сессий
+        const cm = new Float64Array(20); { const ss = [...sesSet].map(s => D.sessions[s]).sort((a, b) => a[0] - b[0]); let e = 0, nR = 0, nF = 0; for (const z of ss) for (let t = z[0]; t <= z[1]; t++) { while (e < evs.length && evs[e][0] <= t) { const [, d, f] = evs[e++]; if (f) nF += d; else nR += d; } if (nR + nF > 0) cm[rb(nR) * 4 + fb(nF)]++; } }
+        const key = (i, j) => combo[j];
+        const g = groups(D, X, key, 20, {}), gE = groups(D, X, key, 20, { vals: X.ev, ci: false, shrink: false });
+        const lab = (k) => { const r = Math.floor(k / 4), f = k % 4; return r && f ? RB[r] + ' обычных + ' + FB[f] + ' турбо' : r ? 'только обычные, ' + RB[r] : 'только турбо, ' + FB[f]; };
+        g.forEach((r, k) => { r.label = lab(k); r.hours = cm[k] / 60; r.evh = cm[k] ? gE[k].sum / cm[k] * 60 : NaN; r.nr = Math.floor(k / 4); r.nf = k % 4; });
+        const c1 = card('Сколько турбо добавлять к обычным столам', 'Какое сочетание обычных и турбо-столов даёт больше всего EV в час без потери качества игры.', true, 'В каждой строке — сколько обычных и сколько быстрых турниров (турбо и гипер вместе) было открыто одновременно.\n\n«К вашему среднему» — лучше или хуже вы играете при таком сочетании, чем обычно. «EV в час» — сколько BB в час приносят все столы вместе при таком сочетании; если наиграно меньше 2 часов, не показывается. «Часов» — сколько вы так наиграли.\n\nРекомендация — сочетание с наибольшим EV в час, где игра не хуже среднего и наиграно 10+ часов.\n\n' + HV);
+        const rows = g.filter(r => r.n).sort((a, b) => a.nr - b.nr || a.nf - b.nf);
+        if (!rows.some(r => r.n >= MINN)) c1.append(lack());
         else {
-          const [hb, hc, ht] = mxHead(g.map((r, k) => ({ r, label: SPEED[Math.floor(k / 5)].toLowerCase() + ', ' + TB[k % 5] + ' ст.' })), 'Для этой скорости стоит играть меньше столов.');
-          headTo(c1, hb, hc, ht); c1.append(matrix(usedS.map(a => SPEED[a]), TB.map(x => x + ' ст.'), (a, b) => g[usedS[a] * 5 + b], { corner: 'скорость' }));
+          const ok = rows.filter(r => r.n >= MINN && r.hours >= 10 && Number.isFinite(r.evh) && !['down', 'small'].includes(vk(r))), best = ok.length ? ok.reduce((a, b) => b.evh > a.evh ? b : a) : null;
+          const bad = rows.filter(r => vk(r) === 'down'), soft = rows.filter(r => vk(r) === 'down-soft');
+          const noF = ok.filter(r => r.nf === 0), bestNoF = noF.length ? noF.reduce((a, b) => b.evh > a.evh ? b : a) : null;
+          let hb, hc = null, ht = '';
+          if (best) { hb = 'Оптимально: ' + best.label; hc = 'pos'; ht = 'Здесь больше всего EV в час — ' + fmt(best.evh, 1) + ' BB/ч (' + Math.round(best.hours) + ' ч игры).' + (best.nf > 0 && bestNoF ? ' Без турбо лучший вариант — ' + bestNoF.label.replace('только обычные, ', '') + ' обычных: ' + fmt(bestNoF.evh, 1) + ' BB/ч, то есть турбо ' + (best.evh > bestNoF.evh ? 'добавляют' : 'не добавляют') + ' EV в час.' : best.nf === 0 ? ' Турбо-столы к обычным EV в час пока не добавляют — или их наиграно меньше 10 часов.' : ''); }
+          else { hb = 'Пока без рекомендации'; ht = 'Нужно хотя бы 10 часов игры на каком-то сочетании без потери качества.'; }
+          if (bad.length) { ht += ' Качество игры надёжно падает: ' + bad.map(r => r.label + ' (' + dv(r) + ' BB/100)').join(', ') + '.'; if (!best) hc = 'neg'; }
+          else if (soft.length) ht += ' Возможно, хуже (не доказано): ' + soft.slice(0, 3).map(r => r.label + ' (' + dv(r) + ')').join(', ') + '.';
+          headTo(c1, hb, hc, ht);
+          const tb = el('div', 'rs-rows rs-rows-p'); const hdr = el('div', 'rs-row rs-row-h'); ['Сочетание', 'К вашему среднему', 'Раздач', 'EV в час', 'Часов'].forEach(t => hdr.append(el('span', null, t))); tb.append(hdr);
+          rows.forEach(r => { const [cls, txt] = verdictOf(r, 0), row = el('div', 'rs-row' + (cls === 'small' ? ' small' : '') + (r === best ? ' rec' : '')); const nm = el('b', null, r.label); if (r === best) nm.append(el('em', null, 'оптимально')); row.append(nm, el('span', 'rs-chip ' + cls, txt), el('span', 'num dim', num(r.n)), el('span', 'num ' + (r.hours < 2 ? 'dim' : r.evh >= 0 ? 'pos' : 'neg'), r.hours >= 2 && Number.isFinite(r.evh) ? fmt(r.evh, 1) : '—'), el('span', 'num dim', r.hours >= 1 ? Math.round(r.hours) : '<1')); row.title = r.label + ': ' + sesTip(r); tb.append(row); });
+          c1.append(tb);
         }
         grid.append(c1);
+      }
+      if (await step()) return;
+      // #22 бай-ин × рум
+      {
         const BIL = BI.slice(1).map(x => x[1]);
         const g2 = groups(D, X, (i) => { const b = biBand(c.bi ? c.bi[i] : -1); return b < 1 ? -1 : c.room[i] * 5 + b - 1; }, rooms.length * 5, {});
         const usedR = rooms.map((_, r) => g2.slice(r * 5, r * 5 + 5).some(x => x.n) ? r : -1).filter(r => r >= 0);
-        const c2 = card('Бай-ин × рум', 'В каком руме какие бай-ины у вас получаются лучше.', true, 'Строки — рум, столбцы — бай-ин ($ / €).\n\nЧисло в клетке — на сколько BB/100 вы играете лучше (плюс) или хуже (минус) своего среднего. Наведите на клетку — сколько раздач и сессий.\n\n' + HV);
+        const c2 = card('Бай-ин × рум', 'В каком руме какие бай-ины у вас получаются лучше.', true, 'Строки — рум, столбцы — бай-ин ($ / €).\n\nЧисло в клетке — на сколько BB/100 вы играете лучше (плюс) или хуже (минус) своего среднего, ниже — подпись и сколько раздач сыграно. Наведите на клетку — сколько сессий и погрешность.\n\n' + HV);
         if (!g2.some(r => r.n >= MINN)) c2.append(lack());
         else {
           const [hb, hc, ht] = mxHead(g2.map((r, k) => ({ r, label: (rooms[Math.floor(k / 5)] || '') + ' ' + BIL[k % 5] })), 'Эти бай-ины в этом руме стоит разобрать или играть реже.');
-          headTo(c2, hb, hc, ht); c2.append(matrix(usedR.map(r => rooms[r]), BIL, (a, b) => g2[usedR[a] * 5 + b], { corner: 'рум' }));
+          headTo(c2, hb, hc, ht); c2.append(matrix(usedR.map(r => rooms[r]), BIL, (a, b) => g2[usedR[a] * 5 + b], { corner: 'рум', showN: true }));
         }
         grid.append(c2);
       }
@@ -1133,15 +1134,20 @@
         const ord = X.idx.map((i, j) => j).sort((p, q) => D.t[X.idx[p]] - D.t[X.idx[q]]); const nr = new Int8Array(X.idx.length); const cnt = new Map(); let e = 0;
         for (const j of ord) { const t = D.t[X.idx[j]]; while (e < ev2.length && ev2[e][0] <= t) { const [, d, r] = ev2[e++]; cnt.set(r, (cnt.get(r) || 0) + d); } let k = 0; for (const v of cnt.values()) if (v > 0) k++; nr[j] = Math.max(1, Math.min(3, k)); }
         const g = groups(D, X, (i, j) => nr[j] - 1, 3); g.forEach((r, q) => { r.label = ['Только 1 рум', '2 рума сразу', '3+ рума сразу'][q]; r.short = ['одном руме', 'двух румах', 'трёх и больше румах'][q]; });
-        const cM = card('Один рум или несколько', 'Мешает ли игре, когда одновременно открыто несколько покерных клиентов (например, GG и PokerStars).', false, 'Рум считается открытым, пока в нём идёт хотя бы один ваш турнир. Строки — сколько румов было открыто в момент раздачи: «Только 1 рум» — все столы в одном клиенте; «2 рума сразу» — столы в двух клиентах одновременно и т. д.\n\nРазные клиенты — это разные окна, кнопки, таймбанки и настройки: если внимание рассеивается, качество игры падает. Этот блок показывает, есть ли у вас такая потеря.\n\n' + HV);
+        const cM = card('Один рум или несколько', 'Мешает ли игре, когда одновременно открыто несколько покерных клиентов (например, GG и PokerStars).', false, 'Рум считается открытым, пока в нём идёт хотя бы один ваш турнир. Строки — сколько румов было открыто в момент раздачи: «Только 1 рум» — все столы в одном клиенте; «2 рума сразу» — столы в двух клиентах одновременно и т. д.\n\nРазные клиенты — это разные окна, кнопки, таймбанки и настройки: если внимание рассеивается, качество игры падает. Этот блок показывает, есть ли у вас такая потеря.\n\nКак делается вывод: игра в нескольких румах сразу сравнивается напрямую с игрой в одном руме (в BB/100 к вашему среднему, с поправкой на стек и позицию).\n— «Мультирум мешает» — в нескольких румах хуже на 3+ BB/100, и разница больше погрешности (надёжно).\n— «Возможно, мешает» — хуже на 3+ BB/100, но в пределах погрешности.\n— «Не мешает» — разница меньше 3 BB/100 или в пределах случайности.\nДля вывода нужно хотя бы 300 раздач и 5 сессий в каждом варианте. Погрешность — 95% интервал с учётом того, что раздачи одной сессии связаны.\n\nСтроки ниже — каждый вариант против вашего среднего.\n\n' + HV);
         if (!g.some(r => r.n >= MINN)) cM.append(lack());
         else {
           const tot = g.reduce((x, r) => x + r.n, 0), main = g.reduce((x, r) => r.n > x.n ? r : x), shareTxt = 'Чаще всего вы играете в ' + main.short + ' (' + Math.round(main.n / tot * 100) + '% раздач). ';
-          const { ev, bad, good, sb } = split(g); let hb, hc = null, ht;
-          if (ev.length < 2) { hb = ev.length ? 'Сравнивать пока не с чем' : 'Пока без вывода'; ht = shareTxt + (ev.length ? 'Данных хватает только для варианта «' + ev[0].label + '» — чтобы понять, мешает ли мультирум, нужно больше игры в другом режиме.' : 'Ни в одном варианте не хватает данных.'); }
-          else if (bad.length) { hb = 'Мультирум вам мешает'; hc = 'neg'; ht = shareTxt + 'Когда открыто ' + bad.map(r => ['1 рум', '2 рума', '3+ рума'][r.k]).join(' или ') + ', вы играете ' + bad.map(r => verdictOf(r, 0)[1] + ' (' + dv(r) + ' BB/100)').join(', ') + ' вашего среднего. Совет: держите столы в одном клиенте или открывайте второй рум только на ранних стадиях.'; }
-          else if (good.length) { hb = 'Мультирум не мешает — с несколькими румами вы играете даже лучше'; hc = 'pos'; ht = shareTxt + good.map(r => r.label + ': ' + dv(r)).join(', ') + ' BB/100 к вашему среднему. Возможно, в нескольких румах вы выбираете более мягкие турниры.'; }
-          else { hb = 'Мультирум не мешает'; hc = 'pos'; ht = shareTxt + 'В одном руме и в нескольких сразу вы играете одинаково в пределах случайности — можно спокойно комбинировать румы.' + (sb.length ? ' Не доказано, но заметно хуже: ' + sb.map(r => r.label + ' (' + dv(r) + ')').join(', ') + ' — стоит последить.' : ''); }
+          // прямое сравнение: несколько румов сразу против одного (а не каждого варианта со средним)
+          const g2 = groups(D, X, (i, j) => nr[j] > 1 ? 1 : 0, 2, { shrink: false }), one = g2[0], multi = g2[1];
+          const okC = one.n >= MINN && multi.n >= MINN && one.ses >= 5 && multi.ses >= 5 && Number.isFinite(one.se) && Number.isFinite(multi.se);
+          const d = okC ? multi.v - one.v : NaN, se = okC ? Math.sqrt(one.se ** 2 + multi.se ** 2) : NaN, sig = okC && Math.abs(d) > 1.96 * se;
+          let hb, hc = null, ht;
+          if (!okC) { hb = 'Сравнивать пока не с чем'; ht = shareTxt + 'Для сравнения нужно хотя бы 300 раздач и 5 сессий и в одном руме, и в нескольких сразу.'; }
+          else if (d <= -3 && sig) { hb = 'Мультирум вам мешает'; hc = 'neg'; ht = shareTxt + 'В нескольких румах сразу вы играете на ' + Math.abs(d).toFixed(1) + ' BB/100 хуже, чем в одном (погрешность ±' + (1.96 * se).toFixed(1) + ') — это надёжно. Совет: держите столы в одном клиенте или открывайте второй рум только на ранних стадиях.'; }
+          else if (d <= -3) { hb = 'Возможно, мультирум мешает — пока не доказано'; hc = 'warn'; ht = shareTxt + 'В нескольких румах сразу — на ' + Math.abs(d).toFixed(1) + ' BB/100 хуже, чем в одном, но погрешность ±' + (1.96 * se).toFixed(1) + ' BB/100: это может быть случайностью. Стоит последить.'; }
+          else if (d >= 3 && sig) { hb = 'С несколькими румами вы играете даже лучше'; hc = 'pos'; ht = shareTxt + 'На ' + d.toFixed(1) + ' BB/100 лучше, чем в одном руме (погрешность ±' + (1.96 * se).toFixed(1) + '). Возможно, в нескольких румах вы выбираете более мягкие турниры.'; }
+          else { hb = 'Мультирум не мешает'; hc = 'pos'; ht = shareTxt + 'Разница между игрой в одном руме и в нескольких сразу — ' + fmt(d, 1) + ' BB/100 (погрешность ±' + (1.96 * se).toFixed(1) + '): ' + (Math.abs(d) < 3 ? 'меньше 3 BB/100, это практически одно и то же.' : 'в пределах случайности.') + ' Можно спокойно комбинировать румы.'; }
           headTo(cM, hb, hc, ht); cM.append(cmpRows(g, 'Открыто'));
         }
         grid.append(cM);
@@ -1168,23 +1174,6 @@
         grid.append(cP);
       }
       if (await step()) return;
-      // позиция × стек (реальный EV, без поправки)
-      {
-        const g = groups(D, X, (i) => c.pos[i] * 5 + stkB(c.bb[i] / 10), 35, { vals: raw, shrink: false });
-        const cQ = card('Позиция × стек', 'Реальный EV по позиции при разной глубине вашего стека, без поправок.', true, 'Строки — позиция, столбцы — ваш стек на начало раздачи. Число — ваш EV в BB на 100 раздач.\n\n«Около нуля» — меньше ±2 BB/100; «в плюсе» / «в минусе» — до 10; «заметно» — от 10; «сильно» — от 25. Насыщенный цвет — надёжно, бледный — может быть случайностью; пунктир — мало данных.\n\nБлайнды почти всегда в минусе — это нормально: вы платите их вслепую. Сравнивайте блайнды между собой, а не с другими позициями.');
-        const pr = POS.map((_, r) => g.slice(r * 5, r * 5 + 5).some(x => x.n) ? r : -1).filter(r => r >= 0);
-        if (!g.some(r => r.n >= MINN)) cQ.append(lack());
-        else {
-          const cells = g.map((r, k) => ({ r, p: Math.floor(k / 5), label: POS[Math.floor(k / 5)] + ' · ' + STK[k % 5] })).filter(x => x.r.n && vRaw(x.r)[0] !== 'small');
-          const nb = cells.filter(x => x.p <= 4), lose = nb.filter(x => vRaw(x.r)[0] === 'down').sort((a, b) => a.r.v - b.r.v), win = nb.filter(x => vRaw(x.r)[0] === 'up').sort((a, b) => b.r.v - a.r.v);
-          const L = (a) => a.slice(0, 4).map(x => x.label + ' (' + fmt(x.r.v, 1) + ')').join(', ');
-          const hb = lose.length ? 'В минусе вне блайндов: ' + L(lose) : win.length ? 'Больше всего приносят: ' + L(win) : 'Надёжных выводов пока нет';
-          const ht = (lose.length && win.length ? 'Больше всего приносят: ' + L(win) + '. ' : '') + (lose.length ? 'Обычно вне блайндов позиции в плюсе — эти сочетания стоит разобрать. ' : '') + (!lose.length && !win.length ? 'Результаты сочетаний в пределах случайности. ' : '') + 'Оценить можно ' + cells.length + ' ' + plural(cells.length, 'сочетание', 'сочетания', 'сочетаний') + ' из ' + g.filter(r => r.n).length + '.';
-          headTo(cQ, hb, lose.length ? 'neg' : win.length ? 'pos' : null, ht, false);
-          cQ.append(matrix(pr.map(r => POS[r]), STK, (a, b) => g[pr[a] * 5 + b], { corner: 'позиция', verdict: vRaw, val: (r) => fmt(r.v, 1) }));
-        }
-        grid.append(cQ);
-      }
     }
     // ---- выводы ----
     {
@@ -1205,26 +1194,54 @@
     // номера блоков — чтобы было удобно обсуждать, что убрать или поменять
     { let k = 1; const tag = (node) => { const t = el('span', 'rs-num', '#' + (++k)); node.append(t); }; // #1 — панель фильтров
       if (CUM) tag(CUM.querySelector('.rs-card-h')); tag(kp); grid.querySelectorAll(':scope > .rs-card').forEach(c => tag(c.querySelector('.rs-card-h') || c)); }
-    // ---- главные выводы по всем блокам: собираются из выводов (шапок) каждого блока ----
+    // ---- главные выводы по всем блокам: шапки блоков + заметки из строк и клеток (в т.ч. не доказанные отличия) ----
     {
-      const items = { opt: [], neg: [], warn: [], pos: [] };
+      const items = { opt: [], neg: [], warn: [], pos: [] }, notesD = [], notesU = [];
+      const SKIP = /^(Где вы зарабатываете|Как менялся|Сравнение периодов|Накопленный|Главное|Форматы|Рейтинг|Стиль)/;
       grid.querySelectorAll(':scope > .rs-card').forEach(cd => {
-        const h = cd.querySelector('.rs-head2'); if (!h) return; const b = h.querySelector('b'); if (!b) return;
-        const t = cd.querySelector('.rs-card-h h3'), nm = t ? t.firstChild.textContent.trim() : '', no = cd.querySelector('.rs-card-h .rs-num');
-        // «Как играть» — блоки-вопросы (столы, длина сессии, дни, время, месяцы), если в них нет надёжной проблемы
-        let cls = b.classList.contains('neg') ? 'neg' : b.classList.contains('warn') ? 'warn' : b.classList.contains('pos') ? 'pos' : null;
-        if (cls !== 'neg' && cls !== 'warn' && /\?$/.test(nm)) cls = 'opt'; if (!cls) return;
-        items[cls].push({ no: no ? no.textContent : '', nm, b: b.textContent, s: (h.querySelector('span') || {}).textContent || '' });
+        const t = cd.querySelector('.rs-card-h h3'), nm = t ? t.firstChild.textContent.trim() : '', no = cd.querySelector('.rs-card-h .rs-num'), ref = (no ? no.textContent : '') + ' · ' + nm;
+        const h = cd.querySelector('.rs-head2'), b = h && h.querySelector('b');
+        if (b) {
+          // «Как играть» — блоки-вопросы (столы, длина сессии, дни, время), если в них нет надёжной проблемы
+          let cls = b.classList.contains('neg') ? 'neg' : b.classList.contains('warn') ? 'warn' : b.classList.contains('pos') ? 'pos' : null;
+          if (cls !== 'neg' && cls !== 'warn' && /\?$/.test(nm)) cls = 'opt';
+          if (cls) items[cls].push({ ref, b: b.textContent, s: (h.querySelector('span') || {}).textContent || '' });
+        }
+        if (SKIP.test(nm)) return;
+        // заметки: каждая строка или клетка, которая заметно отличается от вашего среднего
+        // подпись строки/клетки — понятной фразой: «2–3 ч» → «2–3 ч от начала сессии», «чт» → «четверг»
+        const DFULL = { пн: 'понедельник', вт: 'вторник', ср: 'среда', чт: 'четверг', пт: 'пятница', сб: 'суббота', вс: 'воскресенье' };
+        const nice = (l) => /^По ходу/.test(nm) ? l + ' от начала сессии' : /^Сколько столов/.test(nm) ? l + ' ' + plural(+String(l).split('–').pop() || 5, 'стол', 'стола', 'столов') : /длины сессии/.test(nm) ? 'сессии ' + l : /дни/.test(nm) ? (DFULL[l] || l) : /время/.test(nm) ? l + ' по времени суток' : /проигрыша/.test(nm) ? l + ' после крупного проигрыша' : /новые турниры/.test(nm) ? (/мин$/.test(l) ? l + ' после открытия турнира' : l.replace('новый', 'новый турнир').replace('новых', 'новых турнира') + ' за 10 минут') : l;
+        const take = (cls, label, verdict, val) => { label = nice(label);
+          const down = /^down/.test(cls), solid = !/-soft$/.test(cls), w = /сильно/.test(verdict) ? 3 : /заметно/.test(verdict) ? 2 : 1;
+          (down ? notesD : notesU).push({ ref, label, verdict, val, solid, score: (solid ? 10 : 0) + w });
+        };
+        cd.querySelectorAll('.rs-row:not(.rs-row-h)').forEach(row => { const ch = row.querySelector('.rs-chip'); if (!ch) return; const k = [...ch.classList].find(x => /^(up|down)(-soft)?$/.test(x)); if (!k) return; const nums = row.querySelectorAll('.num'); take(k, row.querySelector('b').firstChild.textContent, ch.textContent, ''); });
+        cd.querySelectorAll('.rs-tl-c').forEach(c2 => { const k = [...c2.classList].find(x => /^(up|down)(-soft)?$/.test(x)); if (!k) return; const lab = c2.dataset.lab || (c2.querySelector('.h') || {}).textContent || ''; take(k, lab, (c2.querySelector('small') || {}).textContent || '', (c2.querySelector('b') || {}).textContent || ''); });
       });
-      const luck = (netS - evS) / nH * 100;
-      const cS2 = card('Главные выводы', 'Итог по всем блокам выше: как играть оптимально, где вы теряете, за чем следить и что у вас уже получается.', true, 'Выводы собраны из шапок всех блоков страницы под текущие фильтры' + (anyF() ? ' (сейчас фильтры включены — чтобы увидеть выводы по всем раздачам, нажмите «Сбросить»)' : ' — сейчас это все ваши раздачи') + '.\n\n«Как играть оптимально» — выводы о числе столов, длине сессий, днях и времени игры. «Лики» — то, что надёжно хуже вашего среднего: здесь вы теряете EV и это стоит исправить в первую очередь. «Стоит последить» — похоже на проблему, но пока может быть случайностью. «Сильные стороны» — то, что у вас уже получается. Номер справа — блок, где смотреть подробности.');
-      const sec = (title, arr, cls, empty) => { const d = el('div', 'rs-sum ' + cls); d.append(el('h4', null, title)); if (!arr.length) d.append(el('p', 'rs-note', empty)); arr.forEach(x => { const it = el('div', 'rs-sum-i'); const top = el('div', 'rs-sum-t'); top.append(el('span', 'rs-sum-n', x.no + ' · ' + x.nm), el('b', null, x.b)); it.append(top, el('p', null, x.s)); d.append(it); }); return d; };
-      const lead = el('div', 'rs-head2'); const nL = items.neg.length;
+      const luck = (netS - evS) / nH * 100, nL = items.neg.length;
+      const cS2 = card('Главные выводы', 'Итог по всем блокам выше: как играть оптимально, где вы теряете, за чем следить и что у вас уже получается.', true, 'Выводы собраны из всех блоков страницы под текущие фильтры' + (anyF() ? ' (сейчас фильтры включены — чтобы увидеть выводы по всем раздачам, нажмите «Сбросить»)' : ' — сейчас это все ваши раздачи') + '.\n\n«Как играть оптимально» — выводы о числе столов, длине сессий, днях и времени игры. «Лики» — то, что надёжно хуже вашего среднего: здесь вы теряете EV, исправлять в первую очередь. «Стоит последить» — похоже на проблему, но пока может быть случайностью. «Сильные стороны» — то, что у вас уже получается.\n\n«Где может быть просадка» и «Где может быть плюс» — заметки по отдельным строкам и клеткам блоков: часы, дни, сочетания. Сверху — надёжные и самые сильные отличия; отметка «не доказано» — отличие видно, но на такой выборке может быть случайностью. Номер слева — блок, где смотреть подробности.');
+      const lead = el('div', 'rs-head2');
       lead.append(el('b', nL ? 'neg' : 'pos', nL ? 'Найдено ' + nL + ' ' + plural(nL, 'лик', 'лика', 'ликов') + ' — начните с них' : 'Надёжных ликов не найдено'),
-        el('span', null, 'По ' + num(nH) + ' ' + plural(nH, 'раздаче', 'раздачам', 'раздачам') + (anyF() ? ' под текущие фильтры' : ' — вся ваша база') + ': EV ' + fmt(evS / nH * 100) + ' BB/100, ' + fmt(evS / (mins / 60)) + ' BB в час. ' + (Math.abs(luck) >= 1 ? 'Факт отличается от EV на ' + fmt(luck) + ' BB/100 — это ' + (luck > 0 ? 'везение' : 'невезение') + ' в олл-инах, не ваша игра. ' : '') + (nL ? 'Исправление ликов — самый быстрый способ поднять EV.' : 'Ниже — что стоит последить и на чём держится ваш плюс.')));
+        el('span', null, 'По ' + num(nH) + ' ' + plural(nH, 'раздаче', 'раздачам', 'раздачам') + (anyF() ? ' под текущие фильтры' : ' — вся ваша база') + ': EV ' + fmt(evS / nH * 100) + ' BB/100, ' + fmt(evS / (mins / 60)) + ' BB в час. ' + (Math.abs(luck) >= 1 ? 'Факт отличается от EV на ' + fmt(luck) + ' BB/100 — это ' + (luck > 0 ? 'везение' : 'невезение') + ' в олл-инах, не ваша игра. ' : '') + (nL ? 'Исправление ликов — самый быстрый способ поднять EV.' : 'Ниже — что стоит последить, где может быть просадка и на чём держится ваш плюс.')));
       cS2.append(lead);
+      const band = (title, cls, sub) => { const d = el('section', 'rs-band ' + cls); const hh = el('div', 'rs-band-h'); hh.append(el('h4', null, title)); if (sub) hh.append(el('span', null, sub)); d.append(hh); return d; };
+      const heads = (title, arr, cls, empty) => { const d = band(title, cls, arr.length ? String(arr.length) : ''); const w = el('div', 'rs-band-g'); if (!arr.length) w.append(el('p', 'rs-note', empty)); arr.forEach(x => { const it = el('div', 'rs-sum-i'); it.append(el('span', 'rs-sum-n', x.ref), el('b', null, x.b), el('p', null, x.s)); w.append(it); }); d.append(w); return d; };
+      const notes = (title, arr, cls, empty) => {
+        const seen = new Set(), list = arr.sort((a, b) => b.score - a.score).filter(x => { const k = x.ref + x.label; if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 10);
+        const d = band(title, cls, list.length ? String(list.length) : ''); const ul = el('div', 'rs-notes'); if (!list.length) ul.append(el('p', 'rs-note', empty));
+        list.forEach(x => { const li = el('div', 'rs-note-i'); const top = el('div'); top.append(el('b', null, x.label), document.createTextNode(' — ' + x.verdict + (x.val && x.val !== '—' ? ' (' + x.val + ' BB/100)' : '')), x.solid ? el('em', 'sure', 'надёжно') : el('em', null, 'не доказано')); li.append(top, el('span', 'rs-sum-n', x.ref)); ul.append(li); });
+        d.append(ul); return d;
+      };
       if (nH < MINN) cS2.append(lack());
-      else { const w = el('div', 'rs-sum-w'); w.append(sec('Как играть оптимально', items.opt, 'opt', 'Пока без рекомендаций.'), sec('Лики — где вы теряете', items.neg, 'neg', 'Надёжных потерь нет.'), sec('Стоит последить', items.warn, 'warn', 'Нет.'), sec('Сильные стороны', items.pos, 'pos', 'Надёжных сильных сторон пока не видно.')); cS2.append(w); }
+      else {
+        const w = el('div', 'rs-bands');
+        w.append(heads('Как играть оптимально', items.opt, 'opt', 'Пока без рекомендаций.'));
+        const two = el('div', 'rs-band-2'); two.append(heads('Лики — где вы теряете', items.neg, 'neg', 'Надёжных потерь нет.'), heads('Стоит последить', items.warn, 'warn', 'Нечего отметить.')); w.append(two);
+        w.append(heads('Сильные стороны', items.pos, 'pos', 'Надёжных сильных сторон пока не видно.'));
+        const two2 = el('div', 'rs-band-2'); two2.append(notes('Где может быть просадка', notesD, 'neg', 'Заметных просадок нет ни в одной строке.'), notes('Где может быть плюс', notesU, 'pos', 'Заметных плюсов в отдельных строках нет.')); w.append(two2);
+        cS2.append(w);
+      }
       grid.append(cS2); const nums = R.querySelectorAll('.rs-num'); cS2.querySelector('.rs-card-h').append(el('span', 'rs-num', '#' + (nums.length + 1)));
     }
     if (gen !== GEN) return;

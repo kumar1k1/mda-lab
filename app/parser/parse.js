@@ -138,7 +138,13 @@ function buildReplay(lines, ctx) {
   const dealt = lines.find(l => l.startsWith('Dealt to ' + heroName + ' ['));
   const hc = dealt ? dealt.slice(dealt.indexOf('[') + 1, dealt.indexOf(']')) : null;
   let tl = '';
-  if (fmt === 'wmx') { const t = header.match(/Tournament "([^"]*)"(?: buyIn: ([^ ]+(?: \+ [^ ]+)*))?/); tl = t ? t[1] + (t[2] ? ' · ' + t[2] : '') : ''; }
+  if (fmt === 'wmx') {
+    // номер турнира у Winamax — только в имени стола: Table: 'EXPLORER(1067668170)#005' — без него одноимённые турниры,
+    // идущие одновременно (несколько флайтов), сливались бы в один. Пишется в скобках, не через «#»: ключ повторов
+    // (dedupe.js) берёт первый «#номер», и старые и новые записи одной раздачи должны совпасть
+    const t = header.match(/Tournament "([^"]*)"(?: buyIn: ([^ ]+(?: \+ [^ ]+)*))?/), tb = lines.find(l => l.startsWith("Table: '")), id = tb && (tb.match(/\((\d{5,})\)#?\d*'/) || [])[1];
+    tl = t ? t[1] + (t[2] ? ' · ' + t[2] : '') + (id ? ' · (' + id + ')' : '') : '';
+  }
   else if (fmt === 'ps') { const t = header.match(/Tournament #(\d+), (.*?) (?:Hold'em|Holdem)/); tl = t ? t[2].replace(/â‚½/g, '₽') + ' · #' + t[1] : ''; }
   else { const t = header.match(/Tournament #(\d+)/); tl = t ? 'Турнир #' + t[1] : ''; }
   const tm = header.match(/(\d{4}\/\d{2}\/\d{2}) (\d{1,2}:\d{2})/);
