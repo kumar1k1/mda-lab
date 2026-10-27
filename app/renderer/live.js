@@ -69,11 +69,9 @@
   const head = el('div', 'lv-head');
   const ht = el('div', 'nw-ht'); ht.append(el('h1', null, 'Офлайн-серии'), el('p', 'nw-sub', 'Крупные живые покерные фестивали по всему миру на ближайшие 2 месяца: гарантия от $100 000 или бай-ины от $1 000, туры WSOP, EPT, WPT, APT, Triton и другие. Нажмите на серию — справа откроется полное расписание: бай-ины и гарантии в долларах, стек и длина уровней.'));
   const tools = el('div', 'lv-tools');
-  const qIn = el('input', 'lv-q'); qIn.type = 'search'; qIn.placeholder = 'Поиск: серия, город, тур'; qIn.setAttribute('aria-label', 'Поиск серии');
-  qIn.oninput = () => { ST.q = qIn.value.trim().toLowerCase(); drawList(); };
   const pickB = el('button', 'btn lv-btn lv-pickb', 'Подобрать под бюджет'); pickB.type = 'button'; pickB.title = 'Подобрать серии и план турниров под вашу сумму';
   pickB.onclick = () => { if (PICK) { PICK = false; drawDet(); } else openPick(); pickB.classList.toggle('on', PICK); };
-  tools.append(pickB, qIn);
+  tools.append(pickB);
   head.append(ht, tools);
   const regBar = el('div', 'lv-regs'); regBar.setAttribute('role', 'group'); regBar.setAttribute('aria-label', 'Регион');
   const cBar = el('div', 'lv-cs'); cBar.setAttribute('role', 'group'); cBar.setAttribute('aria-label', 'Страны');
@@ -261,7 +259,7 @@
       listBox.append(it);
     });
   }
-  function drawAll() { drawRegions(); drawCountries(); drawMonths(); drawStatus(); drawList(); if (!OPEN) drawDet(); }
+  function drawAll() { drawRegions(); drawCountries(); drawMonths(); drawStatus(); drawList(); if (PICK) drawPickRes(); else if (!OPEN) drawDet(); } // подбор следует за регионом, страной и месяцем
 
   // ---------- расписание серии ----------
   async function openFest(f, force) {
@@ -369,9 +367,11 @@
   const entOf = (e, ent) => Math.min(ent, e.c);
   function cands(f) {
     const s = SUM[f.id]; if (!s || !s.ev) return null;
+    const mon = ST.mon ? (([y, m]) => [Date.UTC(y, m - 1, 1), Date.UTC(y, m, 1)])(ST.mon.split('-').map(Number)) : null;
     const k = ST.pk, now = Math.floor((Date.now() - new Date().getTimezoneOffset() * 60e3) / DAY) * DAY; // сегодня по местной дате
     return s.ev.map((e, i) => Object.assign({ i, ms: tms(e.t) }, e)).filter(e => {
       if (e.ms != null && e.ms < now) return false; // уже прошёл
+      if (mon && e.ms != null && (e.ms < mon[0] || e.ms >= mon[1])) return false; // выбран месяц — турниры этого месяца
       if (k.lo && e.b < k.lo) return false; if (k.hi && e.b > k.hi) return false;
       if (k.nlh && e.f.includes('o')) return false;
       const any = k.main || k.side || k.bnt || k.hr || k.sat; // ни один вид не выбран — все виды
@@ -401,7 +401,7 @@
   function drawPick() {
     if (!pickForm) {
       det.replaceChildren();
-      const h = el('div', 'lv-dh'); const t = el('div'); t.append(el('h2', null, 'Подобрать серию под бюджет'), el('p', null, 'Укажите, сколько готовы потратить и что играете — программа соберёт план турниров для каждой серии и покажет, какие серии вам по карману. Учитываются регион, страны и месяц, выбранные выше.'));
+      const h = el('div', 'lv-dh'); const t = el('div'); t.append(el('h2', null, 'Подобрать серию под бюджет'), el('p', null, 'Укажите, сколько готовы потратить и что играете — программа соберёт план турниров для каждой серии и покажет, какие серии вам по карману. Подбор идёт по региону, странам и месяцу, которые нажаты сверху.'));
       const x = el('button', 'btn lv-btn', 'Закрыть'); x.type = 'button'; x.onclick = () => { PICK = false; pickB.classList.remove('on'); drawDet(); };
       const a = el('div', 'lv-dh-a'); a.append(x); h.append(t, a); det.append(h);
       pickForm = el('div', 'lv-pk'); pickRes = el('div', 'lv-pk-res');
@@ -434,7 +434,13 @@
     if (none > 0) info.append(' Не подошли: ' + none + ' (нет турниров в вашем диапазоне или не хватает бюджета).');
     if (wait && PREVIEW) info.append(' В превью расписание есть у трёх серий, в программе подбор идёт по всем.');
     else if (wait) info.append(' Ещё ' + wait + ' ' + plural(wait, 'серия ждёт', 'серии ждут', 'серий ждут') + ' загрузки расписания — подбор обновится сам.');
-    pickRes.append(info);
+    // где ищем — то, что нажато сверху
+    const where = el('div', 'lv-pk-where'); where.append(el('span', null, 'Ищу в:'));
+    const wv = [ST.reg ? REGN[ST.reg] : 'Весь мир'];
+    if (ST.cs.length) wv.push(ST.cs.map(x => cOf(x).ru).join(', '));
+    if (ST.mon) { const [y, m] = ST.mon.split('-').map(Number); wv.push(MONR[m - 1] + ' ' + y); } else wv.push('все месяцы');
+    where.append(el('b', null, wv.join(' · ')), el('small', null, 'меняется кнопками региона, стран и месяца сверху'));
+    pickRes.append(where, info);
     P.slice(0, 40).forEach(p => pickRes.append(pickCard(p)));
     det.scrollTop = top;
   }
@@ -480,7 +486,7 @@
   }
 
   // ---------- запуск ----------
-  qIn.value = '';
+  ST.q = '';
   drawAll();
   let started = false;
   const start = () => { if (started) return; started = true; loadList(false).then(() => { if (ST.sel && LIST) { const f = LIST.find(x => x.id === ST.sel); if (f && !root.hidden) openFest(f); } }); };
