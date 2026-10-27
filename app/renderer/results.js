@@ -353,6 +353,31 @@
     }
     return w;
   }
+  // «Поправка»: короткая строка о выбранном режиме + «?» с полным объяснением всех трёх
+  const ADJ = {
+    2: { name: 'Полная', short: 'Влияние одного фактора при прочих равных', tip: 'Ситуация раздачи учтена, и остальные факторы тоже: в графике времени не влияют столы, в графике столов — время и т. д.',
+      full: 'Всё, что делает «На ситуацию», плюс программа разделяет факторы между собой. Например, 1–2 стола у вас часто бывают поздно ночью в глубоких стадиях. Без разделения график столов показал бы смесь «мало столов» и «поздняя стадия». «Полная» оценивает столы, час сессии, время суток, день, длину сессии, скорость и рум одновременно и показывает чистое влияние каждого.', when: 'Лучше всего для решений «сколько столов», «когда устаю», «в какое время играть».' },
+    1: { name: 'На ситуацию', short: 'Сравнение с вами же в тех же спотах', tip: 'Из каждой раздачи вычитается ваш обычный результат в такой же ситуации: позиция, стек, игроков за столом, размер стола, баунти, анте.',
+      full: 'На баттоне почти все в плюсе, на большом блайнде — в минусе; с глубоким стеком и в пуш-фолде результаты тоже разные. Программа знает ваш обычный результат в каждой ситуации по всей истории и вычитает его. Ноль — ваш обычный уровень, плюс — играли лучше себя, минус — хуже. Вклад одной раздачи ограничен ±100 BB.', when: 'Подходит, когда интересно «лучше или хуже обычного», но факторы смешаны между собой.' },
+    0: { name: 'Без', short: 'Сколько вы реально заработали', tip: 'Обычный EV (или факт) в BB на 100 раздач, без поправок.',
+      full: 'Показывает реальный заработок в BB/100, как в Hand2Note. Но в сравнениях он смешивает вашу игру со стадией турнира: например, в начале сессии больше ранних стадий с глубокими стеками, в конце — коротких стеков. Поэтому для выводов о фокусе он менее точен.', when: 'Для вопроса «сколько я заработал там-то», а не «где я играю лучше».' }
+  };
+  function adjBox() {
+    const w = seg('Поправка', 'adj', [[2, 'Полная'], [1, 'На ситуацию'], [0, 'Без']]);
+    w.querySelectorAll('button').forEach((b, k) => { b.title = ADJ[[2, 1, 0][k]].tip; });
+    const lab = w.querySelector('.rs-f-l'), q = el('button', 'rs-q', '?'); q.type = 'button'; q.setAttribute('aria-label', 'Что значат режимы поправки'); q.setAttribute('aria-expanded', 'false');
+    lab.append(q);
+    const cur = ADJ[+F.adj] || ADJ[2]; w.append(el('small', 'rs-adj-s', cur.short));
+    const pop = el('div', 'rs-pop'); pop.hidden = true; pop.setAttribute('role', 'dialog'); pop.setAttribute('aria-label', 'Режимы поправки');
+    pop.append(el('h4', null, 'Что значит «Поправка»'), el('p', 'rs-pop-i', 'Поправка убирает из сравнения то, что не зависит от вашей игры, — чтобы графики времени, столов и дней показывали именно качество игры.'));
+    [2, 1, 0].forEach(k => { const x = ADJ[k], b = el('div', 'rs-pop-m' + (+F.adj === k ? ' on' : '')); const h = el('b', null, x.name); h.append(el('em', null, x.short)); b.append(h, el('p', null, x.full), el('p', 'rs-pop-w', x.when)); pop.append(b); });
+    pop.append(el('p', 'rs-pop-i', 'Ключевые числа (#2), позиции (#12), стек (#13) и позиция × стек (#29) всегда без поправки — это реальный заработок.'));
+    const close = () => { pop.hidden = true; q.setAttribute('aria-expanded', 'false'); document.removeEventListener('mousedown', outside, true); document.removeEventListener('keydown', esc, true); };
+    const outside = (e) => { if (!pop.contains(e.target) && e.target !== q) close(); };
+    const esc = (e) => { if (e.key === 'Escape') { close(); q.focus(); } };
+    q.onclick = (e) => { e.preventDefault(); e.stopPropagation(); if (!pop.hidden) { close(); return; } pop.hidden = false; q.setAttribute('aria-expanded', 'true'); document.addEventListener('mousedown', outside, true); document.addEventListener('keydown', esc, true); };
+    w.append(pop); w.classList.add('rs-adj'); return w;
+  }
   // «Бай-ин» со своим интервалом
   function biBox() {
     const w = sel('Бай-ин', 'bi', BI.concat([['custom', 'Свой…']]));
@@ -388,7 +413,7 @@
       seg('Стол', 'tbl', [['all', 'Все'], ['1', '6-max'], ['2', '7–8'], ['3', '9-max']]),
       seg('Тип', 'kind', [['all', 'Все'], ['0', 'Обычные'], ['1', 'Сателлиты']]),
       seg('Считать', 'metric', [['ev', 'EV'], ['net', 'Факт']]),
-      seg('Поправка', 'adj', [[2, 'Полная'], [1, 'На ситуацию'], [0, 'Без']])
+      adjBox()
     );
     const reset = el('button', 'rs-reset', 'Сбросить'); reset.type = 'button'; reset.onclick = () => { Object.assign(F, DEF); saveF(); draw(); };
     if (Object.keys(DEF).some(k => !['cmp', 'tilt', 'pFrom', 'pTo', 'biFrom', 'biTo'].includes(k) && String(F[k]) !== String(DEF[k]))) fb.append(reset);
