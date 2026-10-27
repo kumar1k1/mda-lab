@@ -1474,3 +1474,15 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .rs-row-h span{white-space:normal;line-height:1.2}
 .rs-tl{grid-template-columns:repeat(5,minmax(0,1fr))}
 .rs-head2 b.warn{color:#F5C46B}
+/* пояснения при наведении */
+.rs-tip{position:relative;cursor:help;text-decoration:underline dotted rgba(255,255,255,.3);text-underline-offset:3px}
+.rs-tip:focus{outline:none}
+.rs-tip-b{position:absolute;left:0;top:calc(100% + 6px);z-index:40;width:280px;max-width:min(320px,80vw);padding:10px 12px;border-radius:10px;border:1px solid var(--line2);background:var(--panel);box-shadow:0 12px 30px rgba(0,0,0,.5);color:var(--soft);font:500 12px/1.5 var(--sans);letter-spacing:0;text-transform:none;white-space:normal;text-align:left;opacity:0;visibility:hidden;transition:opacity .12s;pointer-events:none}
+.rs-tip:hover > .rs-tip-b,.rs-tip:focus > .rs-tip-b,.rs-tip:focus-within > .rs-tip-b{opacity:1;visibility:visible}
+.rs-row-h .rs-tip:nth-last-child(-n+4) > .rs-tip-b,.rs-row-h span:nth-child(n+4) .rs-tip-b{left:auto;right:0}
+.rs-qt{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;margin-left:8px;border-radius:50%;border:1px solid var(--line2);background:var(--card2);color:var(--soft);font:800 11px var(--sans);text-decoration:none;vertical-align:2px}
+.rs-qt:hover,.rs-qt:focus{border-color:var(--amber);color:var(--amber)}
+.rs-qt > .rs-tip-b{width:360px;font-weight:500}
+.rs-card{overflow:visible}
+.rs-row{grid-template-columns:58px minmax(100px,auto) minmax(40px,1fr) 58px 58px 58px 40px}
+.rs-in.warn{border-left-color:#F5C46B}

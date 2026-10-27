@@ -412,9 +412,11 @@
   function legendWords() {
     const l = el('div', 'rs-leg'); [['up', 'лучше обычного'], ['up-soft', 'чуть лучше (может быть случайностью)'], ['eq', 'как обычно'], ['down-soft', 'чуть хуже'], ['down', 'хуже обычного'], ['small', 'мало данных']].forEach(([c, t]) => { const i = el('span'); i.append(el('i', 'lw ' + c), document.createTextNode(t)); l.append(i); }); return l;
   }
-  function card(title, hint, wide) {
-    const c = el('section', 'rs-card' + (wide ? ' wide' : '')); const h = el('div', 'rs-card-h'); h.append(el('h3', null, title)); if (hint) h.append(el('p', null, hint)); c.append(h); return c;
+  function card(title, hint, wide, help) {
+    const c = el('section', 'rs-card' + (wide ? ' wide' : '')); const h = el('div', 'rs-card-h'); const t = el('h3', null, title); if (help) t.append(tipEl('?', help, 'rs-qt')); h.append(t); if (hint) h.append(el('p', null, hint)); c.append(h); return c;
   }
+  // пояснение при наведении (и при фокусе с клавиатуры): span с подсказкой под ним
+  function tipEl(text, help, cls) { const w = el('span', 'rs-tip' + (cls ? ' ' + cls : ''), text); w.tabIndex = 0; w.setAttribute('aria-label', (text === '?' ? '' : text + '. ') + help); const b = el('span', 'rs-tip-b', help); b.setAttribute('role', 'tooltip'); w.append(b); return w; }
   function legend(items) { const l = el('div', 'rs-leg'); items.forEach(([cls, t]) => { const i = el('span'); i.append(el('i', cls), document.createTextNode(t)); l.append(i); }); return l; }
   function note(t) { return el('p', 'rs-note', t); }
 
@@ -472,6 +474,7 @@
     // «Полная» поправка: совместная модель всех факторов (обратная подгонка аддитивной модели). Для блока фактора берётся
     // «частичный остаток»: результат минус вклад всех ОСТАЛЬНЫХ факторов — то есть влияние только этого фактора при прочих равных.
     const PR = {};
+    let T_HEAD = null, S_HEAD = null; // выводы #4 и #5 — те же слова попадают в «Главное» (#3)
     if (+F.adj === 2) {
       const cbF = (n) => n <= 2 ? 0 : n <= 4 ? 1 : n <= 6 ? 2 : n <= 8 ? 3 : n <= 10 ? 4 : n <= 13 ? 5 : 6;
       const slF = (s) => { const z = D.sessions[s], L = z[1] - z[0]; return L < 120 ? 0 : L < 240 ? 1 : L < 360 ? 2 : L < 480 ? 3 : L < 600 ? 4 : 5; };
@@ -521,17 +524,17 @@
     const CBL = ['1–2', '3–4', '5–6', '7–8', '9–10', '11–13', '14+'];
     const gT = groups(D, X, (i) => cb(D.conc[i]), 7, pure('tbl'));
     // минуты на каждом числе столов (по всем раздачам выбранного периода): для рук в час и BB в час
-    const tm = new Float64Array(7); {
+    const tm = new Float64Array(7), tc = new Float64Array(7); {
       const ev2 = []; const used = new Set(X.idx.map(i => D.tour[i])); D.tours.forEach((x, k) => { if (used.has(k)) ev2.push([x[1], 1], [x[2] + 1, -1]); }); ev2.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
       const ss = [...sesSet].map(s => D.sessions[s]).sort((a, b) => a[0] - b[0]); let e = 0, cc = 0;
-      for (const z of ss) for (let t = z[0]; t <= z[1]; t++) { while (e < ev2.length && ev2[e][0] <= t) cc += ev2[e++][1]; if (cc > 0) tm[cb(cc)]++; }
+      for (const z of ss) for (let t = z[0]; t <= z[1]; t++) { while (e < ev2.length && ev2[e][0] <= t) cc += ev2[e++][1]; if (cc > 0) { tm[cb(cc)]++; tc[cb(cc)] += cc; } }
     }
     const okT = gT.filter(r => r.n >= nH * 0.05); const bestT = okT.length ? okT.reduce((a, b) => b.v > a.v ? b : a) : null;
-    const cT = card('Сколько столов играть?', 'Как меняется качество вашей игры и заработок в час в зависимости от того, сколько турниров открыто одновременно.');
+    const cT = card('Сколько столов играть?', 'Как меняется качество вашей игры и заработок в час в зависимости от того, сколько турниров открыто одновременно.', false, 'Как читать: в каждой строке — сколько столов было открыто. «Качество игры» показывает, не хуже ли вы играете при таком числе столов. «EV в час» — сколько BB приносит час игры со всех столов вместе, «На 1 стол» — сколько даёт каждый стол. Рекомендация — вариант с наибольшим EV в час среди тех, где качество не падает и наиграно 10+ часов. Наведите на заголовок колонки — там пояснение.');
     {
       // EV в час — без поправок (сколько BB реально приходит за час игры на таком числе столов)
       const gE = groups(D, X, (i) => cb(D.conc[i]), 7, { vals: X.ev, ci: false, shrink: false });
-      gT.forEach((r, q) => { r.label = CBL[q]; r.hph = tm[q] ? r.n / tm[q] * 60 : NaN; r.evh = tm[q] ? gE[q].sum / tm[q] * 60 : NaN; r.hours = tm[q] / 60; });
+      gT.forEach((r, q) => { r.label = CBL[q]; r.hph = tm[q] ? r.n / tm[q] * 60 : NaN; r.evh = tm[q] ? gE[q].sum / tm[q] * 60 : NaN; r.hours = tm[q] / 60; r.avgT = tm[q] ? tc[q] / tm[q] : NaN; r.evt = r.evh / r.avgT; });
       const ref = +F.adj ? 0 : (gT.mu != null ? gT.mu : 0);
       const rowsT = gT.filter(r => r.n);
       if (!rowsT.some(r => r.n >= MINN)) cT.append(lack());
@@ -540,35 +543,42 @@
         const ok = rowsT.filter(r => r.n >= MINN && r.hours >= 10 && Number.isFinite(r.evh)), bad = ok.filter(r => verdictOf(r, ref)[0] === 'down');
         const fine = ok.filter(r => !/^down/.test(verdictOf(r, ref)[0])), best = fine.length ? fine.reduce((x, y) => y.evh > x.evh ? y : x) : null;
         // что с вариантами больше проверенного диапазона: мало часов — так и сказать, с их EV в час
-        const beyond = (hi) => { const more = rowsT.filter(r => +r.label.split('–')[0] > +hi && !ok.includes(r)); if (!more.length) return ''; return 'Больше ' + hi + ' столов — выводов пока нет: ' + more.map(r => r.label + ' — ' + (r.hours >= 1 ? Math.round(r.hours) : '<1') + ' ч игры' + (r.hours >= 2 && Number.isFinite(r.evh) ? ', ' + fmt(r.evh, 1) + ' BB/ч' : '')).join('; ') + '.'; };
+        const beyond = (hi) => { const more = rowsT.filter(r => +r.label.split('–')[0] > +hi && !ok.includes(r)); if (!more.length) return ''; return 'Больше ' + hi + ' ' + plural(+hi, 'стола', 'столов', 'столов') + ' — выводов пока нет, мало часов игры: ' + more.map(r => r.label + ' — ' + (r.hours >= 1 ? Math.round(r.hours) + ' ч' : 'меньше часа')).join(', ') + '.'; };
         const head = el('div', 'rs-head2');
-        if (best) {
+        if (best && fine.length === 1) {
+          const hi = best.label.split('–').pop();
+          head.append(el('b', null, 'Хватает данных только для ' + best.label + ' ' + plural(+hi, 'стола', 'столов', 'столов')),
+            el('span', null, 'Здесь EV в час — ' + fmt(best.evh, 1) + ' BB/ч' + (best.evh < 0 ? ' (в минусе)' : '') + '. Сравнить с другим числом столов пока не с чем. ' + beyond(hi)));
+          T_HEAD = { cls: 'good', title: 'Столы: данных хватает только для ' + best.label, text: 'EV в час — ' + fmt(best.evh, 1) + ' BB/ч; сравнить пока не с чем.' };
+        } else if (best) {
           const lo = fine[0].label.split('–')[0], hi = fine[fine.length - 1].label.split('–').pop();
           head.append(el('b', null, 'Лучше всего: ' + best.label + ' ' + plural(+best.label.split('–').pop(), 'стол', 'стола', 'столов')),
             el('span', null, 'Здесь больше всего EV в час — ' + fmt(best.evh, 1) + ' BB/ч. ' + (bad.length ? 'На ' + bad.map(r => r.label).join(', ') + ' столах качество игры заметно падает. ' : fine.length > 1 ? 'Качество игры от ' + lo + ' до ' + hi + ' столов одинаковое. ' : '') + beyond(hi)));
           best.rec = true;
-        } else head.append(el('b', null, 'Пока без рекомендации'), el('span', null, 'Нужно хотя бы 10 часов игры на каком-то числе столов без потери качества.'));
+          T_HEAD = { cls: 'good', title: 'Больше всего EV в час — на ' + best.label + ' столах', text: fmt(best.evh, 1) + ' BB/ч. ' + (bad.length ? 'На ' + bad.map(r => r.label).join(', ') + ' столах качество игры падает.' : fine.length > 1 ? 'Качество игры от ' + lo + ' до ' + hi + ' столов одинаковое; больше ' + hi + ' — данных мало.' : '') };
+        } else { head.append(el('b', null, 'Пока без рекомендации'), el('span', null, 'Нужно хотя бы 10 часов игры на каком-то числе столов без потери качества.')); T_HEAD = null; }
         cT.append(head);
         const tb = el('div', 'rs-rows');
-        const hdr = el('div', 'rs-row rs-row-h'); ['Столов', 'Качество игры', '', 'Раздач в час', 'EV в час', 'Часов'].forEach(t => hdr.append(el('span', null, t))); tb.append(hdr);
+        const HT = [['Столов', 'Сколько турниров было открыто одновременно.'], ['Качество игры', 'Насколько лучше или хуже своего обычного уровня вы играете при таком числе столов. Учтены позиции, стеки, время, день и формат — сравнивается только сама игра. «Как обычно» — разница в пределах случайности.'], ['', ''], ['Раздач в час', 'Все раздачи со всех открытых столов за час игры.'], ['EV в час', 'Сколько BB в сумме приносит час игры со всех столов вместе (EV, без поправок).'], ['На 1 стол', 'EV в час, делённый на среднее число открытых столов: сколько приносит каждый стол. С ростом числа столов обычно падает, а сумма в час может расти.'], ['Часов', 'Сколько часов вы наиграли при таком числе столов. Меньше 10 часов — для рекомендации мало.']];
+        const hdr = el('div', 'rs-row rs-row-h'); HT.forEach(([t, h]) => hdr.append(t && h ? tipEl(t, h) : el('span', null, t))); tb.append(hdr);
         const lim = Math.max(5, ...rowsT.filter(r => r.n >= MINN).map(r => Math.abs(r.v - ref)));
         rowsT.forEach(r => {
           const [cls, txt] = verdictOf(r, ref), row = el('div', 'rs-row ' + cls + (r.rec ? ' rec' : ''));
           const nm = el('b', null, r.label); if (r.rec) nm.append(el('em', null, 'лучший EV в час'));
-          row.append(nm, el('span', 'rs-chip ' + cls, txt), meter(r.v - ref, lim, cls), el('span', 'num', Number.isFinite(r.hph) ? Math.round(r.hph) : '—'), el('span', 'num ' + (r.hours < 2 ? 'dim' : r.evh >= 0 ? 'pos' : 'neg'), Number.isFinite(r.evh) && r.hours >= 2 ? fmt(r.evh, 1) : '—'), el('span', 'num dim', r.hours >= 1 ? Math.round(r.hours) : '<1'));
+          row.append(nm, el('span', 'rs-chip ' + cls, txt), meter(r.v - ref, lim, cls), el('span', 'num', Number.isFinite(r.hph) ? Math.round(r.hph) : '—'), el('span', 'num ' + (r.hours < 2 ? 'dim' : r.evh >= 0 ? 'pos' : 'neg'), Number.isFinite(r.evh) && r.hours >= 2 ? fmt(r.evh, 1) : '—'), el('span', 'num ' + (r.hours < 2 ? 'dim' : r.evt >= 0 ? 'pos' : 'neg'), Number.isFinite(r.evt) && r.hours >= 2 ? fmt(r.evt, 1) : '—'), el('span', 'num dim', r.hours >= 1 ? Math.round(r.hours) : '<1'));
           row.title = r.label + ' столов: ' + fmt(r.v) + ' BB/100 к обычному уровню · ' + num(r.n) + ' раздач' + (Number.isFinite(r.lo) ? ' · 95%: от ' + fmt(r.lo) + ' до ' + fmt(r.hi) : '');
           tb.append(row);
         });
         cT.append(tb);
         cT.append(legendWords());
-        cT.append(el('p', 'rs-note', '«Качество игры» — насколько лучше или хуже вашего обычного уровня вы играете на таком числе столов (учтены позиции, стеки и другие факторы). «EV в час» — сколько BB в среднем приносит час игры (меньше 2 часов — не показывается).'));
+        cT.append(el('p', 'rs-note', '«Качество игры» — насколько лучше или хуже вашего обычного уровня вы играете на таком числе столов (учтены позиции, стеки и другие факторы). «EV в час» — сколько BB приносит час игры со всех столов вместе, «На 1 стол» — сколько из этого даёт каждый стол (меньше 2 часов игры — не показывается).'));
       }
     }
     addPure(cT, 'час сессии, время суток, день, длина сессии, скорость и рум'); grid.append(cT);
     if (await step()) return;
     // ---- ход сессии ----
     const gS = groups(D, X, (i) => Math.min(9, Math.floor(D.since[i] / 60)), 10, pure('ses'));
-    const cS = card('По ходу сессии', 'Устаёте ли вы к концу сессии: качество игры по часам от её начала (сессия — игра без перерыва больше 45 минут).');
+    const cS = card('По ходу сессии', 'Устаёте ли вы к концу сессии: качество игры по часам от её начала (сессия — игра без перерыва больше 45 минут).', false, 'Как читать: каждая клетка — час от начала сессии. Число — EV в BB на 100 раздач относительно вашего обычного уровня: 0 — как обычно, минус — хуже, плюс — лучше. Учтены позиции, стеки, число столов, время суток и формат. Цвет — оценка с учётом случайности: в поздних часах раздач меньше, погрешность там около ±10 BB/100, поэтому −4 может быть шумом. «Пока не доказан» — тренд виден, но данных ещё мало. Наведите на клетку — точные числа.');
     {
       const ref = +F.adj ? 0 : (gS.mu != null ? gS.mu : 0);
       gS.forEach((r, q) => { r.label = q === 9 ? '9+ ч' : q + '–' + (q + 1) + ' ч'; });
@@ -582,7 +592,7 @@
         const firstBad = gS.find(r => r.n >= MINN && verdictOf(r, ref)[0] === 'down');
         const head = el('div', 'rs-head2');
         if (!Number.isFinite(se)) head.append(el('b', null, 'Мало сессий'), el('span', null, 'Нужно хотя бы 3 сессии под эти фильтры, чтобы оценить усталость.'));
-        else if (hi < 0) head.append(el('b', 'neg', 'Да, к концу сессии вы играете хуже'), el('span', null, 'В среднем ' + fmt(sl, 1) + ' BB/100 за каждый час сессии' + (firstBad ? '; заметный спад — с ' + firstBad.label.replace(' ч', '') + ' часа.' : '.') + ' Подумайте о более коротких сессиях или перерывах.'));
+        else if (hi < 0) head.append(el('b', 'neg', 'Да, к концу сессии вы играете хуже'), el('span', null, 'В среднем ' + fmt(sl, 1) + ' BB/100 за каждый час сессии' + (firstBad ? '; сильнее всего — в отрезке ' + firstBad.label + '.' : '.') + ' Подумайте о более коротких сессиях или перерывах.'));
         else if (lo > 0) head.append(el('b', 'pos', 'Усталости нет — к концу вы играете даже лучше'), el('span', null, 'В среднем ' + fmt(sl, 1) + ' BB/100 за каждый час сессии.'));
         else {
           // поздние часы (с 6-го) в минусе и тренд вниз — честно «возможен спад, пока не доказан»
@@ -591,6 +601,7 @@
           else head.append(el('b', null, 'Усталость не видна'), el('span', null, 'Результат к концу сессии ровно не падает — изменения по часам в пределах случайности' + (firstBad ? ', но в отрезке ' + firstBad.label + ' игра заметно хуже обычного.' : '.')));
         }
         cS.append(head);
+        { const hb = head.querySelector('b'), hs = head.querySelector('span'); S_HEAD = { cls: hb.classList.contains('neg') ? 'bad' : hb.classList.contains('warn') ? 'warn' : hb.classList.contains('pos') ? 'good' : 'good', title: hb.textContent, text: hs ? hs.textContent : '' }; }
         // лента часов: цвет — оценка, число — отклонение от обычного уровня
         const tl = el('div', 'rs-tl');
         gS.forEach(r => { if (!r.n) return; const [cls, txt] = verdictOf(r, ref); const c = el('div', 'rs-tl-c ' + cls); c.append(el('span', 'h', r.label), el('b', null, r.n >= MINN ? fmt(r.v - ref, 1) : '—'), el('small', null, txt)); c.title = r.label + ': ' + fmt(r.v) + ' BB/100 · ' + num(r.n) + ' раздач' + (Number.isFinite(r.lo) ? ' · 95%: от ' + fmt(r.lo) + ' до ' + fmt(r.hi) : ''); tl.append(c); });
@@ -950,19 +961,16 @@
     {
       const ins = [];
       const add = (cls, title, text, r) => ins.push({ cls, title, text, badge: r ? (sure(r) ? 'надёжно' : 'тенденция') : null });
-      if (gT.flat && bestT) add('good', 'Число столов не влияет', 'От 1 до ' + okT[okT.length - 1].label.split('–').pop() + ' столов результат одинаковый в пределах случайности — можно играть больше столов без потери качества.', null);
-      else if (bestT) add('good', 'Лучшее число столов: ' + bestT.label, fmt(bestT.v) + ' BB/100 (' + mName.toLowerCase() + ')' + (tm[bestT.k] ? ', около ' + Math.round(bestT.n / tm[bestT.k] * 60) + ' раздач в час' : '') + '.', bestT);
-      const worstT = okT.length ? okT.reduce((a, b) => b.v < a.v ? b : a) : null;
-      if (!gT.flat && worstT && worstT !== bestT && worstT.v < 0) add('bad', 'Хуже всего — ' + worstT.label + ' столов', fmt(worstT.v) + ' BB/100.', worstT);
+      if (T_HEAD) add(T_HEAD.cls, T_HEAD.title, T_HEAD.text, null);
       const okH = gH.filter(r => r.n >= nH * 0.03);
-      if (okH.length && gH.flat) add('good', 'Время суток не влияет', 'Разница между часами в пределах случайности.', null);
+      if (okH.length && gH.flat) add('good', 'Время суток: разницы не видно', 'Отличия между часами в пределах случайности — по этим данным время суток на игру не влияет.', null);
       else if (okH.length) { const w = okH.reduce((a, b) => b.v < a.v ? b : a), bst = okH.reduce((a, b) => b.v > a.v ? b : a);
         add('bad', 'Слабый час: ' + String(w.k).padStart(2, '0') + ':00–' + String((w.k + 1) % 24).padStart(2, '0') + ':00', fmt(w.v) + ' BB/100 на ' + num(w.n) + ' раздачах.' + (sure(w) && w.v < 0 ? ' Попробуйте в это время короткий перерыв или меньше столов.' : ''), w);
         add('good', 'Сильный час: ' + String(bst.k).padStart(2, '0') + ':00–' + String((bst.k + 1) % 24).padStart(2, '0') + ':00', fmt(bst.v) + ' BB/100.', bst); }
-      if (bestD && gD.flat) add('good', 'День недели не влияет', 'Разница между днями в пределах случайности.', null);
+      if (bestD && gD.flat) add('good', 'Дни недели: разницы не видно', 'Отличия между днями в пределах случайности — по этим данным день недели на игру не влияет.', null);
       else if (bestD) add('good', 'Лучший день — ' + ['понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота', 'воскресенье'][bestD.k], fmt(bestD.v) + ' BB/100.', bestD);
       const s01 = gS.slice(0, 2).reduce((a, r) => [a[0] + r.sum, a[1] + r.n], [0, 0]), sLate = gS.slice(5).reduce((a, r) => [a[0] + r.sum, a[1] + r.n], [0, 0]);
-      if (s01[1] > 500 && sLate[1] > 500) add(sLate[0] / sLate[1] < s01[0] / s01[1] ? 'bad' : 'good', 'Начало и конец сессии', 'Первые 2 часа: ' + fmt(s01[0] / s01[1] * 100) + ', после 5-го часа: ' + fmt(sLate[0] / sLate[1] * 100) + ' BB/100.', null);
+      if (S_HEAD) add(S_HEAD.cls, S_HEAD.title, S_HEAD.text, null);
       const luck = (netS - evS) / nH * 100; add(luck >= 0 ? 'good' : 'bad', luck >= 0 ? 'Вам везёт' : 'Вам не везёт', 'Факт отличается от EV на ' + fmt(luck) + ' BB/100 — это олл-ины, не ваша игра.', null);
       const list = el('div', 'rs-ins');
       ins.forEach(x => { const d = el('div', 'rs-in ' + x.cls); const h = el('b', null, x.title); if (x.badge) h.append(el('em', x.badge === 'надёжно' ? 'sure' : null, x.badge)); d.append(h, el('p', null, x.text)); list.append(d); });
