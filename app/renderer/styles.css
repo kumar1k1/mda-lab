@@ -1393,3 +1393,7 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .rs-zone-i b{font-family:var(--mono);text-align:right}
 .rs-zone-i small{grid-column:1/-1;font-size:11px;color:var(--faint)}
 @media (max-width:1100px){.rs-two{grid-template-columns:1fr}}
+.rs-lack{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:130px;padding:18px;border:1px dashed var(--line2);border-radius:12px;background:rgba(255,255,255,.015);text-align:center}
+.rs-lack b{font-size:14px;color:var(--soft)}
+.rs-lack span{font-size:12.5px;color:var(--muted)}
+.rs-two > .rs-lack{min-height:200px}

@@ -122,14 +122,18 @@
     for (let v = Math.ceil(lo / step) * step, k = 0; v <= hi + step * 1e-6 && k < 50; v += step, k++) out.push(Math.abs(v) < step * 1e-6 ? 0 : v);
     return out;
   }
+  // мало раздач для выводов — вместо графика надпись (порог — 300 раздач хотя бы в одной группе)
+  const MINN = 300;
+  const lack = () => { const d = el('div', 'rs-lack'); d.append(el('b', null, 'Не хватает данных'), el('span', null, 'для нормальной выборки под эти фильтры')); return d; };
   // столбцы со знаком: зелёные — плюс, красные — минус; бледные — мало раздач; усы — 95% интервал; best — янтарная обводка
   function bars(rows, o) {
     o = o || {};
     const W = o.w || 600, H = o.h || 240, pl = 40, pr = 10, pt = 22, pb = o.sub2 ? 58 : o.sub ? 44 : 30;
     const list = rows.filter(r => r.n > 0 && Number.isFinite(r.v));
     const svg = sv('svg', { viewBox: '0 0 ' + W + ' ' + H, class: 'rs-svg', role: 'img', 'aria-label': o.aria || 'график' });
-    if (!list.length) { svg.append(sv('text', { x: W / 2, y: H / 2, 'text-anchor': 'middle', class: 'rs-empty' }, 'нет раздач под эти фильтры')); return svg; }
-    const maxN = Math.max(...list.map(r => r.n)), minN = o.minN || 300;
+    const minN = o.minN || MINN;
+    if (!list.some(r => r.n >= minN)) return lack();
+    const maxN = Math.max(...list.map(r => r.n));
     const solid = list.filter(r => r.n >= minN), vs = (solid.length ? solid : list).map(r => r.v); let lo = Math.min(0, ...vs), hi = Math.max(0, ...vs);
     if (hi - lo < 1e-6) { lo = -5; hi = 5; }
     const pad = (hi - lo) * 0.18 || 5; lo -= lo < 0 ? pad : 0; hi += hi > 0 ? pad : 0;
@@ -175,6 +179,7 @@
   }
   // неделя × часы
   function heat(cells, o) {
+    if (!cells.some(c => c.n >= (o.minN || 200))) return lack();
     const W = 1150, H = 270, pl = 38, pt = 8, pb = 22, cw = (W - pl - 6) / 24, ch = (H - pt - pb) / 7;
     const svg = sv('svg', { viewBox: '0 0 ' + W + ' ' + H, class: 'rs-svg', role: 'img', 'aria-label': 'результат по дням недели и часам' });
     const maxN = Math.max(1, ...cells.map(c => c.n)), lim = Math.max(10, ...cells.filter(c => c.n >= (o.minN || 200)).map(c => Math.abs(c.v)));
@@ -199,6 +204,7 @@
     const svg = sv('svg', { viewBox: '0 0 ' + W + ' ' + H, class: 'rs-svg', role: 'img', 'aria-label': o.aria || 'таблица' });
     const minN = o.minN || 300, cells = [];
     for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) cells.push(Object.assign({ r, c }, o.get(r, c)));
+    if (!cells.some(x => x.n >= minN)) return lack();
     const lim = Math.max(8, ...cells.filter(x => x.n >= minN && Number.isFinite(x.v)).map(x => Math.abs(x.v)));
     o.cols.forEach((l, c) => svg.append(sv('text', { x: pl + c * cw + cw / 2, y: 14, 'text-anchor': 'middle', class: 'rs-sub' }, l)));
     o.rows.forEach((l, r) => svg.append(sv('text', { x: pl - 8, y: pt + r * ch + ch / 2 + 4, 'text-anchor': 'end', class: 'rs-lab' }, l)));
@@ -218,6 +224,7 @@
   }
   // точки: x, y, размер по числу раздач
   function scatter(pts, o) {
+    if (pts.length < 3) return lack();
     const W = o.w || 600, H = o.h || 260, pl = 48, pr = 10, pt = 12, pb = 30;
     const svg = sv('svg', { viewBox: '0 0 ' + W + ' ' + H, class: 'rs-svg', role: 'img', 'aria-label': o.aria || 'точки' });
     if (!pts.length) return svg;
@@ -232,6 +239,7 @@
   }
   // календарь: недели × дни, клетка — результат дня
   function calendar(days, o) {
+    if (days.size < 2) return lack();
     const keys = [...days.keys()].sort((a, b) => a - b); if (!keys.length) return sv('svg');
     const last = keys[keys.length - 1], first = Math.max(keys[0], last - 7 * 53 + 1);
     const dowOf = (d) => (new Date(d * 864e5).getUTCDay() + 6) % 7, start = first - dowOf(first), weeks = Math.ceil((last - start + 1) / 7);
@@ -411,8 +419,8 @@
       const marks = []; let pm = -1; ord.forEach((j, q) => { const m = D.MON[X.idx[j]]; if (m !== pm) { if (pm >= 0) marks.push([q, ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'][m % 12] + (m % 12 === 0 ? ' ' + Math.floor(m / 12) : '')]); pm = m; } });
       const cG = card('Накопленный результат', 'Сумма BB по раздачам по порядку: янтарная — EV, голубая — фактический результат. Разница между ними — везение.', true);
       const mk2 = []; marks.forEach(m => { if (!mk2.length || (m[0] - mk2[mk2.length - 1][0]) / nH * 1080 > 70) mk2.push(m); });
-      cG.append(lines([{ pts: pe, cls: 'ev' }, { pts: pn, cls: 'net' }], { marks: mk2, aria: 'накопленный результат' }));
-      cG.append(legend([['lg-ev', 'EV, BB'], ['lg-net', 'факт, BB']]));
+      if (nH < MINN) cG.append(lack());
+      else { cG.append(lines([{ pts: pe, cls: 'ev' }, { pts: pn, cls: 'net' }], { marks: mk2, aria: 'накопленный результат' })); cG.append(legend([['lg-ev', 'EV, BB'], ['lg-net', 'факт, BB']])); }
       grid.append(cG);
     }
     if (await step()) return;
@@ -479,7 +487,7 @@
           tr.append(td); body.append(tr);
         });
       }
-      tb.append(body); const wrap = el('div', 'rs-table-w'); wrap.append(tb); cF.append(wrap);
+      tb.append(body); const wrap = el('div', 'rs-table-w'); wrap.append(tb); cF.append(nH < MINN ? lack() : wrap);
       cF.append(note('«~» — интервал захватывает ноль: разница может быть случайной. Везение — факт минус EV (олл-ины, которые выиграли или проиграли сверх ожидания).'));
       grid.append(cF);
     }
@@ -519,8 +527,10 @@
       ['', 'Последние ' + lab, 'Предыдущие ' + lab, 'Разница'].forEach((t, q) => { const h = el('th', q ? 'num' : null, t); h.scope = 'col'; hr.append(h); });
       const th = el('thead'); th.append(hr); tb.append(th); const body = el('tbody');
       rows.forEach(([l, x, y, d, dg, good]) => { const tr = el('tr'); const h = el('th', null, l); h.scope = 'row'; tr.append(h, el('td', 'num', x), el('td', 'num rs-dim', y), el('td', 'num' + (good && Number.isFinite(d) ? (d >= 0 ? ' pos' : ' neg') : ''), (a.n && b.n) ? dfmt(d, dg) : '')); body.append(tr); });
-      tb.append(body); const w = el('div', 'rs-table-w'); w.append(tb); cC.append(w);
-      if (!a.n || !b.n) cC.append(note('В одном из периодов нет раздач под эти фильтры.'));
+      tb.append(body); const w = el('div', 'rs-table-w'); w.append(tb);
+      if (a.n < MINN || b.n < MINN) cC.append(lack());
+      else cC.append(w);
+      if (a.n < MINN || b.n < MINN) { /* надпись выше */ }
       else if (Math.min(a.n, b.n) < 5000) cC.append(note('Меньше 5 000 раздач в периоде — разница в BB/100 почти наверняка случайна.'));
       grid.append(cC);
     }
@@ -603,7 +613,7 @@
         const cZ = card('Стиль игры: усталость и многостол', 'Меняется ли ваша игра (а не только результат). Цветом — заметное отличие от вашего среднего: янтарный — чаще, голубой — реже.', true);
         const two = el('div', 'rs-two');
         two.append(tbl('Час сессии', (i) => Math.min(6, Math.floor(D.since[i] / 60)), ['0–1 ч', '1–2 ч', '2–3 ч', '3–4 ч', '4–5 ч', '5–6 ч', '6+ ч']), tbl('Столов', (i) => { const n = D.conc[i]; return n <= 2 ? 0 : n <= 4 ? 1 : n <= 6 ? 2 : n <= 8 ? 3 : 4; }, ['1–2', '3–4', '5–6', '7–8', '9+']));
-        cZ.append(two); grid.append(cZ);
+        cZ.append(nH < MINN ? lack() : two); grid.append(cZ);
       }
       if (await step()) return;
       // #21 рейтинг турниров по названию
@@ -622,8 +632,7 @@
           s.append(sv('line', { x1: 80, x2: 80, y1: 1, y2: 17, class: 'rs-zero' })); if (Number.isFinite(r.lo)) s.append(sv('line', { x1: xx(r.lo), x2: xx(r.hi), y1: 9, y2: 9, class: 'rs-ci' }));
           s.append(sv('rect', { x: Math.min(80, xx(r.v)), y: 5, width: Math.max(2, Math.abs(xx(r.v) - 80)), height: 8, rx: 2, class: 'rs-bar ' + (r.v >= 0 ? 'pos' : 'neg'), 'fill-opacity': .9 }));
           td.append(s, el('span', 'rs-mini-v ' + (r.v >= 0 ? 'pos' : 'neg'), fmt(r.v) + (sure(r) ? '' : ' ~'))); tr.append(td); tb.append(tr); });
-        t.append(tb); const w = el('div', 'rs-table-w rs-scroll'); w.append(t); cR.append(w);
-        if (!list.length) cR.append(note('Ни один турнир не набрал ' + num(minH) + ' раздач под эти фильтры.'));
+        t.append(tb); const w = el('div', 'rs-table-w rs-scroll'); w.append(t); cR.append(list.length ? w : lack());
         grid.append(cR);
       }
       if (await step()) return;
@@ -669,7 +678,7 @@
         const lst = el('div', 'rs-best'); const srt = pts.slice().sort((a, b) => b.y - a.y);
         const block = (title, arr, cls) => { const b = el('div'); b.append(el('h4', null, title)); const ol = el('ol'); arr.forEach(p => { const li = el('li'); li.append(el('b', cls, fmt(p.y, 0) + ' BB'), document.createTextNode(' — ' + p.tip.split(' · ').slice(0, 3).join(' · '))); ol.append(li); }); b.append(ol); return b; };
         lst.append(block('Лучшие сессии', srt.slice(0, 3), 'pos'), block('Худшие сессии', srt.slice(-3).reverse(), 'neg'));
-        two.append(lst); cP.append(two); grid.append(cP);
+        two.append(lst); cP.append(pts.length < 3 || nH < MINN ? lack() : two); grid.append(cP);
       }
       if (await step()) return;
       // #27 перерывы
@@ -705,7 +714,7 @@
         const two = el('div', 'rs-two');
         const lst = (title, arr, cls) => { const b = el('div', 'rs-zone ' + cls); b.append(el('h4', null, title)); arr.forEach(x => { const d = el('div', 'rs-zone-i'); d.append(el('span', null, x.label), el('b', x.r.v >= 0 ? 'pos' : 'neg', fmt(x.r.v)), el('small', null, num(x.r.n) + ' р.' + (sure(x.r) ? ' · надёжно' : ''))); d.title = '95%: от ' + fmt(x.r.lo) + ' до ' + fmt(x.r.hi); b.append(d); }); return b; };
         two.append(lst('Красные зоны — где теряете', all.slice(0, 6), 'bad'), lst('Зелёные зоны — где зарабатываете', all.slice(-6).reverse(), 'good'));
-        cZ.append(two); grid.append(cZ);
+        cZ.append(all.length ? two : lack()); grid.append(cZ);
       }
       if (await step()) return;
       // #29 позиция × стек
@@ -733,8 +742,9 @@
       const luck = (netS - evS) / nH * 100; add(luck >= 0 ? 'good' : 'bad', luck >= 0 ? 'Вам везёт' : 'Вам не везёт', 'Факт отличается от EV на ' + fmt(luck) + ' BB/100 — это олл-ины, не ваша игра.', null);
       const list = el('div', 'rs-ins');
       ins.forEach(x => { const d = el('div', 'rs-in ' + x.cls); const h = el('b', null, x.title); if (x.badge) h.append(el('em', x.badge === 'надёжно' ? 'sure' : null, x.badge)); d.append(h, el('p', null, x.text)); list.append(d); });
-      cI.lastChild.remove(); cI.append(list);
+      cI.lastChild.remove(); cI.append(nH < MINN ? lack() : list);
     }
+    grid.querySelectorAll(':scope > .rs-card').forEach(cd => { if (cd.querySelector('.rs-lack') && !cd.querySelector('svg.rs-svg, table')) cd.querySelectorAll('.rs-leg, .rs-verdict').forEach(x => x.remove()); });
     // номера блоков — чтобы было удобно обсуждать, что убрать или поменять
     { let k = 0; const tag = (node) => { const t = el('span', 'rs-num', '#' + (++k)); node.append(t); };
       tag(fb); tag(kp); grid.querySelectorAll(':scope > .rs-card').forEach(c => tag(c.querySelector('.rs-card-h') || c)); }
