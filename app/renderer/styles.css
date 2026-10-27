@@ -1119,7 +1119,7 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .st-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px 16px;flex-wrap:wrap}
 .st-tools{display:flex;gap:8px;flex-wrap:wrap}
 .st-btn{display:inline-flex;align-items:center;gap:7px}
-.st-btn.on{border-color:var(--amber);color:var(--amber)}
+.st-btn.on{border-color:var(--amber);color:var(--amber);background:rgba(var(--amber-rgb),.2)}
 .st-btn:disabled{opacity:.4;cursor:default}
 .st-body{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:290px minmax(0,1fr);gap:14px}
 .st-side{display:flex;flex-direction:column;gap:10px;min-height:0;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px}
