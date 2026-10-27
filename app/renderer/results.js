@@ -435,6 +435,9 @@
       ins.forEach(x => { const d = el('div', 'rs-in ' + x.cls); const h = el('b', null, x.title); if (x.badge) h.append(el('em', x.badge === 'надёжно' ? 'sure' : null, x.badge)); d.append(h, el('p', null, x.text)); list.append(d); });
       cI.append(list); grid.prepend(cI);
     }
+    // номера блоков — чтобы было удобно обсуждать, что убрать или поменять
+    { let k = 0; const tag = (node) => { const t = el('span', 'rs-num', '#' + (++k)); node.append(t); };
+      tag(fb); tag(kp); grid.querySelectorAll(':scope > .rs-card').forEach(c => tag(c.querySelector('.rs-card-h') || c)); }
     R.append(note('Расчёт: ' + mName + ' в BB на 100 раздач. Поправка вычитает средний результат вашей позиции и глубины стека, чтобы ранние стадии и короткие стеки не искажали сравнение времени и столов. Время румов приведено к одному часовому поясу. Деньги, ICM и баунти не учитываются — только фишки.'));
   }
   window.MDAResults = { draw, reset: () => { DATA = null; DKEY = null; } };

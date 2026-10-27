@@ -1364,3 +1364,9 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .rs-cmp td.rs-dim{color:var(--muted)}
 .rs-cmp tbody tr{cursor:default!important}
 .rs-cmp tbody tr:hover{background:none!important}
+.rs-filters,.rs-kpis,.rs-card-h{position:relative}
+.rs-card-h{padding-right:40px}
+.rs-num{position:absolute;top:0;right:0;font:700 11px var(--mono);color:var(--amber);background:rgba(var(--amber-rgb),.12);border:1px solid rgba(var(--amber-rgb),.35);border-radius:6px;padding:1px 6px}
+.rs-filters > .rs-num{top:8px;right:10px}
+.rs-kpis > .rs-num{top:-9px;right:-6px;z-index:1}
+.rs-filters{top:auto}
