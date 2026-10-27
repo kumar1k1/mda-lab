@@ -70,7 +70,7 @@
   }
   function festival(html) {
     const d = doc(html);
-    if (/_cf_chl_opt|Just a moment|Enable JavaScript and cookies to continue/.test(html) && !d.querySelector('table.table--festival-schedule')) return { challenge: true };
+    if (/_cf_chl_opt|Just a moment|Enable JavaScript and cookies to continue/.test(html) && !d.querySelector('table.table--festival-schedule, .content-meta')) return { challenge: true };
     const h1 = d.querySelector('.content-meta h1'), fl = h1 && h1.querySelector('span[class*="flag"]');
     const name = h1 ? txt(h1).replace(fl ? txt(fl) : '', '').trim() : txt(d.querySelector('title')).replace(/:.*$/, '');
     const dates = txt(d.querySelector('.header-image__date')), rg = range(dates);

@@ -257,15 +257,15 @@ ipcMain.handle('social:call', (_e, m, p, b) => (m === 'GET' || m === 'POST') && 
 ipcMain.handle('social:logout', () => soc().logout());
 ipcMain.handle('social:img', (_e, p) => soc().img(String(p || '')));
 app.whenReady().then(() => { if (process.env.MDALAB_EVAL) return; soc().init().catch(() => {}); });
-app.on('before-quit', () => { if (SOC) SOC.quit(); });
+app.on('before-quit', () => { if (SOC) SOC.quit(); if (LIVEM) LIVEM.close(); });
 // лента новостей (news.js): открытые RSS покерных сайтов, кэш в папке данных программы
 let NEWS = null;
 const newsFn = () => NEWS || (NEWS = require('./news.js').make(app.getPath('userData')));
 ipcMain.handle('news:get', (_e, force) => newsFn()(!!force));
 // «Офлайн-серии» (live.js): календарь фестивалей и расписания с The Hendon Mob, курсы валют
 let LIVEM = null; const liveFn = () => LIVEM || (LIVEM = require('./live.js').make(app.getPath('userData')));
-ipcMain.handle('live:list', (_e, y, m, force) => liveFn().list(y, m, !!force));
-ipcMain.handle('live:fest', (_e, id, force) => liveFn().fest(id, !!force));
+ipcMain.handle('live:list', (_e, y, m, force, inter) => liveFn().list(y, m, !!force, inter !== false));
+ipcMain.handle('live:fest', (_e, id, force, inter) => liveFn().fest(id, !!force, inter !== false));
 ipcMain.handle('live:pass', (_e, kind, a, b) => liveFn().pass(String(kind), a, b));
 ipcMain.handle('live:rates', () => liveFn().rates());
 ipcMain.handle('live:sum', (_e, id, v) => id == null ? liveFn().sumGet() : liveFn().sumSet(id, v && typeof v === 'object' ? v : {}));
@@ -319,6 +319,7 @@ function createWindow() {
     show: false,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true, webviewTag: true } // webview — только Twitch (раздел «Покерные стримы»)
   });
+  win.on('closed', () => { if (LIVEM) LIVEM.close(); }); // скрытое окно «Офлайн-серий» не должно держать программу открытой
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
   win.once('ready-to-show', () => win.show());
   win.webContents.setWindowOpenHandler(({ url }) => { if (/^https:\/\//.test(url)) shell.openExternal(url); return { action: 'deny' }; });

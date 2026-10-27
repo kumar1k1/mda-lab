@@ -1,7 +1,7 @@
 {
   "name": "mda-lab",
   "productName": "MDA Lab",
-  "version": "0.7.14",
+  "version": "0.7.15",
   "description": "Анализ покерных раздач с вопросами к базе на естественном языке",
   "main": "main.js",
   "author": "MDA Lab"
