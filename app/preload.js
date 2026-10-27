@@ -30,6 +30,7 @@ contextBridge.exposeInMainWorld('mda', {
   pathOf: (file) => { try { return webUtils.getPathForFile(file) || ''; } catch (e) { return ''; } },
   droppedPaths: (paths) => ipcRenderer.invoke('import:paths', Array.from(paths || []).map(String)),
   version: () => ipcRenderer.invoke('app:version'),
+  capture: () => ipcRenderer.invoke('app:capture'),
   newsGet: (force) => ipcRenderer.invoke('news:get', !!force),
   streamsLive: (logins) => ipcRenderer.invoke('streams:live', Array.from(logins || []).map(String)),
   twitchStatus: () => ipcRenderer.invoke('twitch:status'),

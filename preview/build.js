@@ -37,7 +37,8 @@ const out = [
   '<script>', read('replayer.js'), '</script>',
   '<script>', fs.readFileSync(path.join(__dirname, 'news-snapshot.js'), 'utf8'), '</script>',
   '<script>', read('news.js'), '</script>',
-  '<script>', read('streams.js'), '</script>'
+  '<script>', read('streams.js'), '</script>',
+  '<script>', read('social.js'), '</script>'
 ].join('\n');
 fs.writeFileSync(path.join(__dirname, 'MDA-Lab-preview.html'), out);
 console.log('bytes', Buffer.byteLength(out));

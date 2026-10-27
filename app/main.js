@@ -222,6 +222,8 @@ ipcMain.handle('import:run', (e, opts) => new Promise((resolve) => {
   w.on('error', (err) => { if (!append) fs.rmSync(tmp, { recursive: true, force: true }); resolve({ type: 'error', message: String(err && err.message || err) }); });
 }));
 ipcMain.handle('app:version', () => app.getVersion());
+// снимок окна программы — для отправки скриншота в чат
+ipcMain.handle('app:capture', async () => { if (!win || win.isDestroyed()) return null; const img = await win.webContents.capturePage(); const sz = img.getSize(); return (sz.width > 1600 ? img.resize({ width: 1600 }) : img).toDataURL(); });
 // лента новостей (news.js): открытые RSS покерных сайтов, кэш в папке данных программы
 let NEWS = null;
 const newsFn = () => NEWS || (NEWS = require('./news.js').make(app.getPath('userData')));
