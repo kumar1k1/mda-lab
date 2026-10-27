@@ -527,7 +527,7 @@
       for (const z of ss) for (let t = z[0]; t <= z[1]; t++) { while (e < ev2.length && ev2[e][0] <= t) cc += ev2[e++][1]; if (cc > 0) tm[cb(cc)]++; }
     }
     const okT = gT.filter(r => r.n >= nH * 0.05); const bestT = okT.length ? okT.reduce((a, b) => b.v > a.v ? b : a) : null;
-    const cT = card('Сколько столов играть', 'Как меняется качество вашей игры и заработок в час в зависимости от того, сколько турниров открыто одновременно.');
+    const cT = card('Сколько столов играть?', 'Как меняется качество вашей игры и заработок в час в зависимости от того, сколько турниров открыто одновременно.');
     {
       // EV в час — без поправок (сколько BB реально приходит за час игры на таком числе столов)
       const gE = groups(D, X, (i) => cb(D.conc[i]), 7, { vals: X.ev, ci: false, shrink: false });
@@ -539,11 +539,13 @@
         // рекомендация: среди вариантов, где игра не хуже обычного и наиграно 10+ часов, — где больше всего EV в час
         const ok = rowsT.filter(r => r.n >= MINN && r.hours >= 10 && Number.isFinite(r.evh)), bad = ok.filter(r => verdictOf(r, ref)[0] === 'down');
         const fine = ok.filter(r => !/^down/.test(verdictOf(r, ref)[0])), best = fine.length ? fine.reduce((x, y) => y.evh > x.evh ? y : x) : null;
+        // что с вариантами больше проверенного диапазона: мало часов — так и сказать, с их EV в час
+        const beyond = (hi) => { const more = rowsT.filter(r => +r.label.split('–')[0] > +hi && !ok.includes(r)); if (!more.length) return ''; return 'Больше ' + hi + ' столов — выводов пока нет: ' + more.map(r => r.label + ' — ' + (r.hours >= 1 ? Math.round(r.hours) : '<1') + ' ч игры' + (r.hours >= 2 && Number.isFinite(r.evh) ? ', ' + fmt(r.evh, 1) + ' BB/ч' : '')).join('; ') + '.'; };
         const head = el('div', 'rs-head2');
         if (best) {
           const lo = fine[0].label.split('–')[0], hi = fine[fine.length - 1].label.split('–').pop();
           head.append(el('b', null, 'Лучше всего: ' + best.label + ' ' + plural(+best.label.split('–').pop(), 'стол', 'стола', 'столов')),
-            el('span', null, 'Здесь больше всего EV в час — ' + fmt(best.evh, 1) + ' BB/ч. ' + (bad.length ? 'На ' + bad.map(r => r.label).join(', ') + ' столах качество игры заметно падает.' : fine.length > 1 ? 'Качество игры от ' + lo + ' до ' + hi + ' столов одинаковое — больше столов не вредят игре.' : '')));
+            el('span', null, 'Здесь больше всего EV в час — ' + fmt(best.evh, 1) + ' BB/ч. ' + (bad.length ? 'На ' + bad.map(r => r.label).join(', ') + ' столах качество игры заметно падает. ' : fine.length > 1 ? 'Качество игры от ' + lo + ' до ' + hi + ' столов одинаковое. ' : '') + beyond(hi)));
           best.rec = true;
         } else head.append(el('b', null, 'Пока без рекомендации'), el('span', null, 'Нужно хотя бы 10 часов игры на каком-то числе столов без потери качества.'));
         cT.append(head);
@@ -560,9 +562,6 @@
         cT.append(tb);
         cT.append(legendWords());
         cT.append(el('p', 'rs-note', '«Качество игры» — насколько лучше или хуже вашего обычного уровня вы играете на таком числе столов (учтены позиции, стеки и другие факторы). «EV в час» — сколько BB в среднем приносит час игры (меньше 2 часов — не показывается).'));
-        const det = el('details', 'rs-det'); det.append(el('summary', null, 'Подробнее: график с интервалами'));
-        det.append(bars(gT.map((r, q) => Object.assign(r, { best: false, sub: Number.isFinite(r.hph) ? Math.round(r.hph) + ' рук/ч' : '', sub2: Number.isFinite(r.evh) ? fmt(r.evh, 1) + ' BB/ч' : '', tip: r.hours ? Math.round(r.hours) + ' ч игры' : '' })), { sub: true, sub2: true, h: 260, aria: 'результат по числу столов' }));
-        cT.append(det);
       }
     }
     addPure(cT, 'час сессии, время суток, день, длина сессии, скорость и рум'); grid.append(cT);
@@ -592,10 +591,6 @@
         gS.forEach(r => { if (!r.n) return; const [cls, txt] = verdictOf(r, ref); const c = el('div', 'rs-tl-c ' + cls); c.append(el('span', 'h', r.label), el('b', null, r.n >= MINN ? fmt(r.v - ref, 1) : '—'), el('small', null, txt)); c.title = r.label + ': ' + fmt(r.v) + ' BB/100 · ' + num(r.n) + ' раздач' + (Number.isFinite(r.lo) ? ' · 95%: от ' + fmt(r.lo) + ' до ' + fmt(r.hi) : ''); tl.append(c); });
         cS.append(tl);
         cS.append(legendWords());
-        const det = el('details', 'rs-det'); det.append(el('summary', null, 'Подробнее: график с интервалами'));
-        det.append(bars(gS.map(r => Object.assign(r, { label: r.label.replace(' ч', '') })), { sub: true, aria: 'результат по ходу сессии' }));
-        if (Number.isFinite(se)) det.append(el('p', 'rs-note', 'Наклон: ' + fmt(sl, 2) + ' BB/100 за час, 95%: от ' + fmt(lo, 2) + ' до ' + fmt(hi, 2) + '.'));
-        cS.append(det);
       }
     }
     addPure(cS, 'число столов, время суток, день, длина сессии, скорость и рум'); grid.append(cS);
