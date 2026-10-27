@@ -1,5 +1,5 @@
 'use strict';
-// «Офлайн-серии»: живые покерные фестивали по всему миру на ближайшие 2 месяца (данные The Hendon Mob).
+// «Офлайн-серии»: живые покерные фестивали по всему миру на ближайшие 2 месяца (данные PokerDiscover; запасной источник — The Hendon Mob).
 // Слева — серии с выбором региона и стран, справа — полное расписание выбранной серии: дата и время, бай-ин и гарантия
 // в долларах (и в валюте серии), стартовый стек и длина уровней.
 // Страницы скачивает main.js (live.js) — по одной, с паузами; разбор — renderer/live-parse.js.
@@ -25,6 +25,8 @@
   add('africa', 'South Africa:ЮАР:ZAR|Morocco:Марокко:EUR|Egypt:Египет:USD|Kenya:Кения:USD|Tanzania:Танзания:USD|Nigeria:Нигерия:USD|Ghana:Гана:USD|Mauritius:Маврикий:USD|Namibia:Намибия:ZAR|Botswana:Ботсвана:USD|Zambia:Замбия:USD|Zimbabwe:Зимбабве:USD|Tunisia:Тунис:EUR|Seychelles:Сейшелы:USD|Madagascar:Мадагаскар:EUR|Mozambique:Мозамбик:USD|Senegal:Сенегал:EUR|Ivory Coast:Кот-д’Ивуар:EUR|Ethiopia:Эфиопия:USD|Angola:Ангола:USD|Réunion Island:Реюньон:EUR|Swaziland:Эсватини:ZAR');
   add('oce', 'Australia:Австралия:AUD|New Zealand:Новая Зеландия:NZD|Fiji:Фиджи:USD|Guam:Гуам:USD|New Caledonia:Новая Каледония:EUR|Vanuatu:Вануату:USD|French Polynesia:Французская Полинезия:EUR|Northern Mariana Islands:Северные Марианские острова:USD|Marshall Islands:Маршалловы острова:USD|Nauru:Науру:USD');
   add('other', 'International:Круиз / международный:USD');
+  // другие написания стран (у PokerDiscover)
+  [['Czechia', 'Czech Republic'], ['Korea', 'South Korea'], ['Republic of Korea', 'South Korea'], ['Korea, Republic of', 'South Korea'], ['Viet Nam', 'Vietnam'], ['Macao', 'Macau'], ['Russian Federation', 'Russia'], ['Türkiye', 'Turkey'], ['UK', 'United Kingdom'], ['USA', 'United States'], ['Macedonia (FYROM)', 'North Macedonia'], ['Bosnia and Herzegovina', 'Bosnia & Herzegovina'], ['The Bahamas', 'Bahamas'], ['Aland Islands', 'Åland Islands'], ['Taiwan, Province of China', 'Taiwan'], ['Cabo Verde', 'International']].forEach(([a, b]) => { if (C[b] && !C[a]) C[a] = C[b]; });
   const cOf = (en) => C[en] || { ru: en || '—', reg: 'other', cur: 'USD' };
   // валюта по знаку перед суммой; «$», «kr», «¥» — по стране
   const SYMC = { '€': 'EUR', '£': 'GBP', '₩': 'KRW', '₱': 'PHP', '₫': 'VND', '₹': 'INR', '฿': 'THB', '₺': 'TRY', 'Kč': 'CZK', 'zł': 'PLN', 'Ft': 'HUF', 'лв': 'BGN', 'R': 'ZAR', 'RM': 'MYR', 'Rp': 'IDR', 'CHF': 'CHF', 'A$': 'AUD', 'NZ$': 'NZD', 'HK$': 'HKD', 'NT$': 'TWD', 'S$': 'SGD', 'C$': 'CAD', 'R$': 'BRL', 'MOP': 'MOP', 'US$': 'USD' };
@@ -45,7 +47,7 @@
   const BIGN = /\b(WSOP|World Series of Poker|EPT|European Poker Tour|WPT|World Poker Tour|Triton|APPT|Asia Pacific Poker Tour|Asian Poker Tour|PokerStars|Unibet|partypoker|888|GUKPT|Irish (?:Poker )?Open|Battle of Malta|Malta Poker Festival|Kings? of|King's|Merit|Eureka|Estrellas|Super Circuit|Millions?|Poker Masters|Super High Roller|Festival in|Circus Poker|Banco Casino Masters|Hendon Mob Championship|Poker Dream|Jeju Poker Festival|Gods of Poker|Hanoi Series|Novibet|Circuito Nacional|Barriere Poker Tour|CAPT)\b/i;
   const SMALL = /recurring|monthly|weekly|league|ladies|seniors|deaf|staff|cheap and deep|roughrider|amateur|apat|grosvenor g[23]00|star 250|monsterstacks|deepstacks? \d|lovers|christmas special|bring your friend|one day|trailblazer|cashcows/i;
   let SUM = {};
-  const nameGtd = (f) => { const g = P.gtdOf(f.name); if (!g) return null; return usd(g.v, curOf(g.sym, f.country)); };
+  const nameGtd = (f) => { const g = P.gtdOf(f.title || f.name); if (!g) return null; return usd(g.v, curOf(g.sym, f.country)); };
   function isBig(f) {
     const s = SUM[f.id];
     if (s && s.n) return (s.gtd || 0) >= 1e5 || (s.maxB || 0) >= 1000;
@@ -93,7 +95,13 @@
       if (api.liveSum) { try { SUM = await api.liveSum(null) || {}; } catch (e) { SUM = {}; } }
       let errs = [], old = [];
       if (PREVIEW) MH.sample = fromSample();
-      else {
+      else if (api.livePdList && !SRC_HM) {
+        // основной источник — PokerDiscover: весь календарь одной страницей, без проверок «вы человек»
+        const r = await api.livePdList(force, !root.hidden);
+        if (r && r.html) { const L = P.pdList(r.html); if (L.length) MH.pd = L; }
+        if (r && r.old) setTimeout(async () => { try { const n = await api.livePdList(true, !root.hidden); if (n && n.html && !n.error) { const L = P.pdList(n.html); if (L.length) { MH.pd = L; buildList(); drawRegions(); drawCountries(); drawList(); } } } catch (e) { /* остаётся сохранённый */ } }, 300);
+        if (!MH.pd) { SRC_HM = true; loading = false; return loadList(force); } // PokerDiscover недоступен — запасной источник The Hendon Mob
+      } else {
         for (const [y, m] of months()) {
           const r = await api.liveList(y, m, force, !root.hidden); // вкладка не открыта — окно проверки не показывать
           if (r && r.html) MH[y + '-' + m] = P.list(r.html);
@@ -121,6 +129,15 @@
     return { n: d.rows.filter(r => r.buy).length, minB: bs.length ? Math.min(...bs) : null, maxB: bs.length ? Math.max(...bs) : null, gtd: gs.length ? Math.max(...gs) : null, me: me.length ? Math.max(...me) : null, at: Date.now() };
   }
   async function getFest(f, force, bg) {
+    if (f.slug && api.livePdFest) {
+      const r = await api.livePdFest(f.slug, force, !bg);
+      if (!r || (!r.html && r.error)) return { error: r ? r.error : 'Нет ответа', challenge: r && r.challenge };
+      const d0 = P.pdFestival(r.html, dOf(f.s).getUTCFullYear()), d = { name: f.name, venue: f.venue ? f.venue + (f.city ? ', ' + f.city : '') : d0.venue, country: f.country, rows: d0.rows };
+      const out = { data: d, stale: r.stale, t: r.t };
+      if (r.old && !bg && !force) setTimeout(async () => { const n = await getFest(f, true, root.hidden).catch(() => null); if (n && n.data && OPEN && OPEN.f.id === f.id && !OPEN.loading) { OPEN = Object.assign({ f }, n); drawDet(); drawList(); } }, 200);
+      const s = d.rows.length ? summary(f, d) : { n: 0 }; s.at = r.t || Date.now(); SUM[f.id] = s; if (api.liveSum) api.liveSum(f.id, s).catch(() => {});
+      return out;
+    }
     if (PREVIEW) { const d = sampleFest(f.id); return d ? { data: d } : { error: 'В превью полное расписание есть у трёх серий: Battle of Malta, WSOPC Dusk Till Dawn и Circus Poker Series. В программе — у всех.', preview: true }; }
     const r = await api.liveFest(f.id, force, !bg); // фон окно проверки не показывает
     if (!r || (!r.html && r.error)) return { error: r ? r.error : 'Нет ответа', challenge: r && r.challenge };
@@ -136,7 +153,7 @@
   }
 
   // ---------- фоновая подкачка расписаний ----------
-  let bgT = null, bgGap = 6e3, bgPause = 0, bgBusy = false;
+  let bgT = null, bgGap = 6e3, bgPause = 0, bgBusy = false, SRC_HM = false; // SRC_HM — запасной источник (The Hendon Mob)
   function bgNext() {
     if (!LIST) return null;
     const fresh = (s) => s && Date.now() - s.at < 3 * DAY;
@@ -154,14 +171,14 @@
     try { const r = await getFest(f, false, true); if (r.challenge && !r.data) { bgPause = Date.now() + 20 * 60e3; bgGap = Math.min(bgGap * 2, 120e3); } }
     catch (e) { /* следующая */ }
     bgBusy = false; drawList(); drawStatus();
-    bgT = setTimeout(bgTick, bgGap);
+    bgT = setTimeout(bgTick, SRC_HM || PREVIEW ? bgGap : 2e3);
   }
 
   // ---------- рисование ----------
   const known = () => LIST ? LIST.filter(f => SUM[f.id] && SUM[f.id].at).length : 0;
   function drawStatus() {
     status.replaceChildren();
-    if (loading) { status.append(el('span', null, 'Загружаю календарь… Если откроется окно сайта «Подтвердите, что вы человек» — поставьте галочку один раз, дальше всё загрузится само.')); return; }
+    if (loading) { status.append(el('span', null, 'Загружаю календарь…' + (SRC_HM ? ' Если откроется окно сайта «Подтвердите, что вы человек» — поставьте галочку один раз, дальше всё загрузится само.' : ''))); return; }
     if (!LIST) return;
     const k = known(), n = LIST.length;
     const t = el('span', null, PREVIEW ? 'Превью: календарь на 27 октября 2026' : 'Расписаний собрано: ' + k + ' из ' + n + (k < n ? (Date.now() < bgPause ? ' · подкачка на паузе (сайт попросил проверку)' : ' · подкачиваются в фоне') : ''));
@@ -206,7 +223,7 @@
   }
   function drawList() {
     listBox.replaceChildren();
-    if (!LIST) { listBox.append(loading ? window.mdaLoad('Загружаю календарь… Если откроется окно сайта «Подтвердите, что вы человек» — поставьте галочку один раз, дальше всё загрузится само.') : el('p', 'lv-empty', 'Календарь ещё не загружен.')); return; }
+    if (!LIST) { listBox.append(loading ? window.mdaLoad('Загружаю календарь…' + (SRC_HM ? ' Если откроется окно сайта «Подтвердите, что вы человек» — поставьте галочку один раз, дальше всё загрузится само.' : '')) : el('p', 'lv-empty', 'Календарь ещё не загружен.')); return; }
     LERR.filter((e, i) => LERR.findIndex(x => x.msg === e.msg) === i).forEach(e => { const w = el('div', 'lv-warn'); w.append(el('span', null, e.msg + (e.stale ? ' Показана последняя сохранённая версия.' : ''))); if (e.challenge && api.livePass) { const b = el('button', 'btn lv-btn', 'Пройти проверку'); b.type = 'button'; b.onclick = async () => { b.disabled = true; await api.livePass('list', e.y, e.m); loadList(false); }; w.append(b); } listBox.append(w); });
     const arr = filtered(), a = today();
     if (!arr.length) { listBox.append(el('p', 'lv-empty', 'Крупных серий по этим условиям нет — выберите другой регион, страну или месяц.')); return; }
@@ -245,11 +262,11 @@
     const f = OPEN.f, c = cOf(f.country);
     const h = el('div', 'lv-dh');
     const t = el('div'); t.append(el('h2', null, (OPEN.data && OPEN.data.name) || f.name), el('p', null, [OPEN.data && OPEN.data.venue || f.city, c.ru, dTxt(f.s, f.e)].filter(Boolean).join(' · ')));
-    const ln = el('a', 'lv-src', 'The Hendon Mob ↗'); ln.href = 'https://pokerdb.thehendonmob.com/festival.php?a=r&n=' + f.id; ln.target = '_blank'; ln.rel = 'noopener'; ln.title = 'Страница серии на сайте The Hendon Mob';
+    const ln = el('a', 'lv-src', f.slug ? 'PokerDiscover ↗' : 'The Hendon Mob ↗'); ln.href = f.slug ? 'https://pokerdiscover.com/series/' + f.slug : 'https://pokerdb.thehendonmob.com/festival.php?a=r&n=' + f.id; ln.target = '_blank'; ln.rel = 'noopener'; ln.title = 'Страница серии на сайте The Hendon Mob';
     const acts = el('div', 'lv-dh-a'); acts.append(ln);
     if (!PREVIEW && api.liveFest) { const rb = el('button', 'btn lv-btn', 'Обновить'); rb.type = 'button'; rb.onclick = () => openFest(f, true); acts.append(rb); }
     h.append(t, acts); det.append(h);
-    if (OPEN.loading) { det.append(window.mdaLoad('Загружаю расписание… Если откроется окно сайта «Подтвердите, что вы человек» — поставьте галочку один раз, дальше всё загрузится само.')); return; }
+    if (OPEN.loading) { det.append(window.mdaLoad('Загружаю расписание…' + (SRC_HM ? ' Если откроется окно сайта «Подтвердите, что вы человек» — поставьте галочку один раз, дальше всё загрузится само.' : ''))); return; }
     if (OPEN.error && !OPEN.data) {
       const w = el('div', 'lv-warn'); w.append(el('span', null, OPEN.error));
       if (OPEN.challenge && api.livePass) { const b = el('button', 'btn lv-btn', 'Пройти проверку'); b.type = 'button'; b.onclick = async () => { b.disabled = true; const r = await api.livePass('fest', f.id); if (r && r.ok) openFest(f); else b.disabled = false; }; w.append(b, el('small', null, 'Откроется окно сайта — поставьте галочку «Я не робот», окно закроется само.')); }
@@ -284,7 +301,7 @@
       return true;
     });
     if (!rows.length) { det.append(el('p', 'lv-empty', 'Под эти фильтры турниров нет.')); return; }
-    const tb = el('div', 'lv-tb'); const hd = el('div', 'lv-tr lv-th'); ['Время', 'Турнир', 'Бай-ин', 'Гарантия', 'Стек · уровень'].forEach(x => hd.append(el('span', null, x))); tb.append(hd);
+    const tb = el('div', 'lv-tb'); const hd = el('div', 'lv-tr lv-th'); ['Время', 'Турнир', 'Бай-ин', 'Гарантия', 'Стек · уровень · рег.'].forEach(x => hd.append(el('span', null, x))); tb.append(hd);
     let day = '';
     rows.forEach(r => {
       const dd = (r.t0 || '').slice(0, 10);
@@ -298,17 +315,20 @@
       if (r.main) tag('Главное событие', 'm'); if (r.hr) tag('Хайроллер', 'h'); if (r.myst) tag('Мистери-баунти', 'b'); else if (r.bounty) tag('Баунти', 'b');
       if (r.game && r.game !== 'NLH') tag(r.game === 'PLO' ? 'Омаха' : 'Другая игра'); if (r.sat) tag('Сателлит', 's'); if (r.cont) tag('продолжение', 's');
       if (tags.childNodes.length) nm.append(tags);
-      const extra = (r.notes || '').split('\n').filter(x => !/guaranteed prize pool/i.test(x)).join(' ').trim(); if (extra) { const n = el('small', null, extra); nm.append(n); }
+      const extra = (r.notes || '').split('\n').filter(x => !/guaranteed prize pool/i.test(x)).join(' ').replace(/\d[\d.,]*\s*k?\s*(?:starting\s*)?(?:stack|chips)\s*,?/ig, '').replace(/\d{1,3}(?:\/\d{1,3})?\s*[- ]?min(?:ute)?s?\s*(?:clock|levels?)?\s*,?/ig, '').replace(/late\s*reg(?:istration)?\.?[^,.]*[,.]?/ig, '').replace(/\bUNL\s*RE\b|unl(?:imited)?\.?\s*re-?entry/ig, '').replace(/^[\s,.;]+|[\s,.;]+$/g, '').replace(/\s{2,}/g, ' ').trim(); if (extra) { const n = el('small', null, extra); nm.append(n); }
       tr.append(nm);
       const bc = el('span', 'lv-bi'); if (r.buy != null) { bc.append(el('b', null, bu != null ? money(bu) : symTxt(r.sym) + sp(r.buy))); if (cur !== 'USD') bc.append(el('small', null, symTxt(r.sym) + r.parts.map(sp).join(' + '))); else if (r.parts.length > 1) bc.append(el('small', null, '$' + r.parts.map(sp).join(' + '))); } else bc.append(el('span', 'dim', '—'));
       tr.append(bc);
       const gc = el('span', 'lv-gt'); if (r.gtd) { const gcur = curOf(r.gtd.sym || r.sym, country), gu = usd(r.gtd.v, gcur); gc.append(el('b', null, gu != null ? big(gu) : symTxt(r.gtd.sym) + sp(r.gtd.v))); if (gcur !== 'USD') gc.append(el('small', null, symTxt(r.gtd.sym || r.sym) + sp(r.gtd.v))); } else gc.append(el('span', 'dim', '—'));
       tr.append(gc);
-      tr.append(el('span', 'lv-st', [r.stack ? kNum(r.stack) : '', r.clock ? r.clock + ' мин' : ''].filter(Boolean).join(' · ') || '—'));
+      const st = el('span', 'lv-st'); st.append(el('b', null, [r.stack ? kNum(r.stack) : '', r.clock ? r.clock + ' мин' : ''].filter(Boolean).join(' · ') || '—'));
+      if (r.late) st.append(el('small', null, 'поздняя рег. ' + r.late)); if (r.re) st.append(el('small', null, r.re));
+      st.title = 'Стартовый стек · длина уровня' + (r.late ? '\nПоздняя регистрация: ' + r.late : '') + (r.re ? '\nВход: ' + r.re : '');
+      tr.append(st);
       tb.append(tr);
     });
     det.append(tb);
-    det.append(el('p', 'lv-note', 'Бай-ины и гарантии пересчитаны в доллары по курсу ' + (FX.src === 'запасные курсы' ? '(примерному)' : 'на ' + (FX.t ? new Date(FX.t).toLocaleDateString('ru-RU') : 'сегодня')) + '; ниже мелко — в валюте серии. Время — местное время площадки. Источник — The Hendon Mob; перед поездкой сверяйте расписание с организатором.'));
+    det.append(el('p', 'lv-note', 'Бай-ины и гарантии пересчитаны в доллары по курсу ' + (FX.src === 'запасные курсы' ? '(примерному)' : 'на ' + (FX.t ? new Date(FX.t).toLocaleDateString('ru-RU') : 'сегодня')) + '; ниже мелко — в валюте серии. Время — местное время площадки. Источник — ' + (f.slug ? 'PokerDiscover' : 'The Hendon Mob') + '; перед поездкой сверяйте расписание с организатором.'));
   }
 
   // ---------- запуск ----------

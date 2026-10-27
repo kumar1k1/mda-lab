@@ -45,6 +45,8 @@ contextBridge.exposeInMainWorld('mda', {
   liveFest: (id, force, inter) => ipcRenderer.invoke('live:fest', +id, !!force, inter !== false),
   livePass: (kind, a, b) => ipcRenderer.invoke('live:pass', String(kind), +a, +b || 0),
   liveRates: () => ipcRenderer.invoke('live:rates'),
+  livePdList: (force, inter) => ipcRenderer.invoke('live:pdList', !!force, inter !== false),
+  livePdFest: (slug, force, inter) => ipcRenderer.invoke('live:pdFest', String(slug || ''), !!force, inter !== false),
   liveSum: (id, v) => ipcRenderer.invoke('live:sum', id == null ? null : +id, v),
   streamsLive: (logins) => ipcRenderer.invoke('streams:live', Array.from(logins || []).map(String)),
   twitchStatus: () => ipcRenderer.invoke('twitch:status'),

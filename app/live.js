@@ -63,7 +63,7 @@ function make(userData) {
       if (w.isDestroyed()) throw new Error('окно закрыто');
       let h = '', rs = ''; try { const x = await w.webContents.executeJavaScript('document.readyState + "\\u0001" + document.documentElement.outerHTML'); const k = x.indexOf('\u0001'); rs = x.slice(0, k); h = x.slice(k + 1); } catch (e) { /* ещё грузится */ }
       // текст страницы разобран (readyState interactive/complete) и в нём есть календарь или расписание — готово
-      if (h && rs !== 'loading' && !isChal(h) && /db-list__entry|table--festival-schedule|content-meta|was not found/i.test(h) && (w.webContents.getURL() || '').includes('hendonmob')) return done(h);
+      if (h && rs !== 'loading' && !isChal(h) && /db-list__entry|table--festival-schedule|content-meta|was not found|tab-tournaments|class="tournaments"/i.test(h) && /hendonmob|pokerdiscover/.test(w.webContents.getURL() || '')) return done(h);
       const wait = Date.now() - t0;
       // обычная проверка Cloudflare проходит сама за 1–5 секунд; не прошла — нужна галочка человека
       if (!shown && wait > 7000 && h && isChal(h)) {
@@ -74,11 +74,19 @@ function make(userData) {
       if (wait > (shown ? 5 * 60e3 : 45e3)) { if (shown) { w.hide(); showing = false; } const e = new Error(isChal(h) ? 'challenge' : 'нет ответа'); e.challenge = isChal(h); throw e; }
     }
   }
-  async function page(url, key, maxAge, force, interactive) {
+  // PokerDiscover отдаёт страницы обычным запросом (без защиты от ботов) — так быстрее всего; не вышло — через окно браузера
+  async function plain(url, interactive) {
+    try {
+      const ac = new AbortController(), to = setTimeout(() => ac.abort(), 20000);
+      try { const r = await S().fetch(url, { signal: ac.signal, headers: { Accept: 'text/html,application/xhtml+xml', 'Accept-Language': 'en-GB,en;q=0.9' } }); const t = await r.text(); if (r.ok && !isChal(t)) return t; } finally { clearTimeout(to); }
+    } catch (e) { /* ниже — окно */ }
+    return viaWindow(url, interactive);
+  }
+  async function page(url, key, maxAge, force, interactive, how) {
     const c = readC(key);
     if (c && !force) return { html: c.html, t: c.t, cached: true, old: Date.now() - c.t >= maxAge }; // сохранённое — сразу; устарело — окно попросит обновить в фоне
     try {
-      const html = await queue(() => viaWindow(url, interactive));
+      const html = await (how === 'plain' ? plain(url, interactive) : queue(() => viaWindow(url, interactive)));
       writeC(key, { t: Date.now(), html });
       return { html, t: Date.now() };
     } catch (e) {
@@ -101,6 +109,9 @@ function make(userData) {
   return {
     list: (y, m, force, inter) => page(BASE + '/festival.php?a=l&r=0&c=&y=' + (+y) + '&m=' + (+m), monthKey(+y, +m), 6 * 3600e3, force, inter !== false),
     fest: (id, force, inter) => page(BASE + '/festival.php?a=r&n=' + (+id), 'fest-' + (+id), 3 * 864e5, force, inter !== false),
+    // PokerDiscover: весь календарь серий (6 ч) и расписание серии (12 ч)
+    pdList: (force, inter) => page('https://pokerdiscover.com/series', 'pd-list', 6 * 3600e3, force, inter !== false, 'plain'),
+    pdFest: (slug, force, inter) => { slug = String(slug || '').replace(/[^a-z0-9-]/gi, '').slice(0, 200); return slug ? page('https://pokerdiscover.com/series/' + slug, 'pd-' + slug, 12 * 3600e3, force, inter !== false, 'plain') : Promise.resolve({ error: 'нет серии' }); },
     close: () => { closing = true; try { if (bw && !bw.isDestroyed()) bw.destroy(); } catch (e) { /* закрыто */ } },
     pass: (kind, a, b) => kind === 'fest' ? pass(BASE + '/festival.php?a=r&n=' + (+a), 'fest-' + (+a)) : pass(BASE + '/festival.php?a=l&r=0&c=&y=' + (+a) + '&m=' + (+b), monthKey(+a, +b)),
     rates,

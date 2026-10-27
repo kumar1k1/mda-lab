@@ -53,20 +53,28 @@
       if (m1 && mo != null) { let y = ctx.y; if (ctx.m != null && mo < ctx.m - 6) y++; t0 = y + '-' + String(mo + 1).padStart(2, '0') + '-' + String(+m1[1]).padStart(2, '0'); }
       const tm = /at\s+(\d{1,2})[.:](\d{2})\s*(am|pm)?/i.exec(dtx); if (t0 && tm) { let h = +tm[1]; if (tm[3]) { h %= 12; if (/pm/i.test(tm[3])) h += 12; } t0 += 'T' + String(h).padStart(2, '0') + ':' + tm[2]; }
     }
-    // бай-ин: «€ 210 + 40 + 200 No Limit Hold'em - MYSTERY …»
-    let name = txt(nc), sym = '';
+    return Object.assign({ t1, tz, dtx }, ev(txt(nc), notes, t0));
+  }
+  // турнир по тексту: «€ 210 + 40 + 200 No Limit Hold'em - MYSTERY …» + заметки (стек, уровни, гарантия)
+  function ev(nameText, notes, t0, gtd0) {
+    let name = nameText, sym = '';
     const sm = SYM.exec(name); if (sm && /\d/.test(name.slice(sm[0].length, sm[0].length + 2))) { sym = sm[1]; name = name.slice(sm[0].length); }
     let parts = null; const bm = /^(\d[\d.,]*(?:\s*\+\s*\d[\d.,]*)*)\s+(.*)$/.exec(name);
     if (bm && sym) { parts = bm[1].split('+').map(num).filter(Number.isFinite); name = bm[2]; }
     const game = /omaha|plo\b|\bplo\d|pot limit o/i.test(name) ? 'PLO' : /hold.?em|nlh|nlhe/i.test(name) ? 'NLH' : /h\.?o\.?r\.?s\.?e|mixed|8-game|dealer.?s choice|stud|razz|badugi|triple draw|2-7|pineapple|short deck|6\+/i.test(name) ? 'Mix' : (parts ? 'NLH' : '');
     const title = name.replace(/^(No Limit Hold'?em|Pot Limit Omaha(?:\s*\d\/?\d?)?|NLH|NLHE|PLO\d?)\s*[-–:]\s*/i, '').trim() || name;
     const sat = /satellite|\bsat\b|qualifier|\bstep\s*\d|mega\s*sat|super\s*sat|one\s*shot\s+to|accumulator/i.test(name);
-    const g1 = (!sat ? gtdOf(name) : null) || gtdOf(notes);
+    const g1 = gtd0 || (!sat ? gtdOf(name) : null) || gtdOf(notes);
     const st = /(\d[\d.,]*)\s*(k|K)?\s*(?:starting\s*)?(?:stack|chips)/.exec(notes); const stack = st ? num(st[1]) * (st[2] ? 1000 : 1) : null;
     const lv = /(\d{1,3}(?:\/\d{1,3})?)\s*[- ]?\s*min(?:ute)?s?\b/i.exec(notes); const clock = lv ? lv[1] : '';
     const bounty = /bount|\bko\b|knockout|pko/i.test(name + ' ' + notes), myst = /myster/i.test(name + ' ' + notes);
     const flight = /\bday\s*(1[a-z]?|\d+[a-z]?)\b|\bflight\s*[a-z0-9]+|final\s*table|\bday\s*2\b/i.exec(name); const cont = !parts && /day\s*[2-9]|final\s*table|day\s*\d+\s*(?:&|and)|restart/i.test(name);
-    return { t0, t1, tz, dtx, sym, parts, buy: parts ? parts.reduce((a, b) => a + b, 0) : null, name: title, full: name, game, sat, gtd: g1, stack, clock, bounty, myst, flight: flight ? flight[0] : '', cont, main: /main\s*event/i.test(name), hr: /high\s*roller|super\s*high|\bhr\b/i.test(name), notes };
+    // поздняя регистрация и ре-энтри: «Late reg Lvl 10», «Late reg 8 Levels», «UNL RE», «Single Re-entry», «Freezeout»
+    const both = name + ' ' + notes;
+    const lr = /late\s*reg(?:istration)?\.?\s*(?:until\s*)?(?:lvl|level)?\s*(\d{1,2})\b|late\s*reg(?:istration)?\.?\s*(\d{1,2})\s*(?:lvls?|levels?)/i.exec(notes), lrs = /late\s*reg(?:istration)?\.?\s*(?:until\s*)?(start of day \d|closed|day \d)/i.exec(notes);
+    const late = lr ? 'до ' + (lr[1] || lr[2]) + '-го уровня' : lrs ? (/closed/i.test(lrs[1]) ? 'закрыта' : 'до начала ' + lrs[1].replace(/start of /i, '').replace(/day/i, 'дня')) : '';
+    const re = /\bUNL\s*RE\b|unlimited\s*re-?entr/i.test(both) ? 'безлимитный ре-энтри' : /single\s*re-?entr|1\s*re-?entr/i.test(both) ? '1 ре-энтри' : (/(\d)\s*x?\s*re-?entr/i.exec(both) || [])[1] ? (/(\d)\s*x?\s*re-?entr/i.exec(both))[1] + ' ре-энтри' : /freeze\s*out/i.test(both) ? 'фризаут' : /re-?entr/i.test(both) ? 'ре-энтри' : /re-?buy/i.test(both) ? 'ребаи' : '';
+    return { late, re, t0, sym, parts, buy: parts ? parts.reduce((a, b) => a + b, 0) : null, name: title, full: name, game, sat, gtd: g1, stack, clock, bounty, myst, flight: flight ? flight[0] : '', cont, main: /main\s*event/i.test(name), hr: /high\s*roller|super\s*high|\bhr\b/i.test(name), notes };
   }
   function festival(html) {
     const d = doc(html);
@@ -80,6 +88,46 @@
     const site = [...d.querySelectorAll('.content-meta a, .festival-info a, .header-image a')].map(a => a.getAttribute('href') || '').find(h => /^https?:\/\//.test(h) && !/hendonmob|google\.com/.test(h)) || '';
     return { name, venue, dates, s: rg ? rg[0] : null, e: rg ? rg[1] : null, country: fl ? (fl.getAttribute('title') || '') : '', rows, site, notFound: /was not found/i.test(txt(d.querySelector('.container-custom__main'))) };
   }
-  G.LIVEP = { list, festival, range, gtdOf };
+  // ---------- PokerDiscover (pokerdiscover.com): без защиты от ботов ----------
+  // календарь: /series — все серии на год вперёд одной страницей
+  function pdList(html) {
+    const d = doc(html), out = [];
+    d.querySelectorAll('div.tournaments[data-id]').forEach(it => {
+      const a = it.querySelector('a.title'); if (!a) return;
+      const tm = it.querySelector('time'), dt = tm ? tm.getAttribute('datetime') || '' : '', m = /^(\d{4})-(\d{2})-(\d{2})/.exec(dt), r = /(\d{2})\.(\d{2})\s*-\s*(\d{2})\.(\d{2})/.exec(txt(tm));
+      if (!m) return;
+      const y = +m[1], s0 = day(y, +m[2] - 1, +m[3]); let e0 = s0;
+      if (r) { let ey = y; if (+r[4] < +m[2]) ey++; e0 = day(ey, +r[4] - 1, +r[3]); }
+      const loc = txt(it.querySelector('address span')), k = loc.lastIndexOf(','), fl = it.querySelector('[class*="flag-icon-"]');
+      const title = txt(a), name = title.replace(/\s*\|\s*[^|]*?\d{1,2}\s*(?:-\s*\d{1,2}\s*)?[A-Z]{3}.*$/, '').trim() || title;
+      out.push({ id: +it.getAttribute('data-id'), slug: (a.getAttribute('href') || '').replace(/^\/?series\//, ''), name, title, venue: txt(it.querySelector('address p')), city: k > 0 ? loc.slice(0, k).trim() : loc, country: k > 0 ? loc.slice(k + 1).trim() : '', iso2: fl ? ((/flag-icon-([a-z]{2})\b/.exec(fl.className) || [])[1] || '') : '', s: s0, e: e0 });
+    });
+    return out;
+  }
+  // расписание серии: /series/<slug>, вкладка «Tournaments» — ближайшие турниры (прошедшие сайт убирает)
+  function pdFestival(html, y0) {
+    const d = doc(html), rows = [];
+    const y = y0 || new Date().getFullYear(); let lastM = null, yy = y;
+    d.querySelectorAll('#tab-tournaments .custom-table__row').forEach(r => {
+      const tm = txt(r.querySelector('.col-1')), m = /(\d{2})\.(\d{2})(?:\s+(\d{1,2}):(\d{2}))?/.exec(tm);
+      let t0 = null; if (m) { if (lastM != null && +m[2] < lastM - 6) yy++; lastM = +m[2]; t0 = yy + '-' + m[2] + '-' + m[1] + (m[3] ? 'T' + m[3].padStart(2, '0') + ':' + m[4] : ''); }
+      const c2 = r.querySelector('.col-2'); if (!c2) return;
+      const lab = c2.querySelector('.label'), labT = txt(lab), main = c2.cloneNode(true); main.querySelectorAll('.label').forEach(x => x.remove());
+      // «… (Event #1), Hold'em, Re-entry,» — служебные пометки сайта в конце строки
+      let nameT = txt(main).replace(/,\s*$/, ''); const tags = [];
+      for (;;) { const k = nameT.lastIndexOf(', '); if (k < 0) break; const tail = nameT.slice(k + 2).trim(); if (!/^(hold'?em|omaha.*|plo\d?|h\.o\.r\.s\.e\.?|mixed.*|stud.*|re-?entry|re-?buy|freezeout|turbo|hyper.*|deep\s*stack|knockout|bounty|registration closed|late registration|.*-max|heads.?up|short deck|pineapple.*|razz|badugi|2-7.*|8-game|dealer.?s choice)$/i.test(tail)) break; tags.push(tail); nameT = nameT.slice(0, k).trim(); }
+      // гарантия-метка: «1 000 000€ Guaranteed», «$200.000 GTD»
+      let g = null; const gm = /([€$£¥₩])?\s?(\d[\d .,]*\d|\d)\s?([€$£¥₩])?\s*(?:guaranteed|gtd)/i.exec(labT); if (gm) { const v = +gm[2].replace(/[ .,](?=\d{3}\b)/g, '').replace(/,/g, '.'); if (v >= 1000) g = { v, sym: gm[1] || gm[3] || '' }; }
+      const notes = txt(r.querySelector('.custom-table__content-toggle'));
+      const e = ev(nameT, notes + (tags.length ? ' ' + tags.join(' ') : ''), t0, g); e.notes = notes;
+      if (!e.game) { const tg = tags.join(' '); e.game = /omaha|plo/i.test(tg) ? 'PLO' : /hold/i.test(tg) ? 'NLH' : tg ? 'Mix' : ''; }
+      if (/registration closed/i.test(tags.join(' ')) && !e.parts) e.cont = true;
+      e.tags = tags; e.total = txt(r.querySelector('.col-3 .block-medium'));
+      rows.push(e);
+    });
+    const h1 = d.querySelector('h1'), org = [...d.querySelectorAll('*')].find(x => x.children.length === 0 && /^Organizer:/.test(txt(x)));
+    return { name: h1 ? txt(h1) : '', venue: org ? txt(org).replace(/^Organizer:\s*/, '') : '', rows };
+  }
+  G.LIVEP = { list, festival, range, gtdOf, pdList, pdFestival };
   if (typeof module !== 'undefined') module.exports = G.LIVEP;
 })(typeof window !== 'undefined' ? window : globalThis);
