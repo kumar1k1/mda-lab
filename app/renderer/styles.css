@@ -1828,3 +1828,7 @@ body.rendering{cursor:progress}
 .tv-note-undo{color:#8FD3F0;text-decoration:underline}
 .tv-note-del{color:#FF8A7A;border:1px solid rgba(255,107,95,.45);border-radius:6px;padding:1px 7px;background:rgba(255,107,95,.10)}
 .tv-note-del:hover{color:#fff;background:rgba(255,107,95,.35);border-color:#FF6B5F}
+.tv-nmt{display:flex;align-items:center;gap:8px;min-width:0}.tv-nmt b{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tv-flag{flex:0 0 auto;font-style:normal;font-family:var(--mono);font-size:13px;font-weight:800;line-height:1;padding:4px 9px;border-radius:999px}
+.tv-flag.mk{color:#1B1406;background:#F2B544}
+.tv-flag.nt{color:#06202C;background:#6EC3E8}

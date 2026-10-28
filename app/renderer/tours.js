@@ -116,8 +116,12 @@
   function row(t, own) {
     const r = el('button', 'tv-row'); r.type = 'button'; r.disabled = !own;
     const d = el('span', 'tv-d'); d.append(el('b', null, dTxt(t.start).split(', ')[0]), el('small', null, dTxt(t.start).split(', ')[1] + ' · ' + durTxt(Math.max(1, t.end - t.start))));
-    const nm = el('span', 'tv-nm'); const rm = el('i', 'tv-rb', (TL.rooms[t.room] || '?')); nm.append(el('b', null, t.name));
-    const sub = el('small'); sub.append(rm); const mk = marksOf(t), nt = notesOf(t); if (mk) { const b = el('i', 'tv-mk', '★ ' + mk); b.title = 'Отмеченных раздач: ' + mk; sub.append(b); } if (nt) { const b = el('i', 'tv-nt', '✎ ' + nt); b.title = 'Раздач с заметками: ' + nt; sub.append(b); } if (t.bi > 0) sub.append(' бай-ин $' + (t.bi / 100).toFixed(t.bi % 100 ? 2 : 0).replace('.', ',')); nm.append(sub);
+    const nm = el('span', 'tv-nm'); const rm = el('i', 'tv-rb', (TL.rooms[t.room] || '?'));
+    // отмеченные раздачи и заметки — заметными плашками сразу после названия
+    const top = el('span', 'tv-nmt'); top.append(el('b', null, t.name));
+    { const mk0 = marksOf(t), nt0 = notesOf(t); if (mk0) { const b = el('i', 'tv-flag mk', '★ ' + mk0); b.title = 'Отмеченных раздач: ' + mk0; top.append(b); } if (nt0) { const b = el('i', 'tv-flag nt', '✎ ' + nt0); b.title = 'Раздач с заметками: ' + nt0; top.append(b); } }
+    nm.append(top);
+    const sub = el('small'); sub.append(rm); if (t.bi > 0) sub.append(' бай-ин $' + (t.bi / 100).toFixed(t.bi % 100 ? 2 : 0).replace('.', ',')); nm.append(sub);
     const n = el('span', 'tv-n', sp(t.ids.length));
     const res = el('span', 'tv-res'); res.append(el('b', t.net >= 0 ? 'up' : 'down', sgn(t.net))); if (Math.abs(t.ev - t.net) > 0.5) res.append(el('small', null, 'EV ' + sgn(t.ev)));
     const g = el('span', 'tv-g'); g.append(spark(t.cum));
