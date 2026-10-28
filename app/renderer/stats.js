@@ -252,7 +252,9 @@
   const FP = ['EP', 'MP', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
   const TB_COLS = ['TOT', 'MP', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
   const TB_STK = [['< 15 BB', 0, 15], ['15–25 BB', 15, 25], ['25–40 BB', 25, 40], ['40+ BB', 40, 1e9]];
-  const TB_X = [['до ×2,5', 0, 2.5], ['×2,5–3', 2.5, 3], ['×3–3,5', 3, 3.5], ['×3,5 и больше', 3.5, 1e9], ['олл-ин', -1, -1]];
+  // размер 3-бета в разах от открытия — как «Split» в Hand2Note: до ближайших 0,5 (×2 … ×5, дальше ×5+); олл-ин — отдельно
+  const TB_X = [['×2'], ['×2,5'], ['×3'], ['×3,5'], ['×4'], ['×4,5'], ['×5'], ['×5+'], ['олл-ин']];
+  const xIdx = (ratio) => Math.min(7, Math.max(0, Math.round(ratio * 2) - 4));
   function tb(db, idx, opt) {
     opt = opt || {};
     const c = db.cols, EV = c.nev || c.net, out = {};
@@ -264,7 +266,7 @@
     TB_COLS.forEach(k => { out.tb[k] = tbc(); out.hands[k] = hset(); out.iso[k] = { n: 0, x: 0 }; out.isoF[k] = { n: 0, x: 0 }; out.f4[k] = { n: 0, fold: 0, call: 0, rz: 0, n5: 0, x5: 0 }; out.t3r[k] = [0, 0, 0, 0]; out.sz[k] = CC_SZ.map(szCell); out.stk[k] = TB_STK.map(tbc); out.x[k] = TB_X.map(() => ({ n: 0, r: [0, 0, 0, 0], rn: 0, sum: 0, es: 0, ids: [] })); });
     out.vs = {}; out.vs4 = {}; out.resp = [0, 0, 0];
     // размер 3-бета по группам: в позиции (MP–BTN), SB, BB; со сбросом на 4-бет
-    out.xg = {}; ['TOT', 'IP', 'SB', 'BB'].forEach(g => { out.xg[g] = TB_X.map(() => ({ n: 0, r: [0, 0, 0, 0], rn: 0, sum: 0, es: 0, ids: [], f4n: 0, f4f: 0 })); }); out.fineOk = 0; out.fineAll = 0;
+    out.xg = {}; out.split = {}; ['TOT', 'IP', 'SB', 'BB'].forEach(g => { out.xg[g] = TB_X.map(() => ({ n: 0, r: [0, 0, 0, 0], rn: 0, sum: 0, es: 0, ids: [], f4n: 0, f4f: 0 })); out.split[g] = { n: 0, x: 0, fn: 0, ff: 0, b: Array.from({ length: 8 }, () => ({ x: 0, fn: 0, ff: 0 })) }; }); out.fineOk = 0; out.fineAll = 0;
     out.mxO = Array.from({ length: 169 }, () => ({ n: 0, x: 0, ai: 0, lp: 0 }));
     const R = { TB_COLS, TB_STK: TB_STK.map(z => z[0]), TB_X: TB_X.map(z => z[0]), CC_SZ };
     if (!c.rz) return Object.assign(out, R);
@@ -276,7 +278,8 @@
       out.fineAll++; if (fine && c.fp[i] >= 0) out.fineOk++;
       const p = fine && c.fp[i] >= 0 ? FP[c.fp[i]] : POSF(c.pos[i]);
       const op = fine && c.fop[i] >= 0 ? FP[c.fop[i]] : c.opos[i] >= 0 ? POSF(c.opos[i]) : null;
-      const a = c.act[i], r3 = a >= 2, keys = p === 'EP' ? ['TOT'] : ['TOT', p];
+      // BB против открытия SB (блайнд против блайнда) — в колонке BB не считается, как в Hand2Note (у него это вкладка BvB); в TOT и в «позиция против позиции» — есть
+      const a = c.act[i], r3 = a >= 2, bvb = p === 'BB' && op === 'SB', keys = p === 'EP' || bvb ? ['TOT'] : ['TOT', p];
       const t4 = has('t4') ? c.t4[i] : -1, t3 = has('t3r') ? c.t3r[i] : -1;
       if (c.lr && c.lr[i] > 0) { // 3-бет против изолейта
         keys.forEach(k => { const z = out.iso[k]; z.n++; if (r3) z.x++; if (r3 && t4 >= 0) { const f = out.isoF[k]; f.n++; if ((t4 & 3) === 0) f.x++; } });
@@ -301,13 +304,16 @@
           if (t3 >= 0) out.t3r[k][t3]++;
           if (t4 >= 0) { const f = out.f4[k], b = t4 & 3; f.n++; if (b === 0) f.fold++; else if (b === 1) f.call++; else f.rz++; if (t4 < 4) { f.n5++; if (b === 2) f.x5++; } }
           // размер 3-бета в разах от открытия; олл-ин — отдельно
-          const xr = a === 3 ? 4 : c.osz[i] > 0 ? TB_X.findIndex(q => q[1] >= 0 && c.size[i] / c.osz[i] >= q[1] && c.size[i] / c.osz[i] < q[2]) : -1;
+          const xr = a === 3 ? 8 : c.osz[i] > 0 ? xIdx(c.size[i] / c.osz[i]) : -1;
           if (xr >= 0) { const q = out.x[k][xr]; q.n++; q.ids.push(i); q.sum += v0; q.es += e0; if (t3 >= 0) { q.r[t3]++; q.rn++; } }
-          if (xr >= 0 && (k === 'TOT' || k === 'SB' || k === 'BB' || k === p)) { const gs = k === 'TOT' ? ['TOT'] : k === 'SB' || k === 'BB' ? [k] : ['IP'];
+          if (xr >= 0 && (k === 'TOT' || k === 'SB' || k === 'BB' || (k === p && (p === 'CO' || p === 'BTN')))) { const gs = k === 'TOT' ? ['TOT'] : k === 'SB' || k === 'BB' ? [k] : ['IP'];
             gs.forEach(gk => { const q = out.xg[gk][xr]; q.n++; q.ids.push(i); q.sum += v0; q.es += e0; if (t3 >= 0) { q.r[t3]++; q.rn++; } if (t4 >= 0) { q.f4n++; if ((t4 & 3) === 0) q.f4f++; } }); }
         }
       });
       out.resp[a === 0 ? 0 : a === 1 ? 1 : 2]++;
+      // «Split» как в Hand2Note: в позиции — CO и BTN; SB; BB без блайнда против блайнда. Частота 3-бета не олл-ином каждого размера и фолд на 4-бет после него
+      { const gk = p === 'CO' || p === 'BTN' ? 'IP' : p === 'SB' ? 'SB' : p === 'BB' && !bvb ? 'BB' : null;
+        for (const g of gk ? ['TOT', gk] : ['TOT']) { const sp = out.split[g]; sp.n++; if (a === 2 && c.osz[i] > 0) { const b = sp.b[xIdx(c.size[i] / c.osz[i])]; sp.x++; b.x++; if (t4 >= 0) { sp.fn++; b.fn++; if ((t4 & 3) === 0) { sp.ff++; b.ff++; } } } } }
       if (op) { const row = out.vs[p] || (out.vs[p] = {}), z = row[op] || (row[op] = tbc()); z.n++; if (r3) { z.x++; if (a === 3) z.ai++; else z.nai++; } }
       if (op && r3 && t4 >= 0) { const row = out.vs4[p] || (out.vs4[p] = {}), f = row[op] || (row[op] = { n: 0, fold: 0, call: 0, rz: 0, n5: 0, x5: 0 }), b = t4 & 3; f.n++; if (b === 0) f.fold++; else if (b === 1) f.call++; else f.rz++; if (t4 < 4) { f.n5++; if (b === 2) f.x5++; } }
       // #5: ответ каждой рукой против стека открывающего (позиция, позиции открывающего, стеки — из настроек блока)

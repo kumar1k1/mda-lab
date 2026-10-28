@@ -2469,7 +2469,9 @@ body{padding-left:max(0px, env(safe-area-inset-left, 0px));padding-right:max(0px
   const FP = ['EP', 'MP', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
   const TB_COLS = ['TOT', 'MP', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
   const TB_STK = [['< 15 BB', 0, 15], ['15–25 BB', 15, 25], ['25–40 BB', 25, 40], ['40+ BB', 40, 1e9]];
-  const TB_X = [['до ×2,5', 0, 2.5], ['×2,5–3', 2.5, 3], ['×3–3,5', 3, 3.5], ['×3,5 и больше', 3.5, 1e9], ['олл-ин', -1, -1]];
+  // размер 3-бета в разах от открытия — как «Split» в Hand2Note: до ближайших 0,5 (×2 … ×5, дальше ×5+); олл-ин — отдельно
+  const TB_X = [['×2'], ['×2,5'], ['×3'], ['×3,5'], ['×4'], ['×4,5'], ['×5'], ['×5+'], ['олл-ин']];
+  const xIdx = (ratio) => Math.min(7, Math.max(0, Math.round(ratio * 2) - 4));
   function tb(db, idx, opt) {
     opt = opt || {};
     const c = db.cols, EV = c.nev || c.net, out = {};
@@ -2481,7 +2483,7 @@ body{padding-left:max(0px, env(safe-area-inset-left, 0px));padding-right:max(0px
     TB_COLS.forEach(k => { out.tb[k] = tbc(); out.hands[k] = hset(); out.iso[k] = { n: 0, x: 0 }; out.isoF[k] = { n: 0, x: 0 }; out.f4[k] = { n: 0, fold: 0, call: 0, rz: 0, n5: 0, x5: 0 }; out.t3r[k] = [0, 0, 0, 0]; out.sz[k] = CC_SZ.map(szCell); out.stk[k] = TB_STK.map(tbc); out.x[k] = TB_X.map(() => ({ n: 0, r: [0, 0, 0, 0], rn: 0, sum: 0, es: 0, ids: [] })); });
     out.vs = {}; out.vs4 = {}; out.resp = [0, 0, 0];
     // размер 3-бета по группам: в позиции (MP–BTN), SB, BB; со сбросом на 4-бет
-    out.xg = {}; ['TOT', 'IP', 'SB', 'BB'].forEach(g => { out.xg[g] = TB_X.map(() => ({ n: 0, r: [0, 0, 0, 0], rn: 0, sum: 0, es: 0, ids: [], f4n: 0, f4f: 0 })); }); out.fineOk = 0; out.fineAll = 0;
+    out.xg = {}; out.split = {}; ['TOT', 'IP', 'SB', 'BB'].forEach(g => { out.xg[g] = TB_X.map(() => ({ n: 0, r: [0, 0, 0, 0], rn: 0, sum: 0, es: 0, ids: [], f4n: 0, f4f: 0 })); out.split[g] = { n: 0, x: 0, fn: 0, ff: 0, b: Array.from({ length: 8 }, () => ({ x: 0, fn: 0, ff: 0 })) }; }); out.fineOk = 0; out.fineAll = 0;
     out.mxO = Array.from({ length: 169 }, () => ({ n: 0, x: 0, ai: 0, lp: 0 }));
     const R = { TB_COLS, TB_STK: TB_STK.map(z => z[0]), TB_X: TB_X.map(z => z[0]), CC_SZ };
     if (!c.rz) return Object.assign(out, R);
@@ -2493,7 +2495,8 @@ body{padding-left:max(0px, env(safe-area-inset-left, 0px));padding-right:max(0px
       out.fineAll++; if (fine && c.fp[i] >= 0) out.fineOk++;
       const p = fine && c.fp[i] >= 0 ? FP[c.fp[i]] : POSF(c.pos[i]);
       const op = fine && c.fop[i] >= 0 ? FP[c.fop[i]] : c.opos[i] >= 0 ? POSF(c.opos[i]) : null;
-      const a = c.act[i], r3 = a >= 2, keys = p === 'EP' ? ['TOT'] : ['TOT', p];
+      // BB против открытия SB (блайнд против блайнда) — в колонке BB не считается, как в Hand2Note (у него это вкладка BvB); в TOT и в «позиция против позиции» — есть
+      const a = c.act[i], r3 = a >= 2, bvb = p === 'BB' && op === 'SB', keys = p === 'EP' || bvb ? ['TOT'] : ['TOT', p];
       const t4 = has('t4') ? c.t4[i] : -1, t3 = has('t3r') ? c.t3r[i] : -1;
       if (c.lr && c.lr[i] > 0) { // 3-бет против изолейта
         keys.forEach(k => { const z = out.iso[k]; z.n++; if (r3) z.x++; if (r3 && t4 >= 0) { const f = out.isoF[k]; f.n++; if ((t4 & 3) === 0) f.x++; } });
@@ -2518,13 +2521,16 @@ body{padding-left:max(0px, env(safe-area-inset-left, 0px));padding-right:max(0px
           if (t3 >= 0) out.t3r[k][t3]++;
           if (t4 >= 0) { const f = out.f4[k], b = t4 & 3; f.n++; if (b === 0) f.fold++; else if (b === 1) f.call++; else f.rz++; if (t4 < 4) { f.n5++; if (b === 2) f.x5++; } }
           // размер 3-бета в разах от открытия; олл-ин — отдельно
-          const xr = a === 3 ? 4 : c.osz[i] > 0 ? TB_X.findIndex(q => q[1] >= 0 && c.size[i] / c.osz[i] >= q[1] && c.size[i] / c.osz[i] < q[2]) : -1;
+          const xr = a === 3 ? 8 : c.osz[i] > 0 ? xIdx(c.size[i] / c.osz[i]) : -1;
           if (xr >= 0) { const q = out.x[k][xr]; q.n++; q.ids.push(i); q.sum += v0; q.es += e0; if (t3 >= 0) { q.r[t3]++; q.rn++; } }
-          if (xr >= 0 && (k === 'TOT' || k === 'SB' || k === 'BB' || k === p)) { const gs = k === 'TOT' ? ['TOT'] : k === 'SB' || k === 'BB' ? [k] : ['IP'];
+          if (xr >= 0 && (k === 'TOT' || k === 'SB' || k === 'BB' || (k === p && (p === 'CO' || p === 'BTN')))) { const gs = k === 'TOT' ? ['TOT'] : k === 'SB' || k === 'BB' ? [k] : ['IP'];
             gs.forEach(gk => { const q = out.xg[gk][xr]; q.n++; q.ids.push(i); q.sum += v0; q.es += e0; if (t3 >= 0) { q.r[t3]++; q.rn++; } if (t4 >= 0) { q.f4n++; if ((t4 & 3) === 0) q.f4f++; } }); }
         }
       });
       out.resp[a === 0 ? 0 : a === 1 ? 1 : 2]++;
+      // «Split» как в Hand2Note: в позиции — CO и BTN; SB; BB без блайнда против блайнда. Частота 3-бета не олл-ином каждого размера и фолд на 4-бет после него
+      { const gk = p === 'CO' || p === 'BTN' ? 'IP' : p === 'SB' ? 'SB' : p === 'BB' && !bvb ? 'BB' : null;
+        for (const g of gk ? ['TOT', gk] : ['TOT']) { const sp = out.split[g]; sp.n++; if (a === 2 && c.osz[i] > 0) { const b = sp.b[xIdx(c.size[i] / c.osz[i])]; sp.x++; b.x++; if (t4 >= 0) { sp.fn++; b.fn++; if ((t4 & 3) === 0) { sp.ff++; b.ff++; } } } } }
       if (op) { const row = out.vs[p] || (out.vs[p] = {}), z = row[op] || (row[op] = tbc()); z.n++; if (r3) { z.x++; if (a === 3) z.ai++; else z.nai++; } }
       if (op && r3 && t4 >= 0) { const row = out.vs4[p] || (out.vs4[p] = {}), f = row[op] || (row[op] = { n: 0, fold: 0, call: 0, rz: 0, n5: 0, x5: 0 }), b = t4 & 3; f.n++; if (b === 0) f.fold++; else if (b === 1) f.call++; else f.rz++; if (t4 < 4) { f.n5++; if (b === 2) f.x5++; } }
       // #5: ответ каждой рукой против стека открывающего (позиция, позиции открывающего, стеки — из настроек блока)
@@ -4495,7 +4501,7 @@ function tbTable(r) {
     { label: '5-бет', tone: 'ice', data: D(k => ({ x: r.f4[k].x5, n: r.f4[k].n5 })) }] });
   card.append(numTag(3), el('span', 'k', '3-бет по позициям'), el('span', 's', 'в ячейке — % от раздач, где перед вами было одно открытие (не олл-ин) без коллеров'), w,
     el('span', 's tb-sub', 'После вашего 3-бета'), w2,
-    infoNote('3-бет — ваш рейз, когда перед вами был ровно один рейз и после него никто не заколлировал (с коллерами — сквиз, своя вкладка; с лимперами до рейза — 3-бет против изолейта, блок #11). Открытия олл-ином не считаются: ответить на них 3-бетом нельзя. Позиции как в Hand2Note: HJ — место перед CO, MP — два места перед HJ; EP входит только в TOT. «Соперники сбросили» — все сбросили на ваш 3-бет сразу. «Фолд на 4-бет» — вы сбросили на 4-бет. «5-бет» — вы ответили рейзом на 4-бет, когда он был не олл-ином. Наведите на ячейку строки «3-бет» — матрица рук и итог 3-бетов; клик закрепит окно. Бледные ячейки — меньше ' + SMALL + ' раздач.'));
+    infoNote('3-бет — ваш рейз, когда перед вами был ровно один рейз и после него никто не заколлировал (с коллерами — сквиз, своя вкладка; с лимперами до рейза — 3-бет против изолейта, блок #11). Открытия олл-ином не считаются: ответить на них 3-бетом нельзя. Позиции как в Hand2Note: HJ — место перед CO, MP — два места перед HJ; EP входит только в TOT. В колонке BB, как в Hand2Note, нет раздач против открытия SB (блайнд против блайнда) — они есть в TOT и в блоке #5. «Соперники сбросили» — все сбросили на ваш 3-бет сразу. «Фолд на 4-бет» — вы сбросили на 4-бет. «5-бет» — вы ответили рейзом на 4-бет, когда он был не олл-ином. Наведите на ячейку строки «3-бет» — матрица рук и итог 3-бетов; клик закрепит окно. Бледные ячейки — меньше ' + SMALL + ' раздач.'));
   return card;
 }
 // #5 — позиция против позиции: все 3-беты / без олл-инов / олл-ин
@@ -4564,13 +4570,29 @@ function tbStackBlock(r) {
   draw();
   return card;
 }
-// #9 — размер вашего 3-бета (в разах от открытия): в позиции, SB, BB — ответ соперников, сброс на 4-бет и результат
+// #9 — «Split» как в Hand2Note: частота 3-бета не олл-ином каждого размера (в разах от открытия) и фолд на 4-бет после него
+function tbSplitBlock(r) {
+  const card = el('div', 'insight cc-table');
+  const cols = ['TOT'].concat(r.TB_X.slice(0, 8));
+  const rows = [];
+  [['IP', 'В позиции (CO, BTN)'], ['SB', 'SB'], ['BB', 'BB (без SB)']].forEach(([g, lab], gi) => {
+    const sp = r.split[g], d3 = { TOT: { x: sp.x, n: sp.n } }, d4 = { TOT: { x: sp.ff, n: sp.fn } };
+    sp.b.forEach((b, k) => { d3[cols[k + 1]] = { x: b.x, n: sp.n }; d4[cols[k + 1]] = b.fn ? { x: b.ff, n: b.fn } : null; });
+    rows.push({ key: g + '3', label: lab + ': 3-бет не олл-ин', data: d3, split: gi > 0 }, { key: g + '4', label: '↳ фолд на 4-бет', sub: true, tone: 'ice', data: d4 });
+  });
+  const w = heatTable({ cols, rows });
+  w.querySelectorAll('tr').forEach(tr => { const c3 = tr.querySelector('td.c'); if (!c3) return; if ((c3.dataset.row || '').endsWith('3')) tr.querySelectorAll('td.c.low').forEach(td => { td.classList.remove('low'); const n = td.querySelector('.n'); if (n) n.remove(); }); });
+  card.append(numTag(9), el('span', 'k', '3-бет по сайзингу (как «Split» в Hand2Note)'), el('span', 's', 'как часто вы 3-бетите не олл-ином каждым размером и как часто сбрасываете на 4-бет после него'), w,
+    infoNote('Размер — ваш 3-бет, делённый на открытие, округлённый до 0,5: ×3 — в три раза больше открытия. Строка «3-бет не олл-ин» — доля от всех раздач с одним открытием перед вами (в TOT — всего, в колонке — этим размером; сумма колонок равна TOT). «Фолд на 4-бет» — как часто вы сбросили, когда на 3-бет этого размера пришёл 4-бет; в ячейках с маленькой выборкой — число раздач. Как в Hand2Note: «в позиции» — CO и BTN, BB — без раздач против открытия SB.'));
+  return card;
+}
+// #9.1 — размер вашего 3-бета (в разах от открытия): в позиции, SB, BB — ответ соперников, сброс на 4-бет и результат
 function tbXBlock(r) {
   const card = el('div', 'insight cc-table');
-  card.append(numTag(9), el('b', 'pm-title', 'Размер вашего 3-бета'), el('span', 'sm-s', 'во сколько раз больше открытия вы 3-бетите в позиции, с SB и с BB; как отвечают соперники, как часто вы сбрасываете на 4-бет и какой результат'));
+  card.append(numTag('9.1'), el('b', 'pm-title', 'Размер вашего 3-бета: ответ соперников и результат'), el('span', 'sm-s', 'во сколько раз больше открытия вы 3-бетите в позиции, с SB и с BB; как отвечают соперники, как часто вы сбрасываете на 4-бет и какой результат'));
   const body = el('div');
-  card.append(segBtns([['TOT', 'Все'], ['IP', 'В позиции (MP–BTN)'], ['SB', 'SB'], ['BB', 'BB']], TB_XPOS, (k) => { TB_XPOS = k; draw(); }), body,
-    infoNote('Размер — ваш 3-бет, делённый на открытие (×3 — в три раза больше). Олл-ин — отдельной строкой. «В позиции» — 3-беты с MP, HJ, CO и BTN: после флопа вы ходите после открывающего; с SB и BB — без позиции. Фолд / Колл / 4-бет — первый ответ соперников. «Фолд на 4-бет» — как часто вы сбросили, когда на этот 3-бет пришёл 4-бет (в скобках — сколько раз был 4-бет). Результат — средний итог раздачи, факт / EV. Клик по строке — раздачи и реплеер.'));
+  card.append(segBtns([['TOT', 'Все'], ['IP', 'В позиции (CO, BTN)'], ['SB', 'SB'], ['BB', 'BB']], TB_XPOS, (k) => { TB_XPOS = k; draw(); }), body,
+    infoNote('Размер — ваш 3-бет, делённый на открытие (×3 — в три раза больше). Олл-ин — отдельной строкой. «В позиции» — 3-беты с CO и BTN (как в Hand2Note), BB — без раздач против открытия SB. Фолд / Колл / 4-бет — первый ответ соперников. «Фолд на 4-бет» — как часто вы сбросили, когда на этот 3-бет пришёл 4-бет (в скобках — сколько раз был 4-бет). Результат — средний итог раздачи, факт / EV. Клик по строке — раздачи и реплеер.'));
   function draw() {
     const rows = r.xg[TB_XPOS] || [], tot = rows.reduce((a, z) => a + z.n, 0);
     const t = el('div', 'sz5-t tb-sz');
@@ -4649,7 +4671,7 @@ function renderTB(idx) {
   zone.append(tbTable(r),
     ccGroupBlock(r, { cols: TB_POS, tag: 4, title: 'Результат 3-бета по группам рук', sub: 'BB за 3-бет: всего и по группам рук, факт / EV', name: '3-бет', verb: 'не 3-бетили', act: undefined, vlab: ' BB за 3-бет', nlab: ' 3-бетов', none: 'Нет 3-бетов в выборке.', key: 'tbg', p: false,
       note: 'В ячейке — результат 3-бета группой рук с этой позиции в BB (вместе с олл-инами): сверху факт, под ним EV, справа мелко — число 3-бетов. Цвет — плюс или минус. Наведите — матрица рук группы и их итог; клик закрепит окно, клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше 30 раздач.' }),
-    tbVsBlock(r), tbOppBlock(r), tbSizeBlock(r), tbStackBlock(r), tbXBlock(r), tb4Block(r), tbIsoBlock(r));
+    tbVsBlock(r), tbOppBlock(r), tbSizeBlock(r), tbStackBlock(r), tbSplitBlock(r), tbXBlock(r), tb4Block(r), tbIsoBlock(r));
   page.append(zone);
   return page;
 }
