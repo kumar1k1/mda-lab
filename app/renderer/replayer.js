@@ -288,7 +288,8 @@
     let speed = keepSpeed || '700';
     SPD.forEach(([v, l]) => { const b = el('button', null, l); b.type = 'button'; b.dataset.v = v; b.classList.toggle('on', v === speed); b.onclick = () => { speed = v; speedSeg.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); if (st.timer) { stop(); toggle(); } if (RP) RP.speed = v; }; speedSeg.append(b); });
     const now = el('div', 'rv-now'); if (CUR.side) now.hidden = true; // в реплеере турнира — без подписи действий словами
-    ctrl.append(playB, grp(backB, fwdB), grp(...stBtns), grp(eyeB, nameB), grp(prevB, navN, nextB), speedSeg, now);
+    if (CUR.side) { const hn = el('div', 'rv-hnav'); hn.append(grp(prevB), playB, grp(nextB), navN); ctrl.append(grp(backB, fwdB), grp(...stBtns), grp(eyeB, nameB), hn, speedSeg, now); } /* реплеер турнира: «Воспроизвести» между переключателями раздач */
+    else ctrl.append(playB, grp(backB, fwdB), grp(...stBtns), grp(eyeB, nameB), grp(prevB, navN, nextB), speedSeg, now);
     bar.append(ctrl);
     box.append(head, main, bar); bg.append(box); document.body.append(bg);
     if (CUR.side) CUR.side.mount(main, i, rp);

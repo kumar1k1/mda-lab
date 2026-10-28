@@ -1015,6 +1015,7 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .rv-svg{width:100%;height:auto;max-height:calc(100vh - 190px);display:block}
 .rv-bar{display:flex;flex-direction:column;gap:10px}
 .rv-ctrl{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.rv-hnav{display:flex;align-items:center;gap:8px;margin:0 6px}
 .rv-grp{display:flex;align-items:center;gap:2px;padding:2px;border-radius:10px;background:var(--panel);border:1px solid var(--line)}
 .rv-stb{min-height:32px;padding:0 12px;border:none;border-radius:8px;background:transparent;color:var(--soft);font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
 .rv-stb:hover:not(:disabled){background:var(--card2);color:var(--text)}
