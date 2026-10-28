@@ -27,7 +27,7 @@
     const s = String(title || '');
     return {
       speed: /hyper|гипер/i.test(s) ? 2 : /turbo|турбо|rapid|speed|fast/i.test(s) ? 1 : 0,
-      myst: /myst/i.test(s),
+      myst: /myst|мистер/i.test(s), // Mystery и «Мистери Баунти»
       sat: /satell|qualif|сателл|ticket|\bsat\b|\bstep\b|\bsteps\b/i.test(s)
     };
   }
@@ -39,6 +39,7 @@
     if (LOADING) return LOADING;
     LOADING = (async () => {
       const d = await window.mda.resultsData(); if (!d) return null;
+      if (window.fixMojibake) d.titles = d.titles.map(x => Object.assign({}, x, { t: window.fixMojibake(x.t) })); // русские названия старых раздач
       const cls = d.titles.map(x => classify(x.t));
       DATA = { db, n: d.n, t: new Int32Array(cp(d.t)), conc: new Int8Array(cp(d.conc)), ses: new Int32Array(cp(d.ses)), since: new Int32Array(cp(d.since)), tour: new Int32Array(cp(d.tour)), tours: d.tours, titles: d.titles, sessions: d.sessions, cls, tz: d.tz };
       // местное время, час, день недели и месяц каждой раздачи — один раз (смещение пояса — по дню, не по раздаче)

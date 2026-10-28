@@ -114,6 +114,7 @@
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && WAIT) { SEQ++; waitBox(false); } });
 
   function build(i, rp, keepSpeed) {
+    if (rp.t && window.fixMojibake) rp.t = window.fixMojibake(rp.t); // русские названия старых раздач
     const fr = Replay.frames(rp), n = rp.pl.length, H0 = rp.h;
     const c = DB.cols, net = c.net[i] / 10, nev = c.nev ? c.nev[i] / 10 : net;
     // ---------- каркас ----------
