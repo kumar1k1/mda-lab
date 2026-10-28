@@ -5885,7 +5885,7 @@ function resEl(net) {
       S('circle', { cx: lx, cy: ly, r: 9, class: 'rv-ss-b' }, lg); S('circle', { cx: lx - 1.5, cy: ly - 1.5, r: 4, class: 'rv-ss-i' }, lg); S('path', { d: 'M' + (lx + 1.5) + ' ' + (ly + 1.5) + 'l3.5 3.5', class: 'rv-ss-i' }, lg);
       s.ssIcon = true;
       const tt = document.createElementNS(NS, 'title'); tt.textContent = nick + ' — открыть на SharkScope'; lg.append(tt);
-      const go = (e) => { e.stopPropagation(); e.preventDefault(); window.open('https://www.sharkscope.com/#Player-Statistics//networks/' + encodeURIComponent(ssNet) + '/players/' + encodeURIComponent(nick), '_blank', 'noopener'); /* этот формат SharkScope открывает страницей игрока */ };
+      const go = (e) => { e.stopPropagation(); e.preventDefault(); const u = 'https://www.sharkscope.com/#Player-Statistics//networks/' + encodeURIComponent(ssNet) + '/players/' + encodeURIComponent(nick); /* этот формат SharkScope открывает страницей игрока */ if (window.mda && window.mda.ssOpen) window.mda.ssOpen(u, nick); else window.open(u, '_blank', 'noopener'); /* в программе — своё окно с графиком; в превью — вкладка браузера */ };
       lg.addEventListener('click', go); lg.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') go(e); });
     });
 

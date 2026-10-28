@@ -270,6 +270,7 @@ ipcMain.handle('live:pass', (_e, kind, a, b) => liveFn().pass(String(kind), a, b
 ipcMain.handle('live:rates', () => liveFn().rates());
 ipcMain.handle('live:pdList', (_e, force, inter) => liveFn().pdList(!!force, inter !== false));
 ipcMain.handle('live:pdFest', (_e, slug, force, inter) => liveFn().pdFest(String(slug || ''), !!force, inter !== false));
+ipcMain.handle('ss:open', (_e, url, nick) => require('./sharkscope.js').open(String(url || ''), win, String(nick || '').slice(0, 60))); // окно SharkScope с графиком игрока
 ipcMain.handle('live:sum', (_e, id, v) => id == null ? liveFn().sumGet() : liveFn().sumSet(id, v && typeof v === 'object' ? v : {}));
 // кто из покерных стримеров в эфире: превью трансляции на CDN Twitch есть только у идущего стрима
 // (у остальных адрес перенаправляет на заглушку 404_preview) — без ключей API и входа в Twitch
