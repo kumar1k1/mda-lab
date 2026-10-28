@@ -1749,3 +1749,11 @@ body.rendering{cursor:progress}
 .tv-h.x{border-left-color:var(--line2);opacity:.5}.tv-lg.x i{background:var(--line2)}.tv-h.x .tv-net{color:var(--faint)}
 .tv-h.cur.x{opacity:1}
 @media (max-width:1100px){.rv-main.rv-side-on{grid-template-columns:1fr}.tv-side{border-left:0;padding-left:0;max-height:50vh}}
+/* лента раздач турнира — одна строка: номер, карты, позиция, доска, итог */
+.tv-side .tv-h{flex-direction:row;align-items:center;gap:8px;padding:5px 8px 5px 8px;min-height:30px}
+.tv-side .tv-h .tv-no{min-width:28px;text-align:right}
+.tv-side .tv-h .tv-pos{min-width:30px}
+.tv-bd{flex:1 1 auto;min-width:0;display:flex}
+.tv-bd .tv-cards{gap:1px}.tv-bd .tv-c{font-size:10.5px;padding:0 2px}
+.tv-side .tv-h .tv-net{margin-left:0;min-width:46px;text-align:right}
+.tv-sph{margin:-2px 0 0;font-size:11px;color:var(--muted)}
