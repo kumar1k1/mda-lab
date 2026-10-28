@@ -195,7 +195,16 @@
       const ord = el('div', 'seg bx-seg tv-ord'); ord.setAttribute('role', 'group'); ord.setAttribute('aria-label', 'Порядок раздач');
       [[false, 'С первой'], [true, 'С последней']].forEach(([v, l]) => { const b = el('button', desc === v ? 'on' : null, l); b.type = 'button'; b.onclick = () => { desc = v; [...ord.children].forEach(x => x.classList.toggle('on', x === b)); fillList(); listBox.scrollTop = 0; scrollTop = 0; const L = list(); if (L.length) window.replayerGo(L[0], L); }; ord.append(b); });
       const qb = el('button', 'tv-qb'); qb.type = 'button'; qb.setAttribute('aria-expanded', 'false'); qb.append(el('b', null, '?'), document.createTextNode('Цвета и споты'));
-      tb.append(ord, qb);
+      // перейти к раздаче по номеру: ввести номер и нажать Enter — реплеер начнёт с неё
+      const go = el('label', 'tv-go'); go.append(el('span', null, 'С №'));
+      const gi = el('input', 'tv-gi'); gi.type = 'number'; gi.min = '1'; gi.max = String(H.length); gi.placeholder = '1–' + H.length; gi.setAttribute('aria-label', 'Номер раздачи, с которой начать');
+      const jump = () => { const n = Math.round(+gi.value); const x = H.find(z => z.no === n); if (!x) { gi.classList.add('bad'); return; } gi.classList.remove('bad');
+        if (!inSpot(x, filt)) { const fb2 = root.querySelector('.tv-spots'); filt = 'all'; [...fb2.children].forEach(b => b.classList.toggle('on', b.dataset.v === 'all')); const h = root.querySelector('.tv-sph'); if (h) h.textContent = SPOTS[0][2]; fillList(); }
+        window.replayerGo(x.i, list()); };
+      gi.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); jump(); } e.stopPropagation(); });
+      const gb = el('button', 'tv-gb', '→'); gb.type = 'button'; gb.title = 'Начать с этой раздачи'; gb.setAttribute('aria-label', 'Начать с этой раздачи'); gb.onclick = jump;
+      go.append(gi, gb);
+      tb.append(ord, go, qb);
       const help = el('div', 'tv-help'); help.hidden = true;
       const fh = el('p', 'tv-sph', SPOTS[0][2]);
       const lg = el('div', 'tv-leg'); [['w2', 'выигрыш с постфлопом'], ['w1', 'выигрыш без постфлопа'], ['ch', 'поделили банк'], ['l2', 'проигрыш с постфлопом'], ['l1', 'проигрыш без постфлопа, блайнды'], ['x', 'не сыграна']].forEach(([k, l]) => { const s2 = el('span', 'tv-lg ' + k); s2.append(el('i'), document.createTextNode(l)); lg.append(s2); });
