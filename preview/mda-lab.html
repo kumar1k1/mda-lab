@@ -1840,6 +1840,9 @@ body.rendering{cursor:progress}
 .btn.lv-close{background:var(--amber);border-color:var(--amber);color:var(--amber-ink,#1B1406);font-weight:800}
 .btn.lv-close:hover{filter:brightness(1.08)}
 .btn.lv-close:focus-visible{outline:2px solid #fff;outline-offset:2px}
+/* ник → SharkScope */
+.rv-pos.ss{cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px}
+.rv-pos.ss:hover{fill:#F6D28A}
 
 /* Дополнения только для онлайн-превью: тёмная тема и узкие экраны */
 :root{color-scheme:dark}
@@ -5869,6 +5872,18 @@ function resEl(net) {
       return { pos: pl[0], posLab: k === H0 ? heroLabel() + ' · ' + pl[0] : pl[0], g, cardsG, posT, stT, betG, betT, actG, actR, actT, eqG, eqT, sx, sy, cardY, cardsKey: '', bx: bxp - 22, by: byp };
     });
     stage.append(svg);
+    // ник за столом → страница игрока на SharkScope в вашем браузере (без API: там вы уже вошли в свой аккаунт).
+    // GG в истории раздач заменяет ники соперников кодами — их не пробить.
+    const SS_NET = { PokerStars: 'PokerStars', Winamax: 'Winamax.fr', WPN: 'WPN', GGPoker: 'GGNetwork' };
+    const ssNet = SS_NET[room] || null;
+    const ssOk = (nick) => !!(ssNet && nick && !(room === 'GGPoker' && /^[0-9a-f]{8}$/i.test(nick)));
+    seats.forEach((s, j) => {
+      s.posT.addEventListener('click', (e) => {
+        const nick = PREF.names && NAMES ? NAMES[j] : null; if (!ssOk(nick)) return;
+        e.stopPropagation();
+        window.open('https://www.sharkscope.com/#Player-Statistics//networks/' + encodeURIComponent(ssNet) + '/players/' + encodeURIComponent(nick), '_blank', 'noopener');
+      });
+    });
 
     main.append(stage);
     if (CUR.side) { box.classList.add('rv-wide'); main.classList.add('rv-side-on'); }
@@ -6000,9 +6015,9 @@ function resEl(net) {
         // позиция — своим цветом (ранние тёплые → поздние холодные); с никами — во второй строке перед стеком
         const lk = (nick || '') + '|' + stk;
         if (s.labKey !== lk) {
-          s.labKey = lk; s.posT.replaceChildren(); s.stT.replaceChildren();
+          s.labKey = lk; s.posT.replaceChildren(); s.stT.replaceChildren(); s.posT.classList.toggle('ss', !!nick && ssOk(nick));
           const posSpan = (parent) => { const t = S('tspan', { class: 'rv-pc ' + posClass(s.pos) }, parent); t.textContent = s.pos; };
-          if (nick) { s.posT.textContent = nick.length > 16 ? nick.slice(0, 15) + '…' : nick; posSpan(s.stT); s.stT.append(' · ' + stk); }
+          if (nick) { s.posT.textContent = nick.length > 16 ? nick.slice(0, 15) + '…' : nick; posSpan(s.stT); s.stT.append(' · ' + stk); if (ssOk(nick)) { const tt = document.createElementNS(NS, 'title'); tt.textContent = nick + ' — открыть на SharkScope'; s.posT.append(tt); } }
           else { if (j === H0) s.posT.append(heroLabel() + ' · '); posSpan(s.posT); s.stT.textContent = stk; }
         }
         const known = rp.sh && rp.sh[j];

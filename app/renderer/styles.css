@@ -1836,3 +1836,6 @@ body.rendering{cursor:progress}
 .btn.lv-close{background:var(--amber);border-color:var(--amber);color:var(--amber-ink,#1B1406);font-weight:800}
 .btn.lv-close:hover{filter:brightness(1.08)}
 .btn.lv-close:focus-visible{outline:2px solid #fff;outline-offset:2px}
+/* ник → SharkScope */
+.rv-pos.ss{cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px}
+.rv-pos.ss:hover{fill:#F6D28A}
