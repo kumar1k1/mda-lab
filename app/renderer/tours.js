@@ -55,15 +55,26 @@
   }
 
   // ---------- список ----------
+  let WAITN = 0, WAITT = null;
   let HOST = null, SHOWN = 150, LISTDIRTY = false, REDRAW = null;
   async function draw(main) {
     HOST = main; main.replaceChildren(window.mdaLoad ? window.mdaLoad('Собираю турниры из базы…') : el('p', null, 'Собираю турниры…'));
     let T = null; try { T = await data(); } catch (e) { T = null; }
     if (HOST !== main) return;
     main.replaceChildren();
-    const head = el('div', 'tv-head'); head.append(el('h2', null, 'Мои турниры'), el('p', null, 'Все сыгранные турниры из вашей базы. Найдите турнир по названию или руму и нажмите на него — откроется реплеер со всеми раздачами турнира по порядку: ход действий, цвет результата, график стека и переход по спотам.'));
+    const head = el('div', 'tv-head'); head.append(el('h2', null, 'Мои турниры'), el('p', null, 'Все сыгранные турниры из вашей базы. Найдите турнир по названию или руму и нажмите на него — откроется реплеер со всеми раздачами турнира по порядку: цвет результата, переход по спотам, отметки ★ и заметки.'));
     main.append(head);
-    if (!T || !T.list.length) { main.append(el('p', 'tv-empty', typeof HERO_DB !== 'undefined' && HERO_DB ? 'В базе пока нет турниров с записью хода раздач.' : 'Загрузите свою базу — здесь появятся ваши турниры.')); return; }
+    if (!T) {
+      // база ещё открывается (у большой — до минуты) или данные турниров считаются: бегунок и повтор, пока раздел открыт;
+      // «Нет базы» — только если её действительно нет
+      const hasDb = typeof HERO_DB !== 'undefined' && !!HERO_DB;
+      if (!hasDb && WAITN > 6 && window.mda && window.mda.dbInfo) { let st = null; try { st = await window.mda.dbInfo(); } catch (x) { /* нет */ } if (HOST !== main) return; if (st && !st.stored) { main.append(el('p', 'tv-empty', 'Базы пока нет — загрузите руки на вкладке «Моя база», и здесь появятся ваши турниры.')); return; } }
+      main.append(window.mdaLoad ? window.mdaLoad(hasDb ? 'Собираю турниры из базы…' : 'Открываю вашу базу… Турниры появятся сами, как только она откроется.') : el('p', null, 'Загружаю…'));
+      WAITN++; clearTimeout(WAITT); WAITT = setTimeout(() => { if (HOST === main && main.isConnected) draw(main); }, hasDb ? 1200 : 600);
+      return;
+    }
+    WAITN = 0;
+    if (!T.list.length) { main.append(el('p', 'tv-empty', 'В базе пока нет турниров с записью хода раздач.')); return; }
     const own = typeof DB !== 'undefined' && typeof HERO_DB !== 'undefined' && DB === HERO_DB && !(typeof state !== 'undefined' && state.player) && !(DB && DB.src);
     if (!own) main.append(el('p', 'tv-warn', 'Сейчас открыта база другого игрока или алиаса. Реплеер турниров работает с вашей базой — переключитесь на неё в «Моя база».'));
     // фильтры
