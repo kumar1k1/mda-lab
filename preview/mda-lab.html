@@ -6616,7 +6616,7 @@ window.LIVE_SAMPLE = {"list":[[71951,"CashCowsPoker TV Championship Series Seaso
     const ev = d.rows.filter(r => r.buy && !r.sat), cur = (r) => curOf(r.sym, d.country || f.country);
     const bs = ev.map(r => usd(r.buy, cur(r))).filter(v => v != null), gs = d.rows.filter(r => r.gtd && !r.sat).map(r => usd(r.gtd.v, curOf(r.gtd.sym || r.sym, d.country || f.country))).filter(v => v != null);
     const me = ev.filter(r => r.main).map(r => usd(r.buy, cur(r))).filter(v => v != null);
-    return { v: 4, ev: compact(f, d), n: d.rows.filter(r => r.buy).length, minB: bs.length ? Math.min(...bs) : null, maxB: bs.length ? Math.max(...bs) : null, gtd: gs.length ? Math.max(...gs) : null, me: me.length ? Math.max(...me) : null, at: Date.now() };
+    return { v: 5, ev: compact(f, d), n: d.rows.filter(r => r.buy).length, minB: bs.length ? Math.min(...bs) : null, maxB: bs.length ? Math.max(...bs) : null, gtd: gs.length ? Math.max(...gs) : null, me: me.length ? Math.max(...me) : null, at: Date.now() };
   }
   // турниры серии в сжатом виде — для подбора под бюджет (бай-ин и гарантия в $, флаги, сколько входов можно)
   function compact(f, d) {
@@ -6627,8 +6627,10 @@ window.LIVE_SAMPLE = {"list":[[71951,"CashCowsPoker TV Championship Series Seaso
       const b = usd(r.buy, curOf(r.sym, country)); if (b == null) return null;
       const g = r.gtd ? usd(r.gtd.v, curOf(r.gtd.sym || r.sym, country)) : null, re = r.re || '', mx = /^(\d) ре-энтри/.exec(re);
       const evn = /event\s*#\s*(\d+[a-z]?)/i.exec(r.name || ''); // флайты одного турнира — по номеру Event #, иначе по названию
-      const k = evn ? '#' + evn[1].toLowerCase() : (r.name || '').replace(/[\s,(\-–:]*\b(?:day\s*1\s*[a-z]?|flight\s*[a-z0-9]+)\b.*$/i, '').trim().toLowerCase(); // флайты одного турнира (Day 1A, 1B…) — один ключ
-      return { t: r.t0 || '', b: Math.round(b), g: g ? Math.round(g) : 0, f: (r.main || /\bgrand\s*event\b/i.test(r.name || '') ? 'm' : '') + (/\bladies\b|\bwomen'?s?\b|\bseniors?\b|\b(?:50|55|60|65)\s*\+|\bstaff\b|\bdealers?\b|\bemployees?\b/i.test(r.name || '') ? 'r' : '') + (r.hr ? 'h' : '') + (r.sat ? 's' : '') + (r.bounty || r.myst ? 'x' : '') + (r.game && r.game !== 'NLH' || /\b\d{1,2}[\s-]?game\b|mixed|h\.?o\.?r\.?s\.?e|dealer'?s choice/i.test(r.name || '') ? 'o' : ''), n: String(r.name || '').slice(0, 100), c: /фризаут/.test(re) ? 1 : mx ? +mx[1] + 1 : 99, k };
+      // флайты — только строки с Day 1A/1B… или Flight; одинаковые ежедневные турниры (сателлиты и т.п.) — разные турниры
+      const fl = /\bday\s*1\s*[a-z]?\b|\bflight\b/i.test(r.name || '');
+      const k = !fl ? String(r.name || '').toLowerCase() + '|' + (r.t0 || '') : evn ? '#' + evn[1].toLowerCase() : (r.name || '').replace(/[\s,(\-–:]*\b(?:day\s*1\s*[a-z]?|flight\s*[a-z0-9]+)\b.*$/i, '').trim().toLowerCase(); // флайты одного турнира (Day 1A, 1B…) — один ключ
+      return { t: r.t0 || '', b: Math.round(b), g: g ? Math.round(g) : 0, f: (r.main || /\bgrand\s*event\b/i.test(r.name || '') ? 'm' : '') + (/\bladies\b|\bwomen'?s?\b|\bseniors?\b|\b(?:50|55|60|65)\s*\+|\bstaff\b|\bdealers?\b|\bemployees?\b/i.test(r.name || '') ? 'r' : '') + (r.hr ? 'h' : '') + (r.sat ? 's' : '') + (r.bounty || r.myst ? 'x' : '') + (r.game && r.game !== 'NLH' || /\b\d{1,2}[\s-]?game\b|mixed|h\.?o\.?r\.?s\.?e|dealer'?s choice/i.test(r.name || '') ? 'o' : ''), n: String(r.name || '').slice(0, 100), c: /фризаут/.test(re) || /\bone[\s-]*shot\b|\bfreeze\s*out\b/i.test(r.name || '') ? 1 : mx ? +mx[1] + 1 : 99, k };
     }).filter(Boolean);
   }
   async function getFest(f, force, bg) {
@@ -6661,7 +6663,7 @@ window.LIVE_SAMPLE = {"list":[[71951,"CashCowsPoker TV Championship Series Seaso
   let bgT = null, bgGap = 6e3, bgPause = 0, bgBusy = false, SRC_HM = false; // SRC_HM — запасной источник (The Hendon Mob)
   function bgNext() {
     if (!LIST) return null;
-    const fresh = (s) => s && Date.now() - s.at < 3 * DAY && (s.v === 4 || !s.n); // v4 — со списком турниров для подбора
+    const fresh = (s) => s && Date.now() - s.at < 3 * DAY && (s.v === 5 || !s.n); // v5 — со списком турниров для подбора
     const todo = LIST.filter(f => !fresh(SUM[f.id]));
     todo.sort((a, b) => (isBig(b) - isBig(a)) || a.s - b.s);
     return todo[0] || null;
@@ -6951,7 +6953,7 @@ window.LIVE_SAMPLE = {"list":[[71951,"CashCowsPoker TV Championship Series Seaso
     const k = ST.pk;
     if (!LIST) { pickRes.append(window.mdaLoad('Загружаю календарь…')); return; }
     if (!k.bud) { pickRes.append(el('p', 'lv-empty', 'Введите бюджет — сумму, которую готовы потратить на серию.')); return; }
-    const base = filtered(), wait = base.filter(f => !SUM[f.id] || (SUM[f.id].n && SUM[f.id].v !== 4)).length;
+    const base = filtered(), wait = base.filter(f => !SUM[f.id] || (SUM[f.id].n && SUM[f.id].v !== 5)).length;
     let P = base.map(plan).filter(p => p && p.pick.length);
     const none = base.filter(f => SUM[f.id] && SUM[f.id].ev).length - P.length;
     const span = (p) => p.d0 == null ? 99 : p.d1 - p.d0;
