@@ -49,7 +49,8 @@ const out = [
   '<script>', read('live-parse.js'), '</script>',
   '<script>', read('live.js'), '</script>',
   '<script>', read('social.js'), '</script>',
-  '<script>', read('results.js'), '</script>'
+  '<script>', read('results.js'), '</script>',
+  '<script>', read('tours.js'), '</script>'
 ].join('\n');
 fs.writeFileSync(path.join(__dirname, 'MDA-Lab-preview.html'), out);
 console.log('bytes', Buffer.byteLength(out));

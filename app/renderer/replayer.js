@@ -70,10 +70,18 @@
   const PREF = (() => { let p = {}; try { p = JSON.parse(localStorage.getItem('mda.rv2') || '{}') || {}; } catch (e) { p = {}; } return { hide: p.hide === true, chips: !!p.chips, names: p.names !== false }; })(); // по умолчанию всё видно
   const savePref = () => { try { localStorage.setItem('mda.rv2', JSON.stringify(PREF)); } catch (e) { /* без сохранения */ } };
   let CUR = null; // { list, pos, i, cache }
-  window.openReplayer = async function (i, list) {
+  // opts.side — боковая панель (раздачи турнира): { mount(main, i), close() }; при ней окно шире, ↑↓ листают раздачи
+  window.openReplayer = async function (i, list, opts) {
     const ids = Array.isArray(list) && list.includes(i) ? list.slice() : [i];
-    CUR = { list: ids, pos: ids.indexOf(i), cache: new Map() };
+    CUR = { list: ids, pos: ids.indexOf(i), cache: new Map(), side: opts && opts.side || null };
     await show(i);
+  };
+  // перейти к раздаче из боковой панели; list — новый порядок листания (например, только выбранные споты)
+  window.replayerGo = function (i, list) {
+    if (!CUR) return;
+    if (Array.isArray(list)) CUR.list = list.slice();
+    let p = CUR.list.indexOf(i); if (p < 0) { CUR.list = [i]; p = 0; }
+    CUR.pos = p; show(i);
   };
   async function getRp(i) { if (CUR.cache.has(i)) return CUR.cache.get(i); const r = (await replaysFor([i]))[i] || null; CUR.cache.set(i, r); if (CUR.cache.size > 12) CUR.cache.delete(CUR.cache.keys().next().value); return r; }
   function prefetch() { const L = CUR.list, p = CUR.pos; [L[p + 1], L[p - 1]].forEach(j => { if (j != null && !CUR.cache.has(j)) getRp(j); }); }
@@ -101,7 +109,7 @@
   window.closeReplayer = function (keepCur) {
     if (!RP) return;
     RP.stop(); document.removeEventListener('keydown', RP.keys); RP.bg.remove(); RP = null;
-    if (!keepCur) { CUR = null; SEQ++; }
+    if (!keepCur) { if (CUR && CUR.side && CUR.side.close) CUR.side.close(); CUR = null; SEQ++; }
   };
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && WAIT) { SEQ++; waitBox(false); } });
 
@@ -178,6 +186,7 @@
     stage.append(svg);
 
     main.append(stage);
+    if (CUR.side) { box.classList.add('rv-wide'); main.classList.add('rv-side-on'); }
 
     // ---------- кнопки (как в Hand2Note): ▶, шаг назад/вперёд, улицы, показать карты, соседние раздачи ----------
     const bar = el('div', 'rv-bar');
@@ -222,6 +231,7 @@
     ctrl.append(playB, grp(backB, fwdB), grp(...stBtns), grp(eyeB, nameB), grp(prevB, navN, nextB), speedSeg, now);
     bar.append(ctrl);
     box.append(head, main, bar); bg.append(box); document.body.append(bg);
+    if (CUR.side) CUR.side.mount(main, i, rp);
     bg.addEventListener('click', (e) => { if (e.target === bg) closeReplayer(); });
 
     // ---------- эквити в олл-ине: с момента, когда торговля закончилась, и карты всех дошедших известны ----------
@@ -369,7 +379,7 @@
       if (e.key === 'Escape') closeReplayer();
       else if (e.key === 'ArrowRight') { stop(); go(st.k + 1, true); } else if (e.key === 'ArrowLeft') { stop(); go(st.k - 1); }
       else if (e.key === 'Home') { stop(); go(1); } else if (e.key === 'End') { stop(); go(fr.length - 1); }
-      else if (e.key === 'PageDown') { e.preventDefault(); step(1); } else if (e.key === 'PageUp') { e.preventDefault(); step(-1); }
+      else if (e.key === 'PageDown' || (CUR && CUR.side && e.key === 'ArrowDown')) { e.preventDefault(); step(1); } else if (e.key === 'PageUp' || (CUR && CUR.side && e.key === 'ArrowUp')) { e.preventDefault(); step(-1); }
       else if (e.key === ' ') { e.preventDefault(); toggle(); } else if ((e.key === 'v' || e.key === 'V' || e.key === 'м' || e.key === 'М') ) eyeB.click(); else if (e.key === 'n' || e.key === 'N' || e.key === 'т' || e.key === 'Т') nameB.click(); else return;
     };
     RP = { bg, stop, keys, speed };

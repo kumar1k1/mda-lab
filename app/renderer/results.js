@@ -1257,5 +1257,5 @@
   }
   // данные «Результатов» грузятся заранее, в свободное время после загрузки базы — вкладка открывается без ожидания
   (function pre(k) { if (k > 240) return; if (typeof HERO_DB !== 'undefined' && HERO_DB) { const go = () => load().catch(() => {}); setTimeout(() => (window.requestIdleCallback ? window.requestIdleCallback(go, { timeout: 4000 }) : go()), 1500); return; } setTimeout(() => pre(k + 1), 500); })(0);
-  window.MDAResults = { draw, reset: () => { DATA = null; DKEY = null; CACHE.clear(); } };
+  window.MDAResults = { draw, load, reset: () => { DATA = null; DKEY = null; CACHE.clear(); } };
 })();

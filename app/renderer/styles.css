@@ -1681,3 +1681,71 @@ body.rendering{cursor:progress}
 .lv-pc-r .lv-pnm i.main{border-color:var(--amber);color:var(--amber)}
 .lv-pk-hint{font-size:11.5px;color:var(--faint);margin-top:-4px}
 .lv-pk-where{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px;margin:0 0 6px;font-size:13px}.lv-pk-where span{color:var(--faint)}.lv-pk-where b{color:var(--amber)}.lv-pk-where small{color:var(--faint);font-size:11.5px}
+/* «Мои турниры»: список */
+.tv-main{display:flex;flex-direction:column;gap:12px;min-width:0}
+.tv-head h2{margin:0;font-family:var(--display);font-size:24px}.tv-head p{margin:4px 0 0;color:var(--muted);font-size:13.5px;max-width:900px}
+.tv-bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.tv-q{flex:1 1 260px;max-width:420px;min-height:36px;padding:0 12px;border-radius:10px;border:1px solid var(--line2);background:var(--bg);color:var(--text);font:inherit;font-size:13.5px}
+.tv-q:focus{outline:2px solid rgba(var(--amber-rgb),.5);outline-offset:1px}
+.tv-rooms{display:flex;flex-wrap:wrap;gap:6px}
+.tv-rm{display:inline-flex;align-items:center;gap:6px;min-height:30px;padding:0 12px;border-radius:999px;border:1px solid var(--line2);background:transparent;color:var(--muted);font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
+.tv-rm span{font-family:var(--mono);font-size:11px;color:var(--faint)}
+.tv-rm.on{border-color:var(--amber);color:var(--amber);background:rgba(var(--amber-rgb),.12)}
+.tv-sum{display:flex;gap:14px;align-items:baseline;font-size:13px;color:var(--muted)}.tv-sum b{font-family:var(--mono)}
+.tv-sum .up,.tv-res .up{color:var(--good)}.tv-sum .down,.tv-res .down{color:var(--bad)}
+.tv-list{display:flex;flex-direction:column;gap:4px}
+.tv-row{display:grid;grid-template-columns:150px minmax(0,1fr) 80px 110px 130px;gap:12px;align-items:center;padding:9px 12px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--text);font:inherit;text-align:left;cursor:pointer}
+.tv-row:hover:not(:disabled):not(.tv-th){border-color:rgba(var(--amber-rgb),.6);background:var(--card2)}
+.tv-row:disabled{cursor:default;opacity:.8}
+.tv-th{background:none;border-color:transparent;cursor:default;padding-top:0;padding-bottom:0}
+.tv-th span{font-size:10.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.05em;font-weight:700}
+.tv-d b{display:block;font-size:13px}.tv-d small{font-size:11.5px;color:var(--faint);font-family:var(--mono)}
+.tv-nm{min-width:0}.tv-nm b{display:block;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tv-nm small{display:flex;gap:6px;align-items:center;font-size:11.5px;color:var(--muted);margin-top:2px}
+.tv-rb{font-style:normal;font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:6px;background:rgba(var(--amber-rgb),.12);color:var(--amber)}
+.tv-n{font-family:var(--mono);font-size:13px;text-align:right}
+.tv-res{text-align:right}.tv-res b{display:block;font-family:var(--mono);font-size:14px}.tv-res small{font-size:11px;color:var(--faint);font-family:var(--mono)}
+.tv-th span:nth-child(3),.tv-th span:nth-child(4){text-align:right}
+.tv-spark{width:120px;height:30px;display:block}.tv-spark polyline{fill:none;stroke-width:1.6}.tv-spark .up{stroke:var(--good)}.tv-spark .down{stroke:var(--bad)}.tv-spark .z{stroke:var(--line2);stroke-dasharray:2 3}
+.tv-more{align-self:center;margin-top:6px}
+.tv-empty{color:var(--muted);font-size:13.5px}
+.tv-warn{padding:10px 14px;border-radius:10px;border:1px solid rgba(var(--amber-rgb),.4);background:rgba(var(--amber-rgb),.08);font-size:13px;margin:0}
+@media (max-width:900px){.tv-row{grid-template-columns:110px minmax(0,1fr) 90px}.tv-row .tv-n,.tv-row .tv-g,.tv-th span:nth-child(3),.tv-th span:nth-child(5){display:none}}
+
+/* «Мои турниры»: реплеер с лентой раздач справа */
+.rv.rv-wide{width:min(1680px,100%)}
+.rv-main.rv-side-on{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:14px;align-items:stretch}
+.rv-side-on .rv-svg{max-height:calc(100vh - 210px)}
+.tv-side{display:flex;flex-direction:column;gap:8px;min-height:0;max-height:calc(100vh - 190px);border-left:1px solid var(--line);padding-left:14px}
+.tv-sh b{display:block;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tv-sh small{font-size:11.5px;color:var(--muted)}
+.tv-gr span{display:block;font-size:10.5px;color:var(--faint);margin-bottom:2px}
+.tv-gs{width:100%;height:74px;display:block;cursor:pointer;border-radius:8px;background:rgba(255,255,255,.02)}
+.tv-gs .a{fill:rgba(var(--amber-rgb),.12)}.tv-gs .l{fill:none;stroke:var(--amber);stroke-width:1.6}.tv-gs .m{fill:#fff;stroke:var(--amber);stroke-width:2}
+.tv-spots{display:flex;flex-wrap:wrap;gap:4px}
+.tv-sp{display:inline-flex;align-items:center;gap:5px;min-height:26px;padding:0 9px;border-radius:999px;border:1px solid var(--line2);background:transparent;color:var(--muted);font:inherit;font-size:11.5px;font-weight:700;cursor:pointer}
+.tv-sp span{font-family:var(--mono);font-size:10.5px;color:var(--faint)}.tv-sp.on{border-color:var(--amber);color:var(--amber);background:rgba(var(--amber-rgb),.12)}.tv-sp:disabled{opacity:.4;cursor:default}
+.tv-leg{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:10.5px;color:var(--faint)}
+.tv-lg{display:inline-flex;align-items:center;gap:4px}.tv-lg i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.tv-hl{flex:1 1 auto;min-height:120px;overflow-y:auto;display:flex;flex-direction:column;gap:3px;padding-right:4px}
+.tv-h{display:flex;flex-direction:column;gap:3px;padding:6px 8px 6px 10px;border-radius:8px;border:1px solid transparent;border-left-width:4px;background:rgba(255,255,255,.025);color:var(--text);font:inherit;text-align:left;cursor:pointer}
+.tv-h:hover{background:rgba(255,255,255,.06)}
+.tv-h.cur{border-color:var(--amber);border-left-color:var(--amber);background:rgba(var(--amber-rgb),.10)}
+.tv-ht{display:flex;align-items:center;gap:7px;font-size:12px}
+.tv-no{font-family:var(--mono);font-size:11px;color:var(--faint);min-width:34px}
+.tv-pos{font-weight:800;font-size:11.5px}.tv-stk,.tv-lvl{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.tv-net{margin-left:auto;font-family:var(--mono);font-size:12.5px}
+.tv-cards{display:inline-flex;gap:2px}.tv-c{font-style:normal;font-family:var(--mono);font-size:11.5px;font-weight:700;padding:0 3px;border-radius:4px;background:#F7F5EF;color:#1B1D22;line-height:1.35}
+.tv-c.s-h,.tv-c.s-d{color:#C8312B}
+.tv-st{display:flex;gap:6px;font-size:11.5px;color:var(--muted);line-height:1.35}.tv-st.dim{color:var(--faint)}
+.tv-stl{flex:0 0 auto;display:inline-flex;align-items:center;gap:3px;color:var(--faint);font-weight:700;font-size:10.5px;text-transform:uppercase;letter-spacing:.03em;min-width:62px}
+.tv-stl .tv-c{font-size:10.5px;text-transform:none}
+.tv-keys{margin:0;font-size:10.5px;color:var(--faint)}
+/* цвета результата раздачи */
+.tv-h.w2,.tv-lg.w2 i{border-left-color:#35D07F}.tv-lg.w2 i{background:#35D07F}.tv-h.w2{background:rgba(53,208,127,.10)}.tv-h.w2 .tv-net{color:#35D07F;font-weight:800}
+.tv-h.w1{border-left-color:rgba(53,208,127,.45)}.tv-lg.w1 i{background:rgba(53,208,127,.45)}.tv-h.w1 .tv-net{color:rgba(53,208,127,.8)}
+.tv-h.ch{border-left-color:#F2B544}.tv-lg.ch i{background:#F2B544}.tv-h.ch .tv-net{color:#F2B544}
+.tv-h.l2{border-left-color:#FF5A4F;background:rgba(255,90,79,.10)}.tv-lg.l2 i{background:#FF5A4F}.tv-h.l2 .tv-net{color:#FF6B5F;font-weight:800}
+.tv-h.l1{border-left-color:rgba(255,90,79,.45)}.tv-lg.l1 i{background:rgba(255,90,79,.45)}.tv-h.l1 .tv-net{color:rgba(255,107,95,.8)}
+.tv-h.x{border-left-color:var(--line2);opacity:.5}.tv-lg.x i{background:var(--line2)}.tv-h.x .tv-net{color:var(--faint)}
+.tv-h.cur.x{opacity:1}
+@media (max-width:1100px){.rv-main.rv-side-on{grid-template-columns:1fr}.tv-side{border-left:0;padding-left:0;max-height:50vh}}

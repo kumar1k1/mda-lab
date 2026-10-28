@@ -224,8 +224,8 @@
     // нажатие, попавшее между «нажал» и «отпустил», терялось — «Результаты» открывались не с первого раза
     if (!NAV) {
       NAV = el('nav', 'so-cab-nav'); NAV.setAttribute('aria-label', 'Разделы кабинета');
-    [['me', 'Мои данные', '<circle cx="12" cy="8" r="4"/><path d="M4.5 21c1-4 4-6.5 7.5-6.5s6.5 2.5 7.5 6.5"/>'], ['res', 'Результаты', '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'], ['bank', 'Банкролл', '<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/>'], ['focus', 'Фокус и сессии', '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'], ['goals', 'Цели', '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/>'], ['sub', 'Подписка', '<path d="M12 2l3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z"/>']].forEach(([k, l, d], n) => {
-      const ready = k === 'me' || k === 'res'; // results.js грузится после этого файла — проверяется при нажатии
+    [['me', 'Мои данные', '<circle cx="12" cy="8" r="4"/><path d="M4.5 21c1-4 4-6.5 7.5-6.5s6.5 2.5 7.5 6.5"/>'], ['res', 'Результаты', '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'], ['tours', 'Мои турниры', '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4z"/><path d="M7 6H4a3 3 0 0 0 3 4M17 6h3a3 3 0 0 1-3 4"/>'], ['bank', 'Банкролл', '<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/>'], ['focus', 'Фокус и сессии', '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'], ['goals', 'Цели', '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/>'], ['sub', 'Подписка', '<path d="M12 2l3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z"/>']].forEach(([k, l, d], n) => {
+      const ready = k === 'me' || k === 'res' || k === 'tours'; // results.js грузится после этого файла — проверяется при нажатии
       const b = el('button', 'so-cab-i'); b.type = 'button'; b.dataset.k = k; b.innerHTML = ico(d, 17); b.append(el('span', null, l));
       if (!ready) { b.disabled = true; b.append(el('em', null, 'скоро')); } else b.onclick = () => { if (CAB === k) return; CAB = k; drawCabinet(); };
       NAV.append(b);
@@ -235,6 +235,7 @@
     const nav = NAV;
     const main = el('div', 'so-cab-main');
     if (CAB === 'res' && window.MDAResults) { main.classList.add('rs-main'); acc.append(nav, main); window.MDAResults.draw(main); return; }
+    if (CAB === 'tours' && window.MDATours) { main.classList.add('tv-main'); acc.append(nav, main); window.MDATours.draw(main); return; }
     const a = A.account();
     if (!a) {
       const c = el('div', 'so-card so-empty'); c.append(el('h2', null, 'Вы не вошли'), el('p', null, 'Войдите или создайте аккаунт — тогда здесь будут ваши данные, а в чате — друзья.'));
@@ -400,7 +401,7 @@
     chatB.setAttribute('aria-label', 'Чат' + (n ? ', непрочитанных: ' + n : '')); chatB.classList.toggle('on', !panel.hidden);
     meB.replaceChildren(); if (a) { const av = el('span', 'so-av sm', a.nick[0].toUpperCase()); av.style.background = colorOf(a.nick); meB.append(av, el('span', null, a.nick)); meB.title = 'Личный кабинет'; } else { meB.append(el('span', null, 'Войти')); meB.title = 'Войти или создать аккаунт'; }
     if (!panel.hidden) drawPanel();
-    if (CAB !== 'res' || !acc || !acc.querySelector('.rs-main')) drawCabinet(); // «Результаты» не пересчитывать на каждое событие
+    if (!((CAB === 'res' && acc && acc.querySelector('.rs-main')) || (CAB === 'tours' && acc && acc.querySelector('.tv-main')))) drawCabinet(); // «Результаты» не пересчитывать на каждое событие
   }
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !panel.hidden && !document.querySelector('.so-zoom, .so-welcome')) closePanel(); });
   if (REAL) ST.me = LS.get('mda.social.me', null); // пока сервер не ответил — последний известный аккаунт
