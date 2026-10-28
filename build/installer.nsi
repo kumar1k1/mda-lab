@@ -3,7 +3,7 @@ SetCompressor /SOLID lzma
 !include "MUI2.nsh"
 
 !define APPNAME "MDA Lab"
-!define APPVER "0.7.19"
+!define APPVER "0.7.20"
 !define EXENAME "MDA Lab.exe"
 !define UNINSTKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\MDALab"
 
