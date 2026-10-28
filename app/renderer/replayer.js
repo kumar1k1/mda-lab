@@ -150,7 +150,7 @@
       markB = ib('Отметить раздачу (M)', '', () => { CUR.side.toggleMark(i); st0(); }, 'mark'); st0();
     }
     if (markB) tools.append(markB);
-    if (CUR.side && CUR.side.focusNote) tools.append(ib('Заметка к раздаче', ic('<path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/>'), () => CUR.side.focusNote(), 'note'));
+    if (CUR.side && CUR.side.focusNote) { const nb = ib('Заметка к раздаче', ic('<path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/>'), () => CUR.side.focusNote(), 'note'); if (CUR.side.hasNote && CUR.side.hasNote(i)) { nb.classList.add('on'); nb.title = 'Заметка к раздаче — есть'; } tools.append(nb); } // карандаш горит голубым, если у раздачи есть заметка
     tools.append(copyB, pngB, gearB, closeB);
     head.append(ttl, res, tools);
 
@@ -233,10 +233,10 @@
     const prevB = ib('Предыдущая раздача (PgUp)', ic('<path d="M6 5v14M18 6l-8 6 8 6z"/>'), () => step(-1)); prevB.disabled = p <= 0;
     const nextB = ib('Следующая раздача (PgDn)', ic('<path d="M18 5v14M6 6l8 6-8 6z"/>'), () => step(1)); nextB.disabled = p >= L.length - 1;
     const navN = el('span', 'rv-navn', (p + 1) + ' из ' + L.length);
-    // реплеер турнира: понятные кнопки «Предыдущая / Следующая раздача» (↑ ↓, PgUp / PgDn)
+    // реплеер турнира: двойные стрелки «Предыдущая / Следующая раздача» (↑ ↓, PgUp / PgDn)
     if (CUR.side) {
-      prevB.innerHTML = ic('<path d="M15 6l-6 6 6 6"/>') + '<span>Предыдущая</span>'; prevB.classList.add('rv-txt'); prevB.title = 'Предыдущая раздача (↑ или PgUp)';
-      nextB.innerHTML = '<span>Следующая</span>' + ic('<path d="M9 6l6 6-6 6"/>'); nextB.classList.add('rv-txt'); nextB.title = 'Следующая раздача (↓ или PgDn)';
+      prevB.innerHTML = ic('<path d="M11 6l-6 6 6 6M19 6l-6 6 6 6"/>'); prevB.title = 'Предыдущая раздача (↑ или PgUp)'; prevB.setAttribute('aria-label', prevB.title);
+      nextB.innerHTML = ic('<path d="M5 6l6 6-6 6M13 6l6 6-6 6"/>'); nextB.title = 'Следующая раздача (↓ или PgDn)'; nextB.setAttribute('aria-label', nextB.title);
     }
     const speedSeg = el('div', 'seg bx-seg rv-speed'); const SPD = [['1200', '1×'], ['700', '2×'], ['350', '4×']];
     let speed = keepSpeed || '700';

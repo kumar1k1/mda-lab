@@ -1825,6 +1825,7 @@ body.rendering{cursor:progress}
 @keyframes tvPulse{0%{box-shadow:0 0 0 0 rgba(var(--amber-rgb),.6);border-color:var(--amber)}100%{box-shadow:0 0 0 10px rgba(var(--amber-rgb),0)}}
 @media (prefers-reduced-motion:reduce){.tv-strip.pulse{animation:none}}
 .rv-ib.rv-txt{width:auto;padding:0 12px;gap:6px;display:inline-flex;align-items:center;font:inherit;font-size:12.5px;font-weight:700}
+.rv-ib.note.on{color:#6EC3E8;border-color:rgba(110,195,232,.6);background:rgba(110,195,232,.14)}
 
 /* Дополнения только для онлайн-превью: тёмная тема и узкие экраны */
 :root{color-scheme:dark}
@@ -5797,7 +5798,7 @@ function resEl(net) {
       markB = ib('Отметить раздачу (M)', '', () => { CUR.side.toggleMark(i); st0(); }, 'mark'); st0();
     }
     if (markB) tools.append(markB);
-    if (CUR.side && CUR.side.focusNote) tools.append(ib('Заметка к раздаче', ic('<path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/>'), () => CUR.side.focusNote(), 'note'));
+    if (CUR.side && CUR.side.focusNote) { const nb = ib('Заметка к раздаче', ic('<path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/>'), () => CUR.side.focusNote(), 'note'); if (CUR.side.hasNote && CUR.side.hasNote(i)) { nb.classList.add('on'); nb.title = 'Заметка к раздаче — есть'; } tools.append(nb); } // карандаш горит голубым, если у раздачи есть заметка
     tools.append(copyB, pngB, gearB, closeB);
     head.append(ttl, res, tools);
 
@@ -5880,10 +5881,10 @@ function resEl(net) {
     const prevB = ib('Предыдущая раздача (PgUp)', ic('<path d="M6 5v14M18 6l-8 6 8 6z"/>'), () => step(-1)); prevB.disabled = p <= 0;
     const nextB = ib('Следующая раздача (PgDn)', ic('<path d="M18 5v14M6 6l8 6-8 6z"/>'), () => step(1)); nextB.disabled = p >= L.length - 1;
     const navN = el('span', 'rv-navn', (p + 1) + ' из ' + L.length);
-    // реплеер турнира: понятные кнопки «Предыдущая / Следующая раздача» (↑ ↓, PgUp / PgDn)
+    // реплеер турнира: двойные стрелки «Предыдущая / Следующая раздача» (↑ ↓, PgUp / PgDn)
     if (CUR.side) {
-      prevB.innerHTML = ic('<path d="M15 6l-6 6 6 6"/>') + '<span>Предыдущая</span>'; prevB.classList.add('rv-txt'); prevB.title = 'Предыдущая раздача (↑ или PgUp)';
-      nextB.innerHTML = '<span>Следующая</span>' + ic('<path d="M9 6l6 6-6 6"/>'); nextB.classList.add('rv-txt'); nextB.title = 'Следующая раздача (↓ или PgDn)';
+      prevB.innerHTML = ic('<path d="M11 6l-6 6 6 6M19 6l-6 6 6 6"/>'); prevB.title = 'Предыдущая раздача (↑ или PgUp)'; prevB.setAttribute('aria-label', prevB.title);
+      nextB.innerHTML = ic('<path d="M5 6l6 6-6 6M13 6l6 6-6 6"/>'); nextB.title = 'Следующая раздача (↓ или PgDn)'; nextB.setAttribute('aria-label', nextB.title);
     }
     const speedSeg = el('div', 'seg bx-seg rv-speed'); const SPD = [['1200', '1×'], ['700', '2×'], ['350', '4×']];
     let speed = keepSpeed || '700';
@@ -9109,7 +9110,7 @@ window.LIVE_SAMPLE = {"list":[[71951,"CashCowsPoker TV Championship Series Seaso
       // заметка к текущей раздаче: сохраняется сама, пока вы печатаете
       noteBox = el('div', 'tv-note'); const nh = el('div', 'tv-note-h'); noteLab = el('b', null, 'Заметка'); noteSt = el('span'); nh.append(noteLab, noteSt);
       noteTa = el('textarea', 'tv-note-ta'); noteTa.rows = 3; noteTa.placeholder = 'Что здесь важно: ошибка, мысль, что запомнить… Сохраняется сама.'; noteTa.setAttribute('aria-label', 'Заметка к раздаче');
-      let nt0 = null; const commit = () => { const x = H.find(z => z.i === cur); if (!x) return; const v = noteTa.value.trim(); const had = !!NT[x.mk]; if (v) NT[x.mk] = v; else delete NT[x.mk]; saveNT(); noteSt.textContent = v ? 'сохранено' : ''; if (had !== !!v || v) { counts(); refreshRow(x); if (HOST && HOST.isConnected) LISTDIRTY = true; } };
+      let nt0 = null; const commit = () => { const x = H.find(z => z.i === cur); if (!x) return; const v = noteTa.value.trim(); const had = !!NT[x.mk]; if (v) NT[x.mk] = v; else delete NT[x.mk]; saveNT(); noteSt.textContent = v ? 'сохранено' : ''; const nb = document.querySelector('.rv-ib.note'); if (nb) { nb.classList.toggle('on', !!v); nb.title = v ? 'Заметка к раздаче — есть' : 'Заметка к раздаче'; } if (had !== !!v || v) { counts(); refreshRow(x); if (HOST && HOST.isConnected) LISTDIRTY = true; } };
       noteTa.addEventListener('input', () => { noteSt.textContent = '…'; clearTimeout(nt0); nt0 = setTimeout(commit, 400); });
       noteTa.addEventListener('blur', () => { clearTimeout(nt0); commit(); });
       noteTa.addEventListener('keydown', (e) => { if (e.key === 'Escape') { noteTa.blur(); e.stopPropagation(); } });
@@ -9153,6 +9154,7 @@ window.LIVE_SAMPLE = {"list":[[71951,"CashCowsPoker TV Championship Series Seaso
         const r = rows.get(i); if (r) { const lb = listBox.getBoundingClientRect(), rb = r.getBoundingClientRect(); if (rb.top < lb.top || rb.bottom > lb.bottom) r.scrollIntoView({ block: 'center' }); }
       },
       close() { root = null; if (LISTDIRTY && REDRAW) { LISTDIRTY = false; REDRAW(); } },
+      hasNote: (i) => { const x = H.find(z => z.i === i); return !!(x && NT[x.mk]); },
       isMarked: (i) => { const x = H.find(z => z.i === i); return !!(x && MK[x.mk]); },
       toggleMark(i) {
         const x = H.find(z => z.i === i); if (!x) return;

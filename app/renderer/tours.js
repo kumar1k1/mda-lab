@@ -231,7 +231,7 @@
       // заметка к текущей раздаче: сохраняется сама, пока вы печатаете
       noteBox = el('div', 'tv-note'); const nh = el('div', 'tv-note-h'); noteLab = el('b', null, 'Заметка'); noteSt = el('span'); nh.append(noteLab, noteSt);
       noteTa = el('textarea', 'tv-note-ta'); noteTa.rows = 3; noteTa.placeholder = 'Что здесь важно: ошибка, мысль, что запомнить… Сохраняется сама.'; noteTa.setAttribute('aria-label', 'Заметка к раздаче');
-      let nt0 = null; const commit = () => { const x = H.find(z => z.i === cur); if (!x) return; const v = noteTa.value.trim(); const had = !!NT[x.mk]; if (v) NT[x.mk] = v; else delete NT[x.mk]; saveNT(); noteSt.textContent = v ? 'сохранено' : ''; if (had !== !!v || v) { counts(); refreshRow(x); if (HOST && HOST.isConnected) LISTDIRTY = true; } };
+      let nt0 = null; const commit = () => { const x = H.find(z => z.i === cur); if (!x) return; const v = noteTa.value.trim(); const had = !!NT[x.mk]; if (v) NT[x.mk] = v; else delete NT[x.mk]; saveNT(); noteSt.textContent = v ? 'сохранено' : ''; const nb = document.querySelector('.rv-ib.note'); if (nb) { nb.classList.toggle('on', !!v); nb.title = v ? 'Заметка к раздаче — есть' : 'Заметка к раздаче'; } if (had !== !!v || v) { counts(); refreshRow(x); if (HOST && HOST.isConnected) LISTDIRTY = true; } };
       noteTa.addEventListener('input', () => { noteSt.textContent = '…'; clearTimeout(nt0); nt0 = setTimeout(commit, 400); });
       noteTa.addEventListener('blur', () => { clearTimeout(nt0); commit(); });
       noteTa.addEventListener('keydown', (e) => { if (e.key === 'Escape') { noteTa.blur(); e.stopPropagation(); } });
@@ -275,6 +275,7 @@
         const r = rows.get(i); if (r) { const lb = listBox.getBoundingClientRect(), rb = r.getBoundingClientRect(); if (rb.top < lb.top || rb.bottom > lb.bottom) r.scrollIntoView({ block: 'center' }); }
       },
       close() { root = null; if (LISTDIRTY && REDRAW) { LISTDIRTY = false; REDRAW(); } },
+      hasNote: (i) => { const x = H.find(z => z.i === i); return !!(x && NT[x.mk]); },
       isMarked: (i) => { const x = H.find(z => z.i === i); return !!(x && MK[x.mk]); },
       toggleMark(i) {
         const x = H.find(z => z.i === i); if (!x) return;
