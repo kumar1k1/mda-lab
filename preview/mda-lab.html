@@ -2705,11 +2705,12 @@ function heatTable(o) {
   const thead = el('thead'); thead.append(hr); t.append(thead);
   const tb = el('tbody');
   const maxBy = {};
-  o.rows.forEach(r => {
-    const tone = r.tone || 'amber';
+  const scaleKey = (r, ri) => (r.own ? 'own' + ri : r.tone || 'amber'); // own — своя шкала цвета у строки (другая величина в той же таблице)
+  o.rows.forEach((r, ri) => {
+    const tone = scaleKey(r, ri);
     o.cols.forEach(c => { const cc = r.data[c]; if (cc && cc.n >= SMALL) maxBy[tone] = Math.max(maxBy[tone] || 0, cc.x / cc.n); });
   });
-  o.rows.forEach(r => {
+  o.rows.forEach((r, ri) => {
     const tr = el('tr', r.split ? 'split' : null);
     tr.append(el('td', 'lbl' + (r.sub ? ' sub' : ''), r.label));
     o.cols.forEach((c, i) => {
@@ -2719,7 +2720,7 @@ function heatTable(o) {
       if (p == null) { td.classList.add('na'); td.textContent = '--'; td.title = 'нет раздач'; }
       else {
         td.textContent = fmtPct(p);
-        heat(td, p, maxBy[r.tone || 'amber'] || p || 1, r.tone);
+        heat(td, p, maxBy[scaleKey(r, ri)] || p || 1, r.tone);
         if (cc.n < SMALL) { td.classList.add('low'); td.append(el('span', 'n', 'n ' + cc.n)); }
         td.title = r.label + ', ' + c + ': ' + cc.x + ' из ' + cc.n + ' (' + (p * 100).toFixed(1) + '%)';
       }
@@ -4492,16 +4493,16 @@ function tbTable(r) {
   const w = heatTable({ cols, groupGapBefore: cols.indexOf('SB'), rows: [
     { key: 'all', label: '3-бет', data: r.tb },
     { key: 'nai', label: '3-бет не олл-ин', sub: true, data: D(k => sub(r.tb[k], 'nai')) },
-    { key: 'ai', label: '3-бет олл-ин', sub: true, data: D(k => sub(r.tb[k], 'ai')) }] });
+    { key: 'ai', label: '3-бет олл-ин', sub: true, data: D(k => sub(r.tb[k], 'ai')) },
+    { key: 'f4', label: 'Фолд на 4-бет', own: true, split: true, data: D(k => ({ x: r.f4[k].fold, n: r.f4[k].n })) }] });
   w.querySelectorAll('td.c').forEach(td => { if (td.dataset.row !== 'all') return; const z = r.hands[td.dataset.col]; if (!z || !z.n) return; hoverHands(td, tbItem(r, td.dataset.col), z.sum / 10 / z.n); });
   const t3 = (k) => { const a = r.t3r[k], n = a[0] + a[1] + a[2] + a[3]; return { x: a[0], n }; };
   const w2 = heatTable({ cols, groupGapBefore: cols.indexOf('SB'), rows: [
     { label: 'Соперники сбросили', tone: 'ice', data: D(t3) },
-    { label: 'Фолд на 4-бет', tone: 'ice', data: D(k => ({ x: r.f4[k].fold, n: r.f4[k].n })) },
-    { label: '5-бет', tone: 'ice', data: D(k => ({ x: r.f4[k].x5, n: r.f4[k].n5 })) }] });
+    { label: '5-бет', tone: 'ice', own: true, data: D(k => ({ x: r.f4[k].x5, n: r.f4[k].n5 })) }] });
   card.append(numTag(3), el('span', 'k', '3-бет по позициям'), el('span', 's', 'в ячейке — % от раздач, где перед вами было одно открытие (не олл-ин) без коллеров'), w,
     el('span', 's tb-sub', 'После вашего 3-бета'), w2,
-    infoNote('3-бет — ваш рейз, когда перед вами был ровно один рейз и после него никто не заколлировал (с коллерами — сквиз, своя вкладка; с лимперами до рейза — 3-бет против изолейта, блок #11). Открытия олл-ином не считаются: ответить на них 3-бетом нельзя. Позиции как в Hand2Note: HJ — место перед CO, MP — два места перед HJ; EP входит только в TOT. В колонке BB, как в Hand2Note, нет раздач против открытия SB (блайнд против блайнда) — они есть в TOT и в блоке #5. «Соперники сбросили» — все сбросили на ваш 3-бет сразу. «Фолд на 4-бет» — вы сбросили на 4-бет. «5-бет» — вы ответили рейзом на 4-бет, когда он был не олл-ином. Наведите на ячейку строки «3-бет» — матрица рук и итог 3-бетов; клик закрепит окно. Бледные ячейки — меньше ' + SMALL + ' раздач.'));
+    infoNote('3-бет — ваш рейз, когда перед вами был ровно один рейз и после него никто не заколлировал (с коллерами — сквиз, своя вкладка; с лимперами до рейза — 3-бет против изолейта, блок #11). Открытия олл-ином не считаются: ответить на них 3-бетом нельзя. Позиции как в Hand2Note: HJ — место перед CO, MP — два места перед HJ; EP входит только в TOT. В колонке BB, как в Hand2Note, нет раздач против открытия SB (блайнд против блайнда) — они есть в TOT и в блоке #5. «Фолд на 4-бет» — как часто вы сбросили, когда на ваш 3-бет пришёл 4-бет (у строки своя шкала цвета). Ниже: «Соперники сбросили» — на ваш 3-бет все сбросили сразу, банк ваш без борьбы; «5-бет» — вы ответили рейзом на 4-бет, когда он был не олл-ином и у вас оставались фишки. Наведите на ячейку строки «3-бет» — матрица рук и итог 3-бетов; клик закрепит окно. Бледные ячейки — меньше ' + SMALL + ' раздач.'));
   return card;
 }
 // #5 — позиция против позиции: все 3-беты / без олл-инов / олл-ин
