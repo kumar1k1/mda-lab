@@ -1837,5 +1837,5 @@ body.rendering{cursor:progress}
 .btn.lv-close:hover{filter:brightness(1.08)}
 .btn.lv-close:focus-visible{outline:2px solid #fff;outline-offset:2px}
 /* лупа → SharkScope */
-.rv-ss{cursor:pointer}.rv-ss-b{fill:#12303D;stroke:#6EC3E8;stroke-width:1.5}.rv-ss-i{fill:none;stroke:#8FD3F0;stroke-width:2.2;stroke-linecap:round}
+.rv-ss{cursor:pointer}.rv-ss-b{fill:#12303D;stroke:#6EC3E8;stroke-width:1.5}.rv-ss-i{fill:none;stroke:#8FD3F0;stroke-width:1.8;stroke-linecap:round}
 .rv-ss:hover .rv-ss-b,.rv-ss:focus .rv-ss-b{fill:#6EC3E8}.rv-ss:hover .rv-ss-i,.rv-ss:focus .rv-ss-i{stroke:#06202C}.rv-ss:focus{outline:none}

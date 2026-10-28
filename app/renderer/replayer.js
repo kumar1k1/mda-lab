@@ -204,10 +204,12 @@
     // голубая лупа слева от места игрока — открыть его страницу на SharkScope
     seats.forEach((s, j) => {
       const nick = Array.isArray(rp.nm) ? rp.nm[j] : null; if (!ssOk(nick)) return;
-      const lx = s.sx - 96, ly = s.sy + 22, lg = S('g', { class: 'rv-ss', role: 'button', tabindex: '0', 'aria-label': 'Открыть ' + nick + ' на SharkScope' }, s.g);
-      S('circle', { cx: lx, cy: ly, r: 15, class: 'rv-ss-b' }, lg); S('circle', { cx: lx - 2, cy: ly - 2, r: 6, class: 'rv-ss-i' }, lg); S('path', { d: 'M' + (lx + 2.5) + ' ' + (ly + 2.5) + 'l5 5', class: 'rv-ss-i' }, lg);
+      // внутри плашки, с противоположной стороны от метки баунти (у кнопки дилера баунти может стоять слева)
+      const bLeft = s.pos === 'BTN' && !(s.sx > CX), lx = bLeft ? s.sx + 66 : s.sx - 66, ly = s.sy + 13, lg = S('g', { class: 'rv-ss', role: 'button', tabindex: '0', 'aria-label': 'Открыть ' + nick + ' на SharkScope' }, s.g);
+      S('circle', { cx: lx, cy: ly, r: 9, class: 'rv-ss-b' }, lg); S('circle', { cx: lx - 1.5, cy: ly - 1.5, r: 4, class: 'rv-ss-i' }, lg); S('path', { d: 'M' + (lx + 1.5) + ' ' + (ly + 1.5) + 'l3.5 3.5', class: 'rv-ss-i' }, lg);
+      s.ssIcon = true;
       const tt = document.createElementNS(NS, 'title'); tt.textContent = nick + ' — открыть на SharkScope'; lg.append(tt);
-      const go = (e) => { e.stopPropagation(); e.preventDefault(); window.open('https://www.sharkscope.com/poker-statistics/networks/' + encodeURIComponent(ssNet) + '/players/' + encodeURIComponent(nick), '_blank', 'noopener'); };
+      const go = (e) => { e.stopPropagation(); e.preventDefault(); window.open('https://www.sharkscope.com/#Player-Statistics//networks/' + encodeURIComponent(ssNet) + '/players/' + encodeURIComponent(nick), '_blank', 'noopener'); /* этот формат SharkScope открывает страницей игрока */ };
       lg.addEventListener('click', go); lg.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') go(e); });
     });
 
@@ -343,7 +345,7 @@
         if (s.labKey !== lk) {
           s.labKey = lk; s.posT.replaceChildren(); s.stT.replaceChildren();
           const posSpan = (parent) => { const t = S('tspan', { class: 'rv-pc ' + posClass(s.pos) }, parent); t.textContent = s.pos; };
-          if (nick) { s.posT.textContent = nick.length > 16 ? nick.slice(0, 15) + '…' : nick; posSpan(s.stT); s.stT.append(' · ' + stk); }
+          if (nick) { const mx = s.ssIcon ? 12 : 16; s.posT.textContent = nick.length > mx ? nick.slice(0, mx - 1) + '…' : nick; posSpan(s.stT); s.stT.append(' · ' + stk); }
           else { if (j === H0) s.posT.append(heroLabel() + ' · '); posSpan(s.posT); s.stT.textContent = stk; }
         }
         const known = rp.sh && rp.sh[j];
