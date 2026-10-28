@@ -1799,3 +1799,6 @@ body.rendering{cursor:progress}
 .tv-gi.bad{border-color:var(--bad)}.tv-gi:focus{outline:2px solid rgba(var(--amber-rgb),.5);outline-offset:1px}
 .tv-gb{min-height:26px;padding:0 8px;border-radius:7px;border:1px solid var(--line2);background:transparent;color:var(--muted);font:inherit;font-weight:800;cursor:pointer}.tv-gb:hover{color:var(--amber);border-color:var(--amber)}
 .tv-tb{flex-wrap:wrap}
+.tv-tb{justify-content:flex-start}.tv-tb .tv-qb{margin-left:auto}
+.tv-gi{width:128px;font-family:inherit;font-size:12px;-moz-appearance:textfield}
+.tv-gi::-webkit-outer-spin-button,.tv-gi::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
