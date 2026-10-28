@@ -1839,3 +1839,14 @@ body.rendering{cursor:progress}
 /* лупа → SharkScope */
 .rv-ss{cursor:pointer}.rv-ss-b{fill:#12303D;stroke:#6EC3E8;stroke-width:1.5}.rv-ss-i{fill:none;stroke:#8FD3F0;stroke-width:1.8;stroke-linecap:round}
 .rv-ss:hover .rv-ss-b,.rv-ss:focus .rv-ss-b{fill:#6EC3E8}.rv-ss:hover .rv-ss-i,.rv-ss:focus .rv-ss-i{stroke:#06202C}.rv-ss:focus{outline:none}
+/* рамка SharkScope над столом */
+.rv-stage{position:relative}
+.rv-ssbox{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(80%,980px);height:min(78%,600px);display:flex;flex-direction:column;background:var(--top);border:2px solid #6EC3E8;border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.6);overflow:hidden;z-index:5}
+.rv-ssbox-h{display:flex;align-items:center;gap:10px;padding:7px 10px 7px 14px;border-bottom:1px solid var(--line2);background:#12303D}
+.rv-ssbox-h b{flex:1 1 auto;min-width:0;color:#CFEFFC;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rv-ssbox-l{font-size:11.5px;color:#8FD3F0}
+.rv-ssbox-x2,.rv-ssbox-x{border:1px solid rgba(110,195,232,.45);background:transparent;color:#CFEFFC;border-radius:8px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;padding:3px 9px}
+.rv-ssbox-x{font-size:14px;line-height:1;padding:4px 9px}
+.rv-ssbox-x:hover{background:#FF6B5F;border-color:#FF6B5F;color:#fff}.rv-ssbox-x2:hover{background:#6EC3E8;color:#06202C}
+.rv-ssbox-w{flex:1 1 auto;width:100%;border:0;background:#fff}
+.rv-ssbox.full{position:fixed;left:10px;top:10px;right:10px;bottom:10px;width:auto;height:auto;transform:none;z-index:60}

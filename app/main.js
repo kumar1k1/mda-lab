@@ -270,7 +270,6 @@ ipcMain.handle('live:pass', (_e, kind, a, b) => liveFn().pass(String(kind), a, b
 ipcMain.handle('live:rates', () => liveFn().rates());
 ipcMain.handle('live:pdList', (_e, force, inter) => liveFn().pdList(!!force, inter !== false));
 ipcMain.handle('live:pdFest', (_e, slug, force, inter) => liveFn().pdFest(String(slug || ''), !!force, inter !== false));
-ipcMain.handle('ss:open', (_e, url, nick) => require('./sharkscope.js').open(String(url || ''), win, String(nick || '').slice(0, 60))); // окно SharkScope с графиком игрока
 ipcMain.handle('live:sum', (_e, id, v) => id == null ? liveFn().sumGet() : liveFn().sumSet(id, v && typeof v === 'object' ? v : {}));
 // кто из покерных стримеров в эфире: превью трансляции на CDN Twitch есть только у идущего стрима
 // (у остальных адрес перенаправляет на заглушку 404_preview) — без ключей API и входа в Twitch
@@ -301,15 +300,20 @@ app.whenReady().then(() => { if (process.env.MDALAB_EVAL || process.env.MDALAB_T
 // «Покерные стримы»: окно Twitch внутри программы (тег webview). Пускаем только адреса Twitch, без доступа к программе:
 // без preload и Node, отдельная сессия persist:twitch (вход в Twitch сохраняется), сторонние ссылки — во внешний браузер.
 const TWITCH_OK = /^https:\/\/([a-z0-9-]+\.)*(twitch\.tv|twitchcdn\.net|ttvnw\.net|jtvnw\.net)(\/|$)/i;
+// Реплеер: страница игрока на SharkScope в рамке над столом (лупа у места игрока) — тот же webview, только адреса
+// sharkscope.com, отдельная сессия persist:sharkscope (вход на сайт сохраняется); прочие ссылки — во внешний браузер.
+const SS_OK = /^https:\/\/([a-z0-9-]+\.)*sharkscope\.com(\/|$)/i;
 app.on('web-contents-created', (_e, wc) => {
   wc.on('will-attach-webview', (ev, prefs, params) => {
     delete prefs.preload; prefs.nodeIntegration = false; prefs.contextIsolation = true; prefs.sandbox = true;
-    if (!TWITCH_OK.test(params.src || '') || params.partition !== 'persist:twitch') ev.preventDefault();
+    const tw = TWITCH_OK.test(params.src || '') && params.partition === 'persist:twitch', ss = SS_OK.test(params.src || '') && params.partition === 'persist:sharkscope';
+    if (!tw && !ss) ev.preventDefault();
   });
   if (wc.getType() === 'webview') {
     try { wc.setWebRTCIPHandlingPolicy('disable_non_proxied_udp'); } catch (e) { /* старый Electron */ }
-    wc.setWindowOpenHandler(({ url }) => { if (TWITCH_OK.test(url)) wc.loadURL(url); else if (/^https:\/\//.test(url)) shell.openExternal(url); return { action: 'deny' }; });
-    wc.on('will-navigate', (ev, url) => { if (!TWITCH_OK.test(url)) { ev.preventDefault(); if (/^https:\/\//.test(url)) shell.openExternal(url); } });
+    const { session } = require('electron'), OK = wc.session === session.fromPartition('persist:sharkscope') ? SS_OK : TWITCH_OK;
+    wc.setWindowOpenHandler(({ url }) => { if (OK.test(url)) wc.loadURL(url); else if (/^https:\/\//.test(url)) shell.openExternal(url); return { action: 'deny' }; });
+    wc.on('will-navigate', (ev, url) => { if (!OK.test(url)) { ev.preventDefault(); if (/^https:\/\//.test(url)) shell.openExternal(url); } });
   }
 });
 

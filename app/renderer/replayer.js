@@ -201,6 +201,33 @@
     const SS_NET = { PokerStars: 'PokerStars', Winamax: 'Winamax.fr', WPN: 'WPN', GGPoker: 'GGNetwork' };
     const ssNet = SS_NET[room] || null;
     const ssOk = (nick) => !!(ssNet && nick && !(room === 'GGPoker' && /^[0-9a-f]{8}$/i.test(nick)));
+    // рамка SharkScope по центру стола: уменьшенная страница игрока (60%), прокрученная к его строке и графику;
+    // колесо мыши прокручивает её внутри; крестик, клик по столу или Esc — закрыть
+    let SSB = null;
+    const ssClose = () => { if (SSB) { SSB.remove(); SSB = null; } };
+    function ssBox(url, nick) {
+      ssClose();
+      const box = el('div', 'rv-ssbox'); box.setAttribute('role', 'dialog'); box.setAttribute('aria-label', 'SharkScope — ' + nick);
+      const hd = el('div', 'rv-ssbox-h'); hd.append(el('b', null, 'SharkScope · ' + nick));
+      const ext = el('button', 'rv-ssbox-x2', 'в браузере ↗'); ext.type = 'button'; ext.onclick = () => window.open(url, '_blank', 'noopener');
+      const x = el('button', 'rv-ssbox-x', '✕'); x.type = 'button'; x.title = 'Закрыть (Esc)'; x.setAttribute('aria-label', 'Закрыть'); x.onclick = ssClose;
+      // ⛶ — на всё окно программы (смотреть внутри другие разделы страницы), ещё раз — обратно над столом
+      const big = el('button', 'rv-ssbox-x2', '⛶ Развернуть'); big.type = 'button'; big.title = 'Раскрыть на всё окно';
+      big.onclick = () => { const on = !box.classList.contains('full'); box.classList.toggle('full', on); big.textContent = on ? '⤡ Свернуть' : '⛶ Развернуть'; big.title = on ? 'Вернуть над столом' : 'Раскрыть на всё окно'; try { wv.setZoomFactor(on ? 0.9 : 0.6); } catch (e) { /* ещё грузится */ } };
+      const loading = el('span', 'rv-ssbox-l', 'загружаю…'); hd.append(loading, big, ext, x);
+      const wv = document.createElement('webview'); wv.className = 'rv-ssbox-w'; wv.setAttribute('partition', 'persist:sharkscope');
+      wv.setAttribute('useragent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'); wv.setAttribute('src', url);
+      const FIND = '(() => { const n = ' + JSON.stringify(nick) + '; const el = [...document.querySelectorAll("a, span, td, div")].find(e => e.children.length === 0 && e.textContent.trim() === n && e.getBoundingClientRect().height > 0); if (!el) return false; const row = el.closest("tr, [class*=row i]") || el; row.scrollIntoView({ block: "start" }); window.scrollBy(0, -8); return true; })()';
+      let tries = 0, timer = null;
+      wv.addEventListener('dom-ready', () => { try { wv.setZoomFactor(box.classList.contains('full') ? 0.9 : 0.6); } catch (e) { /* старый Electron */ } });
+      wv.addEventListener('did-stop-loading', () => {
+        loading.textContent = ''; clearInterval(timer); tries = 0;
+        timer = setInterval(() => { if (!SSB || tries++ > 40) { clearInterval(timer); return; } wv.executeJavaScript(FIND).then(ok => { if (ok) clearInterval(timer); }).catch(() => {}); }, 500);
+      });
+      box.append(hd, wv);
+      stage.append(box); SSB = box;
+    }
+    svg.addEventListener('pointerdown', () => { if (SSB) ssClose(); }, true);
     // голубая лупа слева от места игрока — открыть его страницу на SharkScope
     seats.forEach((s, j) => {
       const nick = Array.isArray(rp.nm) ? rp.nm[j] : null; if (!ssOk(nick)) return;
@@ -209,7 +236,7 @@
       S('circle', { cx: lx, cy: ly, r: 9, class: 'rv-ss-b' }, lg); S('circle', { cx: lx - 1.5, cy: ly - 1.5, r: 4, class: 'rv-ss-i' }, lg); S('path', { d: 'M' + (lx + 1.5) + ' ' + (ly + 1.5) + 'l3.5 3.5', class: 'rv-ss-i' }, lg);
       s.ssIcon = true;
       const tt = document.createElementNS(NS, 'title'); tt.textContent = nick + ' — открыть на SharkScope'; lg.append(tt);
-      const go = (e) => { e.stopPropagation(); e.preventDefault(); const u = 'https://www.sharkscope.com/#Player-Statistics//networks/' + encodeURIComponent(ssNet) + '/players/' + encodeURIComponent(nick); /* этот формат SharkScope открывает страницей игрока */ if (window.mda && window.mda.ssOpen) window.mda.ssOpen(u, nick); else window.open(u, '_blank', 'noopener'); /* в программе — своё окно с графиком; в превью — вкладка браузера */ };
+      const go = (e) => { e.stopPropagation(); e.preventDefault(); const u = 'https://www.sharkscope.com/#Player-Statistics//networks/' + encodeURIComponent(ssNet) + '/players/' + encodeURIComponent(nick); /* этот формат SharkScope открывает страницей игрока */ if (window.mda && window.mda.ssEmbed) ssBox(u, nick); else window.open(u, '_blank', 'noopener'); /* в программе — рамка над столом; в превью — вкладка браузера */ };
       lg.addEventListener('click', go); lg.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') go(e); });
     });
 
@@ -409,7 +436,7 @@
     function flash(b, msg) { const t = el('span', 'rv-flash', msg); b.parentNode.append(t); setTimeout(() => t.remove(), 1400); }
     const keys = (e) => {
       if (e.target && /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
-      if (e.key === 'Escape') closeReplayer();
+      if (e.key === 'Escape') { if (SSB) ssClose(); else closeReplayer(); }
       else if (e.key === 'ArrowRight') { stop(); go(st.k + 1, true); } else if (e.key === 'ArrowLeft') { stop(); go(st.k - 1); }
       else if (e.key === 'Home') { stop(); go(1); } else if (e.key === 'End') { stop(); go(fr.length - 1); }
       else if (e.key === 'PageDown' || (CUR && CUR.side && e.key === 'ArrowDown')) { e.preventDefault(); step(1); } else if (e.key === 'PageUp' || (CUR && CUR.side && e.key === 'ArrowUp')) { e.preventDefault(); step(-1); }
