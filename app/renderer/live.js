@@ -29,8 +29,9 @@
   [['Czechia', 'Czech Republic'], ['Korea', 'South Korea'], ['Republic of Korea', 'South Korea'], ['Korea, Republic of', 'South Korea'], ['Viet Nam', 'Vietnam'], ['Macao', 'Macau'], ['Russian Federation', 'Russia'], ['Türkiye', 'Turkey'], ['UK', 'United Kingdom'], ['USA', 'United States'], ['Macedonia (FYROM)', 'North Macedonia'], ['Bosnia and Herzegovina', 'Bosnia & Herzegovina'], ['The Bahamas', 'Bahamas'], ['Aland Islands', 'Åland Islands'], ['Taiwan, Province of China', 'Taiwan'], ['Cabo Verde', 'International']].forEach(([a, b]) => { if (C[b] && !C[a]) C[a] = C[b]; });
   const cOf = (en) => C[en] || { ru: en || '—', reg: 'other', cur: 'USD' };
   // валюта по знаку перед суммой; «$», «kr», «¥» — по стране
-  const SYMC = { '€': 'EUR', '£': 'GBP', '₩': 'KRW', '₱': 'PHP', '₫': 'VND', '₹': 'INR', '฿': 'THB', '₺': 'TRY', 'Kč': 'CZK', 'zł': 'PLN', 'Ft': 'HUF', 'лв': 'BGN', 'R': 'ZAR', 'RM': 'MYR', 'Rp': 'IDR', 'CHF': 'CHF', 'A$': 'AUD', 'NZ$': 'NZD', 'HK$': 'HKD', 'NT$': 'TWD', 'S$': 'SGD', 'C$': 'CAD', 'R$': 'BRL', 'MOP': 'MOP', 'US$': 'USD' };
-  const curOf = (sym, country) => { const cc = cOf(country).cur; if (sym === '$') return /^(CAD|AUD|NZD|TWD|HKD|SGD)$/.test(cc) ? cc : 'USD'; if (sym === 'kr') return /^(SEK|NOK|DKK|ISK)$/.test(cc) ? cc : 'SEK'; if (sym === '¥') return cc === 'CNY' ? 'CNY' : 'JPY'; return SYMC[sym] || (sym ? null : cc); };
+  const SYMC = { '€': 'EUR', '£': 'GBP', '₩': 'KRW', '₱': 'PHP', '₫': 'VND', '₹': 'INR', '฿': 'THB', '₺': 'TRY', 'Kč': 'CZK', 'zł': 'PLN', 'Ft': 'HUF', 'лв': 'BGN', 'R': 'ZAR', 'RM': 'MYR', 'Rp': 'IDR', 'CHF': 'CHF', 'A$': 'AUD', 'NZ$': 'NZD', 'HK$': 'HKD', 'NT$': 'TWD', 'S$': 'SGD', 'C$': 'CAD', 'R$': 'BRL', 'MOP': 'MOP', 'US$': 'USD', '₽': 'RUB', 'руб': 'RUB', 'Br': 'BYN', 'BGN': 'BGN', 'лв.': 'BGN', '₸': 'KZT', '₴': 'UAH', 'lei': 'RON', '₾': 'GEL', '₪': 'ILS' };
+  const curOf = (sym, country) => { const cc = cOf(country).cur; if (sym === '$') return /^(CAD|AUD|NZD|TWD|HKD|SGD)$/.test(cc) ? cc : 'USD'; if (sym === 'kr') return /^(SEK|NOK|DKK|ISK)$/.test(cc) ? cc : 'SEK'; if (sym === '¥') return cc === 'CNY' ? 'CNY' : cc === 'JPY' ? 'JPY' : /^(Japan|China)$/.test(country) ? 'JPY' : cc; // «¥» в Европе — ошибка сайта, берём валюту страны
+    if (/^[A-Z]{3}$/.test(sym)) return sym; return SYMC[sym] || (sym ? null : cc); };
   let FX = { rates: { USD: 1 } };
   const usd = (v, cur) => { const r = cur && FX.rates[cur]; return r ? v / r : null; };
   const sp = (n) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
@@ -126,22 +127,43 @@
     const ev = d.rows.filter(r => r.buy && !r.sat), cur = (r) => curOf(r.sym, d.country || f.country);
     const bs = ev.map(r => usd(r.buy, cur(r))).filter(v => v != null), gs = d.rows.filter(r => r.gtd && !r.sat).map(r => usd(r.gtd.v, curOf(r.gtd.sym || r.sym, d.country || f.country))).filter(v => v != null);
     const me = ev.filter(r => r.main).map(r => usd(r.buy, cur(r))).filter(v => v != null);
-    return { v: 5, ev: compact(f, d), n: d.rows.filter(r => r.buy).length, minB: bs.length ? Math.min(...bs) : null, maxB: bs.length ? Math.max(...bs) : null, gtd: gs.length ? Math.max(...gs) : null, me: me.length ? Math.max(...me) : null, at: Date.now() };
+    return { v: 8, ev: compact(f, d), n: d.rows.filter(r => r.buy).length, minB: bs.length ? Math.min(...bs) : null, maxB: bs.length ? Math.max(...bs) : null, gtd: gs.length ? Math.max(...gs) : null, me: me.length ? Math.max(...me) : null, at: Date.now() };
   }
   // турниры серии в сжатом виде — для подбора под бюджет (бай-ин и гарантия в $, флаги, сколько входов можно)
+  // Флайт: «Day 1A», «Dia 1B», «D1C», «Main Event 1D», «Day 1/A», «Flight 2» — флайты одного турнира, даже если цена разная
+  // (у Battle of Malta Day 1A — €600, Day 1B — €300 с меньшим стеком). Просто «Day 1» без буквы и одинаковые ежедневные
+  // турниры (сателлиты, «Re-entry Day 1» по разной цене) — разные турниры.
+  const FLT = /(?:(?:\b|^|\s)(?:day|dia|día|jour|tag|d|день)\s*1\s*\/?\s*[a-zа-я]{1,2}(?![a-zа-я])|\bflight\s*[a-z0-9]+\b|(?:^|[\s(])1[a-l]\b)/i;
+  const CONT = /\bday\s*[2-9][a-z]?\b|день\s*[2-9]|\bd[2-9][a-z]?\b|финальн\S*\s*день|\bfinal\s*(?:day|table)\b|\bday\s*\d+\s*(?:&|and)\b|\brestart\b/i; // продолжения — не новый турнир
+  const RESTR = /\bladies\b|\bwomen'?s?\b|\bseniors?\b|\b(?:50|55|60|65)\s*\+|\bstaff\b|\bdealers?\b|\bemployees?\b/i;
+  const OTHER = /\b\d{1,2}[\s-]?game\b|\bmixed\b|h\.?o\.?r\.?s\.?e|t\.?o\.?r\.?s\.?e|dealer'?s choice|\bstud\b|\brazz\b|badugi|badacey|baducey|2-7|pineapple|short\s*deck/i;
+  function isMainName(n) {
+    if (!(/\bmain\s*event\b|\bgrand\s*event\b|\bME\b/.test(n) || /\bmain\s*event\b|\bgrand\s*event\b/i.test(n))) return false;
+    if (/\bmini\b|\bomaha\b|\bplo\d?\b|last\s*chance|warm.?up|\bladies\b|senior|satell|qualif|\bsat\b/i.test(n)) return false;
+    if (/main\s*event\s*[-–]?\s*(?:turbo|hyper|deep|speed)/i.test(n)) return false; // «Main Event Turbo» — отдельный турнир (а «Main Event Day 1D Turbo» — флайт)
+    return true;
+  }
   function compact(f, d) {
     const country = d.country || f.country;
-    // продолжения (Day 2, Day 3, Final Day) — не новый турнир, даже если у строки указан бай-ин
-    const CONT = /\bday\s*[2-9]\b|\bfinal\s*(?:day|table)\b|\bday\s*\d+\s*(?:&|and)\b|\brestart\b/i;
-    return d.rows.filter(r => r.buy && !r.cont && !CONT.test(r.name || '')).map(r => {
+    const out = d.rows.filter(r => r.buy && !r.cont && !CONT.test(r.name || '')).map(r => {
       const b = usd(r.buy, curOf(r.sym, country)); if (b == null) return null;
-      const g = r.gtd ? usd(r.gtd.v, curOf(r.gtd.sym || r.sym, country)) : null, re = r.re || '', mx = /^(\d) ре-энтри/.exec(re);
-      const evn = /event\s*#\s*(\d+[a-z]?)/i.exec(r.name || ''); // флайты одного турнира — по номеру Event #, иначе по названию
-      // флайты — только строки с Day 1A/1B… или Flight; одинаковые ежедневные турниры (сателлиты и т.п.) — разные турниры
-      const fl = /\bday\s*1\s*[a-z]?\b|\bflight\b/i.test(r.name || '');
-      const k = !fl ? String(r.name || '').toLowerCase() + '|' + (r.t0 || '') : evn ? '#' + evn[1].toLowerCase() : (r.name || '').replace(/[\s,(\-–:]*\b(?:day\s*1\s*[a-z]?|flight\s*[a-z0-9]+)\b.*$/i, '').trim().toLowerCase(); // флайты одного турнира (Day 1A, 1B…) — один ключ
-      return { t: r.t0 || '', b: Math.round(b), g: g ? Math.round(g) : 0, f: (r.main || /\bgrand\s*event\b/i.test(r.name || '') ? 'm' : '') + (/\bladies\b|\bwomen'?s?\b|\bseniors?\b|\b(?:50|55|60|65)\s*\+|\bstaff\b|\bdealers?\b|\bemployees?\b/i.test(r.name || '') ? 'r' : '') + (r.hr ? 'h' : '') + (r.sat ? 's' : '') + (r.bounty || r.myst ? 'x' : '') + (r.game && r.game !== 'NLH' || /\b\d{1,2}[\s-]?game\b|mixed|h\.?o\.?r\.?s\.?e|dealer'?s choice/i.test(r.name || '') ? 'o' : ''), n: String(r.name || '').slice(0, 100), c: /фризаут/.test(re) || /\bone[\s-]*shot\b|\bfreeze\s*out\b/i.test(r.name || '') ? 1 : mx ? +mx[1] + 1 : 99, k };
+      const n = String(r.name || ''), g = r.gtd ? usd(r.gtd.v, curOf(r.gtd.sym || r.sym, country)) : null, re = r.re || '', mx = /^(\d) ре-энтри/.exec(re);
+      const evn = !r.sat && /event\s*#\s*(\d+[a-z]?)/i.exec(n), fl = !r.sat && (FLT.test(n) || !!evn); // сателлиты — всегда отдельные турниры; один номер Event # — один турнир
+      const base = n.replace(/\(\s*(?:bracelet\s*|ring\s*)?event\s*#[^)]*\)/ig, '').replace(new RegExp('[\\s,(\\-–:/]*' + FLT.source + '.*$', 'i'), '').trim().toLowerCase();
+      const k = !fl ? n.toLowerCase() + '|' + (r.t0 || '') : evn ? '#' + evn[1].toLowerCase() : base.length > 2 ? base : 'fl|' + Math.round(b); // название — только «Day 1A»: флайты по цене
+      const other = (r.game && r.game !== 'NLH') || OTHER.test(n);
+      return { t: r.t0 || '', b: Math.round(b), g: g ? Math.round(g) : 0, f: (isMainName(n) && !r.sat ? 'm' : '') + (RESTR.test(n) ? 'r' : '') + (r.hr ? 'h' : '') + (r.sat ? 's' : '') + (r.bounty || r.myst ? 'x' : '') + (other ? 'o' : ''), n: n.slice(0, 100), c: /фризаут/.test(re) || /\bone[\s-]*shot\b|\bfreeze\s*out\b/i.test(n) ? 1 : mx ? +mx[1] + 1 : 99, k, fl: fl ? 1 : 0 };
     }).filter(Boolean);
+    // «Main Event Day 1 Flip & Go», «ME Day 1 (8-max)» — тоже флайт главного (или другого) турнира, если такой турнир с флайтами уже есть
+    const flBases = new Set(out.filter(e => e.fl && !/^[#]|^fl\|/.test(e.k)).map(e => e.k));
+    out.forEach(e => { if (e.fl || e.f.includes('s')) return; const m = /^(.*?)[\s,(\-–:/]*(?:\bday|день)\s*1(?![\d])/i.exec(e.n); if (!m) return; const bse = m[1].trim().toLowerCase(); if (flBases.has(bse)) { e.k = bse; e.fl = 1; } });
+    // главного события по названию нет — главным считается турнир с флайтами и самой большой гарантией (или с большим числом флайтов)
+    if (!out.some(e => e.f.includes('m'))) {
+      const G = new Map(); out.forEach(e => { if (!e.fl || /[sro]/.test(e.f)) return; const x = G.get(e.k) || { n: 0, g: 0, b: 0 }; x.n++; x.g = Math.max(x.g, e.g); x.b = Math.max(x.b, e.b); G.set(e.k, x); });
+      let best = null; for (const [k, x] of G) if (x.n >= 2 && (!best || x.g > best[1].g || (x.g === best[1].g && (x.n > best[1].n || (x.n === best[1].n && x.b > best[1].b))))) best = [k, x];
+      if (best) out.forEach(e => { if (e.k === best[0]) e.f = 'm' + e.f; });
+    }
+    return out;
   }
   async function getFest(f, force, bg) {
     if (f.slug && api.livePdFest) {
@@ -173,7 +195,7 @@
   let bgT = null, bgGap = 6e3, bgPause = 0, bgBusy = false, SRC_HM = false; // SRC_HM — запасной источник (The Hendon Mob)
   function bgNext() {
     if (!LIST) return null;
-    const fresh = (s) => s && Date.now() - s.at < 3 * DAY && (s.v === 5 || !s.n); // v5 — со списком турниров для подбора
+    const fresh = (s) => s && Date.now() - s.at < 3 * DAY && (s.v === 8 || !s.n); // v8 — со списком турниров для подбора
     const todo = LIST.filter(f => !fresh(SUM[f.id]));
     todo.sort((a, b) => (isBig(b) - isBig(a)) || a.s - b.s);
     return todo[0] || null;
@@ -402,14 +424,23 @@
       // (и главное событие, если оно было; в режиме «Крупнее гарантии» — не меньше сумма гарантий), чтобы меньше жить на серии
       if (best.n) {
         const dayOf = (e) => e.ms == null ? null : Math.floor(e.ms / DAY), ds = [...new Set(C.map(dayOf).filter(d => d != null))].sort((a, b) => a - b);
-        const full = best; let bw = null;
-        for (const d0 of ds) for (const d1 of ds) {
-          if (d1 < d0 || (bw && d1 - d0 > bw.d1 - bw.d0)) continue;
-          const g = greedy(ord.filter(e => { const d = dayOf(e); return d == null || (d >= d0 && d <= d1); }));
-          if (g.n < full.n || (full.main && !g.main) || (k.how === 'g' && g.g < full.g)) continue;
-          if (!bw || d1 - d0 < bw.d1 - bw.d0 || (d1 - d0 === bw.d1 - bw.d0 && (k.how === 'g' ? g.g > bw.g.g : g.t < bw.g.t))) bw = { d0, d1, g };
-        }
+        // окна дней: сначала — где помещается больше всего турниров (и главное событие, если оно помещается),
+        // в режиме «Покрупнее гарантии» — не меньше гарантий, чем без окна; из равных — самое короткое окно
+        const full = best, W = [{ d0: ds[0], d1: ds[ds.length - 1], g: full }];
+        for (const d0 of ds) for (const d1 of ds) { if (d1 < d0) continue; W.push({ d0, d1, g: greedy(ord.filter(e => { const d = dayOf(e); return d == null || (d >= d0 && d <= d1); })) }); }
+        let cand = W; const anyT = k.main || k.side || k.bnt || k.hr || k.sat;
+        if ((k.main || !anyT) && W.some(w => w.g.main)) cand = W.filter(w => w.g.main); // главное событие — в первую очередь
+        const nMax = Math.max(...cand.map(w => w.g.n)); cand = cand.filter(w => w.g.n === nMax);
+        if (k.how === 'g') { const gm = cand.some(w => w.g.g >= full.g) ? full.g : Math.max(...cand.map(w => w.g.g)); cand = cand.filter(w => w.g.g >= gm); }
+        let bw = null; for (const w of cand) if (!bw || w.d1 - w.d0 < bw.d1 - bw.d0 || (w.d1 - w.d0 === bw.d1 - bw.d0 && (k.how === 'g' ? w.g.g > bw.g.g : w.g.t < bw.g.t))) bw = w;
         if (bw) { best = bw.g; win = [bw.d0, bw.d1]; }
+      }
+      // дозаполнение: турниров меньше заданного, а бюджет ещё позволяет — ближайшие к выбранным дням подходящие турниры
+      if (win && best.n < k.n) {
+        const P2 = best.P.slice(); let t2 = best.t; const u2 = new Set(P2.map(e => e.k)), mid = (win[0] + win[1]) / 2;
+        const rest = ord.filter(e => !u2.has(e.k)).sort((a, b) => Math.abs((a.ms == null ? mid * DAY : a.ms) / DAY - mid) - Math.abs((b.ms == null ? mid * DAY : b.ms) / DAY - mid));
+        for (const e of rest) { if (u2.size >= k.n) break; const c = e.b * base(e); if (t2 + c > avail || u2.has(e.k) || clash(P2, e)) continue; P2.push(e); t2 += c; u2.add(e.k); }
+        if (P2.length > best.P.length) { best = { P: P2, t: t2, n: u2.size, main: P2.some(e => kind(e) === 'main'), g: P2.reduce((a, e) => a + (e.g || 0), 0) }; const ds2 = P2.filter(e => e.ms != null).map(e => Math.floor(e.ms / DAY)); win = [Math.min(win[0], ...ds2), Math.max(win[1], ...ds2)]; }
       }
       pick = best.P; let tot = best.t; const inWin = (e) => !win || (e.ms != null && Math.floor(e.ms / DAY) >= win[0] && Math.floor(e.ms / DAY) <= win[1]);
       pick.forEach(e => en.set(e.i, base(e)));
@@ -463,7 +494,7 @@
     const k = ST.pk;
     if (!LIST) { pickRes.append(window.mdaLoad('Загружаю календарь…')); return; }
     if (!k.bud) { pickRes.append(el('p', 'lv-empty', 'Введите бюджет — сумму, которую готовы потратить на серию.')); return; }
-    const base = filtered(), wait = base.filter(f => !SUM[f.id] || (SUM[f.id].n && SUM[f.id].v !== 5)).length;
+    const base = filtered(), wait = base.filter(f => !SUM[f.id] || (SUM[f.id].n && SUM[f.id].v !== 8)).length;
     let P = base.map(plan).filter(p => p && p.pick.length);
     const none = base.filter(f => SUM[f.id] && SUM[f.id].ev).length - P.length;
     const span = (p) => p.d0 == null ? 99 : p.d1 - p.d0;
@@ -541,5 +572,5 @@
   // календарь грузится при первом открытии вкладки, а в программе — и сам через минуту после запуска (для фоновой подкачки)
   const tab = document.getElementById('tabLive'); if (tab) tab.addEventListener('click', () => { if (!started) start(); else if (!loading && LERR.some(e => e.challenge)) loadList(false); });
   if (!root.hidden) start(); else if (!PREVIEW && api.liveList) setTimeout(start, 10e3);
-  window.MDALive = { reload: () => loadList(true) };
+  window.MDALive = { reload: () => loadList(true), _dbg: () => ({ LIST, SUM, ST, plan, cands, filtered, kind, entOf, compact, summary, getFest, curOf, usd, FX, P }) }; // _dbg — для проверки подбора
 })();

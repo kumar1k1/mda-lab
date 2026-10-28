@@ -63,7 +63,7 @@
     if (bm && sym) { parts = bm[1].split('+').map(num).filter(Number.isFinite); name = bm[2]; }
     const game = /omaha|plo\b|\bplo\d|pot limit o/i.test(name) ? 'PLO' : /hold.?em|nlh|nlhe/i.test(name) ? 'NLH' : /h\.?o\.?r\.?s\.?e|mixed|\b\d{1,2}[\s-]?game\b|dealer.?s choice|stud|razz|badugi|triple draw|2-7|pineapple|short deck|6\+/i.test(name) ? 'Mix' : (parts ? 'NLH' : '');
     const title = name.replace(/^(No Limit Hold'?em|Pot Limit Omaha(?:\s*\d\/?\d?)?|NLH|NLHE|PLO\d?)\s*[-–:]\s*/i, '').trim() || name;
-    const sat = /satellite|\bsat\b|qualifier|\bstep\s*\d|mega\s*sat|super\s*sat|one\s*shot\s+to|accumulator/i.test(name);
+    const sat = /satellite|\bsat[ei]l\w*|сателлит|\bsat\b|qualifier|\bstep\s*\d|mega\s*sat(?!urday)|super\s*sat(?!urday)|one\s*shot\s+to|accumulator/i.test(name);
     const g1 = gtd0 || (!sat ? gtdOf(name) : null) || gtdOf(notes);
     const st = /(\d[\d.,]*)\s*(k|K)?\s*(?:starting\s*)?(?:stack|chips)/.exec(notes) || /(?:chips|stack|starting stack)\s*:\s*(\d[\d.,\s]*\d|\d)\s*(k|K)?/i.exec(notes); const stack = st ? num(String(st[1]).replace(/\s/g, '')) * (st[2] ? 1000 : 1) : null;
     const lv = /(\d{1,3}(?:\/\d{1,3})?)\s*[- ]?\s*min(?:ute)?s?\b/i.exec(notes); const clock = lv ? lv[1] : '';
@@ -115,15 +115,17 @@
       const lab = c2.querySelector('.label'), labT = txt(lab), main = c2.cloneNode(true); main.querySelectorAll('.label').forEach(x => x.remove());
       // «… (Event #1), Hold'em, Re-entry,» — служебные пометки сайта в конце строки
       let nameT = txt(main).replace(/,\s*$/, ''); const tags = [];
-      for (;;) { const k = nameT.lastIndexOf(', '); if (k < 0) break; const tail = nameT.slice(k + 2).trim(); if (!/^(hold'?em|omaha.*|plo\d?|h\.o\.r\.s\.e\.?|mixed.*|stud.*|re-?entry|re-?buy|freezeout|turbo|hyper.*|deep\s*stack|knockout|bounty|registration closed|late registration|.*-max|heads.?up|short deck|pineapple.*|razz|badugi|2-7.*|8-game|dealer.?s choice)$/i.test(tail)) break; tags.push(tail); nameT = nameT.slice(0, k).trim(); }
+      for (;;) { const k = nameT.lastIndexOf(', '); if (k < 0) break; const tail = nameT.slice(k + 2).trim(); if (!/^(hold'?em(?:\s*\/\s*omaha)?|omaha.*|plo\d?|mix(?:ed.*)?|\d{1,2}[\s-]?game|(?:[a-z]\.){3,}[a-z]?\.?|stud.*|re-?entry|re-?buy(?:\s*\/\s*add-?on)?|add-?on|freezeout|turbo|hyper.*|deep\s*stack|knockout|bounty|registration closed|late registration|.*-max|heads.?up|short deck|(?:crazy\s*)?pineapple.*|razz|badugi|2-7.*|dealer.?s choice|final)$/i.test(tail)) break; tags.push(tail); nameT = nameT.slice(0, k).trim(); }
       // гарантия-метка: «1 000 000€ Guaranteed», «$200.000 GTD»
       let g = null; const gm = /([€$£¥₩])?\s?(\d[\d .,]*\d|\d)\s?([€$£¥₩])?\s*(?:guaranteed|gtd)/i.exec(labT); if (gm) { const v = +gm[2].replace(/[ .,](?=\d{3}\b)/g, '').replace(/,/g, '.'); if (v >= 1000) g = { v, sym: gm[1] || gm[3] || '' }; }
       const notes = txt(r.querySelector('.custom-table__content-toggle'));
       const e = ev(nameT, notes + (tags.length ? ' ' + tags.join(' ') : ''), t0, g); e.notes = notes;
-      if (!e.game) { const tg = tags.join(' '); e.game = /omaha|plo/i.test(tg) ? 'PLO' : /hold/i.test(tg) ? 'NLH' : tg ? 'Mix' : ''; }
+      // игра — по пометке сайта: «Hold'em/Omaha», «Mix», «8 Game», «H.O.R.S.E.» — смешанные; «Omaha» — омаха (название важнее, если в нём игра указана)
+      { const tg = tags.join(' '), mix = /hold'?em\s*\/\s*omaha|\bmix|\d\s*game|(?:[a-z]\.){3,}|stud|razz|badugi|2-7|pineapple|short deck|dealer/i.test(tg);
+        if (mix) e.game = 'Mix'; else if (!e.game) e.game = /omaha|plo/i.test(tg) ? 'PLO' : /hold/i.test(tg) ? 'NLH' : ''; }
       if (/registration closed/i.test(tags.join(' ')) && !e.parts) e.cont = true;
       e.tags = tags; e.total = txt(r.querySelector('.col-3 .block-medium'));
-      if (!e.parts && e.total) { const bm2 = /^([€$£¥₩])?\s?(\d[\d .,]*\d|\d)\s?([€$£¥₩]|[A-Z]{3})?$/.exec(e.total); if (bm2) { const v = num(bm2[2].replace(/\s/g, '')); if (v > 0) { e.parts = [v]; e.buy = v; e.sym = bm2[1] || (bm2[3] && bm2[3].length === 1 ? bm2[3] : '') || (bm2[3] === 'EUR' ? '€' : bm2[3] === 'GBP' ? '£' : bm2[3] === 'USD' ? '$' : ''); e.cont = false; if (!e.game) e.game = 'NLH'; } } }
+      if (!e.parts && e.total) { const bm2 = /^([^\d\s]{1,3})?\s?(\d[\d .,]*\d|\d)\s?([^\d\s]{1,4})?$/.exec(e.total); if (bm2) { const v = num(bm2[2].replace(/\s/g, '')); if (v > 0) { const sy = (bm2[1] || bm2[3] || '').trim(); e.parts = [v]; e.buy = v; e.sym = sy === 'EUR' ? '€' : sy === 'GBP' ? '£' : sy === 'USD' ? '$' : sy; /* «2 500₽», «150Br», «600 R$», «100 BGN» */ e.cont = false; if (!e.game) e.game = 'NLH'; } } }
       rows.push(e);
     });
     const h1 = d.querySelector('h1'), org = [...d.querySelectorAll('*')].find(x => x.children.length === 0 && /^Organizer:/.test(txt(x)));
