@@ -347,7 +347,7 @@ function showMxTip(info, e) {
   mxTip.append(h);
   if (info.n) {
     const L = info.labels || ['рейз', 'олл-ин', 'лимп / колл', 'фолд'];
-    [[L[0], info.rz, 'var(--mx-raise)'], [L[1], info.ai, 'var(--mx-push)'], [L[2], info.lp, 'var(--mx-limp)'], [L[3], info.fo, 'var(--mx-empty)']].forEach(([lab, k, col]) => {
+    [[L[0], info.rz, 'var(--mx-raise)'], [L[1], info.ai, 'var(--mx-push)'], [L[2], info.lp, 'var(--mx-limp)'], [L[3], info.fo, 'var(--mx-empty)']].filter(([lab]) => lab).forEach(([lab, k, col]) => {
       const r = el('div', 'mt-r' + (k ? '' : ' zero'));
       const sw = el('i'); sw.style.background = col;
       r.append(sw, el('span', null, lab), el('b', null, Math.round(k / info.n * 100) + '%'), el('em', null, String(k)));
@@ -1251,7 +1251,7 @@ let szMx = null, SZMX_PIN = null, SZMX_MODE = 'rng';
 function szMxEl() {
   if (!szMx) {
     szMx = el('div', 'szmx'); szMx.setAttribute('role', 'dialog'); szMx.hidden = true; document.body.append(szMx);
-    document.addEventListener('mousedown', (e) => { if (SZMX_PIN && !szMx.contains(e.target) && !e.target.closest('.sz5-r.has-mx, .il-bg, .rp-bg, .rv-bg, [role=dialog]')) unpinSzMx(); });
+    document.addEventListener('mousedown', (e) => { if (SZMX_PIN && !szMx.contains(e.target) && !e.target.closest('.has-mx, .il-bg, .rp-bg, .rv-bg, [role=dialog]')) unpinSzMx(); });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && SZMX_PIN && !document.querySelector('.il-bg')) unpinSzMx(); });
   }
   return szMx;
@@ -1290,14 +1290,15 @@ function drawSzMx(title, z, pinned) {
     m.append(seg);
   }
   if (mode === 'rng') {
-    const leg = el('div', 'resp-legend row'); [['колл', 'var(--mx-limp)'], ['3-бет', 'var(--mx-raise)'], ['олл-ин', 'var(--mx-push)'], ['фолд', 'var(--mx-empty)']].forEach(([l, col]) => { const it = el('span'); const i = el('i'); i.style.background = col; if (col === 'var(--mx-empty)') i.style.border = '1px solid var(--line2)'; it.append(i, document.createTextNode(l)); leg.append(it); });
-    const mxEl = handMatrix(z.rmx, ['3-бет', 'олл-ин', 'колл', 'фолд']);
+    const LB = z.labels || ['3-бет', 'олл-ин', 'колл', 'фолд']; // порядок: янтарная, синяя, зелёная, тёмная часть клетки
+    const leg = el('div', 'resp-legend row'); [[LB[2], 'var(--mx-limp)'], [LB[0], 'var(--mx-raise)'], [LB[1], 'var(--mx-push)'], [LB[3], 'var(--mx-empty)']].filter(x => x[0]).forEach(([l, col]) => { const it = el('span'); const i = el('i'); i.style.background = col; if (col === 'var(--mx-empty)') i.style.border = '1px solid var(--line2)'; it.append(i, document.createTextNode(l)); leg.append(it); });
+    const mxEl = handMatrix(z.rmx, LB);
     if (pinned) [...mxEl.children].forEach((cell, k) => { if (!z.rmx[k].n) return; const nm = cell.querySelector('.h').textContent; cell.classList.add('click'); cell.tabIndex = 0; cell.setAttribute('role', 'button'); cell.setAttribute('aria-label', nm + ' — открыть раздачи'); cell.onclick = () => szHandList(title, z, k, nm); cell.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); szHandList(title, z, k, nm); } }; });
     m.append(leg, mxEl);
   } else {
-    m.append(el('div', 'szmx-cap', (mode === 'ev' ? 'EV' : 'Фактический результат') + ' с каждой рукой в BB за раздачу — все ответы (колл, 3-бет, фолд). Нажмите на руку — раздачи и реплеер.'), szValGrid(z.rmx, mode, pinned ? (k, nm) => szHandList(title, z, k, nm) : null));
+    m.append(el('div', 'szmx-cap', (mode === 'ev' ? 'EV' : 'Фактический результат') + ' с каждой рукой в BB за раздачу — ' + (z.capAll || 'все ответы (колл, 3-бет, фолд)') + '. Нажмите на руку — раздачи и реплеер.'), szValGrid(z.rmx, mode, pinned ? (k, nm) => szHandList(title, z, k, nm) : null));
   }
-  if (!pinned) m.append(el('div', 'szmx-hint', 'Клик по строке — закрепить окно и показать результат по рукам'));
+  if (!pinned) m.append(el('div', 'szmx-hint', 'Клик — закрепить окно и показать результат по рукам'));
   m.hidden = false;
 }
 function placeSzMx(row, e) {
@@ -1873,15 +1874,30 @@ function tbTable(r) {
     { key: 'all', label: '3-бет', data: r.tb },
     { key: 'nai', label: '3-бет не олл-ин', sub: true, data: D(k => sub(r.tb[k], 'nai')) },
     { key: 'ai', label: '3-бет олл-ин', sub: true, data: D(k => sub(r.tb[k], 'ai')) },
-    { key: 'f4', label: 'Фолд на 4-бет', own: true, split: true, data: D(k => ({ x: r.f4[k].fold, n: r.f4[k].n })) }] });
-  w.querySelectorAll('td.c').forEach(td => { if (td.dataset.row !== 'all') return; const z = r.hands[td.dataset.col]; if (!z || !z.n) return; hoverHands(td, tbItem(r, td.dataset.col), z.sum / 10 / z.n); });
+    { key: 'f4', label: 'Фолд на 4-бет', own: true, split: true, data: D(k => ({ x: r.f4[k].fold, n: r.f4[k].n })) },
+    { key: 'f5', label: '5-бет', own: true, data: D(k => ({ x: r.f4[k].x5, n: r.f4[k].n5 })) }] });
+  // наведение на ячейку: 3-бет / не олл-ин / олл-ин — матрица рук и их результат; фолд на 4-бет и 5-бет — чем вы сбрасывали,
+  // коллировали и рейзили против 4-бета; «Соперники сбросили» — на какие руки соперники сбрасывали, коллировали, 4-бетили
+  const RES = { all: [r.hands, '3-бет'], nai: [r.handsN, '3-бет не олл-ин'], ai: [r.handsA, '3-бет олл-ин'] };
+  const RNG = { f4: [r.f4mx, 'Против 4-бета', ['5-бет', '', 'колл', 'фолд'], 'ваши ответы на 4-бет'], f5: [r.f5mx, '5-бет (4-бет не олл-ин)', ['5-бет', '', 'колл', 'фолд'], 'ваши ответы на 4-бет'], t3: [r.t3mx, 'Ответ соперников на 3-бет', ['сбросили', '4-бет', 'колл', ''], 'все ваши 3-беты'] };
+  const wire = (td) => {
+    const row = td.dataset.row, col = td.dataset.col, pl = col === 'TOT' ? 'все позиции' : col;
+    if (RES[row]) { const z = RES[row][0][col]; if (!z || !z.n) return; const it = tbItem(r, col, RES[row][1] + ' · ' + pl); Object.assign(it, { key: 'tb' + row + col, o: { n: z.n, sum: z.sum, es: z.es }, mx: z.mx, ids: z.ids }); hoverHands(td, it, z.sum / 10 / z.n); return; }
+    const d = RNG[row]; if (!d) return; const z = d[0][col]; if (!z || !z.n) return;
+    const zz = Object.assign({}, z, { labels: d[2], capAll: d[3] }), title = d[1] + ' · ' + pl;
+    td.classList.add('click', 'has-mx'); td.tabIndex = 0; td.setAttribute('role', 'button');
+    td.addEventListener('mouseenter', (e) => showSzMx(title, zz, td, e)); td.addEventListener('mousemove', (e) => { if (!SZMX_PIN && szMx && !szMx.hidden) placeSzMx(td, e); }); td.addEventListener('mouseleave', hideSzMx);
+    td.addEventListener('click', (e) => pinSzMx(title, zz, td, e));
+    td.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pinSzMx(title, zz, td); } });
+  };
+  w.querySelectorAll('td.c').forEach(wire);
   const t3 = (k) => { const a = r.t3r[k], n = a[0] + a[1] + a[2] + a[3]; return { x: a[0], n }; };
   const w2 = heatTable({ cols, groupGapBefore: cols.indexOf('SB'), rows: [
-    { label: 'Соперники сбросили', tone: 'ice', data: D(t3) },
-    { label: '5-бет', tone: 'ice', own: true, data: D(k => ({ x: r.f4[k].x5, n: r.f4[k].n5 })) }] });
+    { key: 't3', label: 'Соперники сбросили', tone: 'ice', data: D(t3) }] });
+  w2.querySelectorAll('td.c').forEach(wire);
   card.append(numTag(3), el('span', 'k', '3-бет по позициям'), el('span', 's', 'в ячейке — % от раздач, где перед вами было одно открытие (не олл-ин) без коллеров'), w,
     el('span', 's tb-sub', 'После вашего 3-бета'), w2,
-    infoNote('3-бет — ваш рейз, когда перед вами был ровно один рейз и после него никто не заколлировал (с коллерами — сквиз, своя вкладка; с лимперами до рейза — 3-бет против изолейта, блок #11). Открытия олл-ином не считаются: ответить на них 3-бетом нельзя. Позиции как в Hand2Note: HJ — место перед CO, MP — два места перед HJ; EP входит только в TOT. В колонке BB, как в Hand2Note, нет раздач против открытия SB (блайнд против блайнда) — они есть в TOT и в блоке #5. «Фолд на 4-бет» — как часто вы сбросили, когда на ваш 3-бет пришёл 4-бет (у строки своя шкала цвета). Ниже: «Соперники сбросили» — на ваш 3-бет все сбросили сразу, банк ваш без борьбы; «5-бет» — вы ответили рейзом на 4-бет, когда он был не олл-ином и у вас оставались фишки. Наведите на ячейку строки «3-бет» — матрица рук и итог 3-бетов; клик закрепит окно. Бледные ячейки — меньше ' + SMALL + ' раздач.'));
+    infoNote('3-бет — ваш рейз, когда перед вами был ровно один рейз и после него никто не заколлировал (с коллерами — сквиз, своя вкладка; с лимперами до рейза — 3-бет против изолейта, блок #11). Открытия олл-ином не считаются: ответить на них 3-бетом нельзя. Позиции как в Hand2Note: HJ — место перед CO, MP — два места перед HJ; EP входит только в TOT. В колонке BB, как в Hand2Note, нет раздач против открытия SB (блайнд против блайнда) — они есть в TOT и в блоке #5. «Фолд на 4-бет» — как часто вы сбросили, когда на ваш 3-бет пришёл 4-бет. «5-бет» — вы ответили рейзом на 4-бет, когда он был не олл-ином и у вас оставались фишки (у этих строк своя шкала цвета). Ниже: «Соперники сбросили» — на ваш 3-бет все сбросили сразу, банк ваш без борьбы. Наведите на любую ячейку: у строк 3-бета — матрица рук и их результат; у фолда на 4-бет и 5-бета — какими руками вы сбрасывали, коллировали и рейзили против 4-бета; у «Соперники сбросили» — на какие ваши руки соперники сбрасывали, коллировали и 4-бетили. Клик закрепит окно: там можно переключить на результат по рукам и открыть раздачи. Бледные ячейки — меньше ' + SMALL + ' раздач.'));
   return card;
 }
 // #5 — позиция против позиции: все 3-беты / без олл-инов / олл-ин
