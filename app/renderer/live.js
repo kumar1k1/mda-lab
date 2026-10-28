@@ -503,7 +503,7 @@
     if (!pickForm) {
       det.replaceChildren();
       const h = el('div', 'lv-dh'); const t = el('div'); t.append(el('h2', null, 'Подобрать серию под бюджет'), el('p', null, 'Укажите, сколько готовы потратить и что играете — программа соберёт план турниров для каждой серии и покажет, какие серии вам по карману. Подбор идёт по региону, странам и месяцу, которые нажаты сверху.'));
-      const x = el('button', 'btn lv-btn', 'Закрыть'); x.type = 'button'; x.onclick = () => { PICK = false; pickB.classList.remove('on'); drawDet(); };
+      const x = el('button', 'btn lv-btn lv-close', 'Закрыть'); x.type = 'button'; x.onclick = () => { PICK = false; pickB.classList.remove('on'); drawDet(); };
       const a = el('div', 'lv-dh-a'); a.append(x); h.append(t, a); det.append(h);
       pickForm = el('div', 'lv-pk'); pickRes = el('div', 'lv-pk-res');
       const k = ST.pk, upd = () => { save(); Object.keys(PEDIT).forEach(i => delete PEDIT[i]); pickSoon(200); };

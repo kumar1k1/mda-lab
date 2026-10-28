@@ -1836,6 +1836,10 @@ body.rendering{cursor:progress}
 .tv-flag{flex:0 0 auto;font-style:normal;font-family:var(--mono);font-size:13px;font-weight:800;line-height:1;padding:4px 9px;border-radius:999px}
 .tv-flag.mk{color:#1B1406;background:#F2B544}
 .tv-flag.nt{color:#06202C;background:#6EC3E8}
+/* «Закрыть» в подборе серии — яркая жёлтая, в стиле программы */
+.btn.lv-close{background:var(--amber);border-color:var(--amber);color:var(--amber-ink,#1B1406);font-weight:800}
+.btn.lv-close:hover{filter:brightness(1.08)}
+.btn.lv-close:focus-visible{outline:2px solid #fff;outline-offset:2px}
 
 /* Дополнения только для онлайн-превью: тёмная тема и узкие экраны */
 :root{color-scheme:dark}
@@ -7108,7 +7112,7 @@ window.LIVE_SAMPLE = {"list":[[71951,"CashCowsPoker TV Championship Series Seaso
     if (!pickForm) {
       det.replaceChildren();
       const h = el('div', 'lv-dh'); const t = el('div'); t.append(el('h2', null, 'Подобрать серию под бюджет'), el('p', null, 'Укажите, сколько готовы потратить и что играете — программа соберёт план турниров для каждой серии и покажет, какие серии вам по карману. Подбор идёт по региону, странам и месяцу, которые нажаты сверху.'));
-      const x = el('button', 'btn lv-btn', 'Закрыть'); x.type = 'button'; x.onclick = () => { PICK = false; pickB.classList.remove('on'); drawDet(); };
+      const x = el('button', 'btn lv-btn lv-close', 'Закрыть'); x.type = 'button'; x.onclick = () => { PICK = false; pickB.classList.remove('on'); drawDet(); };
       const a = el('div', 'lv-dh-a'); a.append(x); h.append(t, a); det.append(h);
       pickForm = el('div', 'lv-pk'); pickRes = el('div', 'lv-pk-res');
       const k = ST.pk, upd = () => { save(); Object.keys(PEDIT).forEach(i => delete PEDIT[i]); pickSoon(200); };
