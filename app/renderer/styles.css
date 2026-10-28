@@ -1758,10 +1758,39 @@ body.rendering{cursor:progress}
 .tv-side .tv-h .tv-net{margin-left:0;min-width:46px;text-align:right}
 .tv-sph{margin:-2px 0 0;font-size:11px;color:var(--muted)}
 /* лента раздач: строгие колонки — номер, рука, позиция, доска, итог; карты одной ширины */
-.tv-side .tv-h{display:grid;grid-template-columns:28px 56px 38px minmax(0,1fr) 54px;gap:8px;align-items:center}
+.tv-side .tv-h{display:grid;grid-template-columns:40px 56px 38px minmax(0,1fr) 54px;gap:8px;align-items:center}
 .tv-side .tv-h .tv-no{min-width:0;text-align:right}
 .tv-side .tv-h .tv-pos{min-width:0;text-align:left}
 .tv-side .tv-h .tv-net{min-width:0;text-align:right}
 .tv-side .tv-h .tv-cards{gap:2px}
 .tv-side .tv-h .tv-c{display:inline-block;width:26px;text-align:center;padding:0;font-size:11px;letter-spacing:-.02em}
 .tv-side .tv-bd .tv-cards{gap:2px}
+/* отмеченные раздачи */
+.rv-ib.mark.on{color:var(--amber);border-color:rgba(var(--amber-rgb),.6);background:rgba(var(--amber-rgb),.12)}
+.tv-star{font-style:normal;color:var(--amber);margin-right:3px;font-size:11px}
+.tv-sp.mk:not(:disabled){color:var(--amber)}
+.tv-mk{font-style:normal;font-size:10.5px;font-weight:700;color:var(--amber)}
+.tv-tb{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.tv-ord button{min-height:26px;font-size:11.5px}
+.tv-qb{display:inline-flex;align-items:center;gap:6px;border:0;background:none;color:var(--muted);font:inherit;font-size:11.5px;font-weight:700;cursor:pointer;padding:2px 0}
+.tv-qb b{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;border:1px solid var(--line2);font-size:11px}
+.tv-qb.on,.tv-qb:hover{color:var(--amber)}.tv-qb.on b{border-color:var(--amber)}
+.tv-help{display:flex;flex-direction:column;gap:5px;padding:9px 10px;border-radius:10px;border:1px solid var(--line2);background:rgba(255,255,255,.03)}
+.tv-help>b{font-size:10.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.05em}
+.tv-help .tv-sph{margin:0}
+/* лента раздач уезжает вправо, стол занимает её место */
+.rv-main.rv-side-on{transition:grid-template-columns .3s cubic-bezier(.4,0,.2,1)}
+.rv-main.rv-side-on.tv-noanim,.rv-main.tv-noanim .tv-body{transition:none}
+.rv-main.rv-side-on.tv-collapsed{grid-template-columns:minmax(0,1fr) 34px}
+.tv-side{position:relative;overflow:hidden}
+.tv-body{display:flex;flex-direction:column;gap:8px;min-height:0;flex:1 1 auto;width:385px;transition:transform .3s cubic-bezier(.4,0,.2,1),opacity .2s}
+.tv-side.collapsed{padding-left:4px;border-left-color:transparent}
+.tv-side.collapsed .tv-body{transform:translateX(110%);opacity:0;pointer-events:none;position:absolute;inset:0 auto 0 14px}
+.tv-shr{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}.tv-shr .tv-sh{min-width:0}
+.tv-col{flex:0 0 auto;border:1px solid var(--line2);background:transparent;color:var(--muted);font:inherit;font-size:11.5px;font-weight:700;border-radius:8px;padding:3px 8px;cursor:pointer}
+.tv-col:hover{color:var(--amber);border-color:var(--amber)}
+.tv-strip{display:none}
+.tv-side.collapsed .tv-strip{display:flex;flex-direction:column;align-items:center;gap:8px;height:100%;min-height:200px;width:28px;padding:10px 0;border:1px solid var(--line2);border-radius:10px;background:rgba(255,255,255,.03);color:var(--muted);font:inherit;cursor:pointer}
+.tv-side.collapsed .tv-strip:hover{color:var(--amber);border-color:var(--amber)}
+.tv-strip span{font-size:16px;font-weight:800}.tv-strip b{writing-mode:vertical-rl;transform:rotate(180deg);font-size:12px;letter-spacing:.06em}
+@media (max-width:1100px){.tv-body{width:auto}}

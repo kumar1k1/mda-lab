@@ -1762,13 +1762,42 @@ body.rendering{cursor:progress}
 .tv-side .tv-h .tv-net{margin-left:0;min-width:46px;text-align:right}
 .tv-sph{margin:-2px 0 0;font-size:11px;color:var(--muted)}
 /* лента раздач: строгие колонки — номер, рука, позиция, доска, итог; карты одной ширины */
-.tv-side .tv-h{display:grid;grid-template-columns:28px 56px 38px minmax(0,1fr) 54px;gap:8px;align-items:center}
+.tv-side .tv-h{display:grid;grid-template-columns:40px 56px 38px minmax(0,1fr) 54px;gap:8px;align-items:center}
 .tv-side .tv-h .tv-no{min-width:0;text-align:right}
 .tv-side .tv-h .tv-pos{min-width:0;text-align:left}
 .tv-side .tv-h .tv-net{min-width:0;text-align:right}
 .tv-side .tv-h .tv-cards{gap:2px}
 .tv-side .tv-h .tv-c{display:inline-block;width:26px;text-align:center;padding:0;font-size:11px;letter-spacing:-.02em}
 .tv-side .tv-bd .tv-cards{gap:2px}
+/* отмеченные раздачи */
+.rv-ib.mark.on{color:var(--amber);border-color:rgba(var(--amber-rgb),.6);background:rgba(var(--amber-rgb),.12)}
+.tv-star{font-style:normal;color:var(--amber);margin-right:3px;font-size:11px}
+.tv-sp.mk:not(:disabled){color:var(--amber)}
+.tv-mk{font-style:normal;font-size:10.5px;font-weight:700;color:var(--amber)}
+.tv-tb{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.tv-ord button{min-height:26px;font-size:11.5px}
+.tv-qb{display:inline-flex;align-items:center;gap:6px;border:0;background:none;color:var(--muted);font:inherit;font-size:11.5px;font-weight:700;cursor:pointer;padding:2px 0}
+.tv-qb b{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;border:1px solid var(--line2);font-size:11px}
+.tv-qb.on,.tv-qb:hover{color:var(--amber)}.tv-qb.on b{border-color:var(--amber)}
+.tv-help{display:flex;flex-direction:column;gap:5px;padding:9px 10px;border-radius:10px;border:1px solid var(--line2);background:rgba(255,255,255,.03)}
+.tv-help>b{font-size:10.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.05em}
+.tv-help .tv-sph{margin:0}
+/* лента раздач уезжает вправо, стол занимает её место */
+.rv-main.rv-side-on{transition:grid-template-columns .3s cubic-bezier(.4,0,.2,1)}
+.rv-main.rv-side-on.tv-noanim,.rv-main.tv-noanim .tv-body{transition:none}
+.rv-main.rv-side-on.tv-collapsed{grid-template-columns:minmax(0,1fr) 34px}
+.tv-side{position:relative;overflow:hidden}
+.tv-body{display:flex;flex-direction:column;gap:8px;min-height:0;flex:1 1 auto;width:385px;transition:transform .3s cubic-bezier(.4,0,.2,1),opacity .2s}
+.tv-side.collapsed{padding-left:4px;border-left-color:transparent}
+.tv-side.collapsed .tv-body{transform:translateX(110%);opacity:0;pointer-events:none;position:absolute;inset:0 auto 0 14px}
+.tv-shr{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}.tv-shr .tv-sh{min-width:0}
+.tv-col{flex:0 0 auto;border:1px solid var(--line2);background:transparent;color:var(--muted);font:inherit;font-size:11.5px;font-weight:700;border-radius:8px;padding:3px 8px;cursor:pointer}
+.tv-col:hover{color:var(--amber);border-color:var(--amber)}
+.tv-strip{display:none}
+.tv-side.collapsed .tv-strip{display:flex;flex-direction:column;align-items:center;gap:8px;height:100%;min-height:200px;width:28px;padding:10px 0;border:1px solid var(--line2);border-radius:10px;background:rgba(255,255,255,.03);color:var(--muted);font:inherit;cursor:pointer}
+.tv-side.collapsed .tv-strip:hover{color:var(--amber);border-color:var(--amber)}
+.tv-strip span{font-size:16px;font-weight:800}.tv-strip b{writing-mode:vertical-rl;transform:rotate(180deg);font-size:12px;letter-spacing:.06em}
+@media (max-width:1100px){.tv-body{width:auto}}
 
 /* Дополнения только для онлайн-превью: тёмная тема и узкие экраны */
 :root{color-scheme:dark}
@@ -5716,7 +5745,7 @@ function resEl(net) {
     ttl.append(el('b', null, rp.t || room), el('span', null, [room, rp.d, 'вы на ' + rp.pl[H0][0] + ', стек ' + fmt(rp.pl[H0][1]) + ' BB'].filter(Boolean).join(' · ')));
     const res = el('div', 'rv-res');
     const chip = (lab, v) => { const d = el('div', 'rv-rchip ' + (v > 0 ? 'up' : v < 0 ? 'down' : '')); d.append(el('span', null, lab), el('b', null, sgn(v) + ' BB')); return d; };
-    res.append(chip('Итог', net)); if (Math.abs(nev - net) > 0.005) res.append(chip('По EV', nev));
+    if (!CUR.side) { res.append(chip('Итог', net)); if (Math.abs(nev - net) > 0.005) res.append(chip('По EV', nev)); } // в реплеере турнира итог — в ленте справа
     const tools = el('div', 'rv-tools');
     const ib = (label, svg, fn, cls) => { const b = el('button', 'rv-ib' + (cls ? ' ' + cls : '')); b.type = 'button'; b.title = label; b.setAttribute('aria-label', label); b.innerHTML = svg; b.onclick = fn; return b; };
     const ic = (d, fill) => '<svg width="18" height="18" viewBox="0 0 24 24" ' + (fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"') + ' aria-hidden="true">' + d + '</svg>';
@@ -5733,6 +5762,14 @@ function resEl(net) {
     }
     const toggleGear = () => soon(gearB, 'Вид реплеера', 'Скоро будет добавлено: цвета стола и карт, размер, что показывать на местах.');
     const closeB = ib('Закрыть (Esc)', ic('<path d="M6 6l12 12M18 6L6 18"/>'), () => closeReplayer());
+    // реплеер турнира: «Отметить раздачу» (звёздочка, клавиша M) — отмеченные видны в ленте и во вкладке «Отмеченные»
+    let markB = null;
+    if (CUR.side && CUR.side.toggleMark) {
+      const STAR = '<path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/>';
+      const st0 = () => { const on = CUR.side.isMarked(i); markB.innerHTML = ic(STAR, on); markB.classList.toggle('on', on); markB.setAttribute('aria-pressed', String(on)); markB.title = (on ? 'Снять отметку' : 'Отметить раздачу') + ' (M)'; markB.setAttribute('aria-label', markB.title); };
+      markB = ib('Отметить раздачу (M)', '', () => { CUR.side.toggleMark(i); st0(); }, 'mark'); st0();
+    }
+    if (markB) tools.append(markB);
     tools.append(copyB, pngB, gearB, closeB);
     head.append(ttl, res, tools);
 
@@ -5971,6 +6008,7 @@ function resEl(net) {
       else if (e.key === 'ArrowRight') { stop(); go(st.k + 1, true); } else if (e.key === 'ArrowLeft') { stop(); go(st.k - 1); }
       else if (e.key === 'Home') { stop(); go(1); } else if (e.key === 'End') { stop(); go(fr.length - 1); }
       else if (e.key === 'PageDown' || (CUR && CUR.side && e.key === 'ArrowDown')) { e.preventDefault(); step(1); } else if (e.key === 'PageUp' || (CUR && CUR.side && e.key === 'ArrowUp')) { e.preventDefault(); step(-1); }
+      else if (markB && (e.key === 'm' || e.key === 'M' || e.key === 'ь' || e.key === 'Ь')) markB.click();
       else if (e.key === ' ') { e.preventDefault(); toggle(); } else if ((e.key === 'v' || e.key === 'V' || e.key === 'м' || e.key === 'М') ) eyeB.click(); else if (e.key === 'n' || e.key === 'N' || e.key === 'т' || e.key === 'Т') nameB.click(); else return;
     };
     RP = { bg, stop, keys, speed };
@@ -8828,6 +8866,14 @@ window.LIVE_SAMPLE = {"list":[[71951,"CashCowsPoker TV Championship Series Seaso
   ST.q = ''; ST.room = ST.room == null ? -1 : ST.room; ST.per = ST.per || 'all'; ST.sort = ST.sort || 'new';
   const save = () => { try { localStorage.setItem('mda.tours', JSON.stringify({ room: ST.room, per: ST.per, sort: ST.sort })); } catch (e) { /* без сохранения */ } };
 
+  // ---------- отмеченные раздачи ----------
+  // хранятся по устойчивому ключу раздачи (рум, время, карты), а не по номеру строки базы — дозагрузка рук их не сбивает
+  const MK = (() => { try { return JSON.parse(localStorage.getItem('mda.marks') || '{}') || {}; } catch (e) { return {}; } })();
+  const saveMK = () => { try { localStorage.setItem('mda.marks', JSON.stringify(MK)); } catch (e) { /* без сохранения */ } };
+  const tourKey = (t) => (TL.rooms[t.room] || '') + '|' + t.name + '|' + t.start;
+  const handKey = (t, rp) => tourKey(t) + '|' + (rp.d || '') + '|' + (rp.hc || '') + '|' + (rp.pl && rp.pl[rp.h] ? rp.pl[rp.h][0] + rp.pl[rp.h][1] : '');
+  const marksOf = (t) => { const p = tourKey(t) + '|'; let n = 0; for (const k in MK) if (k.startsWith(p)) n++; return n; };
+
   // ---------- турниры из данных «Результатов» ----------
   let TL = null;
   async function data() {
@@ -8850,7 +8896,7 @@ window.LIVE_SAMPLE = {"list":[[71951,"CashCowsPoker TV Championship Series Seaso
   }
 
   // ---------- список ----------
-  let HOST = null, SHOWN = 150;
+  let HOST = null, SHOWN = 150, LISTDIRTY = false, REDRAW = null;
   async function draw(main) {
     HOST = main; main.replaceChildren(window.mdaLoad ? window.mdaLoad('Собираю турниры из базы…') : el('p', null, 'Собираю турниры…'));
     let T = null; try { T = await data(); } catch (e) { T = null; }
@@ -8889,7 +8935,7 @@ window.LIVE_SAMPLE = {"list":[[71951,"CashCowsPoker TV Championship Series Seaso
       L.slice(0, SHOWN).forEach(t => box.append(row(t, own)));
       if (L.length > SHOWN) { const more = el('button', 'btn tv-more', 'Показать ещё ' + Math.min(150, L.length - SHOWN) + ' из ' + (L.length - SHOWN)); more.type = 'button'; more.onclick = () => { SHOWN += 150; drawRows(); }; box.append(more); }
     }
-    drawRows();
+    drawRows(); REDRAW = drawRows;
   }
   function spark(cum) {
     const W = 120, H = 30, n = cum.length, step = Math.max(1, Math.floor(n / 60));
@@ -8905,7 +8951,7 @@ window.LIVE_SAMPLE = {"list":[[71951,"CashCowsPoker TV Championship Series Seaso
     const r = el('button', 'tv-row'); r.type = 'button'; r.disabled = !own;
     const d = el('span', 'tv-d'); d.append(el('b', null, dTxt(t.start).split(', ')[0]), el('small', null, dTxt(t.start).split(', ')[1] + ' · ' + durTxt(Math.max(1, t.end - t.start))));
     const nm = el('span', 'tv-nm'); const rm = el('i', 'tv-rb', (TL.rooms[t.room] || '?')); nm.append(el('b', null, t.name));
-    const sub = el('small'); sub.append(rm); if (t.bi > 0) sub.append(' бай-ин $' + (t.bi / 100).toFixed(t.bi % 100 ? 2 : 0).replace('.', ',')); nm.append(sub);
+    const sub = el('small'); sub.append(rm); const mk = marksOf(t); if (mk) sub.append(el('i', 'tv-mk', '★ ' + mk)); if (t.bi > 0) sub.append(' бай-ин $' + (t.bi / 100).toFixed(t.bi % 100 ? 2 : 0).replace('.', ',')); nm.append(sub);
     const n = el('span', 'tv-n', sp(t.ids.length));
     const res = el('span', 'tv-res'); res.append(el('b', t.net >= 0 ? 'up' : 'down', sgn(t.net))); if (Math.abs(t.ev - t.net) > 0.5) res.append(el('small', null, 'EV ' + sgn(t.ev)));
     const g = el('span', 'tv-g'); g.append(spark(t.cum));
@@ -8953,8 +8999,8 @@ window.LIVE_SAMPLE = {"list":[[71951,"CashCowsPoker TV Championship Series Seaso
   const CLS_T = { w2: 'Выиграна с постфлопом', w1: 'Выиграна без постфлопа', ch: 'Банк поделён', l2: 'Проиграна с постфлопом', l1: 'Проиграна без постфлопа (в том числе блайнды)', x: 'Не сыграна — сброс без вложений' };
 
   // ---------- реплеер турнира ----------
-  const SPOTS = [['all', 'Все', 'Все раздачи турнира по порядку.'], ['pl', 'Сыгранные', 'Раздачи, где вы вложили фишки сами или были на блайндах, — без пустых пасов.'], ['ai', 'Олл-ины', 'Раздачи, где вы шли олл-ин или уравнивали олл-ин.'], ['tb', '3-бет банки', 'Банки, где до флопа был 3-бет или больше, и вы в них участвовали.'], ['big', 'Крупные банки', 'Банки от 20 BB, в которых вы участвовали.'], ['win', 'Выигранные', 'Раздачи с вашим выигрышем (зелёные).'], ['lose', 'Проигранные', 'Раздачи с вашим проигрышем (красные), включая сброс с блайндов.']];
-  const inSpot = (x, f) => f === 'all' || (f === 'pl' && x.played) || (f === 'ai' && x.ai) || (f === 'tb' && x.tb) || (f === 'big' && x.big) || (f === 'win' && (x.cls === 'w1' || x.cls === 'w2')) || (f === 'lose' && (x.cls === 'l1' || x.cls === 'l2'));
+  const SPOTS = [['all', 'Все', 'Все раздачи турнира по порядку.'], ['pl', 'Сыгранные', 'Раздачи, где вы вложили фишки сами или были на блайндах, — без пустых пасов.'], ['ai', 'Олл-ины', 'Раздачи, где вы шли олл-ин или уравнивали олл-ин.'], ['tb', '3-бет банки', 'Банки, где до флопа был 3-бет или больше, и вы в них участвовали.'], ['big', 'Крупные банки', 'Банки от 20 BB, в которых вы участвовали.'], ['win', 'Выигранные', 'Раздачи с вашим выигрышем (зелёные).'], ['lose', 'Проигранные', 'Раздачи с вашим проигрышем (красные), включая сброс с блайндов.'], ['mk', '★ Отмеченные', 'Раздачи, которые вы отметили звёздочкой в реплеере (кнопка ★ или клавиша M).']];
+  const inSpot = (x, f) => f === 'all' || (f === 'mk' && !!MK[x.mk]) || (f === 'pl' && x.played) || (f === 'ai' && x.ai) || (f === 'tb' && x.tb) || (f === 'big' && x.big) || (f === 'win' && (x.cls === 'w1' || x.cls === 'w2')) || (f === 'lose' && (x.cls === 'l1' || x.cls === 'l2'));
   let BUSY = false;
   async function openTour(t) {
     if (BUSY) return; BUSY = true;
@@ -8964,7 +9010,7 @@ window.LIVE_SAMPLE = {"list":[[71951,"CashCowsPoker TV Championship Series Seaso
     if (window.mdaBusy) window.mdaBusy(false);
     BUSY = false;
     const c = DB.cols, H = [];
-    t.ids.forEach((i, k) => { const rp = R[i]; if (!rp) return; const net = c.net[i] / 10; H.push(Object.assign({ i, no: k + 1, rp, net, stack: rp.pl[rp.h][1] * (rp.c > 0 ? rp.c : 1), lvl: rp.c > 0 ? rp.c : 0 }, info(rp, net))); });
+    t.ids.forEach((i, k) => { const rp = R[i]; if (!rp) return; const net = c.net[i] / 10; H.push(Object.assign({ i, no: k + 1, rp, net, mk: handKey(t, rp), stack: rp.pl[rp.h][1] * (rp.c > 0 ? rp.c : 1), lvl: rp.c > 0 ? rp.c : 0 }, info(rp, net))); });
     if (!H.length) return;
     const side = makeSide(t, H);
     window.openReplayer(H[0].i, side.list(), { side });
@@ -8973,21 +9019,42 @@ window.LIVE_SAMPLE = {"list":[[71951,"CashCowsPoker TV Championship Series Seaso
   // Лента раздач справа (как в Hand2Note): номер, ваши карты, позиция, доска (если открывалась), итог; цвет — результат.
   // Ход действий соперников здесь не показывается — он виден на столе.
   function makeSide(t, H) {
-    let filt = 'all', root = null, listBox = null, rows = new Map(), cur = -1, scrollTop = 0;
-    const list = () => H.filter(x => inSpot(x, filt)).map(x => x.i);
+    let filt = 'all', desc = false, root = null, listBox = null, rows = new Map(), cur = -1, scrollTop = 0, spotsEl = null;
+    const counts = () => { if (!spotsEl) return; [...spotsEl.children].forEach(b => { const n = H.filter(x => inSpot(x, b.dataset.v)).length; b.lastChild.textContent = String(n); b.disabled = !n && b.dataset.v !== filt; }); };
+    const ordered = () => { const L = H.filter(x => inSpot(x, filt)); return desc ? L.reverse() : L; };
+    const list = () => ordered().map(x => x.i);
     function build() {
       root = el('aside', 'tv-side'); root.setAttribute('aria-label', 'Раздачи турнира');
       const hd = el('div', 'tv-sh'); hd.append(el('b', null, t.name), el('small', null, (TL.rooms[t.room] || '') + ' · ' + dTxt(t.start) + ' · ' + H.length + ' ' + plural(H.length, 'раздача', 'раздачи', 'раздач')));
-      root.append(hd);
+      const colB = el('button', 'tv-col'); colB.type = 'button'; colB.title = 'Убрать ленту раздач вправо'; colB.setAttribute('aria-label', 'Убрать ленту раздач вправо'); colB.textContent = 'Скрыть ›';
+      colB.onclick = () => setCol(true);
+      const hrow = el('div', 'tv-shr'); hrow.append(hd, colB);
+      const strip = el('button', 'tv-strip'); strip.type = 'button'; strip.title = 'Показать ленту раздач'; strip.setAttribute('aria-label', 'Показать ленту раздач'); strip.append(el('span', null, '‹'), el('b', null, 'Раздачи'));
+      strip.onclick = () => setCol(false);
+      const body = el('div', 'tv-body'); root.append(strip, body); body.append(hrow);
       const fb = el('div', 'tv-spots'); fb.setAttribute('role', 'group'); fb.setAttribute('aria-label', 'Споты');
-      SPOTS.forEach(([v, l, d]) => { const n = H.filter(x => inSpot(x, v)).length; const b = el('button', 'tv-sp' + (filt === v ? ' on' : '')); b.type = 'button'; b.disabled = !n; b.title = d; b.append(document.createTextNode(l), el('span', null, String(n))); b.onclick = () => setFilt(v, fb, b); fb.append(b); });
+      SPOTS.forEach(([v, l, d]) => { const b = el('button', 'tv-sp' + (filt === v ? ' on' : '') + (v === 'mk' ? ' mk' : '')); b.type = 'button'; b.dataset.v = v; b.title = d; b.append(document.createTextNode(l), el('span')); b.onclick = () => setFilt(v, fb, b); fb.append(b); });
+      spotsEl = fb; counts();
+      // порядок ленты и подсказка «?» (что значит выбранный спот и цвета) — подсказка скрыта, открывается по нажатию
+      const tb = el('div', 'tv-tb');
+      const ord = el('div', 'seg bx-seg tv-ord'); ord.setAttribute('role', 'group'); ord.setAttribute('aria-label', 'Порядок раздач');
+      [[false, 'С первой'], [true, 'С последней']].forEach(([v, l]) => { const b = el('button', desc === v ? 'on' : null, l); b.type = 'button'; b.onclick = () => { desc = v; [...ord.children].forEach(x => x.classList.toggle('on', x === b)); fillList(); listBox.scrollTop = 0; scrollTop = 0; const L = list(); if (L.length) window.replayerGo(L[0], L); }; ord.append(b); });
+      const qb = el('button', 'tv-qb'); qb.type = 'button'; qb.setAttribute('aria-expanded', 'false'); qb.append(el('b', null, '?'), document.createTextNode('Цвета и споты'));
+      tb.append(ord, qb);
+      const help = el('div', 'tv-help'); help.hidden = true;
       const fh = el('p', 'tv-sph', SPOTS[0][2]);
-      root.append(fb, fh);
       const lg = el('div', 'tv-leg'); [['w2', 'выигрыш с постфлопом'], ['w1', 'выигрыш без постфлопа'], ['ch', 'поделили банк'], ['l2', 'проигрыш с постфлопом'], ['l1', 'проигрыш без постфлопа, блайнды'], ['x', 'не сыграна']].forEach(([k, l]) => { const s2 = el('span', 'tv-lg ' + k); s2.append(el('i'), document.createTextNode(l)); lg.append(s2); });
-      root.append(lg);
+      help.append(el('b', null, 'Выбранный спот'), fh, el('b', null, 'Цвет раздачи'), lg, el('p', 'tv-sph', '★ — отмеченная раздача: кнопка ★ вверху реплеера или клавиша M.'));
+      qb.onclick = () => { help.hidden = !help.hidden; qb.setAttribute('aria-expanded', String(!help.hidden)); qb.classList.toggle('on', !help.hidden); };
+      body.append(fb, tb, help);
       listBox = el('div', 'tv-hl'); listBox.addEventListener('scroll', () => { scrollTop = listBox.scrollTop; }, { passive: true });
-      fillList(); root.append(listBox, el('p', 'tv-keys', '↑ ↓ — раздачи (по выбранному споту) · ← → — шаги раздачи · пробел — воспроизвести'));
+      fillList(); body.append(listBox, el('p', 'tv-keys', '↑ ↓ — раздачи (по выбранному споту) · ← → — шаги раздачи · пробел — воспроизвести'));
     }
+    // свернуть / развернуть ленту (запоминается)
+    let MAIN = null;
+    const colOn = () => { try { return localStorage.getItem('mda.tv.col') === '1'; } catch (e) { return false; } };
+    function setCol(on) { try { localStorage.setItem('mda.tv.col', on ? '1' : '0'); } catch (e) { /* без сохранения */ } applyCol(); if (!on) setTimeout(() => { const r = rows.get(cur); if (r) r.scrollIntoView({ block: 'center' }); }, 320); }
+    function applyCol() { const on = colOn(); if (root) root.classList.toggle('collapsed', on); if (MAIN) MAIN.classList.toggle('tv-collapsed', on); }
     function setFilt(v, fb, b) {
       filt = v; [...fb.children].forEach(x => x.classList.toggle('on', x === b));
       const h = root.querySelector('.tv-sph'); if (h) h.textContent = (SPOTS.find(z => z[0] === v) || [])[2] || '';
@@ -8997,12 +9064,13 @@ window.LIVE_SAMPLE = {"list":[[71951,"CashCowsPoker TV Championship Series Seaso
     }
     function fillList() {
       listBox.replaceChildren(); rows = new Map();
-      H.filter(x => inSpot(x, filt)).forEach(x => { const r = hRow(x); rows.set(x.i, r); listBox.append(r); });
+      ordered().forEach(x => { const r = hRow(x); rows.set(x.i, r); listBox.append(r); });
       mark();
     }
     function hRow(x) {
       const r = el('button', 'tv-h ' + x.cls); r.type = 'button'; r.title = CLS_T[x.cls];
-      r.append(el('span', 'tv-no', String(x.no)), cardsEl(x.rp.hc), el('span', 'tv-pos', x.rp.pl[x.rp.h][0]));
+      const no = el('span', 'tv-no'); if (MK[x.mk]) no.append(el('i', 'tv-star', '★')); no.append(String(x.no));
+      r.append(no, cardsEl(x.rp.hc), el('span', 'tv-pos', x.rp.pl[x.rp.h][0]));
       const bd = el('span', 'tv-bd'); if (x.bd.length) bd.append(cardsEl(x.bd.join(' '))); r.append(bd);
       r.append(el('b', 'tv-net', Math.abs(x.net) < 0.05 ? '0' : sgn(x.net)));
       r.onclick = () => window.replayerGo(x.i, list());
@@ -9013,10 +9081,19 @@ window.LIVE_SAMPLE = {"list":[[71951,"CashCowsPoker TV Championship Series Seaso
       list,
       mount(main, i) {
         if (!root) build();
-        cur = i; main.append(root); listBox.scrollTop = scrollTop; mark();
+        cur = i; MAIN = main; main.classList.add('tv-noanim'); main.append(root); applyCol(); listBox.scrollTop = scrollTop; mark(); requestAnimationFrame(() => requestAnimationFrame(() => main.classList.remove('tv-noanim')));
         const r = rows.get(i); if (r) { const lb = listBox.getBoundingClientRect(), rb = r.getBoundingClientRect(); if (rb.top < lb.top || rb.bottom > lb.bottom) r.scrollIntoView({ block: 'center' }); }
       },
-      close() { root = null; }
+      close() { root = null; if (LISTDIRTY && REDRAW) { LISTDIRTY = false; REDRAW(); } },
+      isMarked: (i) => { const x = H.find(z => z.i === i); return !!(x && MK[x.mk]); },
+      toggleMark(i) {
+        const x = H.find(z => z.i === i); if (!x) return;
+        if (MK[x.mk]) delete MK[x.mk]; else MK[x.mk] = Date.now();
+        saveMK(); counts();
+        const old = rows.get(i); if (old) { const r = hRow(x); if (old.classList.contains('cur')) r.classList.add('cur'); old.replaceWith(r); rows.set(i, r); }
+        if (filt === 'mk' && !MK[x.mk]) { fillList(); }
+        if (HOST && HOST.isConnected) LISTDIRTY = true;
+      }
     };
   }
 

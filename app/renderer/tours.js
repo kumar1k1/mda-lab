@@ -21,6 +21,14 @@
   ST.q = ''; ST.room = ST.room == null ? -1 : ST.room; ST.per = ST.per || 'all'; ST.sort = ST.sort || 'new';
   const save = () => { try { localStorage.setItem('mda.tours', JSON.stringify({ room: ST.room, per: ST.per, sort: ST.sort })); } catch (e) { /* без сохранения */ } };
 
+  // ---------- отмеченные раздачи ----------
+  // хранятся по устойчивому ключу раздачи (рум, время, карты), а не по номеру строки базы — дозагрузка рук их не сбивает
+  const MK = (() => { try { return JSON.parse(localStorage.getItem('mda.marks') || '{}') || {}; } catch (e) { return {}; } })();
+  const saveMK = () => { try { localStorage.setItem('mda.marks', JSON.stringify(MK)); } catch (e) { /* без сохранения */ } };
+  const tourKey = (t) => (TL.rooms[t.room] || '') + '|' + t.name + '|' + t.start;
+  const handKey = (t, rp) => tourKey(t) + '|' + (rp.d || '') + '|' + (rp.hc || '') + '|' + (rp.pl && rp.pl[rp.h] ? rp.pl[rp.h][0] + rp.pl[rp.h][1] : '');
+  const marksOf = (t) => { const p = tourKey(t) + '|'; let n = 0; for (const k in MK) if (k.startsWith(p)) n++; return n; };
+
   // ---------- турниры из данных «Результатов» ----------
   let TL = null;
   async function data() {
@@ -43,7 +51,7 @@
   }
 
   // ---------- список ----------
-  let HOST = null, SHOWN = 150;
+  let HOST = null, SHOWN = 150, LISTDIRTY = false, REDRAW = null;
   async function draw(main) {
     HOST = main; main.replaceChildren(window.mdaLoad ? window.mdaLoad('Собираю турниры из базы…') : el('p', null, 'Собираю турниры…'));
     let T = null; try { T = await data(); } catch (e) { T = null; }
@@ -82,7 +90,7 @@
       L.slice(0, SHOWN).forEach(t => box.append(row(t, own)));
       if (L.length > SHOWN) { const more = el('button', 'btn tv-more', 'Показать ещё ' + Math.min(150, L.length - SHOWN) + ' из ' + (L.length - SHOWN)); more.type = 'button'; more.onclick = () => { SHOWN += 150; drawRows(); }; box.append(more); }
     }
-    drawRows();
+    drawRows(); REDRAW = drawRows;
   }
   function spark(cum) {
     const W = 120, H = 30, n = cum.length, step = Math.max(1, Math.floor(n / 60));
@@ -98,7 +106,7 @@
     const r = el('button', 'tv-row'); r.type = 'button'; r.disabled = !own;
     const d = el('span', 'tv-d'); d.append(el('b', null, dTxt(t.start).split(', ')[0]), el('small', null, dTxt(t.start).split(', ')[1] + ' · ' + durTxt(Math.max(1, t.end - t.start))));
     const nm = el('span', 'tv-nm'); const rm = el('i', 'tv-rb', (TL.rooms[t.room] || '?')); nm.append(el('b', null, t.name));
-    const sub = el('small'); sub.append(rm); if (t.bi > 0) sub.append(' бай-ин $' + (t.bi / 100).toFixed(t.bi % 100 ? 2 : 0).replace('.', ',')); nm.append(sub);
+    const sub = el('small'); sub.append(rm); const mk = marksOf(t); if (mk) sub.append(el('i', 'tv-mk', '★ ' + mk)); if (t.bi > 0) sub.append(' бай-ин $' + (t.bi / 100).toFixed(t.bi % 100 ? 2 : 0).replace('.', ',')); nm.append(sub);
     const n = el('span', 'tv-n', sp(t.ids.length));
     const res = el('span', 'tv-res'); res.append(el('b', t.net >= 0 ? 'up' : 'down', sgn(t.net))); if (Math.abs(t.ev - t.net) > 0.5) res.append(el('small', null, 'EV ' + sgn(t.ev)));
     const g = el('span', 'tv-g'); g.append(spark(t.cum));
@@ -146,8 +154,8 @@
   const CLS_T = { w2: 'Выиграна с постфлопом', w1: 'Выиграна без постфлопа', ch: 'Банк поделён', l2: 'Проиграна с постфлопом', l1: 'Проиграна без постфлопа (в том числе блайнды)', x: 'Не сыграна — сброс без вложений' };
 
   // ---------- реплеер турнира ----------
-  const SPOTS = [['all', 'Все', 'Все раздачи турнира по порядку.'], ['pl', 'Сыгранные', 'Раздачи, где вы вложили фишки сами или были на блайндах, — без пустых пасов.'], ['ai', 'Олл-ины', 'Раздачи, где вы шли олл-ин или уравнивали олл-ин.'], ['tb', '3-бет банки', 'Банки, где до флопа был 3-бет или больше, и вы в них участвовали.'], ['big', 'Крупные банки', 'Банки от 20 BB, в которых вы участвовали.'], ['win', 'Выигранные', 'Раздачи с вашим выигрышем (зелёные).'], ['lose', 'Проигранные', 'Раздачи с вашим проигрышем (красные), включая сброс с блайндов.']];
-  const inSpot = (x, f) => f === 'all' || (f === 'pl' && x.played) || (f === 'ai' && x.ai) || (f === 'tb' && x.tb) || (f === 'big' && x.big) || (f === 'win' && (x.cls === 'w1' || x.cls === 'w2')) || (f === 'lose' && (x.cls === 'l1' || x.cls === 'l2'));
+  const SPOTS = [['all', 'Все', 'Все раздачи турнира по порядку.'], ['pl', 'Сыгранные', 'Раздачи, где вы вложили фишки сами или были на блайндах, — без пустых пасов.'], ['ai', 'Олл-ины', 'Раздачи, где вы шли олл-ин или уравнивали олл-ин.'], ['tb', '3-бет банки', 'Банки, где до флопа был 3-бет или больше, и вы в них участвовали.'], ['big', 'Крупные банки', 'Банки от 20 BB, в которых вы участвовали.'], ['win', 'Выигранные', 'Раздачи с вашим выигрышем (зелёные).'], ['lose', 'Проигранные', 'Раздачи с вашим проигрышем (красные), включая сброс с блайндов.'], ['mk', '★ Отмеченные', 'Раздачи, которые вы отметили звёздочкой в реплеере (кнопка ★ или клавиша M).']];
+  const inSpot = (x, f) => f === 'all' || (f === 'mk' && !!MK[x.mk]) || (f === 'pl' && x.played) || (f === 'ai' && x.ai) || (f === 'tb' && x.tb) || (f === 'big' && x.big) || (f === 'win' && (x.cls === 'w1' || x.cls === 'w2')) || (f === 'lose' && (x.cls === 'l1' || x.cls === 'l2'));
   let BUSY = false;
   async function openTour(t) {
     if (BUSY) return; BUSY = true;
@@ -157,7 +165,7 @@
     if (window.mdaBusy) window.mdaBusy(false);
     BUSY = false;
     const c = DB.cols, H = [];
-    t.ids.forEach((i, k) => { const rp = R[i]; if (!rp) return; const net = c.net[i] / 10; H.push(Object.assign({ i, no: k + 1, rp, net, stack: rp.pl[rp.h][1] * (rp.c > 0 ? rp.c : 1), lvl: rp.c > 0 ? rp.c : 0 }, info(rp, net))); });
+    t.ids.forEach((i, k) => { const rp = R[i]; if (!rp) return; const net = c.net[i] / 10; H.push(Object.assign({ i, no: k + 1, rp, net, mk: handKey(t, rp), stack: rp.pl[rp.h][1] * (rp.c > 0 ? rp.c : 1), lvl: rp.c > 0 ? rp.c : 0 }, info(rp, net))); });
     if (!H.length) return;
     const side = makeSide(t, H);
     window.openReplayer(H[0].i, side.list(), { side });
@@ -166,21 +174,42 @@
   // Лента раздач справа (как в Hand2Note): номер, ваши карты, позиция, доска (если открывалась), итог; цвет — результат.
   // Ход действий соперников здесь не показывается — он виден на столе.
   function makeSide(t, H) {
-    let filt = 'all', root = null, listBox = null, rows = new Map(), cur = -1, scrollTop = 0;
-    const list = () => H.filter(x => inSpot(x, filt)).map(x => x.i);
+    let filt = 'all', desc = false, root = null, listBox = null, rows = new Map(), cur = -1, scrollTop = 0, spotsEl = null;
+    const counts = () => { if (!spotsEl) return; [...spotsEl.children].forEach(b => { const n = H.filter(x => inSpot(x, b.dataset.v)).length; b.lastChild.textContent = String(n); b.disabled = !n && b.dataset.v !== filt; }); };
+    const ordered = () => { const L = H.filter(x => inSpot(x, filt)); return desc ? L.reverse() : L; };
+    const list = () => ordered().map(x => x.i);
     function build() {
       root = el('aside', 'tv-side'); root.setAttribute('aria-label', 'Раздачи турнира');
       const hd = el('div', 'tv-sh'); hd.append(el('b', null, t.name), el('small', null, (TL.rooms[t.room] || '') + ' · ' + dTxt(t.start) + ' · ' + H.length + ' ' + plural(H.length, 'раздача', 'раздачи', 'раздач')));
-      root.append(hd);
+      const colB = el('button', 'tv-col'); colB.type = 'button'; colB.title = 'Убрать ленту раздач вправо'; colB.setAttribute('aria-label', 'Убрать ленту раздач вправо'); colB.textContent = 'Скрыть ›';
+      colB.onclick = () => setCol(true);
+      const hrow = el('div', 'tv-shr'); hrow.append(hd, colB);
+      const strip = el('button', 'tv-strip'); strip.type = 'button'; strip.title = 'Показать ленту раздач'; strip.setAttribute('aria-label', 'Показать ленту раздач'); strip.append(el('span', null, '‹'), el('b', null, 'Раздачи'));
+      strip.onclick = () => setCol(false);
+      const body = el('div', 'tv-body'); root.append(strip, body); body.append(hrow);
       const fb = el('div', 'tv-spots'); fb.setAttribute('role', 'group'); fb.setAttribute('aria-label', 'Споты');
-      SPOTS.forEach(([v, l, d]) => { const n = H.filter(x => inSpot(x, v)).length; const b = el('button', 'tv-sp' + (filt === v ? ' on' : '')); b.type = 'button'; b.disabled = !n; b.title = d; b.append(document.createTextNode(l), el('span', null, String(n))); b.onclick = () => setFilt(v, fb, b); fb.append(b); });
+      SPOTS.forEach(([v, l, d]) => { const b = el('button', 'tv-sp' + (filt === v ? ' on' : '') + (v === 'mk' ? ' mk' : '')); b.type = 'button'; b.dataset.v = v; b.title = d; b.append(document.createTextNode(l), el('span')); b.onclick = () => setFilt(v, fb, b); fb.append(b); });
+      spotsEl = fb; counts();
+      // порядок ленты и подсказка «?» (что значит выбранный спот и цвета) — подсказка скрыта, открывается по нажатию
+      const tb = el('div', 'tv-tb');
+      const ord = el('div', 'seg bx-seg tv-ord'); ord.setAttribute('role', 'group'); ord.setAttribute('aria-label', 'Порядок раздач');
+      [[false, 'С первой'], [true, 'С последней']].forEach(([v, l]) => { const b = el('button', desc === v ? 'on' : null, l); b.type = 'button'; b.onclick = () => { desc = v; [...ord.children].forEach(x => x.classList.toggle('on', x === b)); fillList(); listBox.scrollTop = 0; scrollTop = 0; const L = list(); if (L.length) window.replayerGo(L[0], L); }; ord.append(b); });
+      const qb = el('button', 'tv-qb'); qb.type = 'button'; qb.setAttribute('aria-expanded', 'false'); qb.append(el('b', null, '?'), document.createTextNode('Цвета и споты'));
+      tb.append(ord, qb);
+      const help = el('div', 'tv-help'); help.hidden = true;
       const fh = el('p', 'tv-sph', SPOTS[0][2]);
-      root.append(fb, fh);
       const lg = el('div', 'tv-leg'); [['w2', 'выигрыш с постфлопом'], ['w1', 'выигрыш без постфлопа'], ['ch', 'поделили банк'], ['l2', 'проигрыш с постфлопом'], ['l1', 'проигрыш без постфлопа, блайнды'], ['x', 'не сыграна']].forEach(([k, l]) => { const s2 = el('span', 'tv-lg ' + k); s2.append(el('i'), document.createTextNode(l)); lg.append(s2); });
-      root.append(lg);
+      help.append(el('b', null, 'Выбранный спот'), fh, el('b', null, 'Цвет раздачи'), lg, el('p', 'tv-sph', '★ — отмеченная раздача: кнопка ★ вверху реплеера или клавиша M.'));
+      qb.onclick = () => { help.hidden = !help.hidden; qb.setAttribute('aria-expanded', String(!help.hidden)); qb.classList.toggle('on', !help.hidden); };
+      body.append(fb, tb, help);
       listBox = el('div', 'tv-hl'); listBox.addEventListener('scroll', () => { scrollTop = listBox.scrollTop; }, { passive: true });
-      fillList(); root.append(listBox, el('p', 'tv-keys', '↑ ↓ — раздачи (по выбранному споту) · ← → — шаги раздачи · пробел — воспроизвести'));
+      fillList(); body.append(listBox, el('p', 'tv-keys', '↑ ↓ — раздачи (по выбранному споту) · ← → — шаги раздачи · пробел — воспроизвести'));
     }
+    // свернуть / развернуть ленту (запоминается)
+    let MAIN = null;
+    const colOn = () => { try { return localStorage.getItem('mda.tv.col') === '1'; } catch (e) { return false; } };
+    function setCol(on) { try { localStorage.setItem('mda.tv.col', on ? '1' : '0'); } catch (e) { /* без сохранения */ } applyCol(); if (!on) setTimeout(() => { const r = rows.get(cur); if (r) r.scrollIntoView({ block: 'center' }); }, 320); }
+    function applyCol() { const on = colOn(); if (root) root.classList.toggle('collapsed', on); if (MAIN) MAIN.classList.toggle('tv-collapsed', on); }
     function setFilt(v, fb, b) {
       filt = v; [...fb.children].forEach(x => x.classList.toggle('on', x === b));
       const h = root.querySelector('.tv-sph'); if (h) h.textContent = (SPOTS.find(z => z[0] === v) || [])[2] || '';
@@ -190,12 +219,13 @@
     }
     function fillList() {
       listBox.replaceChildren(); rows = new Map();
-      H.filter(x => inSpot(x, filt)).forEach(x => { const r = hRow(x); rows.set(x.i, r); listBox.append(r); });
+      ordered().forEach(x => { const r = hRow(x); rows.set(x.i, r); listBox.append(r); });
       mark();
     }
     function hRow(x) {
       const r = el('button', 'tv-h ' + x.cls); r.type = 'button'; r.title = CLS_T[x.cls];
-      r.append(el('span', 'tv-no', String(x.no)), cardsEl(x.rp.hc), el('span', 'tv-pos', x.rp.pl[x.rp.h][0]));
+      const no = el('span', 'tv-no'); if (MK[x.mk]) no.append(el('i', 'tv-star', '★')); no.append(String(x.no));
+      r.append(no, cardsEl(x.rp.hc), el('span', 'tv-pos', x.rp.pl[x.rp.h][0]));
       const bd = el('span', 'tv-bd'); if (x.bd.length) bd.append(cardsEl(x.bd.join(' '))); r.append(bd);
       r.append(el('b', 'tv-net', Math.abs(x.net) < 0.05 ? '0' : sgn(x.net)));
       r.onclick = () => window.replayerGo(x.i, list());
@@ -206,10 +236,19 @@
       list,
       mount(main, i) {
         if (!root) build();
-        cur = i; main.append(root); listBox.scrollTop = scrollTop; mark();
+        cur = i; MAIN = main; main.classList.add('tv-noanim'); main.append(root); applyCol(); listBox.scrollTop = scrollTop; mark(); requestAnimationFrame(() => requestAnimationFrame(() => main.classList.remove('tv-noanim')));
         const r = rows.get(i); if (r) { const lb = listBox.getBoundingClientRect(), rb = r.getBoundingClientRect(); if (rb.top < lb.top || rb.bottom > lb.bottom) r.scrollIntoView({ block: 'center' }); }
       },
-      close() { root = null; }
+      close() { root = null; if (LISTDIRTY && REDRAW) { LISTDIRTY = false; REDRAW(); } },
+      isMarked: (i) => { const x = H.find(z => z.i === i); return !!(x && MK[x.mk]); },
+      toggleMark(i) {
+        const x = H.find(z => z.i === i); if (!x) return;
+        if (MK[x.mk]) delete MK[x.mk]; else MK[x.mk] = Date.now();
+        saveMK(); counts();
+        const old = rows.get(i); if (old) { const r = hRow(x); if (old.classList.contains('cur')) r.classList.add('cur'); old.replaceWith(r); rows.set(i, r); }
+        if (filt === 'mk' && !MK[x.mk]) { fillList(); }
+        if (HOST && HOST.isConnected) LISTDIRTY = true;
+      }
     };
   }
 

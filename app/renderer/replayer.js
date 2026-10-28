@@ -125,7 +125,7 @@
     ttl.append(el('b', null, rp.t || room), el('span', null, [room, rp.d, 'вы на ' + rp.pl[H0][0] + ', стек ' + fmt(rp.pl[H0][1]) + ' BB'].filter(Boolean).join(' · ')));
     const res = el('div', 'rv-res');
     const chip = (lab, v) => { const d = el('div', 'rv-rchip ' + (v > 0 ? 'up' : v < 0 ? 'down' : '')); d.append(el('span', null, lab), el('b', null, sgn(v) + ' BB')); return d; };
-    res.append(chip('Итог', net)); if (Math.abs(nev - net) > 0.005) res.append(chip('По EV', nev));
+    if (!CUR.side) { res.append(chip('Итог', net)); if (Math.abs(nev - net) > 0.005) res.append(chip('По EV', nev)); } // в реплеере турнира итог — в ленте справа
     const tools = el('div', 'rv-tools');
     const ib = (label, svg, fn, cls) => { const b = el('button', 'rv-ib' + (cls ? ' ' + cls : '')); b.type = 'button'; b.title = label; b.setAttribute('aria-label', label); b.innerHTML = svg; b.onclick = fn; return b; };
     const ic = (d, fill) => '<svg width="18" height="18" viewBox="0 0 24 24" ' + (fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"') + ' aria-hidden="true">' + d + '</svg>';
@@ -142,6 +142,14 @@
     }
     const toggleGear = () => soon(gearB, 'Вид реплеера', 'Скоро будет добавлено: цвета стола и карт, размер, что показывать на местах.');
     const closeB = ib('Закрыть (Esc)', ic('<path d="M6 6l12 12M18 6L6 18"/>'), () => closeReplayer());
+    // реплеер турнира: «Отметить раздачу» (звёздочка, клавиша M) — отмеченные видны в ленте и во вкладке «Отмеченные»
+    let markB = null;
+    if (CUR.side && CUR.side.toggleMark) {
+      const STAR = '<path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/>';
+      const st0 = () => { const on = CUR.side.isMarked(i); markB.innerHTML = ic(STAR, on); markB.classList.toggle('on', on); markB.setAttribute('aria-pressed', String(on)); markB.title = (on ? 'Снять отметку' : 'Отметить раздачу') + ' (M)'; markB.setAttribute('aria-label', markB.title); };
+      markB = ib('Отметить раздачу (M)', '', () => { CUR.side.toggleMark(i); st0(); }, 'mark'); st0();
+    }
+    if (markB) tools.append(markB);
     tools.append(copyB, pngB, gearB, closeB);
     head.append(ttl, res, tools);
 
@@ -380,6 +388,7 @@
       else if (e.key === 'ArrowRight') { stop(); go(st.k + 1, true); } else if (e.key === 'ArrowLeft') { stop(); go(st.k - 1); }
       else if (e.key === 'Home') { stop(); go(1); } else if (e.key === 'End') { stop(); go(fr.length - 1); }
       else if (e.key === 'PageDown' || (CUR && CUR.side && e.key === 'ArrowDown')) { e.preventDefault(); step(1); } else if (e.key === 'PageUp' || (CUR && CUR.side && e.key === 'ArrowUp')) { e.preventDefault(); step(-1); }
+      else if (markB && (e.key === 'm' || e.key === 'M' || e.key === 'ь' || e.key === 'Ь')) markB.click();
       else if (e.key === ' ') { e.preventDefault(); toggle(); } else if ((e.key === 'v' || e.key === 'V' || e.key === 'м' || e.key === 'М') ) eyeB.click(); else if (e.key === 'n' || e.key === 'N' || e.key === 'т' || e.key === 'Т') nameB.click(); else return;
     };
     RP = { bg, stop, keys, speed };
