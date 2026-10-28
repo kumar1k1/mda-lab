@@ -1679,10 +1679,10 @@ body.rendering{cursor:progress}
 .lv-pc-t{align-self:flex-start;border:0;background:none;padding:2px 0;color:var(--amber);font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
 .lv-pc-tb{display:flex;flex-direction:column;border-top:1px solid var(--line);padding-top:6px}
 .lv-pc-r{display:grid;grid-template-columns:20px 92px minmax(0,1fr) auto 86px;gap:8px;align-items:center;padding:5px 4px;border-bottom:1px solid var(--line);font-size:12.5px;color:var(--faint);cursor:pointer}
-.lv-pc-r.on{color:var(--text)}.lv-pc-r .dt,.lv-pc-r .bi,.lv-pc-r .gt{font-family:var(--mono);font-size:12px}.lv-pc-r .gt{text-align:right;color:var(--good)}.lv-pc-r .bi{text-align:right}
-.lv-pc-r .nm{min-width:0}.lv-pc-r .nm b{font-weight:600}
-.lv-pc-r .nm i{font-style:normal;font-size:10.5px;margin-left:6px;padding:1px 6px;border-radius:6px;border:1px solid var(--line2);color:var(--muted)}
-.lv-pc-r .nm i.main{border-color:var(--amber);color:var(--amber)}
+.lv-pc-r.on{color:var(--text)}.lv-pc-r .lv-pdt,.lv-pc-r .lv-pbi,.lv-pc-r .lv-pgt{font-family:var(--mono);font-size:12px}.lv-pc-r .lv-pgt{text-align:right;color:var(--good)}.lv-pc-r .lv-pbi{text-align:right}
+.lv-pc-r .lv-pnm{min-width:0}.lv-pc-r .lv-pnm b{font-weight:600}
+.lv-pc-r .lv-pnm i{font-style:normal;font-size:10.5px;margin-left:6px;padding:1px 6px;border-radius:6px;border:1px solid var(--line2);color:var(--muted)}
+.lv-pc-r .lv-pnm i.main{border-color:var(--amber);color:var(--amber)}
 .lv-pk-hint{font-size:11.5px;color:var(--faint);margin-top:-4px}
 .lv-pk-where{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px;margin:0 0 6px;font-size:13px}.lv-pk-where span{color:var(--faint)}.lv-pk-where b{color:var(--amber)}.lv-pk-where small{color:var(--faint);font-size:11.5px}
 
@@ -6773,7 +6773,7 @@ window.LIVE_SAMPLE = {"list":[[71951,"CashCowsPoker TV Championship Series Seaso
   // Серии ранжируются: больше турниров / крупнее гарантии / раньше. План можно поправить галочками.
   let PICK = false, FROMPICK = false, pickT = null, pickForm = null, pickRes = null;
   const PEDIT = {}, POPEN = new Set();
-  const PK0 = { bud: 3000, lo: 0, hi: 0, n: 6, ent: 1.5, main: true, side: true, hr: false, bnt: true, sat: false, nlh: true, sort: 'n' };
+  const PK0 = { fill: true, bud: 3000, lo: 0, hi: 0, n: 6, ent: 1.5, main: true, side: true, hr: false, bnt: true, sat: false, nlh: true, sort: 'n' };
   ST.pk = Object.assign({}, PK0, ST.pk && typeof ST.pk === 'object' ? ST.pk : {}); delete ST.pk.trav; // бюджет — только покерные расходы
   const pickSoon = (ms) => { if (pickT) return; pickT = setTimeout(() => { pickT = null; if (PICK) drawPickRes(); }, ms || 150); };
   function openPick() { PICK = true; FROMPICK = false; pickB.classList.add('on'); pickForm = null; drawPick(); }
@@ -6793,6 +6793,13 @@ window.LIVE_SAMPLE = {"list":[[71951,"CashCowsPoker TV Championship Series Seaso
       return !any || !!k[kind(e)];
     });
   }
+  // стоимость плана: первый флайт турнира — бай-ин × входы, каждый следующий флайт того же турнира — ещё один вход (бай-ин)
+  function costs(pick, k) {
+    const seen = new Set(), m = new Map();
+    pick.slice().sort((a, b) => (a.ms || 0) - (b.ms || 0)).forEach(e => { m.set(e.i, seen.has(e.k) ? e.b : e.b * entOf(e, k.ent)); seen.add(e.k); });
+    return m;
+  }
+  const clash = (pick, e) => e.ms != null && pick.some(p => p.ms != null && Math.abs(p.ms - e.ms) < 3 * 3600e3);
   function plan(f) {
     const C = cands(f); if (!C) return null;
     const k = ST.pk, avail = k.bud, cost = (e) => e.b * entOf(e, k.ent);
@@ -6802,16 +6809,24 @@ window.LIVE_SAMPLE = {"list":[[71951,"CashCowsPoker TV Championship Series Seaso
       const ord = C.slice().sort((a, b) => ((kind(b) === 'main') - (kind(a) === 'main')) || (k.sort === 'g' ? (b.g - a.g) || (b.b - a.b) : (a.b - b.b) || (b.g - a.g)) || ((a.ms || 0) - (b.ms || 0)));
       pick = []; let tot = 0; const used = new Set();
       for (const e of ord) {
-        if (pick.length >= k.n) break;
-        const c = cost(e); if (tot + c > avail || used.has(e.k)) continue;
-        if (e.ms != null && pick.some(p => p.ms != null && Math.abs(p.ms - e.ms) < 3 * 3600e3)) continue;
+        if (used.size >= k.n) break;
+        const c = cost(e); if (tot + c > avail || used.has(e.k) || clash(pick, e)) continue;
         pick.push(e); tot += c; used.add(e.k);
+      }
+      // остаток бюджета — на дополнительные входы через следующие флайты тех же турниров (главное событие — первым)
+      if (k.fill) {
+        const first = new Map(); pick.forEach(e => first.set(e.k, e.ms));
+        const more = C.filter(e => first.has(e.k) && !pick.includes(e) && e.ms != null && first.get(e.k) != null && e.ms > first.get(e.k))
+          .sort((a, b) => ((kind(b) === 'main') - (kind(a) === 'main')) || (a.ms - b.ms));
+        for (const e of more) { if (tot + e.b > avail || clash(pick, e)) continue; pick.push(e); tot += e.b; }
       }
     }
     pick.sort((a, b) => (a.ms || 0) - (b.ms || 0));
-    const tot = pick.reduce((a, e) => a + cost(e), 0), gtd = pick.reduce((a, e) => a + (e.g || 0), 0);
+    const cm = costs(pick, k), keys = new Set(pick.map(e => e.k));
+    const tot = pick.reduce((a, e) => a + cm.get(e.i), 0);
+    const gk = new Set(); let gtd = 0; pick.forEach(e => { if (!gk.has(e.k)) { gk.add(e.k); gtd += e.g || 0; } });
     const days = pick.filter(e => e.ms != null).map(e => Math.floor(e.ms / DAY));
-    return { f, C, pick, tot, gtd, main: pick.find(e => kind(e) === 'main'), d0: days.length ? Math.min(...days) : null, d1: days.length ? Math.max(...days) : null, over: tot > k.bud };
+    return { f, C, pick, cm, nT: keys.size, extra: pick.length - keys.size, tot, gtd, main: pick.find(e => kind(e) === 'main'), d0: days.length ? Math.min(...days) : null, d1: days.length ? Math.max(...days) : null, over: tot > k.bud };
   }
   function drawPick() {
     if (!pickForm) {
@@ -6827,7 +6842,7 @@ window.LIVE_SAMPLE = {"list":[[71951,"CashCowsPoker TV Championship Series Seaso
       const row2 = el('div', 'lv-pk-row');
       const nW = el('label', 'lv-pk-f'); nW.append(el('span', null, 'Сколько турниров готовы сыграть')); const nI = el('input', 'lv-pk-in'); nI.type = 'number'; nI.min = '1'; nI.max = '60'; nI.value = k.n; nI.oninput = () => { k.n = Math.max(1, Math.min(60, +nI.value || 1)); upd(); }; nW.append(nI, el('small', null, 'не больше этого числа'));
       const segW = (label, key, opts, help) => { const w = el('div', 'lv-pk-f'); w.append(el('span', null, label)); const g = el('div', 'seg bx-seg'); g.setAttribute('role', 'group'); g.setAttribute('aria-label', label); opts.forEach(([v, l]) => { const b = el('button', k[key] === v ? 'on' : null, l); b.type = 'button'; b.onclick = () => { k[key] = v; [...g.children].forEach(c => c.classList.toggle('on', c === b)); upd(); }; g.append(b); }); w.append(g); if (help) w.append(el('small', null, help)); return w; };
-      row2.append(nW, segW('Входов в турнир в среднем', 'ent', [[1, '1'], [1.5, '1,5'], [2, '2'], [3, '3']], 'с ре-энтри; во фризаут — всегда 1'), segW('Игра', 'nlh', [[true, 'Только холдем'], [false, 'Все игры']], 'омаха и другие — по «Все игры»'), segW('Что важнее', 'sort', [['n', 'Больше турниров'], ['g', 'Крупнее гарантии'], ['d', 'Ближе по дате']]));
+      row2.append(nW, segW('Входов в турнир в среднем', 'ent', [[1, '1'], [1.5, '1,5'], [2, '2'], [3, '3']], 'с ре-энтри; во фризаут — всегда 1'), segW('Остаток бюджета', 'fill', [[true, 'На доп. флайты'], [false, 'Оставить']], 'вылетели во флайте — заход в следующий'), segW('Игра', 'nlh', [[true, 'Только холдем'], [false, 'Все игры']], 'омаха и другие — по «Все игры»'), segW('Что важнее', 'sort', [['n', 'Больше турниров'], ['g', 'Крупнее гарантии'], ['d', 'Ближе по дате']]));
       const row3 = el('div', 'lv-pk-types'); row3.append(el('span', 'lv-pk-l', 'Какие турниры играете:'));
       [['main', 'Главное событие'], ['side', 'Обычные турниры'], ['bnt', 'Баунти и мистери'], ['hr', 'Хайроллеры'], ['sat', 'Сателлиты']].forEach(([key, l]) => { const b = el('button', 'lv-tg' + (k[key] ? ' on' : ''), l); b.type = 'button'; b.setAttribute('aria-pressed', String(!!k[key])); b.onclick = () => { k[key] = !k[key]; b.classList.toggle('on', k[key]); b.setAttribute('aria-pressed', String(k[key])); upd(); }; row3.append(b); });
       pickForm.append(row1, row2, row3, el('small', 'lv-pk-hint', 'Можно выбрать несколько видов; если не выбран ни один — подбираются все виды турниров.'));
@@ -6844,7 +6859,7 @@ window.LIVE_SAMPLE = {"list":[[71951,"CashCowsPoker TV Championship Series Seaso
     const base = filtered(), wait = base.filter(f => !SUM[f.id] || (SUM[f.id].n && SUM[f.id].v !== 3)).length;
     let P = base.map(plan).filter(p => p && p.pick.length);
     const none = base.filter(f => SUM[f.id] && SUM[f.id].ev).length - P.length;
-    P.sort(k.sort === 'g' ? (a, b) => b.gtd - a.gtd || b.pick.length - a.pick.length : k.sort === 'd' ? (a, b) => (a.d0 || a.f.s * DAY) - (b.d0 || b.f.s * DAY) : (a, b) => b.pick.length - a.pick.length || a.tot - b.tot);
+    P.sort(k.sort === 'g' ? (a, b) => b.gtd - a.gtd || b.nT - a.nT : k.sort === 'd' ? (a, b) => (a.d0 || a.f.s * DAY) - (b.d0 || b.f.s * DAY) : (a, b) => b.nT - a.nT || a.tot - b.tot);
     const info = el('p', 'lv-pk-info', P.length ? 'Подходит ' + P.length + ' ' + plural(P.length, 'серия', 'серии', 'серий') + '.' : 'Под эти условия серий нет — увеличьте бюджет, расширьте диапазон бай-инов или выберите больше видов турниров.');
     if (none > 0) info.append(' Не подошли: ' + none + ' (нет турниров в вашем диапазоне или не хватает бюджета).');
     if (wait && PREVIEW) info.append(' В превью расписание есть у трёх серий, в программе подбор идёт по всем.');
@@ -6870,7 +6885,8 @@ window.LIVE_SAMPLE = {"list":[[71951,"CashCowsPoker TV Championship Series Seaso
     const load = Math.round(p.tot / k.bud * 100);
     const st = el('div', 'lv-pc-s');
     const cell = (a, b, cls) => { const x = el('div', cls || null); x.append(el('span', null, a), el('b', null, b)); st.append(x); };
-    cell('Турниров в плане', p.pick.length + (p.pick.length < k.n ? ' из ' + k.n : ''));
+    cell('Турниров в плане', p.nT + (p.nT < k.n ? ' из ' + k.n : ''));
+    if (p.extra) cell('Доп. входы (флайты)', '+' + p.extra);
     cell('Стоимость', money(p.tot));
     cell('Загрузка бюджета', load + '%', p.over ? 'bad' : null);
     cell('Остаток', money(Math.max(0, k.bud - p.tot)));
@@ -6880,11 +6896,11 @@ window.LIVE_SAMPLE = {"list":[[71951,"CashCowsPoker TV Championship Series Seaso
     const bar = el('div', 'lv-pc-bar'); const fill = el('i'); fill.style.width = Math.min(100, load) + '%'; bar.append(fill); card.append(bar);
     if (k.main) { const me = p.C.find(e => kind(e) === 'main'); card.append(el('p', 'lv-pc-n', p.main ? 'Главное событие в плане: ' + p.main.n + ' — ' + money(p.main.b) : me ? 'Главное событие (' + money(me.b) + (entOf(me, k.ent) > 1 ? ' × ' + String(entOf(me, k.ent)).replace('.', ',') : '') + ') не помещается в бюджет' : 'Главного события в вашем диапазоне бай-инов нет')); }
     const groups = new Set(p.C.map(e => e.k)).size;
-    if (p.pick.length < k.n && !PEDIT[f.id]) {
+    if (p.nT < k.n && !PEDIT[f.id]) {
       const rest = p.C.filter(e => !p.pick.some(x => x.k === e.k)), restG = new Set(rest.map(e => e.k)).size;
       const cheap = rest.length ? Math.min(...rest.map(e => e.b * entOf(e, k.ent))) : 0;
       card.append(el('p', 'lv-pc-n', !restG
-        ? 'В этой серии под ваши условия всего ' + groups + ' ' + plural(groups, 'турнир', 'турнира', 'турниров') + ' (флайты одного турнира — это один турнир), поэтому бюджет заполнен не полностью. Остаток можно оставить на ре-энтри или расширить диапазон бай-инов.'
+        ? 'В этой серии под ваши условия всего ' + groups + ' ' + plural(groups, 'турнир', 'турнира', 'турниров') + ' — флайты (Day 1A, 1B…) одного турнира считаются одним турниром.' + (k.fill ? (p.extra ? ' Остаток бюджета пущен на доп. входы через следующие флайты.' : '') : ' Остаток можно пустить на доп. входы через флайты — «Остаток бюджета: на доп. флайты».')
         : 'Ещё ' + restG + ' ' + plural(restG, 'турнир не вошёл', 'турнира не вошли', 'турниров не вошли') + ' — ' + (p.tot + cheap > k.bud ? 'не хватает бюджета' : 'старт ближе 3 часов к турниру из плана') + '. Можно добавить галочкой.'));
     }
     const tg = el('button', 'lv-pc-t', open ? 'Скрыть план ▴' : 'Показать план и поправить ▾'); tg.type = 'button';
@@ -6898,8 +6914,10 @@ window.LIVE_SAMPLE = {"list":[[71951,"CashCowsPoker TV Championship Series Seaso
         const cb = el('input'); cb.type = 'checkbox'; cb.checked = on;
         cb.onchange = () => { const s = PEDIT[f.id] || new Set(sel); if (cb.checked) s.add(e.i); else s.delete(e.i); PEDIT[f.id] = s; card.replaceWith(pickCard(plan(f))); };
         const en = entOf(e, k.ent), K = kind(e);
-        const nm = el('span', 'nm'); nm.append(el('b', null, e.n)); const tags = { main: 'главное', hr: 'хайроллер', bnt: 'баунти', sat: 'сателлит' }; if (tags[K]) nm.append(el('i', K, tags[K])); if (e.c === 1) nm.append(el('i', null, 'фризаут'));
-        r.append(cb, el('span', 'dt', e.ms != null ? dShort(Math.floor(e.ms / DAY)) + (e.t.length > 10 ? ' ' + e.t.slice(11, 16) : '') : '—'), nm, el('span', 'bi', money(e.b) + (en > 1 ? ' × ' + String(en).replace('.', ',') + ' = ' + money(e.b * en) : '')), el('span', 'gt', e.g ? big(e.g) : ''));
+        const nm = el('span', 'lv-pnm'); nm.append(el('b', null, e.n)); const tags = { main: 'главное', hr: 'хайроллер', bnt: 'баунти', sat: 'сателлит' }; if (tags[K]) nm.append(el('i', K, tags[K])); if (e.c === 1) nm.append(el('i', null, 'фризаут'));
+        const isX = on && p.cm.get(e.i) === e.b && p.pick.some(x => x.k === e.k && x.ms < e.ms);
+        if (isX) nm.append(el('i', null, 'ещё вход'));
+        r.append(cb, el('span', 'lv-pdt', e.ms != null ? dShort(Math.floor(e.ms / DAY)) + (e.t.length > 10 ? ' ' + e.t.slice(11, 16) : '') : '—'), nm, el('span', 'lv-pbi', isX ? money(e.b) + ' · ещё вход' : money(e.b) + (en > 1 ? ' × ' + String(en).replace('.', ',') + ' = ' + money(e.b * en) : '')), el('span', 'lv-pgt', e.g ? big(e.g) : ''));
         tb.append(r);
       });
       card.append(tb);
