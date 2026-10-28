@@ -6,6 +6,7 @@ const HEADERS = /^(?:PokerStars Hand #|Winamax Poker - Tournament "|Game Hand #)
 const SPLIT = /\r?\n(?=(?:PokerStars Hand #|Winamax Poker - Tournament "|Game Hand #))/;
 const POS_IDX = { UTG: 0, MP: 1, CO: 3, BTN: 4, SB: 5, BB: 6 }; // 2 (HJ) не используется — в Hand2Note он входит в MP
 
+const TB = require('./tbet.js');
 const num = (s) => parseFloat(String(s).replace(/,/g, ''));
 
 // бай-ин турнира в долларах (центы) по заголовку раздачи; −1 — неизвестен (у WPN в истории его нет)
@@ -335,6 +336,10 @@ function playerRec(c, heroName, opp) {
     rec.bsh = beh.filter(v => v < 12).length; rec.bmd = beh.filter(v => v >= 12 && v < 25).length; rec.bdp = beh.filter(v => v >= 25).length;
     rec.cov = beh.length ? (seats[heroSeat].stack / bb >= Math.max(...beh) ? 1 : 0) : -1;
   }
+  // 3-бет (с 0.7.23): позиции «как в Hand2Note», ответ на 3-бет и на 4-бет — общий расчёт с обновлением базы (tbet.js)
+  { if (!c.mini) { const ix = {}; c.seatNums.forEach((sn, k) => { ix[seats[sn].name] = k; }); const A = { folds: 'f', checks: 'x', calls: 'c', bets: 'b', raises: 'r' };
+      c.mini = { ix, pl: c.seatNums.map(sn => [pos[sn] || '?', seats[sn].stack / bb]), ev: acts.filter(x => x.name in ix).map(x => [0, ix[x.name], A[x.a], x.amt / bb, x.allin ? 1 : 0]) }; }
+    const t = TB.tbetOf(c.mini, c.mini.ix[heroName]); rec.fp = t.fp; rec.fop = t.fop; rec.t3r = t.t3r; rec.t4 = t.t4; }
   rec.hpa = acts.filter(x => x.name === heroName).length; // сколько раз герой ходил префлоп («C» в Hand2Note — ровно один ход-колл)
   if (hi < 0) return rec; // герой не действовал префлоп (все сбросили до BB)
   const before = acts.slice(0, hi);

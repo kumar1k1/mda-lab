@@ -24,6 +24,7 @@ const { computeEv, STRIDE } = require('./ev-pool.js');
 const { internTitle, appendNames, playersIn } = require('./rpbin.js');
 
 const FORMAT = 'mdalab-cols-v3';
+const NEW3B = new Set(['fp', 'fop', 't3r', 't4']); // колонки 3-бета (0.7.23): у старых строк неизвестны (-1), досчитываются обновлением базы (migrate.js)
 // колонки ваших раздач: статы + ссылка на запись реплеера + отпечаток раздачи
 // aid — номер алиаса (в базе может быть несколько игроков со своими никами: вы, друг…)
 const HERO_SCHEMA = SCHEMA.concat([['rpp', 'i32'], ['rpo', 'u32'], ['rpl', 'u32'], ['key', 'f64'], ['aid', 'i16'], ['nk', 'i16'],
@@ -42,7 +43,8 @@ function rowVals(h, roomIdx) {
     sit: h.sit, lim: h.lim, act: h.act, size: h.size, fti: h.fti, bvb: h.bvb, fvr: h.fvr, day: Math.round(Date.UTC(y, m - 1, d) / 864e5),
     hc: h.hc, net: h.net, sto: h.sto, f3b: h.f3b, orsp: h.orsp, bmin: h.bmin, sbs: h.sbs, bbs: h.bbs, bh: h.bh, bsh: h.bsh, bmd: h.bmd,
     bdp: h.bdp, cov: h.cov, bi: h.bi, rz: h.rz, cl: h.cl, rai: h.rai, opos: h.opos, ostk: h.ostk, osz: h.osz, nev: h.net,
-    hpa: h.hpa || 0, tmx: h.tblMax || 0, np: h.n || 0, lr: h.lr || 0, ant: h.ant == null ? -1 : h.ant, fcb: h.fcb == null ? -1 : h.fcb, cbs: h.cbs == null ? -1 : h.cbs
+    hpa: h.hpa || 0, tmx: h.tblMax || 0, np: h.n || 0, lr: h.lr || 0, ant: h.ant == null ? -1 : h.ant, fcb: h.fcb == null ? -1 : h.fcb, cbs: h.cbs == null ? -1 : h.cbs,
+    fp: h.fp == null ? -1 : h.fp, fop: h.fop == null ? -1 : h.fop, t3r: h.t3r == null ? -1 : h.t3r, t4: h.t4 == null ? -1 : h.t4
   };
 }
 const monthOfDay = (day) => { const d = new Date(day * 864e5); return d.getUTCFullYear() * 12 + d.getUTCMonth(); };
@@ -302,7 +304,7 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
   for (const [nm, t] of HERO_SCHEMA) {
     const a = nm === 'day' ? permute(dayNew, hPerm) : permute(H[nm].readAll(), hPerm);
     const [fo, fn] = fix(nm);
-    mergeColumn(old && old.g, old ? old.heroN : 0, nm, t, a, hPlan, gdir, fo, fn, nm === 'nk' || nm === 'ant' || nm === 'fcb' || nm === 'cbs' || nm === 'bty' || nm === 'hbo' || nm === 'kon' || nm === 'koc' ? -1 : 0); // ник, анте, фолд на контбет и баунти старых строк неизвестны (-1)
+    mergeColumn(old && old.g, old ? old.heroN : 0, nm, t, a, hPlan, gdir, fo, fn, nm === 'nk' || nm === 'ant' || nm === 'fcb' || nm === 'cbs' || NEW3B.has(nm) || nm === 'bty' || nm === 'hbo' || nm === 'kon' || nm === 'koc' ? -1 : 0); // ник, анте, фолд на контбет и баунти старых строк неизвестны (-1)
   }
   // 3б. соперники: по игроку, затем по дате
   prog('merge', 1, 2, nH);
@@ -319,7 +321,7 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
   for (const [nm, t] of OPP_SCHEMA) {
     const a = nm === 'pid' ? permute(pidNew, oPerm) : nm === 'day' ? permute(odayNew, oPerm) : permute(O[nm].readAll(), oPerm);
     const [fo, fn] = fix(nm);
-    mergeColumn(old && old.og, old ? old.oppN : 0, nm, t, a, oPlan, godir, fo, fn, nm === 'ant' || nm === 'fcb' || nm === 'cbs' ? -1 : 0);
+    mergeColumn(old && old.og, old ? old.oppN : 0, nm, t, a, oPlan, godir, fo, fn, nm === 'ant' || nm === 'fcb' || nm === 'cbs' || NEW3B.has(nm) ? -1 : 0);
   }
 
   // 3в. дописанные записи реплеера старых строк: место старой строки i в новой колонке — i-я «старая» позиция плана

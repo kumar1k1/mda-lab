@@ -10,6 +10,7 @@ const path = require('path');
 const zlib = require('zlib');
 const { Worker, isMainThread, parentPort, workerData } = require('worker_threads');
 const { decodeRec } = require('./store.js');
+const TB = require('./tbet.js');
 
 const ACT = new Set(['f', 'x', 'c', 'b', 'r']);
 const pre = (rec) => rec.ev.filter(e => e[0] === 0 && ACT.has(e[2]));
@@ -37,7 +38,12 @@ const MIGRATIONS = [
   { id: 'fcb', col: ['fcb', 'i8'], uses: ['rz', 'act'], need: (C, i) => C.rz[i] === 1 && C.act[i] === 1 && C.fcb[i] < 0, calc: (rec, s) => fcbOf(rec, s) },
   // анте нужно для MDF защиты BB (#6.1) — досчитывается у защит BB против одного рейза
   { id: 'ant', col: ['ant', 'i16'], uses: ['rz', 'pos'], need: (C, i) => C.rz[i] === 1 && C.pos[i] === 6 && C.ant[i] < 0, calc: (rec) => antOf(rec) },
-  { id: 'cbs', col: ['cbs', 'i16'], uses: ['fcb'], need: (C, i) => C.fcb[i] >= 0 && C.cbs[i] < 0, calc: (rec) => cbsOf(rec) }
+  { id: 'cbs', col: ['cbs', 'i16'], uses: ['fcb'], need: (C, i) => C.fcb[i] >= 0 && C.cbs[i] < 0, calc: (rec) => cbsOf(rec) },
+  // 3-бет (0.7.23): позиции «как в Hand2Note» и ответы на 3-бет / 4-бет — у раздач с одним рейзом до первого хода
+  { id: 'fp', col: ['fp', 'i8'], uses: ['rz'], need: (C, i) => C.rz[i] === 1 && C.fp[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).fp },
+  { id: 'fop', col: ['fop', 'i8'], uses: ['rz'], need: (C, i) => C.rz[i] === 1 && C.fop[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).fop },
+  { id: 't3r', col: ['t3r', 'i8'], uses: ['rz', 'act'], need: (C, i) => C.rz[i] === 1 && C.act[i] >= 2 && C.t3r[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).t3r },
+  { id: 't4', col: ['t4', 'i8'], uses: ['rz', 'act'], need: (C, i) => C.rz[i] === 1 && C.act[i] >= 2 && C.t4[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).t4 }
 ];
 // обновления формата (после досчёта колонок): двоичный реплеер и сжатые колонки (0.7)
 const FORMAT_IDS = ['rpbin', 'colz', 'names', 'dedup']; // names (0.7.2) — ники за столом; dedup (0.7.8) — копии раздач из разных выгрузок убираются
@@ -57,7 +63,7 @@ function readCol(dir, name, type, n) {
   if (a.length === n) return a; const b = new TY[type](n); b.set(a.subarray(0, Math.min(n, a.length))); return b;
 }
 function writeCol(dir, name, a) { require('./table.js').writeCol(dir, name, a); }
-const TYPES_OF = { rz: 'i8', act: 'i8', pos: 'i8', fcb: 'i8', ant: 'i16', cbs: 'i16' };
+const TYPES_OF = { rz: 'i8', act: 'i8', pos: 'i8', fcb: 'i8', ant: 'i16', cbs: 'i16', fp: 'i8', fop: 'i8', t3r: 'i8', t4: 'i8' };
 
 async function doMigrate(dir, post) {
   const r1 = doRowMigrations(dir, post);
