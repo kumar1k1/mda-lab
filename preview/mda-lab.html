@@ -1761,6 +1761,14 @@ body.rendering{cursor:progress}
 .tv-bd .tv-cards{gap:1px}.tv-bd .tv-c{font-size:10.5px;padding:0 2px}
 .tv-side .tv-h .tv-net{margin-left:0;min-width:46px;text-align:right}
 .tv-sph{margin:-2px 0 0;font-size:11px;color:var(--muted)}
+/* лента раздач: строгие колонки — номер, рука, позиция, доска, итог; карты одной ширины */
+.tv-side .tv-h{display:grid;grid-template-columns:28px 56px 38px minmax(0,1fr) 54px;gap:8px;align-items:center}
+.tv-side .tv-h .tv-no{min-width:0;text-align:right}
+.tv-side .tv-h .tv-pos{min-width:0;text-align:left}
+.tv-side .tv-h .tv-net{min-width:0;text-align:right}
+.tv-side .tv-h .tv-cards{gap:2px}
+.tv-side .tv-h .tv-c{display:inline-block;width:26px;text-align:center;padding:0;font-size:11px;letter-spacing:-.02em}
+.tv-side .tv-bd .tv-cards{gap:2px}
 
 /* Дополнения только для онлайн-превью: тёмная тема и узкие экраны */
 :root{color-scheme:dark}
@@ -6627,7 +6635,7 @@ window.LIVE_SAMPLE = {"list":[[71951,"CashCowsPoker TV Championship Series Seaso
     const ev = d.rows.filter(r => r.buy && !r.sat), cur = (r) => curOf(r.sym, d.country || f.country);
     const bs = ev.map(r => usd(r.buy, cur(r))).filter(v => v != null), gs = d.rows.filter(r => r.gtd && !r.sat).map(r => usd(r.gtd.v, curOf(r.gtd.sym || r.sym, d.country || f.country))).filter(v => v != null);
     const me = ev.filter(r => r.main).map(r => usd(r.buy, cur(r))).filter(v => v != null);
-    return { v: 8, ev: compact(f, d), n: d.rows.filter(r => r.buy).length, minB: bs.length ? Math.min(...bs) : null, maxB: bs.length ? Math.max(...bs) : null, gtd: gs.length ? Math.max(...gs) : null, me: me.length ? Math.max(...me) : null, at: Date.now() };
+    return { v: SV, ev: compact(f, d), n: d.rows.filter(r => r.buy).length, minB: bs.length ? Math.min(...bs) : null, maxB: bs.length ? Math.max(...bs) : null, gtd: gs.length ? Math.max(...gs) : null, me: me.length ? Math.max(...me) : null, at: Date.now() };
   }
   // турниры серии в сжатом виде — для подбора под бюджет (бай-ин и гарантия в $, флаги, сколько входов можно)
   // Флайт: «Day 1A», «Dia 1B», «D1C», «Main Event 1D», «Day 1/A», «Flight 2» — флайты одного турнира, даже если цена разная
@@ -6643,10 +6651,15 @@ window.LIVE_SAMPLE = {"list":[[71951,"CashCowsPoker TV Championship Series Seaso
     if (/main\s*event\s*[-–]?\s*(?:turbo|hyper|deep|speed)/i.test(n)) return false; // «Main Event Turbo» — отдельный турнир (а «Main Event Day 1D Turbo» — флайт)
     return true;
   }
+  const SV = 9; // версия разбора турниров для подбора: при изменении правил сохранённые сводки пересчитываются
+  // Карантин: турниры с подозрительными данными не попадают в подбор (валюта не распознана, бай-ин меньше $5 или больше $300 000)
+  const QUAR = {};
   function compact(f, d) {
-    const country = d.country || f.country;
+    const country = d.country || f.country; QUAR[f.id] = [];
     const out = d.rows.filter(r => r.buy && !r.cont && !CONT.test(r.name || '')).map(r => {
-      const b = usd(r.buy, curOf(r.sym, country)); if (b == null) return null;
+      const b = usd(r.buy, curOf(r.sym, country));
+      if (b == null) { QUAR[f.id].push('валюта не распознана: ' + (r.name || '') + ' (' + (r.sym || '?') + ' ' + r.buy + ')'); return null; }
+      if (b < 5 || b > 300000) { QUAR[f.id].push('подозрительный бай-ин $' + Math.round(b * 100) / 100 + ': ' + (r.name || '')); return null; }
       const n = String(r.name || ''), g = r.gtd ? usd(r.gtd.v, curOf(r.gtd.sym || r.sym, country)) : null, re = r.re || '', mx = /^(\d) ре-энтри/.exec(re);
       const evn = !r.sat && /event\s*#\s*(\d+[a-z]?)/i.exec(n), fl = !r.sat && (FLT.test(n) || !!evn); // сателлиты — всегда отдельные турниры; один номер Event # — один турнир
       const base = n.replace(/\(\s*(?:bracelet\s*|ring\s*)?event\s*#[^)]*\)/ig, '').replace(new RegExp('[\\s,(\\-–:/]*' + FLT.source + '.*$', 'i'), '').trim().toLowerCase();
@@ -6695,7 +6708,7 @@ window.LIVE_SAMPLE = {"list":[[71951,"CashCowsPoker TV Championship Series Seaso
   let bgT = null, bgGap = 6e3, bgPause = 0, bgBusy = false, SRC_HM = false; // SRC_HM — запасной источник (The Hendon Mob)
   function bgNext() {
     if (!LIST) return null;
-    const fresh = (s) => s && Date.now() - s.at < 3 * DAY && (s.v === 8 || !s.n); // v8 — со списком турниров для подбора
+    const fresh = (s) => s && Date.now() - s.at < 3 * DAY && (s.v === SV || !s.n); // SV — со списком турниров для подбора
     const todo = LIST.filter(f => !fresh(SUM[f.id]));
     todo.sort((a, b) => (isBig(b) - isBig(a)) || a.s - b.s);
     return todo[0] || null;
@@ -6963,6 +6976,37 @@ window.LIVE_SAMPLE = {"list":[[71951,"CashCowsPoker TV Championship Series Seaso
     const ents = pick.reduce((a, e) => a + en.get(e.i), 0);
     return { f, C, pick, en, nT: keys.size, extra: unl ? Math.round(ents - keys.size) : 0, tot, gtd, main: pick.find(e => kind(e) === 'main'), d0: days.length ? Math.min(...days) : null, d1: days.length ? Math.max(...days) : null, over: tot > k.bud };
   }
+  // ---------- проверка плана ----------
+  // Каждый автоматический план проверяется по правилам перед показом; нарушение — план пересобирается простым способом,
+  // не помогло — серия не показывается.
+  function validate(p) {
+    const k = ST.pk, err = [], base = (e) => entOf(e, k.ent);
+    if (p.tot > k.bud + 0.5) err.push('план дороже бюджета');
+    if (p.nT > k.n) err.push('турниров больше заданного');
+    p.pick.forEach(e => { if (!p.C.includes(e)) err.push('турнир не по фильтрам: ' + e.n); if (CONT.test(e.n)) err.push('продолжение в плане: ' + e.n); if (p.en.get(e.i) > e.c + 1e-9) err.push('входов больше допустимого: ' + e.n); if (!k.ent && p.en.get(e.i) > 3) err.push('больше 3 входов во флайт: ' + e.n); });
+    const T = p.pick.filter(e => e.ms != null).sort((a, b) => a.ms - b.ms);
+    for (let j = 1; j < T.length; j++) if (T[j].ms - T[j - 1].ms < 3 * 3600e3) err.push('старты ближе 3 часов: ' + T[j - 1].n + ' / ' + T[j].n);
+    if (k.ent) { const seen = new Map(); p.pick.forEach(e => seen.set(e.k, (seen.get(e.k) || 0) + 1)); for (const [, c] of seen) if (c > 1) { err.push('лишние флайты при лимите входов'); break; } p.pick.forEach(e => { if (seen.get(e.k) === 1 && Math.abs(p.en.get(e.i) - base(e)) > 1e-9) err.push('число входов не равно выбранному: ' + e.n); }); }
+    const tt = p.pick.reduce((a, e) => a + e.b * p.en.get(e.i), 0); if (Math.abs(tt - p.tot) > 0.5) err.push('стоимость не сходится');
+    return err;
+  }
+  function planSimple(f) { // запасной план: дешёвые сначала, по одному флайту, без сжатия по дням
+    const C = cands(f); if (!C) return null;
+    const k = ST.pk, base = (e) => entOf(e, k.ent), P = [], en = new Map(), u = new Set(); let t = 0;
+    for (const e of C.slice().sort((a, b) => a.b - b.b || (a.ms || 0) - (b.ms || 0))) { if (u.size >= k.n) break; const c = e.b * base(e); if (t + c > k.bud || u.has(e.k) || clash(P, e)) continue; P.push(e); en.set(e.i, base(e)); t += c; u.add(e.k); }
+    P.sort((a, b) => (a.ms || 0) - (b.ms || 0));
+    const days = P.filter(e => e.ms != null).map(e => Math.floor(e.ms / DAY));
+    return { f, C, pick: P, en, nT: u.size, extra: 0, tot: t, gtd: P.reduce((a, e) => a + (e.g || 0), 0), main: P.find(e => kind(e) === 'main'), d0: days.length ? Math.min(...days) : null, d1: days.length ? Math.max(...days) : null, over: false, safe: true };
+  }
+  function planChecked(f, log) {
+    const p = plan(f); if (!p || PEDIT[f.id]) return p;
+    const e1 = validate(p); if (!e1.length) return p;
+    if (log) log(f, e1, 'план пересобран простым способом');
+    const p2 = planSimple(f), e2 = p2 ? validate(p2) : ['нет плана'];
+    if (!e2.length) return p2;
+    if (log) log(f, e2, 'серия скрыта из подбора');
+    return null;
+  }
   function drawPick() {
     if (!pickForm) {
       det.replaceChildren();
@@ -6994,8 +7038,8 @@ window.LIVE_SAMPLE = {"list":[[71951,"CashCowsPoker TV Championship Series Seaso
     const k = ST.pk;
     if (!LIST) { pickRes.append(window.mdaLoad('Загружаю календарь…')); return; }
     if (!k.bud) { pickRes.append(el('p', 'lv-empty', 'Введите бюджет — сумму, которую готовы потратить на серию.')); return; }
-    const base = filtered(), wait = base.filter(f => !SUM[f.id] || (SUM[f.id].n && SUM[f.id].v !== 8)).length;
-    let P = base.map(plan).filter(p => p && p.pick.length);
+    const base = filtered(), wait = base.filter(f => !SUM[f.id] || (SUM[f.id].n && SUM[f.id].v !== SV)).length;
+    let P = base.map(f => planChecked(f)).filter(p => p && p.pick.length);
     const none = base.filter(f => SUM[f.id] && SUM[f.id].ev).length - P.length;
     const span = (p) => p.d0 == null ? 99 : p.d1 - p.d0;
     P.sort(k.sort === 'c' ? (a, b) => span(a) - span(b) || b.nT - a.nT || a.tot - b.tot : k.sort === 'g' ? (a, b) => b.gtd - a.gtd || b.nT - a.nT : k.sort === 'd' ? (a, b) => (a.d0 || a.f.s * DAY) - (b.d0 || b.f.s * DAY) : (a, b) => b.nT - a.nT || a.tot - b.tot);
@@ -7072,7 +7116,7 @@ window.LIVE_SAMPLE = {"list":[[71951,"CashCowsPoker TV Championship Series Seaso
   // календарь грузится при первом открытии вкладки, а в программе — и сам через минуту после запуска (для фоновой подкачки)
   const tab = document.getElementById('tabLive'); if (tab) tab.addEventListener('click', () => { if (!started) start(); else if (!loading && LERR.some(e => e.challenge)) loadList(false); });
   if (!root.hidden) start(); else if (!PREVIEW && api.liveList) setTimeout(start, 10e3);
-  window.MDALive = { reload: () => loadList(true), _dbg: () => ({ LIST, SUM, ST, plan, cands, filtered, kind, entOf, compact, summary, getFest, curOf, usd, FX, P }) }; // _dbg — для проверки подбора
+  window.MDALive = { reload: () => loadList(true), _dbg: () => ({ LIST, SUM, ST, plan, planChecked, validate, QUAR, cands, filtered, kind, entOf, compact, summary, getFest, curOf, usd, FX, P }) }; // _dbg — для проверки подбора
 })();
 
 </script>

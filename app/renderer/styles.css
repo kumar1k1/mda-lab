@@ -1757,3 +1757,11 @@ body.rendering{cursor:progress}
 .tv-bd .tv-cards{gap:1px}.tv-bd .tv-c{font-size:10.5px;padding:0 2px}
 .tv-side .tv-h .tv-net{margin-left:0;min-width:46px;text-align:right}
 .tv-sph{margin:-2px 0 0;font-size:11px;color:var(--muted)}
+/* лента раздач: строгие колонки — номер, рука, позиция, доска, итог; карты одной ширины */
+.tv-side .tv-h{display:grid;grid-template-columns:28px 56px 38px minmax(0,1fr) 54px;gap:8px;align-items:center}
+.tv-side .tv-h .tv-no{min-width:0;text-align:right}
+.tv-side .tv-h .tv-pos{min-width:0;text-align:left}
+.tv-side .tv-h .tv-net{min-width:0;text-align:right}
+.tv-side .tv-h .tv-cards{gap:2px}
+.tv-side .tv-h .tv-c{display:inline-block;width:26px;text-align:center;padding:0;font-size:11px;letter-spacing:-.02em}
+.tv-side .tv-bd .tv-cards{gap:2px}
