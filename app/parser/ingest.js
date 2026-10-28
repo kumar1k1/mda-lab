@@ -174,7 +174,7 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
   // соперники раздачи — по самой раздаче, чтобы не задвоить их при второй истории той же раздачи
   const hk2 = (k, a) => (a ? hash53(k + '|' + a) : k);
   const seen = new HashSet53(old ? old.heroN : 0), handSeen = new HashSet53(old ? old.heroN : 0);
-  let fillMap = null, boMap = null; const fills = [], boFills = []; // boFills: [старая строка, часть, смещение, длина, bty, hbo, kon, koc] // [старая строка, часть, смещение, длина] — дописанные записи реплеера
+  let fillMap = null, boMap = null; const fills = [], boFills = [], typeFix = [], settle = []; const TYPE_C = SCHEMA.findIndex(c => c[0] === 'type'); // settle — старые строки, проверенные повторной загрузкой: bty = 0 // boFills: [старая строка, часть, смещение, длина, bty, hbo, kon, koc] // [старая строка, часть, смещение, длина] — дописанные записи реплеера
   if (old) {
     const r = new ColumnReader(colFile(old.g, 'key'), 'f64', old.heroN), ra = fs.existsSync(colFile(old.g, 'aid')) ? new ColumnReader(colFile(old.g, 'aid'), 'i16', old.heroN) : null;
     for (let i = 0; i < old.heroN; i++) { const k = r.get(i); seen.add(hk2(k, ra ? ra.get(i) : 0)); handSeen.add(k); }
@@ -185,7 +185,7 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
     // баунти (с 0.7.20): ваши раздачи турниров с баунти без данных о баунти — повторная загрузка тех же историй
     // переписывает их запись реплеера (с баунти) и колонки баунти; строк не добавляется
     { const ty = fs.existsSync(colFile(old.g, 'type')) ? new ColumnReader(colFile(old.g, 'type'), 'i8', old.heroN) : null, bt = fs.existsSync(colFile(old.g, 'bty')) ? new ColumnReader(colFile(old.g, 'bty'), 'i8', old.heroN) : null;
-      if (ty) { for (let i = 0; i < old.heroN; i++) if (ty.get(i) === 1 && (!bt || bt.get(i) !== 1)) { const k2 = hk2(r.get(i), ra ? ra.get(i) : 0); if (!fillMap || !fillMap.has(k2)) { if (!boMap) boMap = new Map(); boMap.set(k2, i); } } ty.close(); }
+      if (ty) { for (let i = 0; i < old.heroN; i++) if (!bt || bt.get(i) === -1) { const k2 = hk2(r.get(i), ra ? ra.get(i) : 0); if (!fillMap || !fillMap.has(k2)) { if (!boMap) boMap = new Map(); boMap.set(k2, ty.get(i) === 1 ? i : -1 - i); } } ty.close(); } // отрицательное — старая строка без пометки «с баунти»
       if (bt) bt.close(); }
     r.close(); if (ra) ra.close();
     // раздачи, загруженные без героя (датамайнинг), есть только среди строк соперников
@@ -241,7 +241,10 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
     }
     const aid = target;
     if (fillMap) { const k2 = hk2(h.k, aid), fr = fillMap.get(k2); if (fr != null) { fillMap.delete(k2); if (h.rpz && h.heroRp && h.hhc >= 0) { const ref = addRec(h.rpz, h, rooms.indexOf(nicksAll[h.hn]), false); fills.push(fr, ref[0], ref[1], ref[2]); ckAdd(h); } dup++; return; } }
-    if (boMap) { const k2 = hk2(h.k, aid), fr = boMap.get(k2); if (fr != null) { boMap.delete(k2); if (h.bty === 1 && h.rpz && h.heroRp && h.hhc >= 0) { const ref = addRec(h.rpz, h, rooms.indexOf(nicksAll[h.hn]), false); boFills.push(fr, ref[0], ref[1], ref[2], 1, h.hbo, h.kon, h.koc); } dup++; return; } }
+    if (boMap) { const k2 = hk2(h.k, aid), fr0 = boMap.get(k2); if (fr0 != null) { boMap.delete(k2); const fr = fr0 < 0 ? -1 - fr0 : fr0, newT = h.vals ? h.vals[h.vi * SCHEMA.length + TYPE_C] : 0;
+      if (h.bty === 1 && h.rpz && h.heroRp && h.hhc >= 0) { const ref = addRec(h.rpz, h, rooms.indexOf(nicksAll[h.hn]), false); boFills.push(fr, ref[0], ref[1], ref[2], 1, h.hbo, h.kon, h.koc); typeFix.push(fr); }
+      else { if (fr0 < 0 && newT === 1) typeFix.push(fr); settle.push(fr); } // баунти без размеров (по названию, бай-ину из трёх частей) / раздача проверена — без баунти
+      dup++; return; } }
     const po = prevOwners.get(h.hn);
     if (po && po.some(a => seen.has(hk2(h.k, a)))) { dup++; return; }
     if (ckDup(h)) { dup++; return; }
@@ -274,7 +277,7 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
   { const f = path.join(dir, 'rp-titles.json'), t = f + '.tmp'; fs.writeFileSync(t, JSON.stringify(titles)); fs.renameSync(t, f); }
   for (const c of Object.values(H)) c.close();
   for (const c of Object.values(O)) c.close();
-  if (!nH && !nO && !fills.length && !boFills.length) { fs.rmSync(tmp, { recursive: true, force: true }); if (!old) fs.rmSync(dir, { recursive: true, force: true }); return { hands: old ? old.heroN : 0, added: 0, dup, errors, rooms, opp: old ? old.oppN : 0, oppAdded: 0, players: old ? old.players.length : 0, aliases: aliases.map(a => a.name) }; }
+  if (!nH && !nO && !fills.length && !boFills.length && !typeFix.length && !settle.length) { fs.rmSync(tmp, { recursive: true, force: true }); if (!old) fs.rmSync(dir, { recursive: true, force: true }); return { hands: old ? old.heroN : 0, added: 0, dup, errors, rooms, opp: old ? old.oppN : 0, oppAdded: 0, players: old ? old.players.length : 0, aliases: aliases.map(a => a.name) }; }
 
   // начало периода: самый ранний месяц среди старых и новых раздач
   const dayNew = H.day.readAll();
@@ -337,6 +340,17 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
     patchColumn(gdir, 'rpp', 'i32', pos, P); patchColumn(gdir, 'rpo', 'u32', pos, O2); patchColumn(gdir, 'rpl', 'u32', pos, L);
     patchColumn(gdir, 'bty', 'i8', pos, B); patchColumn(gdir, 'hbo', 'i32', pos, HB); patchColumn(gdir, 'kon', 'i8', pos, KN); patchColumn(gdir, 'koc', 'i32', pos, KC);
     boFilled = pos.length;
+  }
+  // пометка «турнир с баунти» старым строкам, которые прежняя версия не распознала
+  if (typeFix.length) {
+    const want = new Set(typeFix), pos = []; let oi = 0;
+    for (let k = 0; k < hPlan.length; k++) { if (hPlan[k]) continue; if (want.has(oi)) pos.push(k); oi++; }
+    patchColumn(gdir, 'type', 'i8', pos, pos.map(() => 1));
+  }
+  if (settle.length) {
+    const want = new Set(settle), pos = []; let oi = 0;
+    for (let k = 0; k < hPlan.length; k++) { if (hPlan[k]) continue; if (want.has(oi)) pos.push(k); oi++; }
+    patchColumn(gdir, 'bty', 'i8', pos, pos.map(() => 0));
   }
   // 4. EV для новых строк — по их местам после слияния. Колонки читаются кусками по порядку строк
   //    (не целиком), список расчётов — плотный массив: память не растёт с размером базы.

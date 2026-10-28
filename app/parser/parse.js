@@ -180,8 +180,17 @@ function roomOf(fmt, lines) {
   return /\bET\]?\s*$/.test(lines[0]) ? 'PokerStars' : 'GGPoker'; // у PokerStars в заголовке время ET; экспорт GG в формате PokerStars — без него
 }
 // observer — раздача без героя (датамайнинг): точка обзора — игрок на BB, все игроки записываются как соперники
+// Русские названия в выгрузке иногда записаны «кракозябрами» (UTF-8, прочитанный как Windows-1252):
+// «ÐŸÐžÐšÐ•Ð ÐžÐš» → «ПОКЕРОК». Строка переводится обратно, только если это восстанавливается без потерь.
+const CP1252 = { 0x20AC: 0x80, 0x201A: 0x82, 0x0192: 0x83, 0x201E: 0x84, 0x2026: 0x85, 0x2020: 0x86, 0x2021: 0x87, 0x02C6: 0x88, 0x2030: 0x89, 0x0160: 0x8A, 0x2039: 0x8B, 0x0152: 0x8C, 0x017D: 0x8E, 0x2018: 0x91, 0x2019: 0x92, 0x201C: 0x93, 0x201D: 0x94, 0x2022: 0x95, 0x2013: 0x96, 0x2014: 0x97, 0x02DC: 0x98, 0x2122: 0x99, 0x0161: 0x9A, 0x203A: 0x9B, 0x0153: 0x9C, 0x017E: 0x9E, 0x0178: 0x9F };
+function fixMojibake(str) {
+  if (!/[ÐÑâ][\u0080-\u00BF\u0152-\u2122]/.test(str)) return str;
+  const b = []; for (const ch of str) { const c = ch.codePointAt(0); if (c <= 0xFF) b.push(c); else if (CP1252[c] != null) b.push(CP1252[c]); else return str; }
+  const out = Buffer.from(b).toString('utf8'); return out.includes('\uFFFD') ? str : out;
+}
 function parseCtx(text, fmt, heroes, observer) {
   const lines = text.split(/\r?\n/);
+  lines[0] = fixMojibake(lines[0]);
   const header = lines[0];
   let bb = null, sbAmt = null, tour = null, date = null;
   if (fmt === 'wmx') {
@@ -204,7 +213,14 @@ function parseCtx(text, fmt, heroes, observer) {
 
   // места
   const seats = {}; const byName = {};
-  let bounty = /bounty|knockout|\bKO\b|Progressive KO/i.test(header);
+  // Турнир с баунти (с 0.7.20 — по любому признаку, не только по названию):
+  //  1) название: bounty, knockout, KO, PKO, progressive, mystery, space KO…;
+  //  2) бай-ин из трёх частей (призовые + баунти + сбор): «$50+$50+$9», «20€ + 25€ + 5€»;
+  //  3) баунти у мест: «(20000, 25€ bounty)», «(10000 in chips, $25 bounty)»;
+  //  4) строки выбивания: «wins $7.50 for eliminating…», «bounty increases by…», «wins the $15 bounty».
+  //  Ещё один признак — в parseTextAll: если он есть хоть в одной раздаче турнира, отмечается весь турнир.
+  const TRI = /[€$£₽¥]?\s?\d[\d.,]*\s?[€$£₽¥]?\s?\+\s?[€$£₽¥]?\s?\d[\d.,]*\s?[€$£₽¥]?\s?\+\s?[€$£₽¥]?\s?\d[\d.,]*/;
+  let bounty = /bount|knock-?out|\bp?ko\b|progressive|myst(?:ery)?\b|space\s*ko|head\s*hunter|баунти|нокаут|мистери|прогрессив|(?:^|[\s(\[,.-])(?:ко|пко)(?=$|[\s)\],.-])/i.test(header) || TRI.test((header.match(/buyIn: ([^-]*?) level|Tournament #\d+, ([^ ]+(?: ?\+ ?[^ ]+)+)/) || [''])[0]);
   for (const l of lines) {
     if (/^\*\*\*/.test(l)) break;
     const m = l.match(/^Seat (\d+): (.+?) \(([^)]*)\)(.*)$/);
@@ -218,6 +234,7 @@ function parseCtx(text, fmt, heroes, observer) {
     if (bm) { seats[+m[1]].bo = num(bm[2]); seats[+m[1]].bsym = bm[1] || bm[3] || ''; }
     byName[m[2]] = +m[1];
   }
+  if (!bounty && lines.some(l => /\bfor (?:splitting the )?eliminat|\bbounty increases\b|\bwins (?:the )?[€$£₽¥]?[\d.,]+ bounty\b|\bwon bounty\b/i.test(l))) bounty = true;
   // герой — тот из известных ников, кому раздали карты («Dealt to»): в базе может быть несколько алиасов,
   // и за одним столом могут сидеть ники разных алиасов (вы и друг). Без «Dealt to» (PokerDom) — первый найденный.
   const heroCands = Object.keys(byName).filter(n => heroes.has(n));
@@ -520,6 +537,11 @@ function parseTextAll(text, heroes, observer, exclude) {
     if (!nlhTour(c)) { skipped++; continue; }
     try { const r = parseHandAll(c, fmt, heroes, observer, exclude); if (r) out.push(r); else errors++; } catch (e) { errors++; }
   }
+  // признак баунти хотя бы в одной раздаче турнира — турнир с баунти целиком (раздачи до первых выбиваний,
+  // раздачи без строк мест с баунти и т.п. не теряются)
+  const isB = (r) => (r.hero && r.hero.pko) || (r.opps && r.opps.some(o => o.pko)) || (r.rp && r.rp.bo);
+  const bt = new Set(); for (const r of out) if (r.tour != null && isB(r)) bt.add(String(r.tour));
+  if (bt.size) for (const r of out) if (r.tour != null && bt.has(String(r.tour))) { if (r.hero) r.hero.pko = 1; if (r.opps) r.opps.forEach(o => { o.pko = 1; }); }
   return { fmt, hands: out, errors, skipped };
 }
 
