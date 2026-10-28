@@ -18,8 +18,8 @@
 
   // ---------- настройки списка ----------
   const ST = (() => { try { return JSON.parse(localStorage.getItem('mda.tours') || '{}') || {}; } catch (e) { return {}; } })();
-  ST.q = ''; ST.room = ST.room == null ? -1 : ST.room; ST.per = ST.per || 'all'; ST.sort = ST.sort || 'new';
-  const save = () => { try { localStorage.setItem('mda.tours', JSON.stringify({ room: ST.room, per: ST.per, sort: ST.sort })); } catch (e) { /* без сохранения */ } };
+  ST.q = ''; ST.only = !!ST.only; ST.room = ST.room == null ? -1 : ST.room; ST.per = ST.per || 'all'; ST.sort = ST.sort || 'new';
+  const save = () => { try { localStorage.setItem('mda.tours', JSON.stringify({ room: ST.room, per: ST.per, sort: ST.sort, only: ST.only })); } catch (e) { /* без сохранения */ } };
 
   // ---------- отмеченные раздачи ----------
   // хранятся по устойчивому ключу раздачи (рум, время, карты), а не по номеру строки базы — дозагрузка рук их не сбивает
@@ -28,6 +28,10 @@
   const tourKey = (t) => (TL.rooms[t.room] || '') + '|' + t.name + '|' + t.start;
   const handKey = (t, rp) => tourKey(t) + '|' + (rp.d || '') + '|' + (rp.hc || '') + '|' + (rp.pl && rp.pl[rp.h] ? rp.pl[rp.h][0] + rp.pl[rp.h][1] : '');
   const marksOf = (t) => { const p = tourKey(t) + '|'; let n = 0; for (const k in MK) if (k.startsWith(p)) n++; return n; };
+  // заметки к раздачам — по тому же ключу
+  const NT = (() => { try { return JSON.parse(localStorage.getItem('mda.notes') || '{}') || {}; } catch (e) { return {}; } })();
+  const saveNT = () => { try { localStorage.setItem('mda.notes', JSON.stringify(NT)); } catch (e) { /* без сохранения */ } };
+  const notesOf = (t) => { const p = tourKey(t) + '|'; let n = 0; for (const k in NT) if (k.startsWith(p)) n++; return n; };
 
   // ---------- турниры из данных «Результатов» ----------
   let TL = null;
@@ -67,7 +71,13 @@
     const q = el('input', 'tv-q'); q.type = 'search'; q.placeholder = 'Поиск по названию турнира'; q.value = ST.q; q.setAttribute('aria-label', 'Поиск по названию турнира');
     let qt = null; q.oninput = () => { clearTimeout(qt); qt = setTimeout(() => { ST.q = q.value.trim().toLowerCase(); SHOWN = 150; drawRows(); }, 150); };
     const seg = (key, opts, label) => { const g = el('div', 'seg bx-seg'); g.setAttribute('role', 'group'); g.setAttribute('aria-label', label); opts.forEach(([v, l]) => { const b = el('button', ST[key] === v ? 'on' : null, l); b.type = 'button'; b.onclick = () => { ST[key] = v; save(); [...g.children].forEach(x => x.classList.toggle('on', x === b)); SHOWN = 150; drawRows(); }; g.append(b); }); return g; };
-    bar.append(q, seg('per', [['all', 'Всё время'], ['w', '7 дней'], ['q', '3 месяца'], ['y', 'Год']], 'Период'), seg('sort', [['new', 'Сначала новые'], ['old', 'Сначала старые'], ['best', 'Лучший итог'], ['worst', 'Худший итог'], ['long', 'Больше раздач']], 'Порядок'));
+    // только турниры, где есть отмеченные раздачи или заметки
+    const onlyB = el('button', 'tv-only' + (ST.only ? ' on' : '')); onlyB.type = 'button'; onlyB.setAttribute('aria-pressed', String(ST.only));
+    const flagged = () => T.list.filter(t => marksOf(t) || notesOf(t)).length;
+    const onlyLab = () => { onlyB.replaceChildren(el('i', null, '★ ✎'), document.createTextNode('С отметками и заметками'), el('span', null, String(flagged()))); };
+    onlyLab(); onlyB.title = 'Показать только турниры, где есть отмеченные раздачи или заметки';
+    onlyB.onclick = () => { ST.only = !ST.only; save(); onlyB.classList.toggle('on', ST.only); onlyB.setAttribute('aria-pressed', String(ST.only)); SHOWN = 150; drawRows(); };
+    bar.append(q, onlyB, seg('per', [['all', 'Всё время'], ['w', '7 дней'], ['q', '3 месяца'], ['y', 'Год']], 'Период'), seg('sort', [['new', 'Сначала новые'], ['old', 'Сначала старые'], ['best', 'Лучший итог'], ['worst', 'Худший итог'], ['long', 'Больше раздач']], 'Порядок'));
     const rb = el('div', 'tv-rooms'); rb.setAttribute('role', 'group'); rb.setAttribute('aria-label', 'Рум');
     const rc = new Map(); T.list.forEach(t => rc.set(t.room, (rc.get(t.room) || 0) + 1));
     const roomB = (v, label, n) => { const b = el('button', 'tv-rm' + (ST.room === v ? ' on' : '')); b.type = 'button'; b.append(document.createTextNode(label), el('span', null, String(n))); b.onclick = () => { ST.room = v; save(); [...rb.children].forEach(x => x.classList.toggle('on', x === b)); SHOWN = 150; drawRows(); }; return b; };
@@ -79,7 +89,8 @@
     main.append(bar, rb, sum, box);
     function drawRows() {
       const now = Date.now() / 60000, lim = ST.per === 'w' ? 7 * 1440 : ST.per === 'q' ? 92 * 1440 : ST.per === 'y' ? 366 * 1440 : 0;
-      let L = T.list.filter(t => (ST.room === -1 || t.room === ST.room) && (!lim || now - t.start <= lim) && (!ST.q || t.name.toLowerCase().includes(ST.q)));
+      onlyLab();
+      let L = T.list.filter(t => (!ST.only || marksOf(t) || notesOf(t)) && (ST.room === -1 || t.room === ST.room) && (!lim || now - t.start <= lim) && (!ST.q || t.name.toLowerCase().includes(ST.q)));
       const S = { new: (a, b) => b.start - a.start, old: (a, b) => a.start - b.start, best: (a, b) => b.net - a.net, worst: (a, b) => a.net - b.net, long: (a, b) => b.ids.length - a.ids.length };
       L.sort(S[ST.sort] || S.new);
       const hands = L.reduce((a, t) => a + t.ids.length, 0), net = L.reduce((a, t) => a + t.net, 0);
@@ -106,7 +117,7 @@
     const r = el('button', 'tv-row'); r.type = 'button'; r.disabled = !own;
     const d = el('span', 'tv-d'); d.append(el('b', null, dTxt(t.start).split(', ')[0]), el('small', null, dTxt(t.start).split(', ')[1] + ' · ' + durTxt(Math.max(1, t.end - t.start))));
     const nm = el('span', 'tv-nm'); const rm = el('i', 'tv-rb', (TL.rooms[t.room] || '?')); nm.append(el('b', null, t.name));
-    const sub = el('small'); sub.append(rm); const mk = marksOf(t); if (mk) sub.append(el('i', 'tv-mk', '★ ' + mk)); if (t.bi > 0) sub.append(' бай-ин $' + (t.bi / 100).toFixed(t.bi % 100 ? 2 : 0).replace('.', ',')); nm.append(sub);
+    const sub = el('small'); sub.append(rm); const mk = marksOf(t), nt = notesOf(t); if (mk) { const b = el('i', 'tv-mk', '★ ' + mk); b.title = 'Отмеченных раздач: ' + mk; sub.append(b); } if (nt) { const b = el('i', 'tv-nt', '✎ ' + nt); b.title = 'Раздач с заметками: ' + nt; sub.append(b); } if (t.bi > 0) sub.append(' бай-ин $' + (t.bi / 100).toFixed(t.bi % 100 ? 2 : 0).replace('.', ',')); nm.append(sub);
     const n = el('span', 'tv-n', sp(t.ids.length));
     const res = el('span', 'tv-res'); res.append(el('b', t.net >= 0 ? 'up' : 'down', sgn(t.net))); if (Math.abs(t.ev - t.net) > 0.5) res.append(el('small', null, 'EV ' + sgn(t.ev)));
     const g = el('span', 'tv-g'); g.append(spark(t.cum));
@@ -154,8 +165,8 @@
   const CLS_T = { w2: 'Выиграна с постфлопом', w1: 'Выиграна без постфлопа', ch: 'Банк поделён', l2: 'Проиграна с постфлопом', l1: 'Проиграна без постфлопа (в том числе блайнды)', x: 'Не сыграна — сброс без вложений' };
 
   // ---------- реплеер турнира ----------
-  const SPOTS = [['all', 'Все', 'Все раздачи турнира по порядку.'], ['pl', 'Сыгранные', 'Раздачи, где вы вложили фишки сами или были на блайндах, — без пустых пасов.'], ['ai', 'Олл-ины', 'Раздачи, где вы шли олл-ин или уравнивали олл-ин.'], ['tb', '3-бет банки', 'Банки, где до флопа был 3-бет или больше, и вы в них участвовали.'], ['big', 'Крупные банки', 'Банки от 20 BB, в которых вы участвовали.'], ['win', 'Выигранные', 'Раздачи с вашим выигрышем (зелёные).'], ['lose', 'Проигранные', 'Раздачи с вашим проигрышем (красные), включая сброс с блайндов.'], ['mk', '★ Отмеченные', 'Раздачи, которые вы отметили звёздочкой в реплеере (кнопка ★ или клавиша M).']];
-  const inSpot = (x, f) => f === 'all' || (f === 'mk' && !!MK[x.mk]) || (f === 'pl' && x.played) || (f === 'ai' && x.ai) || (f === 'tb' && x.tb) || (f === 'big' && x.big) || (f === 'win' && (x.cls === 'w1' || x.cls === 'w2')) || (f === 'lose' && (x.cls === 'l1' || x.cls === 'l2'));
+  const SPOTS = [['all', 'Все', 'Все раздачи турнира по порядку.'], ['pl', 'Сыгранные', 'Раздачи, где вы вложили фишки сами или были на блайндах, — без пустых пасов.'], ['ai', 'Олл-ины', 'Раздачи, где вы шли олл-ин или уравнивали олл-ин.'], ['tb', '3-бет банки', 'Банки, где до флопа был 3-бет или больше, и вы в них участвовали.'], ['big', 'Крупные банки', 'Банки от 20 BB, в которых вы участвовали.'], ['win', 'Выигранные', 'Раздачи с вашим выигрышем (зелёные).'], ['lose', 'Проигранные', 'Раздачи с вашим проигрышем (красные), включая сброс с блайндов.'], ['mk', '★ Отмеченные', 'Раздачи, которые вы отметили звёздочкой в реплеере (кнопка ★ или клавиша M).'], ['nt', '✎ С заметками', 'Раздачи, к которым вы оставили заметку (поле «Заметка» внизу ленты).']];
+  const inSpot = (x, f) => f === 'all' || (f === 'mk' && !!MK[x.mk]) || (f === 'nt' && !!NT[x.mk]) || (f === 'pl' && x.played) || (f === 'ai' && x.ai) || (f === 'tb' && x.tb) || (f === 'big' && x.big) || (f === 'win' && (x.cls === 'w1' || x.cls === 'w2')) || (f === 'lose' && (x.cls === 'l1' || x.cls === 'l2'));
   let BUSY = false;
   async function openTour(t) {
     if (BUSY) return; BUSY = true;
@@ -174,8 +185,13 @@
   // Лента раздач справа (как в Hand2Note): номер, ваши карты, позиция, доска (если открывалась), итог; цвет — результат.
   // Ход действий соперников здесь не показывается — он виден на столе.
   function makeSide(t, H) {
+    let stripMk = null, stripNt = null, strip0 = null;
+    const stripCounts = (flash) => { if (!stripMk) return; const m = H.filter(x => MK[x.mk]).length, n = H.filter(x => NT[x.mk]).length; stripMk.textContent = m ? '★ ' + m : ''; stripNt.textContent = n ? '✎ ' + n : ''; if (flash && root && root.classList.contains('collapsed')) { const st = stripMk.parentNode; st.classList.remove('pulse'); void st.offsetWidth; st.classList.add('pulse'); } };
+    let noteBox = null, noteTa = null, noteLab = null, noteSt = null;
+    const refreshRow = (x) => { const old = rows.get(x.i); if (!old) return; const r = hRow(x); if (old.classList.contains('cur')) r.classList.add('cur'); old.replaceWith(r); rows.set(x.i, r); if ((filt === 'nt' && !NT[x.mk]) || (filt === 'mk' && !MK[x.mk])) fillList(); };
+    const showNote = () => { if (!noteTa) return; const x = H.find(z => z.i === cur); if (!x) return; if (document.activeElement !== noteTa) noteTa.value = NT[x.mk] || ''; noteLab.textContent = 'Заметка к раздаче №' + x.no; noteSt.textContent = NT[x.mk] ? 'сохранено' : ''; };
     let filt = 'all', desc = false, root = null, listBox = null, rows = new Map(), cur = -1, scrollTop = 0, spotsEl = null;
-    const counts = () => { if (!spotsEl) return; [...spotsEl.children].forEach(b => { const n = H.filter(x => inSpot(x, b.dataset.v)).length; b.lastChild.textContent = String(n); b.disabled = !n && b.dataset.v !== filt; }); };
+    const counts = () => { stripCounts(); if (!spotsEl) return; [...spotsEl.children].forEach(b => { const n = H.filter(x => inSpot(x, b.dataset.v)).length; b.lastChild.textContent = String(n); b.disabled = !n && b.dataset.v !== filt; }); };
     const ordered = () => { const L = H.filter(x => inSpot(x, filt)); return desc ? L.reverse() : L; };
     const list = () => ordered().map(x => x.i);
     function build() {
@@ -184,11 +200,11 @@
       const colB = el('button', 'tv-col'); colB.type = 'button'; colB.title = 'Убрать ленту раздач вправо'; colB.setAttribute('aria-label', 'Убрать ленту раздач вправо'); colB.textContent = 'Скрыть ›';
       colB.onclick = () => setCol(true);
       const hrow = el('div', 'tv-shr'); hrow.append(hd, colB);
-      const strip = el('button', 'tv-strip'); strip.type = 'button'; strip.title = 'Показать ленту раздач'; strip.setAttribute('aria-label', 'Показать ленту раздач'); strip.append(el('span', null, '‹'), el('b', null, 'Раздачи'));
+      const strip = el('button', 'tv-strip'); strip.type = 'button'; strip.title = 'Показать ленту раздач'; strip.setAttribute('aria-label', 'Показать ленту раздач'); stripMk = el('em', 'tv-smk'); stripNt = el('em', 'tv-snt'); strip.append(el('span', null, '‹'), el('b', null, 'Раздачи'), stripMk, stripNt);
       strip.onclick = () => setCol(false);
       const body = el('div', 'tv-body'); root.append(strip, body); body.append(hrow);
       const fb = el('div', 'tv-spots'); fb.setAttribute('role', 'group'); fb.setAttribute('aria-label', 'Споты');
-      SPOTS.forEach(([v, l, d]) => { const b = el('button', 'tv-sp' + (filt === v ? ' on' : '') + (v === 'mk' ? ' mk' : '')); b.type = 'button'; b.dataset.v = v; b.title = d; b.append(document.createTextNode(l), el('span')); b.onclick = () => setFilt(v, fb, b); fb.append(b); });
+      SPOTS.forEach(([v, l, d]) => { const b = el('button', 'tv-sp' + (filt === v ? ' on' : '') + (v === 'mk' ? ' mk' : v === 'nt' ? ' nt' : '')); b.type = 'button'; b.dataset.v = v; b.title = d; b.append(document.createTextNode(l), el('span')); b.onclick = () => setFilt(v, fb, b); fb.append(b); });
       spotsEl = fb; counts();
       // порядок ленты и подсказка «?» (что значит выбранный спот и цвета) — подсказка скрыта, открывается по нажатию
       const tb = el('div', 'tv-tb');
@@ -212,7 +228,15 @@
       qb.onclick = () => { help.hidden = !help.hidden; qb.setAttribute('aria-expanded', String(!help.hidden)); qb.classList.toggle('on', !help.hidden); };
       body.append(fb, tb, help);
       listBox = el('div', 'tv-hl'); listBox.addEventListener('scroll', () => { scrollTop = listBox.scrollTop; }, { passive: true });
-      fillList(); body.append(listBox, el('p', 'tv-keys', '↑ ↓ — раздачи (по выбранному споту) · ← → — шаги раздачи · пробел — воспроизвести'));
+      // заметка к текущей раздаче: сохраняется сама, пока вы печатаете
+      noteBox = el('div', 'tv-note'); const nh = el('div', 'tv-note-h'); noteLab = el('b', null, 'Заметка'); noteSt = el('span'); nh.append(noteLab, noteSt);
+      noteTa = el('textarea', 'tv-note-ta'); noteTa.rows = 3; noteTa.placeholder = 'Что здесь важно: ошибка, мысль, что запомнить… Сохраняется сама.'; noteTa.setAttribute('aria-label', 'Заметка к раздаче');
+      let nt0 = null; const commit = () => { const x = H.find(z => z.i === cur); if (!x) return; const v = noteTa.value.trim(); const had = !!NT[x.mk]; if (v) NT[x.mk] = v; else delete NT[x.mk]; saveNT(); noteSt.textContent = v ? 'сохранено' : ''; if (had !== !!v || v) { counts(); refreshRow(x); if (HOST && HOST.isConnected) LISTDIRTY = true; } };
+      noteTa.addEventListener('input', () => { noteSt.textContent = '…'; clearTimeout(nt0); nt0 = setTimeout(commit, 400); });
+      noteTa.addEventListener('blur', () => { clearTimeout(nt0); commit(); });
+      noteTa.addEventListener('keydown', (e) => { if (e.key === 'Escape') { noteTa.blur(); e.stopPropagation(); } });
+      noteBox.append(nh, noteTa);
+      fillList(); body.append(listBox, noteBox, el('p', 'tv-keys', '↑ ↓ — раздачи (по выбранному споту) · ← → — шаги раздачи · пробел — воспроизвести'));
     }
     // свернуть / развернуть ленту (запоминается)
     let MAIN = null;
@@ -232,8 +256,9 @@
       mark();
     }
     function hRow(x) {
-      const r = el('button', 'tv-h ' + x.cls); r.type = 'button'; r.title = CLS_T[x.cls];
-      const no = el('span', 'tv-no'); if (MK[x.mk]) no.append(el('i', 'tv-star', '★')); no.append(String(x.no));
+      const note = NT[x.mk];
+      const r = el('button', 'tv-h ' + x.cls + (note ? ' has-note' : '')); r.type = 'button'; r.title = CLS_T[x.cls] + (note ? '\nЗаметка: ' + note : '');
+      const no = el('span', 'tv-no'); if (MK[x.mk]) no.append(el('i', 'tv-star', '★')); if (note) no.append(el('i', 'tv-pen', '✎')); no.append(String(x.no));
       r.append(no, cardsEl(x.rp.hc), el('span', 'tv-pos', x.rp.pl[x.rp.h][0]));
       const bd = el('span', 'tv-bd'); if (x.bd.length) bd.append(cardsEl(x.bd.join(' '))); r.append(bd);
       r.append(el('b', 'tv-net', Math.abs(x.net) < 0.05 ? '0' : sgn(x.net)));
@@ -245,7 +270,8 @@
       list,
       mount(main, i) {
         if (!root) build();
-        cur = i; MAIN = main; main.classList.add('tv-noanim'); main.append(root); applyCol(); listBox.scrollTop = scrollTop; mark(); requestAnimationFrame(() => requestAnimationFrame(() => main.classList.remove('tv-noanim')));
+        if (noteTa && document.activeElement === noteTa) noteTa.blur();
+        cur = i; MAIN = main; main.classList.add('tv-noanim'); main.append(root); applyCol(); listBox.scrollTop = scrollTop; mark(); showNote(); requestAnimationFrame(() => requestAnimationFrame(() => main.classList.remove('tv-noanim')));
         const r = rows.get(i); if (r) { const lb = listBox.getBoundingClientRect(), rb = r.getBoundingClientRect(); if (rb.top < lb.top || rb.bottom > lb.bottom) r.scrollIntoView({ block: 'center' }); }
       },
       close() { root = null; if (LISTDIRTY && REDRAW) { LISTDIRTY = false; REDRAW(); } },
@@ -253,11 +279,11 @@
       toggleMark(i) {
         const x = H.find(z => z.i === i); if (!x) return;
         if (MK[x.mk]) delete MK[x.mk]; else MK[x.mk] = Date.now();
-        saveMK(); counts();
-        const old = rows.get(i); if (old) { const r = hRow(x); if (old.classList.contains('cur')) r.classList.add('cur'); old.replaceWith(r); rows.set(i, r); }
-        if (filt === 'mk' && !MK[x.mk]) { fillList(); }
+        saveMK(); counts(); stripCounts(true);
+        refreshRow(x);
         if (HOST && HOST.isConnected) LISTDIRTY = true;
-      }
+      },
+      focusNote() { const r = root && root.classList.contains('collapsed'); if (r) setCol(false); if (noteTa) { if (r) setTimeout(() => noteTa.focus(), 330); else noteTa.focus(); } }
     };
   }
 

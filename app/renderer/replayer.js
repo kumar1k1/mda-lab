@@ -150,6 +150,7 @@
       markB = ib('Отметить раздачу (M)', '', () => { CUR.side.toggleMark(i); st0(); }, 'mark'); st0();
     }
     if (markB) tools.append(markB);
+    if (CUR.side && CUR.side.focusNote) tools.append(ib('Заметка к раздаче', ic('<path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/>'), () => CUR.side.focusNote(), 'note'));
     tools.append(copyB, pngB, gearB, closeB);
     head.append(ttl, res, tools);
 
@@ -232,6 +233,11 @@
     const prevB = ib('Предыдущая раздача (PgUp)', ic('<path d="M6 5v14M18 6l-8 6 8 6z"/>'), () => step(-1)); prevB.disabled = p <= 0;
     const nextB = ib('Следующая раздача (PgDn)', ic('<path d="M18 5v14M6 6l8 6-8 6z"/>'), () => step(1)); nextB.disabled = p >= L.length - 1;
     const navN = el('span', 'rv-navn', (p + 1) + ' из ' + L.length);
+    // реплеер турнира: понятные кнопки «Предыдущая / Следующая раздача» (↑ ↓, PgUp / PgDn)
+    if (CUR.side) {
+      prevB.innerHTML = ic('<path d="M15 6l-6 6 6 6"/>') + '<span>Предыдущая</span>'; prevB.classList.add('rv-txt'); prevB.title = 'Предыдущая раздача (↑ или PgUp)';
+      nextB.innerHTML = '<span>Следующая</span>' + ic('<path d="M9 6l6 6-6 6"/>'); nextB.classList.add('rv-txt'); nextB.title = 'Следующая раздача (↓ или PgDn)';
+    }
     const speedSeg = el('div', 'seg bx-seg rv-speed'); const SPD = [['1200', '1×'], ['700', '2×'], ['350', '4×']];
     let speed = keepSpeed || '700';
     SPD.forEach(([v, l]) => { const b = el('button', null, l); b.type = 'button'; b.dataset.v = v; b.classList.toggle('on', v === speed); b.onclick = () => { speed = v; speedSeg.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); if (st.timer) { stop(); toggle(); } if (RP) RP.speed = v; }; speedSeg.append(b); });
