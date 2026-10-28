@@ -295,7 +295,7 @@ function withNames(rec, meta, playersFn) {
   delete rec.np; return rec;
 }
 function decodeRec(b, z, dir) {
-  if (z === 2) { const RB = require('./rpbin.js'); let t = dir ? titlesOf(dir) : []; if (b[0] === 3) { const id = RB.titleId(b); if (id >= t.length) t = titlesOf(dir, id); } return RB.decodeRecBin(b, t); }
+  if (z === 2) { const RB = require('./rpbin.js'); let t = dir ? titlesOf(dir) : []; if (b[0] === 3 || b[0] === 5) { const id = RB.titleId(b); if (id >= t.length) t = titlesOf(dir, id); } return RB.decodeRecBin(b, t); }
   return JSON.parse((z ? require('zlib').inflateRawSync(b) : b).toString('utf8'));
 }
 

@@ -183,6 +183,8 @@
       S('rect', { x: sx - 78, y: sy - 4, width: 156, height: 52, rx: 14, class: 'rv-plate' }, g);
       const posT = T(k === H0 ? (heroLabel() + ' · ' + pl[0]) : pl[0], { x: sx, y: sy + 18, 'text-anchor': 'middle', class: 'rv-pos' }, g);
       const stT = T('', { x: sx, y: sy + 38, 'text-anchor': 'middle', class: 'rv-stack' }, g);
+      // баунти игрока (турниры с баунти, с 0.7.20): маленькая метка в правом верхнем углу места
+      if (rp.bo && rp.bo.s && rp.bo.s[k] != null && rp.bo.s[k] >= 0) { const v = rp.bo.s[k], sym = rp.bo.c || ''; const txt = (sym === '$' ? '$' : '') + String(Math.round(v * 100) / 100).replace('.', ',') + (sym && sym !== '$' ? sym : ''); const bw = Math.max(44, txt.length * 7.6 + 14), side = pl[0] === 'BTN' ? (sx > CX ? 1 : -1) : 1, bx0 = side > 0 ? sx + 78 - bw : sx - 78; const bg = S('g', { class: 'rv-bty' }, g); S('rect', { x: bx0, y: sy - 14, width: bw, height: 20, rx: 10, class: 'rv-bty-r' }, bg); T(txt, { x: bx0 + bw / 2, y: sy + 1, 'text-anchor': 'middle', class: 'rv-bty-t' }, bg); /* у кнопки дилера — с другой стороны от «D» */ const tt = document.createElementNS(NS, 'title'); tt.textContent = 'Баунти игрока: ' + txt; bg.append(tt); }
       if (pl[0] === 'BTN') { const dx = sx + 64 * (sx > CX ? -1 : 1), dy = sy - 22; S('circle', { cx: dx, cy: dy, r: 13, class: 'rv-dealer' }, g); T('D', { x: dx, y: dy + 5, 'text-anchor': 'middle', class: 'rv-dealer-t' }, g); }
       // ставка: фишка + сумма; действие — плашкой над местом
       const betG = S('g', { class: 'rv-betg' }, svg);
@@ -434,6 +436,7 @@
 .rv-actg.t-ai .rv-act{fill:#FF7B6B}.rv-actg.t-ai .rv-act-t{fill:#2A0B07}
 .rv-actg.t-w .rv-act{fill:#7FD7A2}.rv-actg.t-w .rv-act-t{fill:#0B2A17}
 .rv-actg.t-f .rv-act{fill:#5F687B}
+.rv-bty-r{fill:#2A2416;stroke:#F2B544;stroke-width:1.2}.rv-bty-t{font-family:'JetBrains Mono',Consolas,monospace;font-size:12px;font-weight:700;fill:#F6D28A}
 .rv-eq{fill:rgba(8,10,14,.85);stroke:#7FD7A2;stroke-width:1.2}.rv-eq-t{font-family:'JetBrains Mono',Consolas,monospace;font-size:12.5px;font-weight:700;fill:#7FD7A2}`;
   const st = document.createElement('style'); st.textContent = RV_SVG_CSS; document.head.append(st);
 })();

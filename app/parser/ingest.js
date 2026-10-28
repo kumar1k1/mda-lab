@@ -26,7 +26,10 @@ const { internTitle, appendNames, playersIn } = require('./rpbin.js');
 const FORMAT = 'mdalab-cols-v3';
 // колонки ваших раздач: статы + ссылка на запись реплеера + отпечаток раздачи
 // aid — номер алиаса (в базе может быть несколько игроков со своими никами: вы, друг…)
-const HERO_SCHEMA = SCHEMA.concat([['rpp', 'i32'], ['rpo', 'u32'], ['rpl', 'u32'], ['key', 'f64'], ['aid', 'i16'], ['nk', 'i16']]);
+const HERO_SCHEMA = SCHEMA.concat([['rpp', 'i32'], ['rpo', 'u32'], ['rpl', 'u32'], ['key', 'f64'], ['aid', 'i16'], ['nk', 'i16'],
+  // баунти (с 0.7.20): bty — есть данные о баунти в записи раздачи (1), нет (0), неизвестно (-1, старые строки); hbo — ваш баунти,
+  // центы валюты турнира; kon — сколько игроков вы выбили в раздаче; koc — сколько получили за них деньгами сразу (центы, -1 — неизвестно)
+  ['bty', 'i8'], ['hbo', 'i32'], ['kon', 'i8'], ['koc', 'i32']]);
 // nk — номер ника героя в meta.heroNicks (у одного алиаса может быть несколько ников в одном руме)
 // колонки раздач соперников: статы + игрок, его место в раздаче, ссылка на запись реплеера, отпечаток раздачи
 const OPP_SCHEMA = SCHEMA.concat([['pid', 'i32'], ['seat', 'i8'], ['rpp', 'i32'], ['rpo', 'u32'], ['rpl', 'u32'], ['key', 'f64']]);
@@ -171,7 +174,7 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
   // соперники раздачи — по самой раздаче, чтобы не задвоить их при второй истории той же раздачи
   const hk2 = (k, a) => (a ? hash53(k + '|' + a) : k);
   const seen = new HashSet53(old ? old.heroN : 0), handSeen = new HashSet53(old ? old.heroN : 0);
-  let fillMap = null; const fills = []; // [старая строка, часть, смещение, длина] — дописанные записи реплеера
+  let fillMap = null, boMap = null; const fills = [], boFills = []; // boFills: [старая строка, часть, смещение, длина, bty, hbo, kon, koc] // [старая строка, часть, смещение, длина] — дописанные записи реплеера
   if (old) {
     const r = new ColumnReader(colFile(old.g, 'key'), 'f64', old.heroN), ra = fs.existsSync(colFile(old.g, 'aid')) ? new ColumnReader(colFile(old.g, 'aid'), 'i16', old.heroN) : null;
     for (let i = 0; i < old.heroN; i++) { const k = r.get(i); seen.add(hk2(k, ra ? ra.get(i) : 0)); handSeen.add(k); }
@@ -179,6 +182,11 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
     // («Результаты» её не видят). Повторная загрузка тех же историй дописывает записи этим строкам (дубликатов нет).
     { const rp = fs.existsSync(colFile(old.g, 'rpp')) ? new ColumnReader(colFile(old.g, 'rpp'), 'i32', old.heroN) : null;
       if (rp) { for (let i = 0; i < old.heroN; i++) if (rp.get(i) < 0) { if (!fillMap) fillMap = new Map(); fillMap.set(hk2(r.get(i), ra ? ra.get(i) : 0), i); } rp.close(); } }
+    // баунти (с 0.7.20): ваши раздачи турниров с баунти без данных о баунти — повторная загрузка тех же историй
+    // переписывает их запись реплеера (с баунти) и колонки баунти; строк не добавляется
+    { const ty = fs.existsSync(colFile(old.g, 'type')) ? new ColumnReader(colFile(old.g, 'type'), 'i8', old.heroN) : null, bt = fs.existsSync(colFile(old.g, 'bty')) ? new ColumnReader(colFile(old.g, 'bty'), 'i8', old.heroN) : null;
+      if (ty) { for (let i = 0; i < old.heroN; i++) if (ty.get(i) === 1 && (!bt || bt.get(i) !== 1)) { const k2 = hk2(r.get(i), ra ? ra.get(i) : 0); if (!fillMap || !fillMap.has(k2)) { if (!boMap) boMap = new Map(); boMap.set(k2, i); } } ty.close(); }
+      if (bt) bt.close(); }
     r.close(); if (ra) ra.close();
     // раздачи, загруженные без героя (датамайнинг), есть только среди строк соперников
     if (old.oppN) { const ro = new ColumnReader(colFile(old.og, 'key'), 'f64', old.oppN); for (let i = 0; i < old.oppN; i++) handSeen.add(ro.get(i)); ro.close(); }
@@ -233,6 +241,7 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
     }
     const aid = target;
     if (fillMap) { const k2 = hk2(h.k, aid), fr = fillMap.get(k2); if (fr != null) { fillMap.delete(k2); if (h.rpz && h.heroRp && h.hhc >= 0) { const ref = addRec(h.rpz, h, rooms.indexOf(nicksAll[h.hn]), false); fills.push(fr, ref[0], ref[1], ref[2]); ckAdd(h); } dup++; return; } }
+    if (boMap) { const k2 = hk2(h.k, aid), fr = boMap.get(k2); if (fr != null) { boMap.delete(k2); if (h.bty === 1 && h.rpz && h.heroRp && h.hhc >= 0) { const ref = addRec(h.rpz, h, rooms.indexOf(nicksAll[h.hn]), false); boFills.push(fr, ref[0], ref[1], ref[2], 1, h.hbo, h.kon, h.koc); } dup++; return; } }
     const po = prevOwners.get(h.hn);
     if (po && po.some(a => seen.has(hk2(h.k, a)))) { dup++; return; }
     if (ckDup(h)) { dup++; return; }
@@ -245,6 +254,7 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
     pushRow(HC, h.vals, h.vi, roomIdx);
     const hr = h.heroRp && ref && h.hhc >= 0; // запись реплеера у каждой вашей раздачи с вашими картами
     H.rpp.push(hr ? ref[0] : -1); H.rpo.push(hr ? ref[1] : 0); H.rpl.push(hr ? ref[2] : 0); H.key.push(h.k); H.aid.push(aid); H.nk.push(nkOf.has(h.hn) ? nkOf.get(h.hn) : -1);
+    H.bty.push(h.bty || 0); H.hbo.push(h.hbo == null ? -1 : h.hbo); H.kon.push(h.kon || 0); H.koc.push(h.koc == null ? -1 : h.koc);
     nH++; addedBy[aid]++;
     if (newHand) addOpps(h, roomIdx, ref, h.vi + 1);
   }, (d, t) => prog('parse', d, t, nH + nD), opts.parseThreads, { observer, exclude: others });
@@ -264,7 +274,7 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
   { const f = path.join(dir, 'rp-titles.json'), t = f + '.tmp'; fs.writeFileSync(t, JSON.stringify(titles)); fs.renameSync(t, f); }
   for (const c of Object.values(H)) c.close();
   for (const c of Object.values(O)) c.close();
-  if (!nH && !nO && !fills.length) { fs.rmSync(tmp, { recursive: true, force: true }); if (!old) fs.rmSync(dir, { recursive: true, force: true }); return { hands: old ? old.heroN : 0, added: 0, dup, errors, rooms, opp: old ? old.oppN : 0, oppAdded: 0, players: old ? old.players.length : 0, aliases: aliases.map(a => a.name) }; }
+  if (!nH && !nO && !fills.length && !boFills.length) { fs.rmSync(tmp, { recursive: true, force: true }); if (!old) fs.rmSync(dir, { recursive: true, force: true }); return { hands: old ? old.heroN : 0, added: 0, dup, errors, rooms, opp: old ? old.oppN : 0, oppAdded: 0, players: old ? old.players.length : 0, aliases: aliases.map(a => a.name) }; }
 
   // начало периода: самый ранний месяц среди старых и новых раздач
   const dayNew = H.day.readAll();
@@ -289,7 +299,7 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
   for (const [nm, t] of HERO_SCHEMA) {
     const a = nm === 'day' ? permute(dayNew, hPerm) : permute(H[nm].readAll(), hPerm);
     const [fo, fn] = fix(nm);
-    mergeColumn(old && old.g, old ? old.heroN : 0, nm, t, a, hPlan, gdir, fo, fn, nm === 'nk' || nm === 'ant' || nm === 'fcb' || nm === 'cbs' ? -1 : 0); // ник, анте и фолд на контбет старых строк неизвестны (-1)
+    mergeColumn(old && old.g, old ? old.heroN : 0, nm, t, a, hPlan, gdir, fo, fn, nm === 'nk' || nm === 'ant' || nm === 'fcb' || nm === 'cbs' || nm === 'bty' || nm === 'hbo' || nm === 'kon' || nm === 'koc' ? -1 : 0); // ник, анте, фолд на контбет и баунти старых строк неизвестны (-1)
   }
   // 3б. соперники: по игроку, затем по дате
   prog('merge', 1, 2, nH);
@@ -317,6 +327,16 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
     for (let k = 0; k < hPlan.length; k++) { if (hPlan[k]) continue; const q = want.get(oi); if (q != null) { pos.push(k); P.push(fills[q + 1]); O2.push(fills[q + 2]); L.push(fills[q + 3]); } oi++; }
     patchColumn(gdir, 'rpp', 'i32', pos, P); patchColumn(gdir, 'rpo', 'u32', pos, O2); patchColumn(gdir, 'rpl', 'u32', pos, L);
     for (let q = 0; q < pos.length; q++) fillPos.push([pos[q], P[q], O2[q], L[q]]);
+  }
+  // 3г. баунти старых строк: новая запись реплеера (с баунти) и колонки баунти — на месте старой строки после слияния
+  let boFilled = 0;
+  if (boFills.length) {
+    const want = new Map(); for (let q = 0; q < boFills.length; q += 8) want.set(boFills[q], q);
+    const pos = [], P = [], O2 = [], L = [], B = [], HB = [], KN = [], KC = []; let oi = 0;
+    for (let k = 0; k < hPlan.length; k++) { if (hPlan[k]) continue; const q = want.get(oi); if (q != null) { pos.push(k); P.push(boFills[q + 1]); O2.push(boFills[q + 2]); L.push(boFills[q + 3]); B.push(boFills[q + 4]); HB.push(boFills[q + 5]); KN.push(boFills[q + 6]); KC.push(boFills[q + 7]); } oi++; }
+    patchColumn(gdir, 'rpp', 'i32', pos, P); patchColumn(gdir, 'rpo', 'u32', pos, O2); patchColumn(gdir, 'rpl', 'u32', pos, L);
+    patchColumn(gdir, 'bty', 'i8', pos, B); patchColumn(gdir, 'hbo', 'i32', pos, HB); patchColumn(gdir, 'kon', 'i8', pos, KN); patchColumn(gdir, 'koc', 'i32', pos, KC);
+    boFilled = pos.length;
   }
   // 4. EV для новых строк — по их местам после слияния. Колонки читаются кусками по порядку строк
   //    (не целиком), список расчётов — плотный массив: память не растёт с размером базы.
@@ -361,7 +381,7 @@ async function ingest(files, nicks, alias, dir, onProgress, opts) {
   const mt = path.join(dir, 'meta.json.tmp'); fs.writeFileSync(mt, JSON.stringify(meta)); fs.renameSync(mt, path.join(dir, 'meta.json'));
   if (old) fs.rmSync(old.g, { recursive: true, force: true });
   fs.rmSync(tmp, { recursive: true, force: true });
-  return { hands: meta.count, added: nH, refilled: fillPos.length, mined: nD, dup: dup - fillPos.length, errors, rooms, opp: meta.opp.rows, oppAdded: nO, players: plist.length, aliases: meta.aliases.map(a => a.name + ' (' + a.count + ')') };
+  return { hands: meta.count, added: nH, refilled: fillPos.length, bounty: boFilled, mined: nD, dup: dup - fillPos.length - boFilled, errors, rooms, opp: meta.opp.rows, oppAdded: nO, players: plist.length, aliases: meta.aliases.map(a => a.name + ' (' + a.count + ')') };
 }
 
 // Очень большие загрузки идут группами по ~4 ГБ историй: первая группа создаёт базу (или дописывается),
@@ -374,12 +394,12 @@ async function ingestGrouped(files, nicks, alias, dir, onProgress, opts) {
   const lim = opts.groupBytes || GROUP, groups = []; let cur = [], sz = 0;
   for (const f of files) { let b = 0; try { b = fileSize(f); } catch (e) { /* размер неизвестен */ } if (cur.length && sz + b > lim) { groups.push(cur); cur = []; sz = 0; } cur.push(f); sz += b; }
   if (cur.length || !groups.length) groups.push(cur);
-  let done = 0, last = null; const sum = { added: 0, dup: 0, errors: 0, oppAdded: 0, refilled: 0 };
+  let done = 0, last = null; const sum = { added: 0, dup: 0, errors: 0, oppAdded: 0, refilled: 0, bounty: 0 };
   for (let g = 0; g < groups.length; g++) {
     const off = done;
     const r = await ingest(groups[g], nicks, alias, dir, (d, t, h, st) => { if (onProgress) onProgress(st === 'parse' ? off + d : d, st === 'parse' ? files.length : t, h, st, g + 1, groups.length); }, opts);
     done += groups[g].length; last = r;
-    sum.added += r.added || 0; sum.refilled += r.refilled || 0; sum.dup += r.dup || 0; sum.errors += r.errors || 0; sum.oppAdded += r.oppAdded || 0;
+    sum.added += r.added || 0; sum.refilled += r.refilled || 0; sum.bounty += r.bounty || 0; sum.dup += r.dup || 0; sum.errors += r.errors || 0; sum.oppAdded += r.oppAdded || 0;
   }
   return Object.assign({}, last, sum, { groups: groups.length });
 }

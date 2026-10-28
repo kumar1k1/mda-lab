@@ -100,7 +100,12 @@ function buildReplay(lines, ctx) {
   const ev = []; // [улица, игрок, тип, сумма]; улицы 0 префлоп,1 флоп,2 тёрн,3 ривер,4 итог
   const shown = {}; const board = [];
   let street = 0, inSummary = false, wpnWon = {}, collectedAny = false;
+  // для баунти: фишки каждого игрока — сколько вложил и выиграл (кто вылетел), и строки PokerStars о выбивании
+  const inv = new Array(order.length).fill(0), wonC = new Array(order.length).fill(0); let curB = new Array(order.length).fill(0);
+  const koL = [];
   for (const l of lines) {
+    const km = !inSummary && l.match(/^(.+?) wins (?:the )?[€$£₽]?([\d.,]+)(?: bounty)? for (?:splitting the )?eliminat(?:ing|ion of) (.+?)(?: and (?:their|his|her) own bounty increases by [€$£₽]?([\d.,]+)(?: to [€$£₽]?([\d.,]+))?)?\s*$/);
+    if (km && km[1] in pIdx && km[3] in pIdx) { koL.push([pIdx[km[1]], pIdx[km[3]], num(km[2]), km[4] != null ? num(km[4]) : 0]); continue; }
     if (/^\*\*\* SUMMARY/.test(l)) { inSummary = true; continue; }
     if (inSummary) {
       if (fmt === 'wpn') { const m = l.match(/^Seat \d+: (.+?) (?:\([^)]*\) )?(?:showed \[[^\]]*\] and )?(?:did not show and )?won ([\d.,]+)/); if (m && m[1] in pIdx) wpnWon[m[1]] = (wpnWon[m[1]] || 0) + num(m[2]); }
@@ -113,27 +118,40 @@ function buildReplay(lines, ctx) {
       const br = st[2].match(/\[([^\]]+)\]/g) || [];
       const last = br.length ? br[br.length - 1].slice(1, -1).trim().split(/\s+/) : [];
       if (street === 1) board.push(...last); else if (last.length) board.push(last[last.length - 1]);
-      ev.push([street, -1, 'S', 0]);
+      ev.push([street, -1, 'S', 0]); curB = curB.map(() => 0);
       continue;
     }
     const ub = l.match(/^Uncalled bet \(([\d.,]+)\) returned to (.+)$/);
-    if (ub && ub[2].trim() in pIdx) { ev.push([street, pIdx[ub[2].trim()], 'U', r2(num(ub[1]))]); continue; }
+    if (ub && ub[2].trim() in pIdx) { const ui = pIdx[ub[2].trim()]; inv[ui] -= num(ub[1]); ev.push([street, ui, 'U', r2(num(ub[1]))]); continue; }
     const n = who(l); if (!n || !(n in pIdx)) continue;
     const i = pIdx[n];
     const rest = l.slice(n.length).replace(/^:/, '').trim();
     let m;
-    if ((m = rest.match(/^posts (?:the )?ante ([\d.,]+)/))) ev.push([0, i, 'A', r2(num(m[1]))]);
-    else if ((m = rest.match(/^posts (?:the )?small blind ([\d.,]+)/))) ev.push([0, i, 'SB', r2(num(m[1]))]);
-    else if ((m = rest.match(/^posts (?:the )?big blind ([\d.,]+)/))) ev.push([0, i, 'BB', r2(num(m[1]))]);
+    if ((m = rest.match(/^posts (?:the )?ante ([\d.,]+)/))) { ev.push([0, i, 'A', r2(num(m[1]))]); inv[i] += num(m[1]); }
+    else if ((m = rest.match(/^posts (?:the )?small blind ([\d.,]+)/))) { ev.push([0, i, 'SB', r2(num(m[1]))]); inv[i] += num(m[1]); curB[i] += num(m[1]); }
+    else if ((m = rest.match(/^posts (?:the )?big blind ([\d.,]+)/))) { ev.push([0, i, 'BB', r2(num(m[1]))]); inv[i] += num(m[1]); curB[i] += num(m[1]); }
     else if (/^folds/.test(rest)) ev.push([street, i, 'f', 0]);
     else if (/^checks/.test(rest)) ev.push([street, i, 'x', 0]);
-    else if ((m = rest.match(/^calls ([\d.,]+)/))) ev.push([street, i, 'c', r2(num(m[1])), /all-in/.test(rest) ? 1 : 0]);
-    else if ((m = rest.match(/^bets ([\d.,]+)/))) ev.push([street, i, 'b', r2(num(m[1])), /all-in/.test(rest) ? 1 : 0]);
-    else if ((m = rest.match(/^raises [\d.,]+ to ([\d.,]+)/))) ev.push([street, i, 'r', r2(num(m[1])), /all-in/.test(rest) ? 1 : 0]);
+    else if ((m = rest.match(/^calls ([\d.,]+)/))) { ev.push([street, i, 'c', r2(num(m[1])), /all-in/.test(rest) ? 1 : 0]); inv[i] += num(m[1]); curB[i] += num(m[1]); }
+    else if ((m = rest.match(/^bets ([\d.,]+)/))) { ev.push([street, i, 'b', r2(num(m[1])), /all-in/.test(rest) ? 1 : 0]); inv[i] += num(m[1]); curB[i] += num(m[1]); }
+    else if ((m = rest.match(/^raises [\d.,]+ to ([\d.,]+)/))) { ev.push([street, i, 'r', r2(num(m[1])), /all-in/.test(rest) ? 1 : 0]); inv[i] += num(m[1]) - curB[i]; curB[i] = num(m[1]); }
     else if ((m = rest.match(/^shows \[([^\]]+)\]/))) shown[i] = m[1];
-    else if ((m = rest.match(/^collected ([\d.,]+)/))) { ev.push([4, i, 'W', r2(num(m[1]))]); collectedAny = true; }
+    else if ((m = rest.match(/^collected ([\d.,]+)/))) { ev.push([4, i, 'W', r2(num(m[1]))]); wonC[i] += num(m[1]); collectedAny = true; }
   }
-  if (fmt === 'wpn' && !collectedAny) Object.keys(wpnWon).forEach(nm => ev.push([4, pIdx[nm], 'W', r2(wpnWon[nm])]));
+  if (fmt === 'wpn' && !collectedAny) Object.keys(wpnWon).forEach(nm => { ev.push([4, pIdx[nm], 'W', r2(wpnWon[nm])]); wonC[pIdx[nm]] += wpnWon[nm]; });
+  // баунти раздачи (с 0.7.20): размеры у мест и выбивания. PokerStars пишет выбивание строкой — деньги сразу и прибавку
+  // к своей голове; Winamax строк не пишет — выбивание определяется по стекам (игрок потерял все фишки, банк забрал
+  // другой), а суммы там неизвестны (null): прибавка видна по баунти победителя в следующей раздаче.
+  let bo;
+  if (order.some(sn => seats[sn].bo != null)) {
+    const sym = (order.map(sn => seats[sn].bsym).find(Boolean)) || '';
+    bo = { c: sym, s: order.map(sn => (seats[sn].bo != null ? Math.round(seats[sn].bo * 100) / 100 : -1)), k: [] };
+    if (koL.length) bo.k = koL.map(([w, l, cash, add]) => [w, l, Math.round(cash * 100) / 100, Math.round(add * 100) / 100]);
+    else {
+      const winners = order.map((_, q) => q).filter(q => wonC[q] > 0);
+      order.forEach((sn, q) => { const fin = seats[sn].stack - inv[q] + wonC[q]; if (seats[sn].stack > 0 && fin <= 0.0001 && inv[q] > 0) winners.filter(w => w !== q).forEach(w => bo.k.push([w, q, null, null])); });
+    }
+  }
   const heroI = pIdx[heroName];
   const dealt = lines.find(l => l.startsWith('Dealt to ' + heroName + ' ['));
   const hc = dealt ? dealt.slice(dealt.indexOf('[') + 1, dealt.indexOf(']')) : null;
@@ -148,7 +166,9 @@ function buildReplay(lines, ctx) {
   else if (fmt === 'ps') { const t = header.match(/Tournament #(\d+), (.*?) (?:Hold'em|Holdem)/); tl = t ? t[2].replace(/â‚½/g, '₽') + ' · #' + t[1] : ''; }
   else { const t = header.match(/Tournament #(\d+)/); tl = t ? 'Турнир #' + t[1] : ''; }
   const tm = header.match(/(\d{4}\/\d{2}\/\d{2}) (\d{1,2}:\d{2})/);
-  return { pl, h: heroI, hc, ev, bd: board, sh: shown, t: tl, d: tm ? tm[1].replace(/\//g, '-') + ' ' + tm[2] : '', c: Math.round(bb * 100) / 100, bb: 1 };
+  const out = { pl, h: heroI, hc, ev, bd: board, sh: shown, t: tl, d: tm ? tm[1].replace(/\//g, '-') + ' ' + tm[2] : '', c: Math.round(bb * 100) / 100, bb: 1 };
+  if (bo) out.bo = bo;
+  return out;
 }
 
 // Общая разметка раздачи: заголовок, места, блайнды, позиции, префлоп-действия — одна на всех игроков.
@@ -193,6 +213,9 @@ function parseCtx(text, fmt, heroes, observer) {
     const stack = num((m[3].match(/[\d.,]+/) || ['0'])[0]);
     if (/bounty/i.test(m[3])) bounty = true;
     seats[+m[1]] = { seat: +m[1], name: m[2], stack };
+    // баунти игрока (с 0.7.20): Winamax «(20000, 25€ bounty)», PokerStars «(10000 in chips, $25 bounty)»
+    const bm = m[3].match(/([€$£₽¥])?\s?([\d.,]+)\s?([€$£₽¥])?\s*bounty/i);
+    if (bm) { seats[+m[1]].bo = num(bm[2]); seats[+m[1]].bsym = bm[1] || bm[3] || ''; }
     byName[m[2]] = +m[1];
   }
   // герой — тот из известных ников, кому раздали карты («Dealt to»): в базе может быть несколько алиасов,

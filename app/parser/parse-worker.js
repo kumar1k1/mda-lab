@@ -13,6 +13,13 @@ const { rowVals } = require('./ingest.js');
 const { encodeRec } = require('./rpbin.js');
 const NC = SCHEMA.length, CNAMES = SCHEMA.map(c => c[0]);
 const { closeAll } = require('./zip.js');
+// баунти раздачи для колонок (с 0.7.20): есть ли данные, ваш баунти, сколько вы выбили, сколько получили деньгами (центы; -1 — неизвестно)
+function boOf(rp) {
+  if (!rp || !rp.bo) return { bty: 0, hbo: -1, kon: 0, koc: -1 };
+  const h = rp.h, s = rp.bo.s, mine = rp.bo.k.filter(k => k[0] === h);
+  const cash = mine.length ? (mine.every(k => k[2] != null) ? Math.round(mine.reduce((a, k) => a + k[2], 0) * 100) : -1) : 0;
+  return { bty: 1, hbo: h != null && s[h] != null && s[h] >= 0 ? Math.round(s[h] * 100) : -1, kon: Math.min(100, mine.length), koc: cash };
+}
 
 const { files } = workerData;
 const heroes = new Set(workerData.heroes), observer = !!workerData.observer, exclude = new Set(workerData.exclude || []);
@@ -48,7 +55,7 @@ async function work(fi) {
         const heroRp = !!(h.hero && h.hero.rp); if (h.hero) delete h.hero.rp; // запись реплеера — у каждой вашей раздачи
         const vi = h.hero ? addRow(h.hero) : nRows;
         for (const o of h.opps) addRow(o);
-        hands.push({ k: hash53(h.id + '|' + h.tour), ck: rp ? ckOf(rp) : 0, room: h.room, hn: h.hero ? h.hero.hero : null, hhc: h.hero ? h.hero.hc : -1, vi, on: h.opps.map(o => o.hero), os: h.opps.map(o => o.seatIdx), onr: h.opps.map(o => (o.needRp ? 1 : 0)), heroRp, rpz: rp ? encodeRec(rp) : null }); // двоичная запись (parser/rpbin.js)
+        hands.push({ k: hash53(h.id + '|' + h.tour), ck: rp ? ckOf(rp) : 0, room: h.room, hn: h.hero ? h.hero.hero : null, hhc: h.hero ? h.hero.hc : -1, vi, on: h.opps.map(o => o.hero), os: h.opps.map(o => o.seatIdx), onr: h.opps.map(o => (o.needRp ? 1 : 0)), heroRp, rpz: rp ? encodeRec(rp) : null, ...boOf(rp) }); // двоичная запись (parser/rpbin.js)
       }
       if (hands.length >= BATCH) await flush(false);
     });

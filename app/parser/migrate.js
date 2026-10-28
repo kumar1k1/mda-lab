@@ -181,7 +181,7 @@ function migNames(dir, meta, post) {
   for (const u of ord) {
     let b = br.get(P[u], O[u], L[u]);
     try {
-      if ((b[0] === 2 || b[0] === 3) && !(b[1] & 128)) {
+      if ((b[0] === 2 || b[0] === 3 || b[0] === 4 || b[0] === 5) && !(b[1] & 128)) {
         const { n, h } = RB.seatsOf(b), codes = new Array(n).fill(0);
         if (oRow) for (let q = start[u]; q < start[u + 1]; q++) { const i = oRow[q], s = oSeat[i]; if (s >= 0 && s < n && oPid[i] >= 0) codes[s] = 2 + 2 * oPid[i]; }
         if (heroNk[u] >= 0 && h >= 0 && h < n) codes[h] = 1 + 2 * heroNk[u];

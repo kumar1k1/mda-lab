@@ -191,12 +191,12 @@
     function showUndo(x, old) {
       clearTimeout(undoT); noteSt.replaceChildren();
       const u = el('button', 'tv-note-undo', 'Вернуть'); u.type = 'button';
-      u.onclick = () => { clearTimeout(undoT); NT[x.mk] = old; saveNT(); counts(); refreshRow(x); if (x.i === cur) { noteTa.value = old; noteSt.textContent = 'сохранено'; noteDel.hidden = false; } const nb = document.querySelector('.rv-ib.note'); if (nb && x.i === cur) nb.classList.add('on'); if (HOST && HOST.isConnected) LISTDIRTY = true; };
+      u.onclick = () => { clearTimeout(undoT); NT[x.mk] = old; saveNT(); counts(); refreshRow(x); if (x.i === cur) { noteTa.value = old; noteSt.textContent = ''; noteDel.hidden = false; } const nb = document.querySelector('.rv-ib.note'); if (nb && x.i === cur) nb.classList.add('on'); if (HOST && HOST.isConnected) LISTDIRTY = true; };
       noteSt.append('удалена · ', u);
       undoT = setTimeout(() => { if (noteSt.contains(u)) noteSt.textContent = ''; }, 6000);
     }
     const refreshRow = (x) => { const old = rows.get(x.i); if (!old) return; const r = hRow(x); if (old.classList.contains('cur')) r.classList.add('cur'); old.replaceWith(r); rows.set(x.i, r); if ((filt === 'nt' && !NT[x.mk]) || (filt === 'mk' && !MK[x.mk])) fillList(); };
-    const showNote = () => { if (!noteTa) return; const x = H.find(z => z.i === cur); if (!x) return; if (document.activeElement !== noteTa) noteTa.value = NT[x.mk] || ''; noteLab.textContent = 'Заметка к раздаче №' + x.no; noteSt.textContent = NT[x.mk] ? 'сохранено' : ''; if (noteDel) noteDel.hidden = !NT[x.mk]; };
+    const showNote = () => { if (!noteTa) return; const x = H.find(z => z.i === cur); if (!x) return; if (document.activeElement !== noteTa) noteTa.value = NT[x.mk] || ''; noteLab.textContent = 'Заметка к раздаче №' + x.no; noteSt.textContent = ''; if (noteDel) noteDel.hidden = !NT[x.mk]; };
     let filt = 'all', desc = false, root = null, listBox = null, rows = new Map(), cur = -1, scrollTop = 0, spotsEl = null;
     const counts = () => { stripCounts(); if (!spotsEl) return; [...spotsEl.children].forEach(b => { const n = H.filter(x => inSpot(x, b.dataset.v)).length; b.lastChild.textContent = String(n); b.disabled = !n && b.dataset.v !== filt; }); };
     const ordered = () => { const L = H.filter(x => inSpot(x, filt)); return desc ? L.reverse() : L; };
@@ -239,11 +239,11 @@
       noteBox = el('div', 'tv-note'); const nh = el('div', 'tv-note-h'); noteLab = el('b', null, 'Заметка'); noteSt = el('span');
       // удалить заметку одним нажатием; несколько секунд можно вернуть
       noteDel = el('button', 'tv-note-del'); noteDel.type = 'button'; noteDel.textContent = '✕ Удалить'; noteDel.title = 'Удалить заметку этой раздачи'; noteDel.hidden = true;
-      noteDel.onclick = () => { const x = H.find(z => z.i === cur); if (!x || !NT[x.mk]) return; const old = NT[x.mk]; noteTa.value = ''; clearTimeout(nt0); commit(); showUndo(x, old); };
+      noteDel.onclick = () => { const x = H.find(z => z.i === cur); if (!x) return; clearTimeout(nt0); const old = NT[x.mk] || noteTa.value.trim(); noteTa.value = ''; commit(); if (old) showUndo(x, old); };
       const nr = el('span', 'tv-note-r'); nr.append(noteSt, noteDel); nh.append(noteLab, nr);
       noteTa = el('textarea', 'tv-note-ta'); noteTa.rows = 3; noteTa.placeholder = 'Что здесь важно: ошибка, мысль, что запомнить… Сохраняется сама.'; noteTa.setAttribute('aria-label', 'Заметка к раздаче');
-      let nt0 = null; const commit = () => { const x = H.find(z => z.i === cur); if (!x) return; const v = noteTa.value.trim(); const had = !!NT[x.mk]; if (v) NT[x.mk] = v; else delete NT[x.mk]; saveNT(); noteSt.textContent = v ? 'сохранено' : ''; noteDel.hidden = !v; const nb = document.querySelector('.rv-ib.note'); if (nb) { nb.classList.toggle('on', !!v); nb.title = v ? 'Заметка к раздаче — есть' : 'Заметка к раздаче'; } if (had !== !!v || v) { counts(); refreshRow(x); if (HOST && HOST.isConnected) LISTDIRTY = true; } };
-      noteTa.addEventListener('input', () => { noteSt.textContent = '…'; clearTimeout(nt0); nt0 = setTimeout(commit, 400); });
+      let nt0 = null; const commit = () => { const x = H.find(z => z.i === cur); if (!x) return; const v = noteTa.value.trim(); const had = !!NT[x.mk]; if (v) NT[x.mk] = v; else delete NT[x.mk]; saveNT(); if (!noteSt.querySelector('.tv-note-undo')) noteSt.textContent = ''; noteDel.hidden = !v; const nb = document.querySelector('.rv-ib.note'); if (nb) { nb.classList.toggle('on', !!v); nb.title = v ? 'Заметка к раздаче — есть' : 'Заметка к раздаче'; } if (had !== !!v || v) { counts(); refreshRow(x); if (HOST && HOST.isConnected) LISTDIRTY = true; } };
+      noteTa.addEventListener('input', () => { noteDel.hidden = !noteTa.value.trim(); clearTimeout(nt0); nt0 = setTimeout(commit, 300); }); // крестик — сразу с первым символом
       noteTa.addEventListener('blur', () => { clearTimeout(nt0); commit(); });
       noteTa.addEventListener('keydown', (e) => { if (e.key === 'Escape') { noteTa.blur(); e.stopPropagation(); } });
       noteBox.append(nh, noteTa);

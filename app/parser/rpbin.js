@@ -9,6 +9,9 @@ const POS = ['UTG', 'UTG+1', 'UTG+2', 'MP', 'MP+1', 'HJ', 'CO', 'BTN', 'SB', 'BB
 const TYPES = ['S', 'A', 'SB', 'BB', 'f', 'x', 'c', 'b', 'r', 'U', 'W'];
 const RANKS = '23456789TJQKA', SUITS = 'cdhs';
 const VER = 2, VER_T = 3; // 3 — турнир номером из таблицы турниров базы
+// 4 / 5 (с 0.7.20) — то же, плюс байт после размера блайнда: есть ли баунти раздачи (размеры у мест и выбивания)
+const VER4 = 4, VER4_T = 5;
+const isV = (v) => v === VER || v === VER_T || v === VER4 || v === VER4_T, isT = (v) => v === VER_T || v === VER4_T;
 
 class W {
   constructor() { this.b = Buffer.alloc(512); this.n = 0; }
@@ -33,8 +36,9 @@ const cent = (v) => { const k = Math.round(v * 100); return k / 100 === v ? k : 
 
 function encodeBin(rec) {
   const keys = Object.keys(rec);
-  for (const k of keys) if (!['pl', 'h', 'hc', 'ev', 'bd', 'sh', 't', 'd', 'c'].includes(k)) return null;
-  const w = new W(); w.u8(VER);
+  for (const k of keys) if (!['pl', 'h', 'hc', 'ev', 'bd', 'sh', 't', 'd', 'c', 'bo'].includes(k)) return null;
+  if ('bo' in rec && !('c' in rec)) return null;
+  const w = new W(); w.u8(VER4);
   // флаги наличия полей
   const has = (k) => k in rec;
   let fl = 0; ['hc', 'bd', 'sh', 't', 'd'].forEach((k, i) => { if (has(k)) fl |= 1 << i; }); if (rec.hc === null) fl |= 32; if (has('c')) fl |= 64;
@@ -76,11 +80,23 @@ function encodeBin(rec) {
   }
   // большой блайнд в фишках (с 0.7.2): для показа стеков и ставок в фишках
   if (has('c')) { const c = typeof rec.c === 'number' && rec.c > 0 ? cent(rec.c) : null; if (c == null) return null; w.uv(c); }
+  // баунти: 0 — нет; 1 — знак валюты, баунти каждого места (центы, -1 — неизвестно), выбивания [кто, кого, деньги, прибавка]
+  if (has('c')) {
+    if (!rec.bo) w.u8(0);
+    else {
+      const bo = rec.bo; if (typeof bo.c !== 'string' || !Array.isArray(bo.s) || bo.s.length !== rec.pl.length || !Array.isArray(bo.k)) return null;
+      w.u8(1); w.str(bo.c);
+      for (const v of bo.s) { const c = v === -1 ? -1 : cent(v); if (c == null) return null; w.sv(c); }
+      w.uv(bo.k.length);
+      for (const k of bo.k) { if (k.length !== 4 || !Number.isInteger(k[0]) || !Number.isInteger(k[1]) || k[0] < 0 || k[1] < 0 || k[0] > 250 || k[1] > 250) return null; w.u8(k[0]); w.u8(k[1]);
+        for (const v of [k[2], k[3]]) { if (v === null) w.sv(-1); else { const c = cent(v); if (c == null || c < 0) return null; w.sv(c); } } }
+    }
+  }
   return w.out();
 }
 function decodeBin(b, titles) {
   const r = new R(b); const ver = r.u8(), fl = r.u8(), rec = {};
-  let t; if (fl & 8) { if (ver === VER_T) { const id = r.uv(); t = titles && titles[id] != null ? titles[id] : ''; } else t = r.str(); }
+  let t; if (fl & 8) { if (isT(ver)) { const id = r.uv(); t = titles && titles[id] != null ? titles[id] : ''; } else t = r.str(); }
   const cardsR = () => { const n = r.uv(), cs = []; for (let i = 0; i < n; i++) cs.push(cardS(r.u8())); return cs.join(' '); };
   const n = r.uv(); rec.pl = [];
   for (let i = 0; i < n; i++) { const pc = r.u8(), st = r.sv() / 100, hh = r.u8(), seat = r.uv(); rec.pl.push([POS[pc], st, hh, seat]); }
@@ -98,6 +114,14 @@ function decodeBin(b, titles) {
   if (fl & 8) rec.t = t;
   if (fl & 16) { if (r.u8()) { const t = new Date(r.uv() * 60000), z = (v) => String(v).padStart(2, '0'); rec.d = t.getUTCFullYear() + '-' + z(t.getUTCMonth() + 1) + '-' + z(t.getUTCDate()) + ' ' + z(t.getUTCHours()) + ':' + z(t.getUTCMinutes()); } else rec.d = r.str(); }
   if (fl & 64) rec.c = r.uv() / 100;
+  if ((ver === VER4 || ver === VER4_T) && (fl & 64)) {
+    if (r.u8()) {
+      const bo = { c: r.str(), s: [], k: [] };
+      for (let i = 0; i < n; i++) { const v = r.sv(); bo.s.push(v === -1 ? -1 : v / 100); }
+      const nk = r.uv(); for (let i = 0; i < nk; i++) { const w0 = r.u8(), l0 = r.u8(), a = r.sv(), b2 = r.sv(); bo.k.push([w0, l0, a === -1 ? null : a / 100, b2 === -1 ? null : b2 / 100]); }
+      rec.bo = bo;
+    }
+  }
   if (fl & 128) { const k = r.uv(); rec.np = []; for (let i = 0; i < k; i++) rec.np.push(r.uv()); } // кто за столом (см. appendNames)
   return rec;
 }
@@ -109,29 +133,29 @@ function encodeRec(rec) {
 }
 // строка турнира → номер в таблице турниров базы (getId(строка) → номер); прочие записи — как есть
 function internTitle(b, getId) {
-  if (b[0] !== VER || !(b[1] & 8)) return b;
+  if ((b[0] !== VER && b[0] !== VER4) || !(b[1] & 8)) return b;
   const r = new R(b); r.p = 2; const t = r.str(), rest = b.subarray(r.p);
-  const w = new W(); w.u8(VER_T); w.u8(b[1]); w.uv(getId(t));
+  const w = new W(); w.u8(b[0] === VER4 ? VER4_T : VER_T); w.u8(b[1]); w.uv(getId(t));
   return Buffer.concat([w.out(), rest]);
 }
 // байты базы (rpz = 2) → запись; titles — таблица турниров базы
 function decodeRecBin(b, titles) {
-  return b[0] === VER || b[0] === VER_T ? decodeBin(b, titles) : JSON.parse(b.toString('utf8'));
+  return isV(b[0]) ? decodeBin(b, titles) : JSON.parse(b.toString('utf8'));
 }
 
 // Кто сидел за столом (с 0.7.2): дописывается в конец записи при загрузке в базу, по месту на игрока —
 // 0 неизвестно, нечётное 1 + 2·k — ваш ник номер k в meta.heroNicks, чётное 2 + 2·p — соперник p в списке игроков базы.
 function playersIn(b) { // число мест в двоичной записи
-  const r = new R(b); r.p = 2; if (b[1] & 8) { if (b[0] === VER_T) r.uv(); else r.str(); } return r.uv();
+  const r = new R(b); r.p = 2; if (b[1] & 8) { if (isT(b[0])) r.uv(); else r.str(); } return r.uv();
 }
 // число мест и номер вашего места (без полной расшифровки записи)
 function seatsOf(b) {
-  const r = new R(b); r.p = 2; if (b[1] & 8) { if (b[0] === VER_T) r.uv(); else r.str(); }
+  const r = new R(b); r.p = 2; if (b[1] & 8) { if (isT(b[0])) r.uv(); else r.str(); }
   const n = r.uv(); for (let i = 0; i < n; i++) { r.u8(); r.sv(); r.u8(); r.uv(); }
   return { n, h: r.sv() };
 }
 function appendNames(b, codes) {
-  if ((b[0] !== VER && b[0] !== VER_T) || (b[1] & 128)) return b;
+  if (!isV(b[0]) || (b[1] & 128)) return b;
   const w = new W(); w.uv(codes.length); for (const c of codes) w.uv(c);
   const out = Buffer.concat([b, w.out()]); out[1] |= 128; return out;
 }
