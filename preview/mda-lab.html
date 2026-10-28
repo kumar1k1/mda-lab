@@ -6773,8 +6773,9 @@ window.LIVE_SAMPLE = {"list":[[71951,"CashCowsPoker TV Championship Series Seaso
   // Серии ранжируются: больше турниров / крупнее гарантии / раньше. План можно поправить галочками.
   let PICK = false, FROMPICK = false, pickT = null, pickForm = null, pickRes = null;
   const PEDIT = {}, POPEN = new Set();
-  const PK0 = { bud: 3000, lo: 0, hi: 0, n: 6, ent: 1.5, main: true, side: true, hr: false, bnt: true, sat: false, nlh: true, sort: 'n' };
-  ST.pk = Object.assign({}, PK0, ST.pk && typeof ST.pk === 'object' ? ST.pk : {}); delete ST.pk.trav; delete ST.pk.fill; // бюджет — только покерные расходы
+  const PK0 = { bud: 3000, lo: 0, hi: 0, n: 6, ent: 1.5, main: true, side: true, hr: false, bnt: true, sat: false, nlh: true, how: 'n', sort: 'd' };
+  const PKraw = ST.pk && typeof ST.pk === 'object' ? ST.pk : {};
+  ST.pk = Object.assign({}, PK0, PKraw); if (!PKraw.how && PKraw.sort === 'g') ST.pk.how = 'g'; // старая настройка «Крупнее гарантии» delete ST.pk.trav; delete ST.pk.fill; if (!/^(d|c|n|g)$/.test(ST.pk.sort)) ST.pk.sort = 'd'; // бюджет — только покерные расходы
   const pickSoon = (ms) => { if (pickT) return; pickT = setTimeout(() => { pickT = null; if (PICK) drawPickRes(); }, ms || 150); };
   function openPick() { PICK = true; FROMPICK = false; pickB.classList.add('on'); pickForm = null; drawPick(); }
   const tms = (t) => { if (!t) return null; const v = Date.parse(t.length > 10 ? t.slice(0, 16) + ':00Z' : t.slice(0, 10) + 'T00:00:00Z'); return Number.isFinite(v) ? v : null; };
@@ -6804,19 +6805,30 @@ window.LIVE_SAMPLE = {"list":[[71951,"CashCowsPoker TV Championship Series Seaso
     const setBase = () => { const seen = new Set(); pick.slice().sort((a, b) => (a.ms || 0) - (b.ms || 0)).forEach(e => { en.set(e.i, seen.has(e.k) ? 1 : base(e)); seen.add(e.k); }); };
     if (PEDIT[f.id]) { pick = C.filter(e => PEDIT[f.id].has(e.i)); setBase(); }
     else {
-      const ord = C.slice().sort((a, b) => ((kind(b) === 'main') - (kind(a) === 'main')) || (k.sort === 'g' ? (b.g - a.g) || (b.b - a.b) : (a.b - b.b) || (b.g - a.g)) || ((a.ms || 0) - (b.ms || 0)));
-      pick = []; let tot = 0; const used = new Set();
-      for (const e of ord) {
-        if (used.size >= k.n) break;
-        const c = e.b * base(e); if (tot + c > avail || used.has(e.k) || clash(pick, e)) continue;
-        pick.push(e); en.set(e.i, base(e)); tot += c; used.add(e.k);
+      const ord = C.slice().sort((a, b) => ((kind(b) === 'main') - (kind(a) === 'main')) || (k.how === 'g' ? (b.g - a.g) || (b.b - a.b) : (a.b - b.b) || (b.g - a.g)) || ((a.ms || 0) - (b.ms || 0)));
+      const greedy = (list) => { const P = []; let t = 0; const u = new Set(); for (const e of list) { if (u.size >= k.n) break; const c = e.b * base(e); if (t + c > avail || u.has(e.k) || clash(P, e)) continue; P.push(e); t += c; u.add(e.k); } return { P, t, n: u.size, main: P.some(e => kind(e) === 'main'), g: P.reduce((a, e) => a + (e.g || 0), 0) }; };
+      let best = greedy(ord), win = null;
+      // План всегда сжимается по дням: ищется самое короткое окно дней, где помещается столько же турниров
+      // (и главное событие, если оно было; в режиме «Крупнее гарантии» — не меньше сумма гарантий), чтобы меньше жить на серии
+      if (best.n) {
+        const dayOf = (e) => e.ms == null ? null : Math.floor(e.ms / DAY), ds = [...new Set(C.map(dayOf).filter(d => d != null))].sort((a, b) => a - b);
+        const full = best; let bw = null;
+        for (const d0 of ds) for (const d1 of ds) {
+          if (d1 < d0 || (bw && d1 - d0 > bw.d1 - bw.d0)) continue;
+          const g = greedy(ord.filter(e => { const d = dayOf(e); return d == null || (d >= d0 && d <= d1); }));
+          if (g.n < full.n || (full.main && !g.main) || (k.how === 'g' && g.g < full.g)) continue;
+          if (!bw || d1 - d0 < bw.d1 - bw.d0 || (d1 - d0 === bw.d1 - bw.d0 && (k.how === 'g' ? g.g > bw.g.g : g.t < bw.g.t))) bw = { d0, d1, g };
+        }
+        if (bw) { best = bw.g; win = [bw.d0, bw.d1]; }
       }
+      pick = best.P; let tot = best.t; const inWin = (e) => !win || (e.ms != null && Math.floor(e.ms / DAY) >= win[0] && Math.floor(e.ms / DAY) <= win[1]);
+      pick.forEach(e => en.set(e.i, base(e)));
       if (unl) {
         const nOf = (key) => pick.filter(x => x.k === key).reduce((a, x) => a + en.get(x.i), 0);
         const first = new Map(); pick.forEach(e => first.set(e.k, e.ms));
         const pri = (a, b) => ((kind(b) === 'main') - (kind(a) === 'main')) || ((a.ms || 0) - (b.ms || 0));
         // 1) следующие Day 1 тех же турниров
-        const more = C.filter(e => first.has(e.k) && !pick.includes(e) && e.ms != null && first.get(e.k) != null && e.ms > first.get(e.k)).sort(pri);
+        const more = C.filter(e => inWin(e) && first.has(e.k) && !pick.includes(e) && e.ms != null && first.get(e.k) != null && e.ms > first.get(e.k)).sort(pri);
         for (const e of more) { if (tot + e.b > avail || clash(pick, e) || nOf(e.k) >= e.c) continue; pick.push(e); en.set(e.i, 1); tot += e.b; }
         // 2) ре-энтри — по кругу, по одному на турнир плана (в его первый флайт), не больше 3 входов в один флайт
         const firsts = [...new Set(pick.map(e => e.k))].map(key => pick.filter(x => x.k === key).sort((a, b) => (a.ms || 0) - (b.ms || 0))[0]).sort((a, b) => (a.ms || 0) - (b.ms || 0));
@@ -6843,11 +6855,14 @@ window.LIVE_SAMPLE = {"list":[[71951,"CashCowsPoker TV Championship Series Seaso
       row1.append(num('Ваш бюджет, $', 'bud', 'только на бай-ины и ре-энтри', 100), num('Бай-ин от, $', 'lo', '', 50), num('Бай-ин до, $', 'hi', 'пусто — любой', 50));
       const row2 = el('div', 'lv-pk-row');
       const nW = el('label', 'lv-pk-f'); nW.append(el('span', null, 'Сколько турниров готовы сыграть')); const nI = el('input', 'lv-pk-in'); nI.type = 'number'; nI.min = '1'; nI.max = '60'; nI.value = k.n; nI.oninput = () => { k.n = Math.max(1, Math.min(60, +nI.value || 1)); upd(); }; nW.append(nI, el('small', null, 'не больше этого числа'));
-      const segW = (label, key, opts, help) => { const w = el('div', 'lv-pk-f'); w.append(el('span', null, label)); const g = el('div', 'seg bx-seg'); g.setAttribute('role', 'group'); g.setAttribute('aria-label', label); opts.forEach(([v, l]) => { const b = el('button', k[key] === v ? 'on' : null, l); b.type = 'button'; b.onclick = () => { k[key] = v; [...g.children].forEach(c => c.classList.toggle('on', c === b)); upd(); }; g.append(b); }); w.append(g); if (help) w.append(el('small', null, help)); return w; };
-      row2.append(nW, segW('Входов в турнир в среднем', 'ent', [[1, '1'], [1.5, '1,5'], [2, '2'], [3, '3'], [0, 'Без лимита']], 'во фризаут — всегда 1; «Без лимита» — остаток на доп. входы'), segW('Игра', 'nlh', [[true, 'Только холдем'], [false, 'Все игры']], 'омаха и другие — по «Все игры»'), segW('Что важнее', 'sort', [['n', 'Больше турниров'], ['g', 'Крупнее гарантии'], ['d', 'Ближе по дате']]));
+      const segW = (label, key, opts, help) => { const w = el('div', 'lv-pk-f'); w.append(el('span', null, label)); const g = el('div', 'seg bx-seg'); g.setAttribute('role', 'group'); g.setAttribute('aria-label', label); const hs = el('small', null, ''); const showH = () => { const o = opts.find(x => x[0] === k[key]); hs.textContent = o && o[2] ? o[2] : help || ''; };
+        opts.forEach(([v, l, d]) => { const b = el('button', k[key] === v ? 'on' : null, l); b.type = 'button'; if (d) b.title = d; b.onclick = () => { k[key] = v; [...g.children].forEach(c => c.classList.toggle('on', c === b)); showH(); upd(); }; g.append(b); }); w.append(g); showH(); if (help || opts.some(o => o[2])) w.append(hs); return w; };
+      row2.append(nW, segW('Входов в турнир в среднем', 'ent', [[1, '1'], [1.5, '1,5'], [2, '2'], [3, '3'], [0, 'Без лимита']], 'во фризаут — всегда 1; «Без лимита» — остаток на доп. входы'), segW('Игра', 'nlh', [[true, 'Только холдем'], [false, 'Все игры']], 'омаха и другие — по «Все игры»'), segW('Набирать турниры', 'how', [['n', 'Побольше турниров', 'Внутри серии: сначала берутся более дешёвые турниры, чтобы на бюджет вошло как можно больше.'], ['g', 'Покрупнее гарантии', 'Внутри серии: сначала берутся турниры с самой большой гарантией, даже если они дороже — турниров может войти меньше.']], ''));
+      const row2b = el('div', 'lv-pk-row');
+      row2b.append(segW('Сортировать серии', 'sort', [['d', 'Ближе по дате', 'Порядок карточек: сверху серии, где ваш план начинается раньше всего — куда можно поехать скорее.'], ['c', 'Короче поездка', 'Порядок карточек: сверху серии, где план укладывается в меньше всего дней.'], ['n', 'Больше турниров', 'Порядок карточек: сверху серии, где в план вошло больше турниров.'], ['g', 'Крупнее гарантии', 'Порядок карточек: сверху серии с самой большой суммой гарантий в плане.']], ''));
       const row3 = el('div', 'lv-pk-types'); row3.append(el('span', 'lv-pk-l', 'Какие турниры играете:'));
       [['main', 'Главное событие'], ['side', 'Обычные турниры'], ['bnt', 'Баунти и мистери'], ['hr', 'Хайроллеры'], ['sat', 'Сателлиты']].forEach(([key, l]) => { const b = el('button', 'lv-tg' + (k[key] ? ' on' : ''), l); b.type = 'button'; b.setAttribute('aria-pressed', String(!!k[key])); b.onclick = () => { k[key] = !k[key]; b.classList.toggle('on', k[key]); b.setAttribute('aria-pressed', String(k[key])); upd(); }; row3.append(b); });
-      pickForm.append(row1, row2, row3, el('small', 'lv-pk-hint', 'Можно выбрать несколько видов; если не выбран ни один — подбираются все виды турниров. Женские, сеньорские (50+) турниры и турниры для персонала в подбор не попадают. Два турнира со стартом ближе 3 часов в план не ставятся.'));
+      pickForm.append(row1, row2, row2b, row3, el('small', 'lv-pk-hint', 'Внутри каждой серии план всегда собирается в как можно меньше дней подряд — без пустых дней между турнирами. Можно выбрать несколько видов; если не выбран ни один — подбираются все виды турниров. Женские, сеньорские (50+) турниры и турниры для персонала в подбор не попадают. Два турнира со стартом ближе 3 часов в план не ставятся.'));
       det.append(pickForm, pickRes);
     }
     drawPickRes();
@@ -6861,7 +6876,8 @@ window.LIVE_SAMPLE = {"list":[[71951,"CashCowsPoker TV Championship Series Seaso
     const base = filtered(), wait = base.filter(f => !SUM[f.id] || (SUM[f.id].n && SUM[f.id].v !== 4)).length;
     let P = base.map(plan).filter(p => p && p.pick.length);
     const none = base.filter(f => SUM[f.id] && SUM[f.id].ev).length - P.length;
-    P.sort(k.sort === 'g' ? (a, b) => b.gtd - a.gtd || b.nT - a.nT : k.sort === 'd' ? (a, b) => (a.d0 || a.f.s * DAY) - (b.d0 || b.f.s * DAY) : (a, b) => b.nT - a.nT || a.tot - b.tot);
+    const span = (p) => p.d0 == null ? 99 : p.d1 - p.d0;
+    P.sort(k.sort === 'c' ? (a, b) => span(a) - span(b) || b.nT - a.nT || a.tot - b.tot : k.sort === 'g' ? (a, b) => b.gtd - a.gtd || b.nT - a.nT : k.sort === 'd' ? (a, b) => (a.d0 || a.f.s * DAY) - (b.d0 || b.f.s * DAY) : (a, b) => b.nT - a.nT || a.tot - b.tot);
     const info = el('p', 'lv-pk-info', P.length ? 'Подходит ' + P.length + ' ' + plural(P.length, 'серия', 'серии', 'серий') + '.' : 'Под эти условия серий нет — увеличьте бюджет, расширьте диапазон бай-инов или выберите больше видов турниров.');
     if (none > 0) info.append(' Не подошли: ' + none + ' (нет турниров в вашем диапазоне или не хватает бюджета).');
     if (wait && PREVIEW) info.append(' В превью расписание есть у трёх серий, в программе подбор идёт по всем.');
