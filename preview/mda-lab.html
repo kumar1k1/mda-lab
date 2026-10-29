@@ -1920,15 +1920,17 @@ body.rendering{cursor:progress}
 .seg button.res-cust:disabled{opacity:.45;cursor:default}
 /* «Результат …»: заголовок карточки — тем же белым, что подпись «BB за …» у итога */
 .res-host .res-left > .k{color:var(--text);font-family:var(--mono);font-size:14px;font-weight:700;letter-spacing:0}
-/* фильтры раздела в шапке (рядом с «Все столы / 6-max / 7–9 max»): тип действия, ваш стек, свой диапазон */
-.sec-f{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.sec-f .seg button{padding:0 10px;font-size:12.5px} /* та же высота, что у «Все столы / 6-max / 7–9 max» */
-.sec-f .sf-cap{font-size:12px;color:var(--muted);margin-left:4px}
+/* фильтры раздела — отдельной полосой под «Префлоп / 3-бет · столы»: группы с подписью сверху, как фильтры над ними */
+.sec-f{order:9;flex-basis:100%;display:flex;align-items:flex-start;gap:22px;flex-wrap:wrap;padding-top:12px;border-top:1px dashed var(--line)}
+.sec-f .sf-g{display:flex;flex-direction:column;gap:6px}
+.sec-f .sf-row{display:flex;align-items:center;gap:6px}
+.sec-f .seg button{padding:0 11px;font-size:12.5px}
 .sec-f .mx-range{flex-wrap:nowrap;position:relative}
-.sec-f .mx-range input{width:60px;min-height:38px;font-size:12.5px;padding:0 8px}
-.sec-f .mx-range .btn{min-height:38px;padding:0 12px;font-size:12.5px}
+.sec-f .mx-range input{width:64px;height:40px;box-sizing:border-box;font-size:12.5px;padding:0 8px}
+.sec-f .mx-range .btn{height:40px;box-sizing:border-box;padding:0 14px;font-size:12.5px}
 .sec-f .mx-err{position:absolute;left:0;top:calc(100% + 2px);font-size:11px;white-space:nowrap}
 .sec-f .mx-err:empty{display:none}
+.sec-f .sf-note{margin-left:auto;align-self:flex-end;padding-bottom:4px;font-size:11.5px;color:var(--faint);max-width:260px;line-height:1.35}
 
 /* Дополнения только для онлайн-превью: тёмная тема и узкие экраны */
 :root{color-scheme:dark}
@@ -3892,10 +3894,13 @@ function drawSecFilters(tab) {
   const box = $('secFilters'); if (!box) return; box.replaceChildren();
   if (!(tab in SEC_TYPES) || !DB) { box.hidden = true; return; }
   box.hidden = false; const f = secF(tab), types = SEC_TYPES[tab];
-  if (types) { const ts = segBtns(types, f.T, (k) => { f.T = k; renderNext(); }); ts.title = 'Тип действия — для карточек результата'; box.append(ts); }
+  // группы, как фильтры над ними: подпись сверху, кнопки под ней
+  const grp = (lab, ...nodes) => { const g = el('div', 'sf-g'); g.append(el('span', 'flt-k', lab)); const row = el('div', 'sf-row'); row.append(...nodes); g.append(row); return g; };
+  if (types) box.append(grp(tab === 'rfi' ? 'Открытие' : '3-бет', segBtns(types, f.T, (k) => { f.T = k; renderNext(); })));
   const cust = f.S === 'custom' ? f.C : null;
-  box.append(el('span', 'sf-cap', 'Ваш стек'), stkSeg(cust, f.S, (k) => { f.S = k; renderNext(); }),
-    rangeForm('secRng', cust, (v) => { if (v) { f.C = v; f.S = 'custom'; } else { f.C = null; f.S = 'all'; } render(); }));
+  box.append(grp('Ваш стек, BB', stkSeg(cust, f.S, (k) => { f.S = k; renderNext(); })),
+    grp('Свой диапазон стека', rangeForm('secRng', cust, (v) => { if (v) { f.C = v; f.S = 'custom'; } else { f.C = null; f.S = 'all'; } render(); })));
+  if (types) box.append(el('span', 'sf-note', 'Тип действия — для карточек результата; стек — для всех карточек раздела'));
 }
 // раздачи набора (ids) под фильтр: итог, матрица рук, список
 function subHands(z, pass) {
@@ -4980,7 +4985,7 @@ function render() {
       b.append(el('span', 'code', t.code), el('span', 'name', t.label), el('span', 'dot'));
       b.title = t.render ? t.label : t.label + ' — в работе';
       if (t.id === state.tab) b.setAttribute('aria-current', 'page');
-      b.onclick = () => { if (t.id === 'aliases' && state.tab !== 'aliases') PREV_TAB = state.tab; state.tab = t.id; renderNext(); $('content').scrollTop = 0; };
+      b.onclick = () => { if (t.id === 'aliases' && state.tab !== 'aliases') PREV_TAB = state.tab; if (t.id !== state.tab) delete SECF[t.id]; /* при входе в раздел фильтры раздела — по умолчанию: любой стек, все действия */ state.tab = t.id; renderNext(); $('content').scrollTop = 0; };
       box.append(b);
     });
     rail.append(box);

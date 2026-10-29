@@ -1188,10 +1188,13 @@ function drawSecFilters(tab) {
   const box = $('secFilters'); if (!box) return; box.replaceChildren();
   if (!(tab in SEC_TYPES) || !DB) { box.hidden = true; return; }
   box.hidden = false; const f = secF(tab), types = SEC_TYPES[tab];
-  if (types) { const ts = segBtns(types, f.T, (k) => { f.T = k; renderNext(); }); ts.title = 'Тип действия — для карточек результата'; box.append(ts); }
+  // группы, как фильтры над ними: подпись сверху, кнопки под ней
+  const grp = (lab, ...nodes) => { const g = el('div', 'sf-g'); g.append(el('span', 'flt-k', lab)); const row = el('div', 'sf-row'); row.append(...nodes); g.append(row); return g; };
+  if (types) box.append(grp(tab === 'rfi' ? 'Открытие' : '3-бет', segBtns(types, f.T, (k) => { f.T = k; renderNext(); })));
   const cust = f.S === 'custom' ? f.C : null;
-  box.append(el('span', 'sf-cap', 'Ваш стек'), stkSeg(cust, f.S, (k) => { f.S = k; renderNext(); }),
-    rangeForm('secRng', cust, (v) => { if (v) { f.C = v; f.S = 'custom'; } else { f.C = null; f.S = 'all'; } render(); }));
+  box.append(grp('Ваш стек, BB', stkSeg(cust, f.S, (k) => { f.S = k; renderNext(); })),
+    grp('Свой диапазон стека', rangeForm('secRng', cust, (v) => { if (v) { f.C = v; f.S = 'custom'; } else { f.C = null; f.S = 'all'; } render(); })));
+  if (types) box.append(el('span', 'sf-note', 'Тип действия — для карточек результата; стек — для всех карточек раздела'));
 }
 // раздачи набора (ids) под фильтр: итог, матрица рук, список
 function subHands(z, pass) {
@@ -2276,7 +2279,7 @@ function render() {
       b.append(el('span', 'code', t.code), el('span', 'name', t.label), el('span', 'dot'));
       b.title = t.render ? t.label : t.label + ' — в работе';
       if (t.id === state.tab) b.setAttribute('aria-current', 'page');
-      b.onclick = () => { if (t.id === 'aliases' && state.tab !== 'aliases') PREV_TAB = state.tab; state.tab = t.id; renderNext(); $('content').scrollTop = 0; };
+      b.onclick = () => { if (t.id === 'aliases' && state.tab !== 'aliases') PREV_TAB = state.tab; if (t.id !== state.tab) delete SECF[t.id]; /* при входе в раздел фильтры раздела — по умолчанию: любой стек, все действия */ state.tab = t.id; renderNext(); $('content').scrollTop = 0; };
       box.append(b);
     });
     rail.append(box);
