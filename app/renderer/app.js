@@ -368,7 +368,8 @@ function moveMxTip(e) {
 }
 function hideMxTip() { if (mxTip) mxTip.hidden = true; }
 
-function handMatrix(mx, labels) {
+function handMatrix(mx, labels, opt) {
+  opt = opt || {}; // opt.fold — закрасить и долю фолда (своим цветом), а не оставлять тёмной
   const R = 'AKQJT98765432';
   const wrap = el('div', 'mx');
   for (let i = 0; i < 13; i++) for (let j = 0; j < 13; j++) {
@@ -381,7 +382,7 @@ function handMatrix(mx, labels) {
       // заливка слева направо: рейз (янтарь) → пуш (синий) → лимп/колл (зелёный); тёмный остаток — фолд
       const ai = c.ai || 0, lp = c.lp || 0, rz = c.x - ai;
       let left = 0;
-      [[rz, ''], [ai, 'push'], [lp, 'limp']].forEach(([cnt, cls]) => {
+      [[rz, ''], [ai, 'push'], [lp, 'limp'], [opt.fold ? (c.fo != null ? c.fo : c.n - c.x - lp) : 0, 'fold']].forEach(([cnt, cls]) => {
         if (!cnt) return;
         const f = el('div', 'mx-fill' + (cls ? ' ' + cls : '')); f.style.left = (left / c.n * 100).toFixed(2) + '%'; f.style.width = (cnt / c.n * 100).toFixed(2) + '%';
         cell.append(f); left += cnt;
@@ -391,7 +392,7 @@ function handMatrix(mx, labels) {
     const lab = el('div', 'mx-lab'); lab.append(el('span', 'h', name));
 
     cell.append(lab);
-    const info = { name, n: c.n, rz: c.x - (c.ai || 0), ai: c.ai || 0, lp: c.lp || 0, fo: c.n - c.x - (c.lp || 0), labels };
+    const info = { name, n: c.n, rz: c.x - (c.ai || 0), ai: c.ai || 0, lp: c.lp || 0, fo: c.fo != null ? c.fo : c.n - c.x - (c.lp || 0), labels };
     cell.addEventListener('mouseenter', (e) => showMxTip(info, e)); cell.addEventListener('mousemove', (e) => moveMxTip(e)); cell.addEventListener('mouseleave', hideMxTip);
     wrap.append(cell);
   }
@@ -1249,7 +1250,7 @@ function renderRFISummary(idx, r) {
 let CC_SZPOS = 'TOT';
 // окно с матрицей ответа на открытие одного размера (строка #6). Наведение — посмотреть, клик — закрепить;
 // в закреплённом окне переключатель: диапазон (колл / 3-бет / олл-ин / фолд), факт BB с каждой рукой, EV BB с каждой рукой
-let szMx = null, SZMX_PIN = null, SZMX_MODE = 'rng', SZMX_SEL = null, SZMX_LIST = null; // SZMX_SEL — рука, раздачи которой открыты справа
+let szMx = null, SZMX_PIN = null, SZMX_MODE = 'rng', SZMX_SEL = null, SZMX_LIST = null, SZMX_PART = 'all'; // SZMX_SEL — рука, раздачи которой открыты справа
 function szMxEl() {
   if (!szMx) {
     szMx = el('div', 'szmx'); szMx.setAttribute('role', 'dialog'); szMx.hidden = true; document.body.append(szMx);
@@ -1282,6 +1283,7 @@ function szValGrid(mx, mode, onPick) {
   return wrap;
 }
 function drawSzMx(title, z, pinned) {
+  const z0 = z; // исходные данные окна: z ниже может стать выборкой одной вкладки (колл / рейз / фолд)
   const m = szMxEl(); if (SZMX_LIST) { SZMX_LIST.stop(); SZMX_LIST = null; } m.replaceChildren(); m.classList.toggle('pinned', !!pinned);
   const sel = pinned ? SZMX_SEL : null; m.classList.toggle('with-list', !!sel);
   const left = el('div', 'szmx-l');
@@ -1289,19 +1291,37 @@ function drawSzMx(title, z, pinned) {
   if (pinned) { const x = el('button', 'szmx-x', '×'); x.type = 'button'; x.title = 'Закрыть'; x.setAttribute('aria-label', 'Закрыть'); x.onclick = unpinSzMx; h.append(x); }
   m.append(h);
   const mode = pinned ? SZMX_MODE : 'rng';
+  // вкладки по вашему ответу (весь диапазон / колл / 5-бет / фолд) — если окно их даёт (z.parts); в каждой — диапазон, факт и EV
+  const PART = pinned && z.parts && SZMX_PART !== 'all' && z.parts[SZMX_PART] ? SZMX_PART : 'all';
+  if (pinned && z.parts) {
+    const segP = el('div', 'seg szmx-seg szmx-part'); segP.setAttribute('role', 'group'); segP.setAttribute('aria-label', 'Какой ответ');
+    [['all', 'Весь диапазон'], ['call', z.labels[2] || 'колл'], ['rz', z.labels[0] || 'рейз'], ['fold', z.labels[3] || 'фолд']].forEach(([k, t]) => { const n = k === 'all' ? z.n : z.parts[k].n; const b = el('button', PART === k ? 'on' : '', t + ' · ' + n); b.type = 'button'; b.disabled = !n; b.setAttribute('aria-pressed', String(PART === k)); b.onclick = () => { SZMX_PART = k; SZMX_SEL = null; drawSzMx(title, z0, true); }; segP.append(b); });
+    left.append(segP);
+  }
+  if (PART !== 'all') {
+    // только этот ответ: в «Диапазоне» — доля этого ответа у каждой руки, в факте и EV — итог именно этих раздач
+    const pz = z.parts[PART], L0 = z.labels;
+    const rmx = z.rmx.map((m, q) => ({ n: m.n, x: PART === 'rz' ? m.x : 0, ai: 0, lp: PART === 'call' ? m.lp : 0, fo: PART === 'fold' ? pz.rmx[q].n : undefined }));
+    const LB2 = PART === 'rz' ? [L0[0], '', '', 'другие ответы'] : PART === 'call' ? ['', '', L0[2], 'другие ответы'] : ['', '', '', L0[3]];
+    z = Object.assign({}, z, { rmx, vmx: pz.rmx, rids: pz.rids, labels: LB2, parts: null, foldPaint: PART === 'fold', capAll: (L0[{ rz: 0, call: 2, fold: 3 }[PART]] || '') + ' — только эти раздачи' });
+  }
   if (pinned) {
     const seg = el('div', 'seg szmx-seg'); seg.setAttribute('role', 'group'); seg.setAttribute('aria-label', 'Что показать');
-    [['rng', 'Диапазон'], ['net', 'Факт, BB'], ['ev', 'EV, BB']].forEach(([k, t]) => { const b = el('button', mode === k ? 'on' : '', t); b.type = 'button'; b.setAttribute('aria-pressed', String(mode === k)); b.onclick = () => { SZMX_MODE = k; drawSzMx(title, z, true); }; seg.append(b); });
+    [['rng', 'Диапазон'], ['net', 'Факт, BB'], ['ev', 'EV, BB']].forEach(([k, t]) => { const b = el('button', mode === k ? 'on' : '', t); b.type = 'button'; b.setAttribute('aria-pressed', String(mode === k)); b.onclick = () => { SZMX_MODE = k; drawSzMx(title, z0, true); }; seg.append(b); });
     left.append(seg);
   }
   if (mode === 'rng') {
     const LB = z.labels || ['3-бет', 'олл-ин', 'колл', 'фолд']; // порядок: янтарная, синяя, зелёная, тёмная часть клетки
-    const leg = el('div', 'resp-legend row'); [[LB[2], 'var(--mx-limp)'], [LB[0], 'var(--mx-raise)'], [LB[1], 'var(--mx-push)'], [LB[3], 'var(--mx-empty)']].filter(x => x[0]).forEach(([l, col]) => { const it = el('span'); const i = el('i'); i.style.background = col; if (col === 'var(--mx-empty)') i.style.border = '1px solid var(--line2)'; it.append(i, document.createTextNode(l)); leg.append(it); });
-    const mxEl = handMatrix(z.rmx, LB);
-    if (pinned) [...mxEl.children].forEach((cell, k) => { if (!z.rmx[k].n) return; const nm = cell.querySelector('.h').textContent; cell.classList.add('click'); cell.tabIndex = 0; cell.setAttribute('role', 'button'); cell.setAttribute('aria-label', nm + ' — открыть раздачи'); cell.onclick = () => szHandList(title, z, k, nm); cell.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); szHandList(title, z, k, nm); } }; });
+    // фолд — своим цветом (z.foldPaint), руки, которых в выборке не было, — пустые клетки
+    const fp = !!z.foldPaint, foldCol = fp ? 'var(--mx-fold)' : 'var(--mx-empty)';
+    const legItems = [[LB[2], 'var(--mx-limp)'], [LB[0], 'var(--mx-raise)'], [LB[1], 'var(--mx-push)'], [LB[3], foldCol]];
+    if (fp) legItems.push(['руки не было', 'var(--bg)']);
+    const leg = el('div', 'resp-legend row'); legItems.filter(x => x[0]).forEach(([l, col]) => { const it = el('span'); const i = el('i'); i.style.background = col; if (col === 'var(--mx-empty)' || col === 'var(--bg)') i.style.border = '1px solid var(--line2)'; it.append(i, document.createTextNode(l)); leg.append(it); });
+    const mxEl = handMatrix(z.rmx, LB, { fold: fp });
+    if (pinned) [...mxEl.children].forEach((cell, k) => { if (!(z.vmx || z.rmx)[k].n) return; const nm = cell.querySelector('.h').textContent; cell.classList.add('click'); cell.tabIndex = 0; cell.setAttribute('role', 'button'); cell.setAttribute('aria-label', nm + ' — открыть раздачи'); cell.onclick = () => szHandList(title, z0, k, nm); cell.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); szHandList(title, z0, k, nm); } }; });
     left.append(leg, mxEl);
   } else {
-    left.append(el('div', 'szmx-cap', (mode === 'ev' ? 'EV' : 'Фактический результат') + ' с каждой рукой в BB за раздачу — ' + (z.capAll || 'все ответы (колл, 3-бет, фолд)') + '. Нажмите на руку — раздачи и реплеер.'), szValGrid(z.rmx, mode, pinned ? (k, nm) => szHandList(title, z, k, nm) : null));
+    left.append(el('div', 'szmx-cap', (mode === 'ev' ? 'EV' : 'Фактический результат') + ' с каждой рукой в BB за раздачу — ' + (z.capAll || 'все ответы (колл, 3-бет, фолд)') + '. Нажмите на руку — раздачи и реплеер.'), szValGrid(z.vmx || z.rmx, mode, pinned ? (k, nm) => szHandList(title, z0, k, nm) : null));
   }
   if (!pinned) left.append(el('div', 'szmx-hint', 'Клик — закрепить окно и показать результат по рукам'));
   m.append(left);
@@ -1331,7 +1351,7 @@ function placeSzMx(row, e) {
 function showSzMx(title, z, row, e) { if (SZMX_PIN) return; drawSzMx(title, z, false); placeSzMx(row, e); }
 function pinSzMx(title, z, row, e) {
   if (SZMX_PIN && SZMX_PIN.row === row) { unpinSzMx(); return; }
-  SZMX_PIN = { row }; SZMX_SEL = null; drawSzMx(title, z, true); placeSzMx(row, e);
+  SZMX_PIN = { row }; SZMX_SEL = null; SZMX_PART = 'all'; drawSzMx(title, z, true); placeSzMx(row, e);
 }
 function unpinSzMx() { SZMX_PIN = null; SZMX_SEL = null; if (SZMX_LIST) { SZMX_LIST.stop(); SZMX_LIST = null; } if (szMx) { szMx.hidden = true; szMx.classList.remove('with-list'); } }
 function hideSzMx() { if (szMx && !SZMX_PIN) szMx.hidden = true; }
@@ -1897,7 +1917,7 @@ function tbTable(r) {
     const row = td.dataset.row, col = td.dataset.col, pl = col === 'TOT' ? 'все позиции' : col;
     if (RES[row]) { const z = RES[row][0][col]; if (!z || !z.n) return; const it = tbItem(r, col, RES[row][1] + ' · ' + pl); Object.assign(it, { key: 'tb' + row + col, o: { n: z.n, sum: z.sum, es: z.es }, mx: z.mx, ids: z.ids }); hoverHands(td, it, z.sum / 10 / z.n); return; }
     const d = RNG[row]; if (!d) return; const z = d[0][col]; if (!z || !z.n) return;
-    const zz = Object.assign({}, z, { labels: d[2], capAll: d[3] }), title = d[1] + ' · ' + pl;
+    const zz = Object.assign({}, z, { labels: d[2], capAll: d[3], foldPaint: !!d[2][3] }), title = d[1] + ' · ' + pl;
     td.classList.add('click', 'has-mx'); td.tabIndex = 0; td.setAttribute('role', 'button');
     td.addEventListener('mouseenter', (e) => showSzMx(title, zz, td, e)); td.addEventListener('mousemove', (e) => { if (!SZMX_PIN && szMx && !szMx.hidden) placeSzMx(td, e); }); td.addEventListener('mouseleave', hideSzMx);
     td.addEventListener('click', (e) => pinSzMx(title, zz, td, e));
