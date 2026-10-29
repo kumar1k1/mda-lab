@@ -3523,9 +3523,7 @@ function bxListCore(o, opt) {
   function draw() {
     const BX2 = opt.get(), M = BX_MET[BX2], rows = [];
     for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) rows.push({ i, j, a: o.CO.bx[i][j], b: o.BTN.bx[i][j], t: M.v(bxSum([o.CO.bx[i][j], o.BTN.bx[i][j]])) });
-    // сначала сочетания с выборкой от 30 раздач (по лучшему результату), малые выборки — внизу; масштаб полос — тоже по ним
-    const solid = (r) => M.n(r.a) + M.n(r.b) >= 30;
-    rows.sort((x, y) => (solid(y) - solid(x)) || ((y.t ?? -1e9) - (x.t ?? -1e9)));
+    // порядок строк постоянный (SB короткий → глубокий, внутри BB короткий → глубокий): при смене фильтров строки не переставляются
     const sv = rows.flatMap(r => [[M.v(r.a), M.n(r.a)], [M.v(r.b), M.n(r.b)]]).filter(([v, n]) => v != null && n >= 30).map(([v]) => Math.abs(v));
     const max = Math.max(0.01, ...(sv.length ? sv : rows.flatMap(r => [M.v(r.a), M.v(r.b)]).filter(v => v != null).map(Math.abs)));
     const t = el('div', 'bx-list');
