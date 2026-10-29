@@ -1916,3 +1916,12 @@ body.rendering{cursor:progress}
 .seg button.res-cust:disabled{opacity:.45;cursor:default}
 /* «Результат …»: заголовок карточки — тем же белым, что подпись «BB за …» у итога */
 .res-host .res-left > .k{color:var(--text);font-family:var(--mono);font-size:14px;font-weight:700;letter-spacing:0}
+/* фильтры раздела в шапке (рядом с «Все столы / 6-max / 7–9 max»): тип действия, ваш стек, свой диапазон */
+.sec-f{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.sec-f .seg button{padding:0 10px;font-size:12.5px} /* та же высота, что у «Все столы / 6-max / 7–9 max» */
+.sec-f .sf-cap{font-size:12px;color:var(--muted);margin-left:4px}
+.sec-f .mx-range{flex-wrap:nowrap;position:relative}
+.sec-f .mx-range input{width:60px;min-height:38px;font-size:12.5px;padding:0 8px}
+.sec-f .mx-range .btn{min-height:38px;padding:0 12px;font-size:12.5px}
+.sec-f .mx-err{position:absolute;left:0;top:calc(100% + 2px);font-size:11px;white-space:nowrap}
+.sec-f .mx-err:empty{display:none}
