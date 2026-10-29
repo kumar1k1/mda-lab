@@ -66,11 +66,13 @@ function fmtPct(p) {
   if (v < 0.05) return '0.0';
   return v >= 10 ? String(Math.round(v)) : v.toFixed(1).replace(/\.0$/, '');
 }
+// ячейка таблицы: цвет показывает, как часто бывает действие (бледный — редко, насыщенный — часто); цифры всегда тёмные
+const HEAT = { amber: [[247, 232, 196], [222, 146, 28]], ice: [[214, 234, 245], [62, 152, 204]] };
 function heat(td, p, max, tone) {
-  const rgb = tone === 'ice' ? 'var(--ice-rgb)' : 'var(--amber-rgb)';
+  const [lo, hi] = HEAT[tone === 'ice' ? 'ice' : 'amber'];
   const t = max > 0 ? Math.min(1, p / max) : 0;
-  td.style.background = 'rgba(' + rgb + ',' + (0.07 + 0.66 * t).toFixed(3) + ')';
-  if (t > 0.62) td.style.color = tone === 'ice' ? '#08202B' : 'var(--amber-ink)';
+  td.style.background = 'rgb(' + lo.map((v, k) => Math.round(v + (hi[k] - v) * t)).join(',') + ')';
+  td.style.color = '#15120c';
 }
 
 // opts: {cols, totCol, rows:[{label, sub, data, tone, split}], groupGapBefore}
@@ -1257,7 +1259,7 @@ function szMxEl() {
   return szMx;
 }
 // раздачи одной руки из строки #6 — список с реплеером
-function szHandList(title, z, k, name) { const hc = DB.cols.hc; openIdsList(title + ' · ' + name, (z.rids || []).filter(i => hc[i] === k)); }
+function szHandList(title, z, k, name) { const hc = DB.cols.hc; openIdsList(title + ' · ' + name, (z.rids || []).filter(i => hc[i] === k), { ev: SZMX_MODE === 'ev' }); }
 function szValGrid(mx, mode, onPick) {
   const R = 'AKQJT98765432', wrap = el('div', 'szv');
   const vals = mx.filter(c => c.n >= 3).map(c => Math.abs((mode === 'ev' ? c.es : c.sum) / 10 / c.n)).sort((a, b) => a - b);

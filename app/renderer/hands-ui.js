@@ -86,7 +86,9 @@ function buildPop(it, v, isPinned) {
     const seg = el('div', 'seg hp-seg'); seg.setAttribute('role', 'group'); seg.setAttribute('aria-label', 'Что показать в клетках');
     [['net', 'Факт, BB'], ['ev', 'EV, BB']].forEach(([k, t]) => {
       const b = el('button', POP_MODE === k ? 'on' : '', t); b.type = 'button'; b.setAttribute('aria-pressed', String(POP_MODE === k));
-      b.onclick = () => { if (POP_MODE === k) return; POP_MODE = k; const left = pop.style.left, top = pop.style.top; buildPop(it, it.o.sum / 10 / it.o.n, true); pop.hidden = false; pop.style.left = left; pop.style.top = top; };
+      b.onclick = () => { if (POP_MODE === k) return; POP_MODE = k; const left = pop.style.left, top = pop.style.top, selK = pop._selK; buildPop(it, it.o.sum / 10 / it.o.n, true); pop.hidden = false; pop.style.left = left; pop.style.top = top;
+        // открытый список раздач руки — пересобрать в новом режиме (итог справа — факт или EV)
+        if (selK != null) { const cb = [...pop.querySelectorAll('button.hp-c')].find(x => x.querySelector('.h') && x.querySelector('.h').textContent === handName(selK)); if (cb) showHandList(it, selK, cb); } };
       seg.append(b);
     });
     leftCol.append(seg);
@@ -118,7 +120,7 @@ function showHandPop(it, v, ev, anchor) {
 function pinHandPop(it, v, ev, anchor) {
   const was = pinned && handPop ? { left: handPop.style.left, top: handPop.style.top } : null;
   pinned = { pos: it.key || it.p };
-  POP_MODE = 'net'; // каждое новое закрепление — сначала фактический результат
+  popEl()._selK = null; POP_MODE = 'net'; // каждое новое закрепление — сначала фактический результат
   const pop = buildPop(it, v, true);
   pop.hidden = false;
   if (was) { pop.style.left = was.left; pop.style.top = was.top; } else placeNear(pop, ev, anchor);
@@ -157,7 +159,7 @@ function enableDrag(pop, handle) {
 
 // ---------- список раздач по руке ----------
 async function showHandList(it, k, cellBtn) {
-  const pop = handPop; const list = pop.querySelector('.hp-list');
+  const pop = handPop; const list = pop.querySelector('.hp-list'); pop._selK = k;
   pop.querySelectorAll('.hp-c.sel').forEach(c => c.classList.remove('sel')); cellBtn.classList.add('sel');
   const p = it.anyPos ? -1 : POS_NAMES.indexOf(it.p), c = DB.cols; // anyPos — раздачи уже отобраны по позиции (позиции «как в Hand2Note» во вкладке 3-бет)
   const all = (it.ids || CURRENT_IDX).filter(i => c.sit[i] === (it.sit || 0) && (it.act != null ? c.act[i] === it.act : c.act[i] >= 2) && (p < 0 || c.pos[i] === p) && c.hc[i] === k);
@@ -183,9 +185,11 @@ async function showHandList(it, k, cellBtn) {
   list.replaceChildren(head, bar, box);
 
   function potOf(i) { const r = rp[i]; if (!r) return 0; return r.ev.filter(e => e[2] === 'W').reduce((s, e) => s + e[3], 0); }
+  // в окне «EV, BB» — итог и сортировка по EV, в «Факт, BB» — по фактическому результату
+  const evm = POP_MODE === 'ev' && it.o.es != null && !!(c.nev || c.net), V = evm ? (c.nev || c.net) : c.net, tag = evm ? ' BB EV' : ' BB';
   function draw() {
     let rows = all.filter(i => {
-      const net = c.net[i] / 10, r = rp[i], stk = c.bb[i] / 10;
+      const net = V[i] / 10, r = rp[i], stk = c.bb[i] / 10;
       if (f.room !== '' && String(c.room[i]) !== f.room) return false;
       if (f.res === 'win' && net <= 0) return false;
       if (f.res === 'lose' && net >= 0) return false;
@@ -195,13 +199,13 @@ async function showHandList(it, k, cellBtn) {
       if (f.q && !((r && r.t || '').toLowerCase().includes(f.q))) return false;
       return true;
     });
-    const by = { new: (a, b) => c.day[b] - c.day[a] || b - a, old: (a, b) => c.day[a] - c.day[b] || a - b, best: (a, b) => c.net[b] - c.net[a], worst: (a, b) => c.net[a] - c.net[b], pot: (a, b) => potOf(b) - potOf(a) };
+    const by = { new: (a, b) => c.day[b] - c.day[a] || b - a, old: (a, b) => c.day[a] - c.day[b] || a - b, best: (a, b) => V[b] - V[a], worst: (a, b) => V[a] - V[b], pot: (a, b) => potOf(b) - potOf(a) };
     rows.sort(by[f.sort]);
-    const total = rows.reduce((s, i) => s + c.net[i], 0) / 10;
-    head.replaceChildren(el('b', null, handName(k) + (it.p ? ' с ' + it.p : '')), el('span', null, rows.length + (rows.length === all.length ? '' : ' из ' + all.length) + ' раздач'), el('span', total >= 0 ? 'up' : 'down', signed(total, 1) + ' BB всего' + (rows.length ? ' · ' + signed(total / rows.length, 2) + ' BB за раздачу' : '')));
+    const total = rows.reduce((s, i) => s + V[i], 0) / 10;
+    head.replaceChildren(el('b', null, handName(k) + (it.p ? ' с ' + it.p : '')), el('span', null, rows.length + (rows.length === all.length ? '' : ' из ' + all.length) + ' раздач'), el('span', total >= 0 ? 'up' : 'down', signed(total, 1) + tag + ' всего' + (rows.length ? ' · ' + signed(total / rows.length, 2) + tag + ' за раздачу' : '')));
     box.replaceChildren(); if (lazy) lazy.stop();
     if (!rows.length) { box.append(el('p', 'muted small', 'Нет раздач под эти фильтры.')); return; }
-    lazy = lazyRows(box, rows, rp, { cards: false });
+    lazy = lazyRows(box, rows, rp, { cards: false, ev: evm });
   }
   draw();
   centerPop(pop);
@@ -234,9 +238,10 @@ function lazyRows(box, rows, rp, opt) {
       const info = el('div', 'hp-info'), d = el('span', 'd', dayText(i)), t = el('span', 't', DB.rooms[c.room[i]] || ''); info.append(d, t);
       const cards = opt.cards ? el('div', 'hp-board') : null, board = el('div', 'hp-board');
       board.append(el('span', 'hp-nob', '…'));
-      const net = c.net[i] / 10;
-      row.append(...[play, info, cards, board, el('span', 'stk', (c.bb[i] / 10).toFixed(0) + ' BB'), resEl(net)].filter(Boolean));
-      row.title = 'Стек ' + (c.bb[i] / 10).toFixed(1) + ' BB, итог ' + signed(net, 2) + ' BB';
+      const net = c.net[i] / 10, evv = (c.nev || c.net)[i] / 10, shown1 = opt.ev ? evv : net;
+      const res = resEl(shown1); if (opt.ev) res.append(el('small', 'res-ev', ' EV'));
+      row.append(...[play, info, cards, board, el('span', 'stk', (c.bb[i] / 10).toFixed(0) + ' BB'), res].filter(Boolean));
+      row.title = 'Стек ' + (c.bb[i] / 10).toFixed(1) + ' BB, итог ' + signed(net, 2) + ' BB, EV ' + signed(evv, 2) + ' BB';
       box.insertBefore(row, sentinel); made.set(i, { play, d, t, cards, board });
       if (rp[i] !== undefined) fill(i);
     });
@@ -272,7 +277,8 @@ let RP = null; // открытый реплеер (replayer.js: openReplayer / c
 
 // ---------- список раздач по выбранному столбику (#3.4.8) ----------
 let IDS_LIST = null;
-async function openIdsList(title, ids) {
+async function openIdsList(title, ids, opt) {
+  opt = opt || {};
   closeIdsList();
   const c = DB.cols;
   const bg = el('div', 'il-bg'); bg.setAttribute('role', 'dialog'); bg.setAttribute('aria-modal', 'true'); bg.setAttribute('aria-label', title);
@@ -299,14 +305,16 @@ async function openIdsList(title, ids) {
   x.focus();
   const rp = {}; let lazy = null; // записи реплеера — подгружаются по мере показа строк
   function draw() {
-    let rows = ids.filter(i => (f.room === '' || String(c.room[i]) === f.room) && (f.res !== 'win' || c.net[i] > 0) && (f.res !== 'lose' || c.net[i] < 0));
-    const by = { new: (a, b) => c.day[b] - c.day[a] || b - a, old: (a, b) => c.day[a] - c.day[b] || a - b, worst: (a, b) => c.net[a] - c.net[b], best: (a, b) => c.net[b] - c.net[a] };
+    // opt.ev — список открыт из окна в режиме «EV, BB»: итог, фильтр и сортировка — по EV
+    const V = opt.ev ? (c.nev || c.net) : c.net, tag = opt.ev ? ' BB EV' : ' BB';
+    let rows = ids.filter(i => (f.room === '' || String(c.room[i]) === f.room) && (f.res !== 'win' || V[i] > 0) && (f.res !== 'lose' || V[i] < 0));
+    const by = { new: (a, b) => c.day[b] - c.day[a] || b - a, old: (a, b) => c.day[a] - c.day[b] || a - b, worst: (a, b) => V[a] - V[b], best: (a, b) => V[b] - V[a] };
     rows.sort(by[f.sort]);
-    const total = rows.reduce((s, i) => s + c.net[i], 0) / 10;
-    ts.textContent = rows.length + (rows.length === ids.length ? '' : ' из ' + ids.length) + ' раздач · ' + signed(total, 1) + ' BB всего' + (rows.length ? ' · ' + signed(total / rows.length, 2) + ' BB за раздачу' : '');
+    const total = rows.reduce((s, i) => s + V[i], 0) / 10;
+    ts.textContent = rows.length + (rows.length === ids.length ? '' : ' из ' + ids.length) + ' раздач · ' + signed(total, 1) + tag + ' всего' + (rows.length ? ' · ' + signed(total / rows.length, 2) + tag + ' за раздачу' : '');
     list.replaceChildren(); if (lazy) lazy.stop();
     if (!rows.length) { list.append(el('p', 'muted small', 'Нет раздач под эти фильтры.')); return; }
-    lazy = lazyRows(list, rows, rp, { cards: true });
+    lazy = lazyRows(list, rows, rp, { cards: true, ev: !!opt.ev });
   }
   draw();
 }

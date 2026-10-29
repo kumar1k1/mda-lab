@@ -133,9 +133,10 @@ body{display:flex;flex-direction:column}
 .ht td.lbl.sub{color:var(--muted);padding-left:16px;font-weight:500}
 .ht td.lbl.sub::before{content:"↳ ";color:var(--faint)}
 .ht td.c{width:64px;min-width:64px;height:38px;border-radius:7px;text-align:center;font-family:var(--mono);font-size:16px;font-weight:700;color:var(--text);position:relative;cursor:default}
-.ht td.c.tot{box-shadow:inset 0 0 0 1.5px rgba(var(--amber-rgb),.55)}
+.ht td.c.tot{box-shadow:inset 0 0 0 2px rgba(0,0,0,.35)}
 .ht td.c .n{display:block;font-size:10px;font-weight:500;color:inherit;opacity:.7;line-height:1;margin-top:1px}
-.ht td.c.low{color:var(--soft);background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.04) 0 4px,transparent 4px 8px)}
+.ht td.c.low{background-image:repeating-linear-gradient(135deg,rgba(0,0,0,.09) 0 4px,transparent 4px 8px)}
+.hp-row .res-ev{font-size:10px;opacity:.75}
 .ht td.c.na{color:var(--faint);background:var(--card)}
 .ht td.gap{width:10px}
 .ht tr.split td{padding-top:8px}
