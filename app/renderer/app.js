@@ -1385,7 +1385,7 @@ function ccSizeBlock(r) {
         wrNode('sz5-v', wr, we, 2), el('small', null, z.n.toLocaleString('ru-RU') + ' раз'), tk);
       // наведение на строку — матрица рук: колл / 3-бет / олл-ин / фолд против этого размера
       if (z.rmx) {
-        const title = (CC_SZPOS === 'TOT' ? 'Все без BB' : CC_SZPOS) + ' · открытие ' + r.CC_SZ[k][0];
+        const title = (CC_SZPOS === 'TOT' ? 'Вы на всех позициях без BB' : 'Вы на ' + CC_SZPOS) + ' · перед вами открытие ' + r.CC_SZ[k][0];
         row.classList.add('has-mx'); row.tabIndex = 0;
         row.addEventListener('mouseenter', (e) => showSzMx(title, z, row, e)); row.addEventListener('mousemove', (e) => { if (!SZMX_PIN && szMx && !szMx.hidden) placeSzMx(row, e); }); row.addEventListener('mouseleave', hideSzMx);
         row.addEventListener('focus', () => showSzMx(title, z, row)); row.addEventListener('blur', hideSzMx);
@@ -1683,7 +1683,7 @@ function ccGroupBlock(r, o) {
       cell.append(f, el('span', 'ccg-ev ' + (ev >= 0 ? 'up' : 'down'), signed(ev, 2) + ' EV'), el('span', 'ccg-n', String(z.n)));
       if (z.n < 30) cell.classList.add('low');
       cell.classList.add('click'); cell.tabIndex = 0; cell.setAttribute('role', 'button'); cell.setAttribute('aria-label', p + ', ' + lab + ': ' + signed(v, 2) + ' BB, ' + z.n + o.nlab + ' — показать руки и раздачи');
-      const pin = (e) => { hideGroupTip(); pinHandPop({ p: o.p ? p : null, key: o.key + p + k, title: o.name + ' · ' + p + ' · ' + lab, o: z, mx: hands, ids: r.hands[p].ids, only: (q) => handGroup(q) === k, sit: 2, act: o.act, vlab: o.vlab, nlab: o.nlab }, v, e, cell); };
+      const pin = (e) => { hideGroupTip(); pinHandPop({ p: o.p ? p : null, key: o.key + p + k, title: (o.nameOf ? o.nameOf(p) : o.name + ' · ' + p) + ' · ' + lab, o: z, mx: hands, ids: r.hands[p].ids, only: (q) => handGroup(q) === k, sit: 2, act: o.act, vlab: o.vlab, nlab: o.nlab }, v, e, cell); };
       cell.addEventListener('click', pin); cell.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pin(null); } });
       row.append(cell);
     });
@@ -1832,7 +1832,7 @@ function ccVsTable(r) {
     const p = td.dataset.row, op = td.dataset.col;
     const z = op === 'TOT' ? r.hands[p] : r.vsHands[p] && r.vsHands[p][op];
     if (!z || !z.n) return;
-    const it = { p, key: 'ccvs ' + p + op, title: 'Колд-колл · ' + p + (op === 'TOT' ? '' : ' против ' + op), o: { n: z.n, sum: z.sum, es: z.es }, mx: z.mx, ids: z.ids, sit: 2, act: 1, vlab: ' BB за колд-колл', nlab: ' колд-коллов' };
+    const it = { p, key: 'ccvs ' + p + op, title: 'Ваш колд-колл с ' + p + (op === 'TOT' ? '' : ' против открытия с ' + op), o: { n: z.n, sum: z.sum, es: z.es }, mx: z.mx, ids: z.ids, sit: 2, act: 1, vlab: ' BB за колд-колл', nlab: ' колд-коллов' };
     const v = z.sum / 10 / z.n;
     td.classList.add('click'); td.tabIndex = 0; td.setAttribute('role', 'button');
     const show = (ev) => showHandPop(it, v, ev, td);
@@ -1853,7 +1853,7 @@ function ccTable(r) {
   const w = heatTable({ cols, groupGapBefore: cols.indexOf('SB') >= 0 ? cols.indexOf('SB') : cols.indexOf('BB'), rows: [{ label: 'Колд-колл', data: r.cc }] });
   w.querySelectorAll('td.c').forEach(td => {
     const col = td.dataset.col, z = r.hands[col]; if (!z || !z.n) return;
-    const it = { p: col === 'TOT' ? null : col, key: 'cc ' + col, title: 'Колд-колл · ' + (col === 'TOT' ? 'все позиции без BB' : col), o: { n: z.n, sum: z.sum, es: z.es }, mx: z.mx, ids: z.ids, sit: 2, act: 1, vlab: ' BB за колд-колл', nlab: ' колд-коллов' };
+    const it = { p: col === 'TOT' ? null : col, key: 'cc ' + col, title: 'Ваш колд-колл' + (col === 'TOT' ? ' (все позиции без BB)' : ' с ' + col), o: { n: z.n, sum: z.sum, es: z.es }, mx: z.mx, ids: z.ids, sit: 2, act: 1, vlab: ' BB за колд-колл', nlab: ' колд-коллов' };
     const v = z.sum / 10 / z.n;
     td.classList.add('click'); td.tabIndex = 0; td.setAttribute('role', 'button');
     const show = (ev) => showHandPop(it, v, ev, td);
@@ -1881,7 +1881,7 @@ function renderCC(idx) {
   c2.append(note);
   // #8 — винрейт колд-колла по позициям, как в RFI: наведение — руки, клик — закрепить, раздачи и реплеер
   const ccPos = r.CC_COLS.slice(1).filter(k => r.cc[k].n >= SMALL);
-  const items = ccPos.map(p => { const h = r.hands[p]; return { p, key: 'cc' + p, o: { n: h.n, sum: h.sum, es: h.es }, mx: h.mx, ids: h.ids, sit: 2, act: 1, title: 'Колд-колл · ' + p, vlab: ' BB за колд-колл', nlab: ' колд-коллов' }; });
+  const items = ccPos.map(p => { const h = r.hands[p]; return { p, key: 'cc' + p, o: { n: h.n, sum: h.sum, es: h.es }, mx: h.mx, ids: h.ids, sit: 2, act: 1, title: 'Ваш колд-колл с ' + p, vlab: ' BB за колд-колл', nlab: ' колд-коллов' }; });
   const t = r.hands.TOT, avg = t.n ? t.sum / 10 / t.n : null, avgE = t.n ? t.es / 10 / t.n : null;
   LAST_NET_ITEMS = items;
   const tb = r.hands.BB, nAll = t.n + tb.n, allF = nAll ? (t.sum + tb.sum) / 10 / nAll : null, allE = nAll ? (t.es + tb.es) / 10 / nAll : null;
@@ -1897,7 +1897,7 @@ function renderCC(idx) {
 // ---------- 3-бет (как в Hand2Note: позиции MP / HJ / CO / BTN / SB / BB, сквиз — отдельно) ----------
 let TB_VS = 'all', TB_SZPOS = 'TOT', TB_STKPOS = 'TOT', TB_XPOS = 'IP';
 const TB_POS = ['MP', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
-const tbItem = (r, p, title) => { const z = r.hands[p]; return { p, anyPos: true, key: 'tb ' + p, title: title || '3-бет · ' + (p === 'TOT' ? 'все позиции' : p), o: { n: z.n, sum: z.sum, es: z.es }, mx: z.mx, ids: z.ids, sit: 2, vlab: ' BB за 3-бет', nlab: ' 3-бетов' }; };
+const tbItem = (r, p, title) => { const z = r.hands[p]; return { p, anyPos: true, key: 'tb ' + p, title: title || 'Ваш 3-бет' + (p === 'TOT' ? ' (все позиции)' : ' с ' + p), o: { n: z.n, sum: z.sum, es: z.es }, mx: z.mx, ids: z.ids, sit: 2, vlab: ' BB за 3-бет', nlab: ' 3-бетов' }; };
 function hoverHands(td, it, v) {
   td.classList.add('click'); td.tabIndex = 0; td.setAttribute('role', 'button');
   const show = (ev) => showHandPop(it, v, ev, td);
@@ -1921,13 +1921,15 @@ function tbTable(r) {
     { key: 'f5c', label: '5-бет на холодный 4-бет', own: true, data: D(k => ({ x: r.f4c[k].x5, n: r.f4c[k].n5 })) }] });
   // наведение на ячейку: 3-бет / не олл-ин / олл-ин — матрица рук и их результат; фолд на 4-бет и 5-бет — чем вы сбрасывали,
   // коллировали и рейзили против 4-бета; «Соперники сбросили» — на какие руки соперники сбрасывали, коллировали, 4-бетили
-  const RES = { all: [r.hands, '3-бет'], nai: [r.handsN, '3-бет не олл-ин'], ai: [r.handsA, '3-бет олл-ин'] };
-  const RNG = { f4c: [r.f4cmx, 'Против холодного 4-бета', ['5-бет', '', 'колл', 'фолд'], 'ваши ответы на холодный 4-бет'], f5c: [r.f5cmx, '5-бет на холодный 4-бет · 4-бет не олл-ин', ['5-бет', '', 'колл', 'фолд'], 'ваши ответы на холодный 4-бет'], f4: [r.f4mx, 'Против 4-бета', ['5-бет', '', 'колл', 'фолд'], 'ваши ответы на 4-бет'], f5: [r.f5mx, '5-бет · 4-бет соперника не олл-ин', ['5-бет', '', 'колл', 'фолд'], 'ваши ответы на 4-бет'], t3: [r.t3mx, 'Ответ соперников на 3-бет', ['сбросили', '4-бет', 'колл', ''], 'все ваши 3-беты'] };
+  // подписи окон — от вашей позиции: «Ваш 3-бет с HJ → холодный 4-бет за спиной», чтобы HJ не читался как позиция соперника
+  const me = (col, what) => (what || 'Ваш 3-бет') + (col === 'TOT' ? ' (все позиции)' : ' с ' + col);
+  const RES = { all: [r.hands, 'Ваш 3-бет'], nai: [r.handsN, 'Ваш 3-бет не олл-ином'], ai: [r.handsA, 'Ваш 3-бет олл-ином'] };
+  const RNG = { f4c: [r.f4cmx, ' → холодный 4-бет за спиной', ['5-бет', '', 'колл', 'фолд'], 'ваши ответы на холодный 4-бет'], f5c: [r.f5cmx, ' → холодный 4-бет за спиной (не олл-ин)', ['5-бет', '', 'колл', 'фолд'], 'ваши ответы на холодный 4-бет'], f4: [r.f4mx, ' → 4-бет открывающего', ['5-бет', '', 'колл', 'фолд'], 'ваши ответы на 4-бет'], f5: [r.f5mx, ' → 4-бет открывающего (не олл-ин)', ['5-бет', '', 'колл', 'фолд'], 'ваши ответы на 4-бет'], t3: [r.t3mx, ': ваши руки и ответ соперников', ['соперники сбросили', 'соперники 4-бет', 'соперники колл', ''], 'все ваши 3-беты'] };
   const wire = (td) => {
-    const row = td.dataset.row, col = td.dataset.col, pl = col === 'TOT' ? 'все позиции' : col;
-    if (RES[row]) { const z = RES[row][0][col]; if (!z || !z.n) return; const it = tbItem(r, col, RES[row][1] + ' · ' + pl); Object.assign(it, { key: 'tb' + row + col, o: { n: z.n, sum: z.sum, es: z.es }, mx: z.mx, ids: z.ids }); hoverHands(td, it, z.sum / 10 / z.n); return; }
+    const row = td.dataset.row, col = td.dataset.col;
+    if (RES[row]) { const z = RES[row][0][col]; if (!z || !z.n) return; const it = tbItem(r, col, me(col, RES[row][1])); Object.assign(it, { key: 'tb' + row + col, o: { n: z.n, sum: z.sum, es: z.es }, mx: z.mx, ids: z.ids }); hoverHands(td, it, z.sum / 10 / z.n); return; }
     const d = RNG[row]; if (!d) return; const z = d[0][col]; if (!z || !z.n) return;
-    const zz = Object.assign({}, z, { labels: d[2], capAll: d[3], foldPaint: !!d[2][3] }), title = d[1] + ' · ' + pl;
+    const zz = Object.assign({}, z, { labels: d[2], capAll: d[3], foldPaint: !!d[2][3] }), title = me(col) + d[1];
     td.classList.add('click', 'has-mx'); td.tabIndex = 0; td.setAttribute('role', 'button');
     td.addEventListener('mouseenter', (e) => showSzMx(title, zz, td, e)); td.addEventListener('mousemove', (e) => { if (!SZMX_PIN && szMx && !szMx.hidden) placeSzMx(td, e); }); td.addEventListener('mouseleave', hideSzMx);
     td.addEventListener('click', (e) => pinSzMx(title, zz, td, e));
@@ -1980,7 +1982,7 @@ function tbSizeBlock(r) {
       row.append(el('b', null, r.CC_SZ[k][0]), el('span', 'sz5-sh', fmtPct(share) + '%'), v(pc(z.rz), 'var(--bad)'), v(pc(z.ai), 'var(--ice)'), v(pc(z.call), 'var(--soft)'), v(pc(z.fold), 'var(--good)'),
         wrNode('sz5-v', wr, we, 2), el('small', null, z.n.toLocaleString('ru-RU') + ' раз'), tk);
       if (z.rmx) {
-        const title = (TB_SZPOS === 'TOT' ? 'Все позиции' : TB_SZPOS) + ' · открытие ' + r.CC_SZ[k][0];
+        const title = (TB_SZPOS === 'TOT' ? 'Вы на всех позициях' : 'Вы на ' + TB_SZPOS) + ' · перед вами открытие ' + r.CC_SZ[k][0];
         row.classList.add('has-mx'); row.tabIndex = 0;
         row.addEventListener('mouseenter', (e) => showSzMx(title, z, row, e)); row.addEventListener('mousemove', (e) => { if (!SZMX_PIN && szMx && !szMx.hidden) placeSzMx(row, e); }); row.addEventListener('mouseleave', hideSzMx);
         row.addEventListener('focus', () => showSzMx(title, z, row)); row.addEventListener('blur', hideSzMx);
@@ -2047,7 +2049,7 @@ function tbXBlock(r) {
         wrNode('sz5-v', z.sum / 10 / z.n, z.es / 10 / z.n, 2), el('small', null, z.n.toLocaleString('ru-RU') + ' раз'), tk);
       row.tabIndex = 0; row.setAttribute('role', 'button');
       const gl = { TOT: 'все позиции', IP: 'в позиции', SB: 'SB', BB: 'BB' }[TB_XPOS];
-      const open = () => openIdsList('3-бет ' + r.TB_X[k] + ' · ' + gl, z.ids);
+      const open = () => openIdsList('Ваш 3-бет ' + r.TB_X[k] + ' · ' + gl, z.ids);
       row.onclick = open; row.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } };
       t.append(row);
     });
@@ -2112,7 +2114,7 @@ function renderTB(idx) {
   c2.classList.add('wide');
   const zone = el('div', 'summary'); const pair = el('div', 'sum-pair'); pair.append(c1, c2); zone.append(pair);
   zone.append(tbTable(r),
-    ccGroupBlock(r, { cols: TB_POS, tag: 4, title: 'Результат 3-бета по группам рук', sub: 'BB за 3-бет: всего и по группам рук, факт / EV', name: '3-бет', verb: 'не 3-бетили', act: undefined, vlab: ' BB за 3-бет', nlab: ' 3-бетов', none: 'Нет 3-бетов в выборке.', key: 'tbg', p: false,
+    ccGroupBlock(r, { cols: TB_POS, tag: 4, title: 'Результат 3-бета по группам рук', sub: 'BB за 3-бет: всего и по группам рук, факт / EV', name: '3-бет', nameOf: (p) => 'Ваш 3-бет с ' + p, verb: 'не 3-бетили', act: undefined, vlab: ' BB за 3-бет', nlab: ' 3-бетов', none: 'Нет 3-бетов в выборке.', key: 'tbg', p: false,
       note: 'В ячейке — результат 3-бета группой рук с этой позиции в BB (вместе с олл-инами): сверху факт, под ним EV, справа мелко — число 3-бетов. Цвет — плюс или минус. Наведите — матрица рук группы и их итог; клик закрепит окно, клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше 30 раздач.' }),
     tbVsBlock(r), tbOppBlock(r), tbSizeBlock(r), tbStackBlock(r), tbSplitBlock(r), tbXBlock(r), tb4Block(r), tbIsoBlock(r));
   page.append(zone);
