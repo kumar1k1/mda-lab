@@ -2257,7 +2257,7 @@ window.mdaBusy = (on, text) => {
   if (on && text) BUSY_EL.lastChild.textContent = text; else if (on) BUSY_EL.lastChild.textContent = 'Загружаю данные…';
   BUSY_EL.classList.toggle('on', BUSY_N > 0);
 };
-let RS_F = 0, LASTBTN = null;
+let RS_F = 0, LASTBTN = null, RENDER_TAB = null;
 document.addEventListener('click', (e) => { LASTBTN = e.target && e.target.closest ? e.target.closest('button') : null; }, true);
 function renderNext() {
   const b = LASTBTN; LASTBTN = null;
@@ -2303,7 +2303,22 @@ function render() {
   $('selCount').textContent = tool ? '' : idx.length.toLocaleString('ru-RU') + ' рук в выборке';
   CURRENT_IDX = idx;
   LAST_NET_ITEMS = [];
-  $('content').replaceChildren(tab.render ? tab.render(idx) : renderSoon(tab));
+  // Пересчёт под тем же разделом (фильтры, переключатели): карточки выше по странице могут поменять высоту, и экран
+  // «уезжал». Запоминаем первую видимую карточку и её место, после перерисовки возвращаем её туда же.
+  const cont = $('content'), sameTab = RENDER_TAB === tab.id; RENDER_TAB = tab.id;
+  let anchor = null;
+  if (sameTab && cont.scrollTop > 0) {
+    const top = cont.getBoundingClientRect().top, keyOf = (e) => (e.querySelector(':scope .num-tag') || e.querySelector('h2, .sec-t, .k') || e).textContent.trim().slice(0, 80);
+    const cand = [...cont.querySelectorAll('.insight, .block, .sm, section, .sec, .sum-pair')].filter(e => e.querySelector('.num-tag, h2, .k'));
+    const vis = cand.find(e => e.getBoundingClientRect().bottom > top + 4);
+    if (vis) anchor = { key: keyOf(vis), cls: vis.className, dy: vis.getBoundingClientRect().top - top };
+  }
+  cont.replaceChildren(tab.render ? tab.render(idx) : renderSoon(tab));
+  if (anchor) {
+    const top = cont.getBoundingClientRect().top, keyOf = (e) => (e.querySelector(':scope .num-tag') || e.querySelector('h2, .sec-t, .k') || e).textContent.trim().slice(0, 80);
+    const same = [...cont.querySelectorAll('.insight, .block, .sm, section, .sec, .sum-pair')].find(e => e.className === anchor.cls && keyOf(e) === anchor.key);
+    if (same) cont.scrollTop += (same.getBoundingClientRect().top - top) - anchor.dy;
+  }
   if (LAST_NET_ITEMS.length) refreshPinned(LAST_NET_ITEMS); else unpin();
 }
 
