@@ -1159,11 +1159,28 @@ function resFilter(pre, types) {
   const pass = (i) => (!rng || (c.bb[i] >= rng[0] * 10 && c.bb[i] < rng[1] * 10)) && (ty === 'all' || (ty === 'ai' ? c.act[i] === 3 : c.act[i] === 2));
   const ctl = el('div', 'tb-res-ctl');
   if (types) ctl.append(segBtns(types, ty, (k) => { S[pre + 'T'] = k; renderNext(); }));
-  ctl.append(segBtns(RES_STK.map(x => [x[0], x[1]]).concat(cust ? [['custom', rangeTxt(cust)]] : []), cust ? 'custom' : (S[pre + 'S'] || 'all'), (k) => { S[pre + 'S'] = k; renderNext(); }),
+  ctl.append(stkSeg(cust, S[pre + 'S'] || 'all', (k) => { S[pre + 'S'] = k; renderNext(); }),
     rangeForm(pre + 'Rng', cust, (v) => { if (v) { S[pre + 'C'] = v; S[pre + 'S'] = 'custom'; } else { S[pre + 'C'] = null; S[pre + 'S'] = 'all'; } render(); }));
   const tyLab = types && ty !== 'all' ? (types.find(x => x[0] === ty) || [])[1] : '';
   const label = (n, what) => el('span', 'muted small tb-res-n', [tyLab, rng ? (tyLab ? 'ваш' : 'Ваш') + ' стек ' + rangeTxt(rng) : ''].filter(Boolean).join(', ') + (tyLab || rng ? ': ' : '') + n.toLocaleString('ru-RU') + ' ' + what);
   return { rng, ty, flt: !!rng || ty !== 'all', pass, ctl, label };
+}
+// кнопки стека с постоянным местом под свой диапазон: пока его нет — «свой» (неактивна), после «Показать» — «20–30 BB»;
+// ширина ряда не меняется, кнопки не прыгают
+function stkSeg(cust, cur, on) {
+  const seg = segBtns(RES_STK.map(x => [x[0], x[1]]).concat([['custom', cust ? rangeTxt(cust) : 'свой']]), cust ? 'custom' : cur, on);
+  const last = seg.lastElementChild; last.classList.add('res-cust'); if (!cust) { last.disabled = true; last.title = 'Введите свой диапазон ниже и нажмите «Показать»'; }
+  return seg;
+}
+// шапка карточки «Результат …»: слева крупно итог и подпись выборки, справа — переключатели
+function resHead(card) {
+  const k = card.querySelector(':scope > .k'), v = card.querySelector(':scope > .v'), ctl = card.querySelector('.tb-res-ctl'), lab = card.querySelector('.tb-res-n');
+  if (!k || !v || !ctl) return card;
+  const top = el('div', 'res-top'), left = el('div', 'res-left');
+  left.append(k, v); if (lab) left.append(lab);
+  top.append(left, ctl);
+  const tag = card.querySelector(':scope > .num-tag'); if (tag) tag.after(top); else card.prepend(top);
+  return card;
 }
 // раздачи набора (ids) под фильтр: итог, матрица рук, список
 function subHands(z, pass) {
@@ -1213,7 +1230,7 @@ function renderRFISummary(idx, r) {
   }
   LAST_NET_ITEMS = it8;
   const box8 = el('div'); box8.append(F8.ctl, F8.label(n8, 'открытий'), netChart(it8, avg8, 'EV открытий'));
-  const c8 = card(8, 'Результат открытий', wrHtml(avg8, ev8, 2) + ' <small>BB за открытие</small>', null, box8);
+  const c8 = resHead(card(8, 'Результат открытий', wrHtml(avg8, ev8, 2) + ' <small>BB за открытие</small>', null, box8));
   c8.classList.add('wide', 'span3');
   cards.append(c8);
   // #3 — стил + ответ блайндов (CO и BTN вместе), как в #1
@@ -1932,7 +1949,7 @@ function renderCC(idx) {
   LAST_NET_ITEMS = items;
   const tb = r.hands.BB, nAll = t.n + tb.n, allF = nAll ? (t.sum + tb.sum) / 10 / nAll : null, allE = nAll ? (t.es + tb.es) / 10 / nAll : null;
   const box8 = el('div'); box8.append(F8.ctl, F8.label(t.n, 'колд-коллов без BB'), netChart(items, avg, 'EV колд-колла'));
-  const c8 = card(8, 'Результат колд-колла', wrHtml(avg, avgE, 2) + ' <small>BB за колд-колл</small>', null, box8);
+  const c8 = resHead(card(8, 'Результат колд-колла', wrHtml(avg, avgE, 2) + ' <small>BB за колд-колл</small>', null, box8));
   c8.classList.add('wide');
   const zone = el('div', 'summary'); const pair = el('div', 'sum-pair'); pair.append(c1, c8); zone.append(pair);
   c2.classList.add('cc-table');
@@ -2165,10 +2182,10 @@ function renderTB(idx) {
   LAST_NET_ITEMS = items;
   const t = H2.TOT, avg = t.n ? t.sum / 10 / t.n : null, avgE = t.n ? t.es / 10 / t.n : null;
   const ctl = el('div', 'tb-res-ctl');
-  ctl.append(segBtns([['all', 'Все 3-беты'], ['nai', 'Не олл-ин'], ['ai', 'Олл-ин']], ty2, (k) => { uiState.tbResT = k; renderNext(); }), segBtns(STK2.map(x => [x[0], x[1]]).concat(uiState.tbRes === 'custom' && uiState.tbResC ? [['custom', rangeTxt(uiState.tbResC)]] : []), uiState.tbRes || 'all', (k) => { uiState.tbRes = k; renderNext(); }),
+  ctl.append(segBtns([['all', 'Все 3-беты'], ['nai', 'Не олл-ин'], ['ai', 'Олл-ин']], ty2, (k) => { uiState.tbResT = k; renderNext(); }), stkSeg(uiState.tbRes === 'custom' ? uiState.tbResC : null, uiState.tbRes || 'all', (k) => { uiState.tbRes = k; renderNext(); }),
     rangeForm('tbRes', uiState.tbRes === 'custom' ? uiState.tbResC : null, (v) => { if (v) { uiState.tbResC = v; uiState.tbRes = 'custom'; } else { uiState.tbResC = null; uiState.tbRes = 'all'; } render(); }));
   const chartBox = el('div'); chartBox.append(ctl, el('span', 'muted small tb-res-n', [ty2 === 'ai' ? 'Олл-ин' : ty2 === 'nai' ? 'Не олл-ин' : '', rng ? 'ваш стек ' + rangeTxt(rng) : ''].filter(Boolean).join(', ').replace(/^в/, (m) => (ty2 === 'all' ? 'В' : m)) + (flt ? ': ' : '') + t.n.toLocaleString('ru-RU') + ' 3-бетов'), netChart(items, avg, 'EV 3-бета'));
-  const c2 = card(2, 'Результат 3-бета', wrHtml(avg, avgE, 2) + ' <small>BB за 3-бет</small>', null, chartBox);
+  const c2 = resHead(card(2, 'Результат 3-бета', wrHtml(avg, avgE, 2) + ' <small>BB за 3-бет</small>', null, chartBox));
   c2.classList.add('wide');
   const zone = el('div', 'summary'); const pair = el('div', 'sum-pair'); pair.append(c1, c2); zone.append(pair);
   zone.append(tbTable(r),
