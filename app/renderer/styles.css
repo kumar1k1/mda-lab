@@ -1855,3 +1855,12 @@ body.rendering{cursor:progress}
 .rv-ssbox-x:hover{background:#FF6B5F;border-color:#FF6B5F;color:#fff}.rv-ssbox-x2:hover{background:#6EC3E8;color:#06202C}
 .rv-ssbox-w{flex:1 1 auto;width:100%;border:0;background:#fff}
 .rv-ssbox.full{position:fixed;left:10px;top:10px;right:10px;bottom:10px;width:auto;height:auto;transform:none;z-index:60}
+
+/* окно матрицы ответа (сайзинги, 4-бет и т. п.): по клику на руку — раздачи справа, матрица остаётся, как в окне результата */
+.szmx-l{display:flex;flex-direction:column;gap:8px;min-width:0}
+.szmx.pinned.with-list{width:min(1060px,calc(100vw - 24px));display:grid;grid-template-columns:420px minmax(0,1fr);column-gap:16px;row-gap:10px;align-items:start;max-height:calc(100vh - 16px);overflow:auto}
+.szmx.with-list .szmx-h{grid-column:1 / -1}
+.szmx.with-list .hp-list{border-top:none;padding-top:0;border-left:1px solid var(--line);padding-left:16px;min-width:0}
+.szmx.with-list .hp-rows{max-height:460px}
+.szmx .mx-c.sel,.szmx .szv-c.sel{box-shadow:inset 0 0 0 2px var(--amber)}
+@media (max-width: 900px){.szmx.pinned.with-list{grid-template-columns:1fr}.szmx.with-list .hp-list{border-left:none;padding-left:0}}

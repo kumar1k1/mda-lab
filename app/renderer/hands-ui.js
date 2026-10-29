@@ -256,6 +256,33 @@ function lazyRows(box, rows, rp, opt) {
   return { stop() { alive = false; io.disconnect(); } };
 }
 
+// список раздач одной руки внутри окна с матрицей (справа от неё): заголовок с итогом, фильтры, строки с реплеером.
+// opt.title — подпись (рука), opt.ev — итог, фильтр и сортировка по EV. Возвращает { node, stop }.
+function idsPanel(ids, opt) {
+  opt = opt || {};
+  const c = DB.cols, node = el('div', 'hp-list'), head = el('div', 'hp-list-head'), box = el('div', 'hp-rows'), bar = el('div', 'hl-filters');
+  const f = { room: '', res: '', sort: 'new' };
+  const sel = (label, key, opts) => { const lab = el('label', 'hl-f'); lab.append(el('span', null, label)); const s = el('select'); opts.forEach(([v, t]) => { const o = el('option', null, t); o.value = v; s.append(o); }); s.onchange = () => { f[key] = s.value; draw(); }; lab.append(s); bar.append(lab); };
+  const roomsHere = [...new Set(ids.map(i => c.room[i]))].sort((a, b) => a - b);
+  sel('Рум', 'room', [['', 'все']].concat(roomsHere.map(r => [String(r), DB.rooms[r]])));
+  sel('Итог', 'res', [['', 'все'], ['win', 'выиграл'], ['lose', 'проиграл']]);
+  sel('Порядок', 'sort', [['new', 'сначала новые'], ['old', 'сначала старые'], ['worst', 'сначала худшие'], ['best', 'сначала лучшие']]);
+  node.append(head, bar, box);
+  const V = opt.ev ? (c.nev || c.net) : c.net, tag = opt.ev ? ' BB EV' : ' BB', rp = {}; let lazy = null;
+  function draw() {
+    let rows = ids.filter(i => (f.room === '' || String(c.room[i]) === f.room) && (f.res !== 'win' || V[i] > 0) && (f.res !== 'lose' || V[i] < 0));
+    const by = { new: (a, b) => c.day[b] - c.day[a] || b - a, old: (a, b) => c.day[a] - c.day[b] || a - b, worst: (a, b) => V[a] - V[b], best: (a, b) => V[b] - V[a] };
+    rows.sort(by[f.sort]);
+    const total = rows.reduce((s, i) => s + V[i], 0) / 10;
+    head.replaceChildren(el('b', null, opt.title || ''), el('span', null, rows.length + (rows.length === ids.length ? '' : ' из ' + ids.length) + ' раздач'), el('span', total >= 0 ? 'up' : 'down', signed(total, 1) + tag + ' всего' + (rows.length ? ' · ' + signed(total / rows.length, 2) + tag + ' за раздачу' : '')));
+    box.replaceChildren(); if (lazy) lazy.stop();
+    if (!rows.length) { box.append(el('p', 'muted small', 'Нет раздач под эти фильтры.')); return; }
+    lazy = lazyRows(box, rows, rp, { cards: false, ev: !!opt.ev });
+  }
+  draw();
+  return { node, stop() { if (lazy) lazy.stop(); } };
+}
+
 // окно со списком раздач всегда по центру экрана
 function centerPop(pop) {
   const w = pop.offsetWidth, h = pop.offsetHeight;
