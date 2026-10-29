@@ -262,9 +262,9 @@
     const tbc = () => ({ n: 0, x: 0, nai: 0, ai: 0 });
     const hset = () => ({ n: 0, sum: 0, es: 0, ids: [], mx: Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })) });
     const szCell = () => ({ n: 0, call: 0, rz: 0, ai: 0, fold: 0, sum: 0, es: 0, sn: 0, ids: [], rids: [], rmx: null });
-    out.tb = {}; out.hands = {}; out.handsN = {}; out.handsA = {}; out.f4mx = {}; out.f5mx = {}; out.f4cmx = {}; out.f5cmx = {}; out.f4c = {}; out.t3mx = {}; out.iso = {}; out.isoF = {}; out.f4 = {}; out.t3r = {}; out.sz = {}; out.stk = {}; out.x = {};
+    out.opF = {}; out.tb = {}; out.hands = {}; out.handsN = {}; out.handsA = {}; out.f4mx = {}; out.f5mx = {}; out.f4cmx = {}; out.f5cmx = {}; out.f4c = {}; out.t3mx = {}; out.iso = {}; out.isoF = {}; out.f4 = {}; out.t3r = {}; out.sz = {}; out.stk = {}; out.x = {};
     const rset = (sub) => { const z = { n: 0, rids: [], rmx: Array.from({ length: 169 }, () => ({ n: 0, x: 0, ai: 0, lp: 0, sum: 0, es: 0 })) }; if (sub) z.parts = { rz: rset(), call: rset(), fold: rset() }; return z; }; // parts — раздачи по вашему ответу (для вкладок окна)
-    TB_COLS.forEach(k => { out.tb[k] = tbc(); out.hands[k] = hset(); out.handsN[k] = hset(); out.handsA[k] = hset(); out.f4mx[k] = rset(true); out.f5mx[k] = rset(true); out.f4cmx[k] = rset(true); out.f5cmx[k] = rset(true); out.f4c[k] = { n: 0, fold: 0, call: 0, rz: 0, n5: 0, x5: 0 }; out.t3mx[k] = rset(); out.iso[k] = { n: 0, x: 0 }; out.isoF[k] = { n: 0, x: 0 }; out.f4[k] = { n: 0, fold: 0, call: 0, rz: 0, n5: 0, x5: 0 }; out.t3r[k] = [0, 0, 0, 0]; out.sz[k] = CC_SZ.map(szCell); out.stk[k] = TB_STK.map(tbc); out.x[k] = TB_X.map(() => ({ n: 0, r: [0, 0, 0, 0], rn: 0, sum: 0, es: 0, ids: [] })); });
+    TB_COLS.forEach(k => { out.tb[k] = tbc(); out.hands[k] = hset(); out.handsN[k] = hset(); out.handsA[k] = hset(); out.f4mx[k] = rset(true); out.f5mx[k] = rset(true); out.f4cmx[k] = rset(true); out.f5cmx[k] = rset(true); out.f4c[k] = { n: 0, fold: 0, call: 0, rz: 0, n5: 0, x5: 0 }; out.t3mx[k] = rset(); out.iso[k] = { n: 0, x: 0 }; out.isoF[k] = { n: 0, x: 0 }; out.f4[k] = { n: 0, fold: 0, call: 0, rz: 0, n5: 0, x5: 0 }; out.t3r[k] = [0, 0, 0, 0]; out.opF[k] = { n: 0, x: 0 }; out.sz[k] = CC_SZ.map(szCell); out.stk[k] = TB_STK.map(tbc); out.x[k] = TB_X.map(() => ({ n: 0, r: [0, 0, 0, 0], rn: 0, sum: 0, es: 0, ids: [] })); });
     out.vs = {}; out.vs4 = {}; out.resp = [0, 0, 0];
     // размер 3-бета по группам: в позиции (MP–BTN), SB, BB; со сбросом на 4-бет
     out.xg = {}; out.split = {}; ['TOT', 'IP', 'SB', 'BB'].forEach(g => { out.xg[g] = TB_X.map(() => ({ n: 0, r: [0, 0, 0, 0], rn: 0, sum: 0, es: 0, ids: [], f4n: 0, f4f: 0 })); out.split[g] = { n: 0, x: 0, fn: 0, ff: 0, b: Array.from({ length: 8 }, () => ({ x: 0, fn: 0, ff: 0 })) }; }); out.fineOk = 0; out.fineAll = 0;
@@ -282,7 +282,7 @@
       // BB против открытия SB (блайнд против блайнда) — в колонке BB не считается, как в Hand2Note (у него это вкладка BvB); в TOT и в «позиция против позиции» — есть
       const a = c.act[i], r3 = a >= 2, bvb = p === 'BB' && op === 'SB', keys = p === 'EP' || bvb ? ['TOT'] : ['TOT', p];
       // ответ на 4-бет: t4 — 4-бет от открывающего (основные строки), t4c — холодный 4-бет игрока за спиной (отдельная строка)
-      const t4r = has('t4') ? c.t4[i] : -1, t4 = t4r >= 0 && !(t4r & 8) ? t4r : -1, t4c = t4r >= 8 ? t4r & 7 : -1, t3 = has('t3r') ? c.t3r[i] : -1;
+      const t4r = has('t4') ? c.t4[i] : -1, t4 = t4r >= 0 && !(t4r & 8) ? t4r : -1, t4c = t4r >= 8 ? t4r & 7 : -1, t3r0 = has('t3r') ? c.t3r[i] : -1, t3 = t3r0 >= 0 ? t3r0 & 3 : -1, opF = t3r0 >= 0 ? (t3r0 & 4 ? 1 : 0) : -1; // t3 — первый ответ соперников, opF — сбросил ли открывающий
       if (c.lr && c.lr[i] > 0) { // 3-бет против изолейта
         keys.forEach(k => { const z = out.iso[k]; z.n++; if (r3) z.x++; if (r3 && t4 >= 0) { const f = out.isoF[k]; f.n++; if ((t4 & 3) === 0) f.x++; } });
         continue;
@@ -311,6 +311,7 @@
             if (t4 >= 0) { const b = t4 & 3, f = m => { if (b === 2) m.x++; else if (b === 1) m.lp++; }, pk = b === 2 ? 'rz' : b === 1 ? 'call' : 'fold'; for (const z of (t4 & 4) === 0 ? [out.f4mx[k], out.f5mx[k]] : [out.f4mx[k]]) { put(z, f); put(z.parts[pk], f); } }
           }
           if (t3 >= 0) out.t3r[k][t3]++;
+          if (opF >= 0) { const z = out.opF[k]; z.n++; z.x += opF; }
           if (t4c >= 0) { const f = out.f4c[k], b = t4c & 3; f.n++; if (b === 0) f.fold++; else if (b === 1) f.call++; else f.rz++; if ((t4c & 4) === 0) { f.n5++; if (b === 2) f.x5++; } }
           if (t4 >= 0) { const f = out.f4[k], b = t4 & 3; f.n++; if (b === 0) f.fold++; else if (b === 1) f.call++; else f.rz++; if ((t4 & 4) === 0) { f.n5++; if (b === 2) f.x5++; } }
           // размер 3-бета в разах от открытия; олл-ин — отдельно
