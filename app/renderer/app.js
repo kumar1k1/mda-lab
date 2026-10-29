@@ -1176,6 +1176,7 @@ function stkSeg(cust, cur, on) {
 function resHead(card) {
   const k = card.querySelector(':scope > .k'), v = card.querySelector(':scope > .v'), ctl = card.querySelector('.tb-res-ctl'), lab = card.querySelector('.tb-res-n');
   if (!k || !v || !ctl) return card;
+  card.classList.add('res-host');
   const top = el('div', 'res-top'), left = el('div', 'res-left');
   left.append(k, v); if (lab) left.append(lab);
   top.append(left, ctl);

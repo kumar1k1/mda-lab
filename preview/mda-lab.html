@@ -1888,8 +1888,8 @@ body.rendering{cursor:progress}
 .szmx-ptcap{font-size:10.5px;color:var(--faint);margin-top:-2px}
 .tb-res-ctl{display:flex;flex-direction:column;gap:8px;align-items:stretch;margin:0;width:360px;max-width:100%} /* три ряда одной ширины: края совпадают, кнопки не сдвигаются */
 .tb-res-ctl > .seg{display:flex;width:100%;box-sizing:border-box}
-.tb-res-ctl > .seg{padding:2px}
-.tb-res-ctl > .seg button{flex:1 1 auto;padding:0 6px;white-space:nowrap;min-height:26px;font-size:11.5px}
+.tb-res-ctl > .seg{padding:2px;flex-wrap:nowrap}
+.tb-res-ctl > .seg button{flex:1 1 auto;min-width:0;padding:0 5px;white-space:nowrap;min-height:26px;font-size:11.5px}
 .tb-res-ctl .mx-range input{min-height:28px;font-size:12px;padding:0 7px}
 .tb-res-ctl .mx-range .btn{min-height:28px;padding:0 10px;font-size:12px}
 .tb-res-ctl .mx-unit{font-size:11px}
@@ -1902,10 +1902,14 @@ body.rendering{cursor:progress}
 .tb-res-ctl .mx-range{margin:0}
 .tb-res-n{display:block;margin-bottom:2px}
 /* «Результат …»: итог слева крупно, переключатели справа */
-.res-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px 20px;padding-right:34px;flex-wrap:wrap}
-.res-top > .tb-res-ctl{flex:none;margin-left:auto} /* не помещается рядом с итогом — уходит строкой ниже, вправо; не наезжает */
-.res-left{display:flex;flex-direction:column;gap:4px;flex:none;max-width:100%}
-.res-left .v{white-space:nowrap}
+.res-host{container-type:inline-size}
+.res-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px 28px;padding-right:34px;flex-wrap:nowrap}
+/* узкая карточка: итог — отдельной строкой сверху, кнопки — под ним от левого края */
+@container (max-width: 600px){.res-top{flex-direction:column;padding-right:0}.res-top > .tb-res-ctl{flex:none;width:min(360px,100%)}}
+.res-top > .tb-res-ctl{flex:0 1 360px;min-width:300px} /* справа от итога с зазором; если рядом не помещается — отдельной строкой под итогом, от левого края */
+.res-left{display:flex;flex-direction:column;gap:4px;flex:0 1 auto} /* сжимается до самой длинной части итога, не меньше */
+.res-left .v{white-space:normal}
+.res-left .v > span,.res-left .v > small{white-space:nowrap} /* итог переносится только между частями: «факт / EV» и «BB за …» */
 .res-left .v{font-size:30px;line-height:1.15}
 .res-left .tb-res-n{margin-top:4px}
 
@@ -3860,6 +3864,7 @@ function stkSeg(cust, cur, on) {
 function resHead(card) {
   const k = card.querySelector(':scope > .k'), v = card.querySelector(':scope > .v'), ctl = card.querySelector('.tb-res-ctl'), lab = card.querySelector('.tb-res-n');
   if (!k || !v || !ctl) return card;
+  card.classList.add('res-host');
   const top = el('div', 'res-top'), left = el('div', 'res-left');
   left.append(k, v); if (lab) left.append(lab);
   top.append(left, ctl);
