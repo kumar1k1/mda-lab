@@ -1896,7 +1896,9 @@ body.rendering{cursor:progress}
 .tb-res-ctl .mx-range{flex-wrap:nowrap;width:100%}
 .tb-res-ctl .mx-range input{flex:1 1 0;min-width:0;width:auto}
 .tb-res-ctl .mx-range .btn{flex:none}
-.tb-res-ctl .mx-err:empty{display:none}
+.tb-res-ctl .mx-range{position:relative}
+.tb-res-ctl .mx-err{position:absolute;left:0;right:0;top:calc(100% + 3px);font-size:11px;line-height:1.2;text-align:right;white-space:normal} /* ошибка — под полями, ряд не сжимается */
+.tb-res-ctl .mx-range:has(.mx-err:not(:empty)){margin-bottom:16px}
 .tb-res-ctl .mx-range{margin:0}
 .tb-res-n{display:block;margin-bottom:2px}
 /* «Результат …»: итог слева крупно, переключатели справа */
