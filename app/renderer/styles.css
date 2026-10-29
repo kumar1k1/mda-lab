@@ -1914,3 +1914,5 @@ body.rendering{cursor:progress}
 .res-left .tb-res-n{margin-top:4px}
 
 .seg button.res-cust:disabled{opacity:.45;cursor:default}
+/* «Результат …»: заголовок карточки — тем же белым, что подпись «BB за …» у итога */
+.res-host .res-left > .k{color:var(--text);font-family:var(--mono);font-size:14px;font-weight:700;letter-spacing:0}
