@@ -262,9 +262,9 @@
     const tbc = () => ({ n: 0, x: 0, nai: 0, ai: 0 });
     const hset = () => ({ n: 0, sum: 0, es: 0, ids: [], mx: Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })) });
     const szCell = () => ({ n: 0, call: 0, rz: 0, ai: 0, fold: 0, sum: 0, es: 0, sn: 0, ids: [], rids: [], rmx: null });
-    out.opF = {}; out.tb = {}; out.hands = {}; out.handsN = {}; out.handsA = {}; out.f4mx = {}; out.f5mx = {}; out.f4cmx = {}; out.f5cmx = {}; out.f4c = {}; out.t3mx = {}; out.iso = {}; out.isoF = {}; out.f4 = {}; out.t3r = {}; out.sz = {}; out.stk = {}; out.x = {};
+    out.opF = {}; out.react = { all: {}, nai: {}, ai: {} }; out.tb = {}; out.hands = {}; out.handsN = {}; out.handsA = {}; out.f4mx = {}; out.f5mx = {}; out.f4cmx = {}; out.f5cmx = {}; out.f4c = {}; out.t3mx = {}; out.iso = {}; out.isoF = {}; out.f4 = {}; out.t3r = {}; out.sz = {}; out.stk = {}; out.x = {};
     const rset = (sub) => { const z = { n: 0, rids: [], rmx: Array.from({ length: 169 }, () => ({ n: 0, x: 0, ai: 0, lp: 0, sum: 0, es: 0 })) }; if (sub) z.parts = { rz: rset(), call: rset(), fold: rset() }; return z; }; // parts — раздачи по вашему ответу (для вкладок окна)
-    TB_COLS.forEach(k => { out.tb[k] = tbc(); out.hands[k] = hset(); out.handsN[k] = hset(); out.handsA[k] = hset(); out.f4mx[k] = rset(true); out.f5mx[k] = rset(true); out.f4cmx[k] = rset(true); out.f5cmx[k] = rset(true); out.f4c[k] = { n: 0, fold: 0, call: 0, rz: 0, n5: 0, x5: 0 }; out.t3mx[k] = rset(); out.iso[k] = { n: 0, x: 0 }; out.isoF[k] = { n: 0, x: 0 }; out.f4[k] = { n: 0, fold: 0, call: 0, rz: 0, n5: 0, x5: 0 }; out.t3r[k] = [0, 0, 0, 0]; out.opF[k] = { n: 0, x: 0 }; out.sz[k] = CC_SZ.map(szCell); out.stk[k] = TB_STK.map(tbc); out.x[k] = TB_X.map(() => ({ n: 0, r: [0, 0, 0, 0], rn: 0, sum: 0, es: 0, ids: [] })); });
+    TB_COLS.forEach(k => { out.tb[k] = tbc(); out.hands[k] = hset(); out.handsN[k] = hset(); out.handsA[k] = hset(); out.f4mx[k] = rset(true); out.f5mx[k] = rset(true); out.f4cmx[k] = rset(true); out.f5cmx[k] = rset(true); out.f4c[k] = { n: 0, fold: 0, call: 0, rz: 0, n5: 0, x5: 0 }; out.t3mx[k] = rset(); out.iso[k] = { n: 0, x: 0 }; out.isoF[k] = { n: 0, x: 0 }; out.f4[k] = { n: 0, fold: 0, call: 0, rz: 0, n5: 0, x5: 0 }; out.t3r[k] = [0, 0, 0, 0]; out.opF[k] = { n: 0, x: 0 }; ['all', 'nai', 'ai'].forEach(ty => { out.react[ty][k] = TB_STK.map(() => TB_STK.map(() => ({ n: 0, op: 0, all: 0 }))); }); out.sz[k] = CC_SZ.map(szCell); out.stk[k] = TB_STK.map(tbc); out.x[k] = TB_X.map(() => ({ n: 0, r: [0, 0, 0, 0], rn: 0, sum: 0, es: 0, ids: [] })); });
     out.vs = {}; out.vs4 = {}; out.resp = [0, 0, 0];
     // размер 3-бета по группам: в позиции (MP–BTN), SB, BB; со сбросом на 4-бет
     out.xg = {}; out.split = {}; ['TOT', 'IP', 'SB', 'BB'].forEach(g => { out.xg[g] = TB_X.map(() => ({ n: 0, r: [0, 0, 0, 0], rn: 0, sum: 0, es: 0, ids: [], f4n: 0, f4f: 0 })); out.split[g] = { n: 0, x: 0, fn: 0, ff: 0, b: Array.from({ length: 8 }, () => ({ x: 0, fn: 0, ff: 0 })) }; }); out.fineOk = 0; out.fineAll = 0;
@@ -312,6 +312,9 @@
           }
           if (t3 >= 0) out.t3r[k][t3]++;
           if (opF >= 0) { const z = out.opF[k]; z.n++; z.x += opF; }
+          // #3.1: реакция на 3-бет по вашему стеку × стеку открывающего (BB), отдельно все 3-беты / не олл-ин / олл-ин
+          if (opF >= 0) { const hs = TB_STK.findIndex(q => c.bb[i] / 10 >= q[1] && c.bb[i] / 10 < q[2]), os = c.ostk[i] >= 0 ? TB_STK.findIndex(q => c.ostk[i] / 10 >= q[1] && c.ostk[i] / 10 < q[2]) : -1;
+            if (hs >= 0 && os >= 0) for (const ty of ['all', a === 3 ? 'ai' : 'nai']) { const z = out.react[ty][k][hs][os]; z.n++; z.op += opF; if (t3 === 0) z.all++; } }
           if (t4c >= 0) { const f = out.f4c[k], b = t4c & 3; f.n++; if (b === 0) f.fold++; else if (b === 1) f.call++; else f.rz++; if ((t4c & 4) === 0) { f.n5++; if (b === 2) f.x5++; } }
           if (t4 >= 0) { const f = out.f4[k], b = t4 & 3; f.n++; if (b === 0) f.fold++; else if (b === 1) f.call++; else f.rz++; if ((t4 & 4) === 0) { f.n5++; if (b === 2) f.x5++; } }
           // размер 3-бета в разах от открытия; олл-ин — отдельно
