@@ -4600,7 +4600,7 @@ function tbTable(r) {
   const w2 = heatTable({ cols, groupGapBefore: cols.indexOf('SB'), rows: [
     { key: 'opf', label: 'Открывающий сбросил', tone: 'ice', own: true, data: D(k => r.opF[k]) },
     { key: 't3', label: 'Все сбросили — банк ваш', tone: 'ice', own: true, data: D(t3) }] });
-  card.append(numTag(3), el('span', 'k', '3-бет по позициям'), el('span', 's', 'колонки — ваша позиция; в ячейке — % от раздач, где перед вами было одно открытие (не олл-ин) без коллеров'), w,
+  card.append(numTag(3), el('span', 'k', '3-бет по позициям'), el('span', 's', 'колонки — ваша позиция; в ячейке — % от раздач, где перед вами было одно открытие (не олл-ин) без коллеров и вы сделали 3-бет'), w,
     el('span', 's tb-sub', 'После вашего 3-бета — колонки тоже ваша позиция, открыть мог любой игрок перед вами'), w2);
   return card;
 }
