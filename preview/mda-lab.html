@@ -3912,7 +3912,8 @@ function subHands(z, pass) {
 
 function renderRFISummary(idx, r) {
   // Фильтры раздела «Открытие» (тип открытия и ваш стек) действуют только на карточки 1, 3, 3.4, 3.5, 3.7, 4, 5+ и 8;
-  // карточки 4+, 5 и 13 — по всем раздачам выборки. Тип открытия у карточки 4 не применяется (доля пушей стала бы 0 или 100%).
+  // карточки 4+, 5 и 13 — по всем раздачам выборки. Тип открытия не применяется у карточки 4 (доля пушей стала бы 0 или 100%)
+  // и у 5+ (изолейт — не открытие); у них — только стек.
   const sr = secRange('rfi'), ot = secF('rfi').T, cb = DB.cols;
   const idxF = sr ? idx.filter(i => cb.bb[i] >= sr[0] * 10 && cb.bb[i] < sr[1] * 10) : idx;
   const mxOpt = { mxPos: uiState.mxPos, mxStk: uiState.mxStk === 'custom' && uiState.mxCustom ? uiState.mxCustom : (MX_STK.find(z => z[0] === uiState.mxStk) || MX_STK[0])[2] };
@@ -3981,7 +3982,7 @@ function renderRFISummary(idx, r) {
   // раскладка по строкам: карточка слева, её инфографика справа
   const byTag = {}; [...cards.children].forEach(n => { byTag[n.querySelector('.num-tag').textContent] = n; });
   byTag['#3+'] = renderStealPanel(idxF, ot); byTag['#4+'] = shovePanel;
-  byTag['#5'] = isoCard(isoData(idx)); byTag['#5+'] = isoPanel(isoData(idxF, ot)); // 5 — без фильтров раздела, 5+ — с ними
+  byTag['#5'] = isoCard(isoData(idx)); byTag['#5+'] = isoPanel(isoData(idxF)); // 5 — без фильтров раздела; 5+ — только стек (изолейт — не открытие, тип открытия к нему не относится)
   const row = (l, r) => { const d = el('div', 'sum-pair'); d.append(byTag[l], byTag[r]); return d; };
   // строка #3: карточка #3 и окна 3.4–3.8 одного размера в общей сетке
   const stealRow = el('div', 'steal-row'); stealRow.append(byTag['#3']);
