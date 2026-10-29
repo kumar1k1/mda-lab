@@ -868,8 +868,8 @@ function bxRel(o) {
   return m;
 }
 
-function renderStealPanel(idx) {
-  const o = Stats.stealExtra(DB, idx);
+function renderStealPanel(idx, ot) {
+  const o = Stats.stealExtra(DB, idx, { ot });
   // каждый пункт 3.1–3.8 — отдельное окно; общий контейнер без рамки
   const card = el('div', 'steal-split');
   card.append(el('span', 'num-tag', '#3+')); // служебная метка для раскладки, скрыта стилями
@@ -1020,13 +1020,13 @@ function renderShovePanel(idx, stackBars) {
 
 // ---------- #5 / #5+ — изоляция лимперов ----------
 const ISO_POS = ['MP', 'HJ', 'CO', 'BTN', 'SB', 'BB']; // индекс = позиция − 1; HJ не показывается
-function isoData(idx) {
+function isoData(idx, ot) {
   const c = DB.cols, EV = EVcol(), cell = () => ({ o: 0, x: 0, sum: 0, es: 0, n: 0, f: 0, fn: 0, ids: [], mx: null });
   const M = [ISO_POS.map(cell), ISO_POS.map(cell)], tot = [cell(), cell()], resp = [0, 0, 0], respL = [[0, 0, 0], [0, 0, 0]], szx = [{}, {}];
   for (const i of idx) {
     const p = c.pos[i]; if (c.sit[i] !== 1 || p < 1) continue;
     const r = c.lim[i] === 1 ? 0 : 1, z = M[r][p - 1], t = tot[r];
-    const bvb = c.bvb ? c.bvb[i] === 1 : false, raised = c.act[i] >= 2;
+    const bvb = c.bvb ? c.bvb[i] === 1 : false, raised = ot === 'nai' ? c.act[i] === 2 : ot === 'ai' ? c.act[i] === 3 : c.act[i] >= 2;
     t.o++; if (raised) t.x++;
     z.o++; if (raised) z.x++; // как в Hand2Note: в BB считается и лимп SB
     if (!raised) continue;
@@ -1205,7 +1205,14 @@ function subHands(z, pass) {
 }
 
 function renderRFISummary(idx, r) {
-  const x = Stats.rfiExtra(DB, idx, { mxPos: uiState.mxPos, mxStk: uiState.mxStk === 'custom' && uiState.mxCustom ? uiState.mxCustom : (MX_STK.find(z => z[0] === uiState.mxStk) || MX_STK[0])[2] });
+  // Фильтры раздела «Открытие» (тип открытия и ваш стек) действуют только на карточки 1, 3, 3.4, 3.5, 3.7, 4, 5+ и 8;
+  // карточки 4+, 5 и 13 — по всем раздачам выборки. Тип открытия у карточки 4 не применяется (доля пушей стала бы 0 или 100%).
+  const sr = secRange('rfi'), ot = secF('rfi').T, cb = DB.cols;
+  const idxF = sr ? idx.filter(i => cb.bb[i] >= sr[0] * 10 && cb.bb[i] < sr[1] * 10) : idx;
+  const mxOpt = { mxPos: uiState.mxPos, mxStk: uiState.mxStk === 'custom' && uiState.mxCustom ? uiState.mxCustom : (MX_STK.find(z => z[0] === uiState.mxStk) || MX_STK[0])[2] };
+  const x = Stats.rfiExtra(DB, idxF, Object.assign({ ot }, mxOpt)); // 1, 3, 8
+  const xS = ot === 'all' ? x : Stats.rfiExtra(DB, idxF, mxOpt); // 4 — только стек
+  const x0 = sr || ot !== 'all' ? Stats.rfiExtra(DB, idx, mxOpt) : x; // 13 — без фильтров раздела
   const zone = el('div', 'summary');
 
   // карточки
@@ -1233,41 +1240,33 @@ function renderRFISummary(idx, r) {
   const sp2 = el('div'); sp2.append(el('span', 'k', 'когда сыграли'), wrNode('b', con, perEv(x.netCon), 2), el('span', 'n', x.netCon.n.toLocaleString('ru-RU') + ' раз'));
   split.append(sp1, sp2);
   // #8 — результат открытий по позициям; переключатели: открытие рейзом / олл-ином, ваш стек, свой диапазон
-  const F8 = secType('rfi'); // тип открытия из шапки раздела; стек уже отобран в idx
-  let it8, avg8, ev8, n8;
-  if (!F8.flt) { it8 = ['UTG', 'MP', 'CO', 'BTN', 'SB'].map(p => ({ p, o: x.openNetPos[p], mx: x.netMx[p], r: x.respPos[p] })); avg8 = nb == null ? null : nb / 100; ev8 = perEv(x.openNet); n8 = x.openNet.n; }
-  else {
-    const cc = DB.cols, EVc = EVcol(), H = {}; let T = { n: 0, sum: 0, es: 0 };
-    ['UTG', 'MP', 'CO', 'BTN', 'SB'].forEach(p => { H[p] = { n: 0, sum: 0, es: 0, ids: [], mx: Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })), r: [0, 0, 0] }; });
-    for (const i of idx) { if (cc.sit[i] !== 0 || cc.act[i] < 2) continue; const z = H[Stats.POS[cc.pos[i]]]; if (!z || !F8.pass(i)) continue; z.n++; z.sum += cc.net[i]; z.es += EVc[i]; z.ids.push(i); T.n++; T.sum += cc.net[i]; T.es += EVc[i]; if (cc.hc[i] >= 0) { const m = z.mx[cc.hc[i]]; m.n++; m.sum += cc.net[i]; m.es += EVc[i]; } if (cc.orsp && cc.orsp[i] >= 0) z.r[cc.orsp[i]]++; }
-    it8 = ['UTG', 'MP', 'CO', 'BTN', 'SB'].map(p => ({ p, key: 'rfi8 ' + p + F8.ty, o: { n: H[p].n, sum: H[p].sum, es: H[p].es }, mx: H[p].mx, ids: H[p].ids, r: H[p].r }));
-    avg8 = T.n ? T.sum / 10 / T.n : null; ev8 = T.n ? T.es / 10 / T.n : null; n8 = T.n;
-  }
+  // #8 — по фильтрам раздела: x посчитан по вашему стеку и типу открытия
+  const it8 = ['UTG', 'MP', 'CO', 'BTN', 'SB'].map(p => ({ p, key: 'rfi8 ' + p + ot + (sr || []).join('-'), o: x.openNetPos[p], mx: x.netMx[p], r: x.respPos[p] })), avg8 = nb == null ? null : nb / 100, ev8 = perEv(x.openNet), n8 = x.openNet.n;
   LAST_NET_ITEMS = it8;
   const box8 = el('div'); box8.append(secLabel('rfi', n8, 'открытий'), netChart(it8, avg8, 'EV открытий'));
   const c8 = (card(8, 'Результат открытий', wrHtml(avg8, ev8, 2) + ' <small>BB за открытие</small>', null, box8));
   c8.classList.add('wide', 'span3');
   cards.append(c8);
   // #3 — стил + ответ блайндов (CO и BTN вместе), как в #1
-  const so = Stats.stealExtra(DB, idx);
+  const so = Stats.stealExtra(DB, idxF, { ot });
   const sresp = [0, 1, 2].map(k => so.CO.resp[k] + so.BTN.resp[k]);
   cards.append(card(3, 'Стил с CO и BTN', '<em>' + pctTxt(x.late) + '</em>', 'когда до вас все сбросили', fillBox(posStrip('По позициям', ['CO', 'BTN'].map(p => [p, x.latePos[p].n ? x.latePos[p].x / x.latePos[p].n : null, p + ': ' + x.latePos[p].x + ' из ' + x.latePos[p].n])), respTiles(sresp, ''))));
 
   // #4 — доля пушей и разбивка по стеку
   const st = el('div', 'mini-bars');
-  const maxSh = Math.max(0.01, ...x.shoveStk.map(z => (z.n ? z.x / z.n : 0)));
-  x.SHOVE_STK.forEach((lab, k) => {
-    const z = x.shoveStk[k]; const v = z.n ? z.x / z.n : null;
+  const maxSh = Math.max(0.01, ...xS.shoveStk.map(z => (z.n ? z.x / z.n : 0)));
+  xS.SHOVE_STK.forEach((lab, k) => {
+    const z = xS.shoveStk[k]; const v = z.n ? z.x / z.n : null;
     const r = el('div', 'mb-row'); r.title = lab + ' BB: пушей ' + z.x + ' из ' + z.n + ' открытий';
     const tr = el('div', 'mb-track'); const f = el('div', 'mb-fill'); f.style.width = (v == null ? 0 : v / maxSh * 100) + '%'; tr.append(f);
     r.append(el('span', 'mb-l', lab + ' BB'), tr, el('span', 'mb-v', v == null ? '—' : fmtPct(v) + '%'));
     st.append(r);
   });
   const presp = [0, 0], pp = ['UTG', 'MP', 'HJ', 'CO', 'BTN', 'SB'].map(() => ({ x: 0, n: 0 }));
-  { const c = DB.cols; for (const i of idx) if (c.sit[i] === 0 && c.pos[i] <= 5 && c.act[i] >= 2) { pp[c.pos[i]].n++; if (c.act[i] === 3) pp[c.pos[i]].x++; } }
+  { const c = DB.cols; for (const i of idxF) if (c.sit[i] === 0 && c.pos[i] <= 5 && c.act[i] >= 2) { pp[c.pos[i]].n++; if (c.act[i] === 3) pp[c.pos[i]].x++; } }
   const pushPos = ['UTG', 'MP', 'HJ', 'CO', 'BTN', 'SB'].map((p, k) => [p, pp[k].n ? pp[k].x / pp[k].n : null, p + ': ' + pp[k].x + ' пушей из ' + pp[k].n + ' открытий']).filter(r => r[0] !== 'HJ');
-  { const c = DB.cols; if (c.orsp) for (const i of idx) if (c.sit[i] === 0 && c.pos[i] <= 5 && c.act[i] === 3 && c.orsp[i] >= 0) presp[c.orsp[i] === 0 ? 0 : 1]++; }
-  cards.append(card(4, 'Доля пушей среди открытий', '<em>' + pctTxt(x.shove) + '</em>', x.shove.x.toLocaleString('ru-RU') + ' пушей из ' + x.shove.n.toLocaleString('ru-RU') + ' открытий',
+  { const c = DB.cols; if (c.orsp) for (const i of idxF) if (c.sit[i] === 0 && c.pos[i] <= 5 && c.act[i] === 3 && c.orsp[i] >= 0) presp[c.orsp[i] === 0 ? 0 : 1]++; }
+  cards.append(card(4, 'Доля пушей среди открытий', '<em>' + pctTxt(xS.shove) + '</em>', xS.shove.x.toLocaleString('ru-RU') + ' пушей из ' + xS.shove.n.toLocaleString('ru-RU') + ' открытий',
     fillBox(posStrip('По позициям — доля пушей среди открытий', pushPos), respTiles(presp, '', [['фолд', 'var(--good)'], ['колл', 'var(--ice)']]))));
   const shovePanel = renderShovePanel(idx, st);
 
@@ -1275,8 +1274,8 @@ function renderRFISummary(idx, r) {
   const dall2 = dall;
   // раскладка по строкам: карточка слева, её инфографика справа
   const byTag = {}; [...cards.children].forEach(n => { byTag[n.querySelector('.num-tag').textContent] = n; });
-  byTag['#3+'] = renderStealPanel(idx); byTag['#4+'] = shovePanel;
-  const isoD = isoData(idx); byTag['#5'] = isoCard(isoD); byTag['#5+'] = isoPanel(isoD);
+  byTag['#3+'] = renderStealPanel(idxF, ot); byTag['#4+'] = shovePanel;
+  byTag['#5'] = isoCard(isoData(idx)); byTag['#5+'] = isoPanel(isoData(idxF, ot)); // 5 — без фильтров раздела, 5+ — с ними
   const row = (l, r) => { const d = el('div', 'sum-pair'); d.append(byTag[l], byTag[r]); return d; };
   // строка #3: карточка #3 и окна 3.4–3.8 одного размера в общей сетке
   const stealRow = el('div', 'steal-row'); stealRow.append(byTag['#3']);
@@ -1290,7 +1289,7 @@ function renderRFISummary(idx, r) {
   const h13 = el('div', 'block-head'); h13.append(el('h2', null, 'Какие руки вы открываете'), el('p', null, 'процент открытия каждой руки, когда до вас все сбросили'));
   const seg = el('div', 'seg');
   ['UTG', 'MP', 'CO', 'BTN', 'SB'].forEach(p => { const b = el('button', uiState.mxPos === p ? 'on' : '', p); b.type = 'button'; b.onclick = () => { uiState.mxPos = p; renderNext(); }; seg.append(b); });
-  const mxBody = el('div', 'block-body'); mxBody.append(handMatrix(x.mx));
+  const mxBody = el('div', 'block-body'); mxBody.append(handMatrix(x0.mx));
   const mxSide = el('div', 'mx-side');
   const segS = el('div', 'seg');
   MX_STK.forEach(([id, lab]) => { const b = el('button', uiState.mxStk === id ? 'on' : '', lab); b.type = 'button'; b.onclick = () => { uiState.mxStk = id; renderNext(); }; segS.append(b); });
@@ -1309,7 +1308,7 @@ function renderRFISummary(idx, r) {
     if (isNaN(lo) || isNaN(hi) || lo < 0 || hi <= lo) { err.textContent = 'Верхняя граница должна быть больше нижней'; return; }
     uiState.mxCustom = [lo, hi]; uiState.mxStk = 'custom'; render();
   };
-  const mxN = x.mx.reduce((a, m) => a + m.n, 0);
+  const mxN = x0.mx.reduce((a, m) => a + m.n, 0);
   const mxLeg = el('div', 'resp-legend row'); [['рейз', 'var(--mx-raise)'], ['олл-ин', 'var(--mx-push)'], ['лимп / колл', 'var(--mx-limp)'], ['фолд', 'var(--mx-empty)']].forEach(([l, col]) => { const it = el('span'); const i = el('i'); i.style.background = col; if (col === 'var(--mx-empty)') i.style.border = '1px solid var(--line2)'; it.append(i, document.createTextNode(l)); mxLeg.append(it); });
   mxSide.append(mxLeg, el('span', 'mx-cap', 'Позиция'), seg, el('span', 'mx-cap', 'Ваш стек, BB'), segS, el('span', 'mx-cap', 'Свой диапазон'), cr, el('span', 'muted small', (cur ? 'Стек ' + cur[0] + '–' + (cur[1] < 1e8 ? cur[1] : '∞') + ' BB: ' : '') + mxN.toLocaleString('ru-RU') + ' возможностей открыться в выборке'));
   mxSide.append(infoNote('Клетка закрашена слева направо на долю открытий этой руки: янтарная часть — рейзы, синяя — олл-ин, зелёная — лимпы, тёмная — фолды. Наведите на клетку, чтобы увидеть проценты каждого действия. Сверху от диагонали — одномастные, снизу — разномастные. Бледная заливка — меньше 5 раздач.'));
@@ -2241,7 +2240,8 @@ function renderSoon(tab) {
 
 // ---------- отрисовка ----------
 function currentIdx() {
-  const sr = secRange(state.tab); // ваш стек из фильтров раздела (шапка) — для всех карточек раздела
+  // ваш стек из фильтров раздела: в «Открытии» — только для названных карточек (отбор в renderRFISummary), в остальных разделах — для всех
+  const sr = state.tab === 'rfi' ? null : secRange(state.tab);
   const idx = Stats.selectHands(DB, { aid: DB === HERO_DB && !state.player ? state.alias : null, room: state.room, type: state.type, from: state.from, to: state.to, biFrom: state.biFrom, biTo: state.biTo, tbl: state.sub === 'TOT' ? null : state.sub, minBB: sr ? sr[0] : null, maxBB: sr && sr[1] < 1e8 ? sr[1] : null });
   return idx; // у соперника своя база (DB) — все его раздачи
 }

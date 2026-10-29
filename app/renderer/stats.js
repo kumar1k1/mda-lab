@@ -86,7 +86,8 @@
     if (has('day')) for (const i of idx) if (c.day[i] > maxDay) maxDay = c.day[i];
     out.maxDay = maxDay;
     for (const i of idx) {
-      const p = c.pos[i], a = c.act[i], open = a === 2 || a === 3;
+      // opt.ot — тип открытия из фильтра раздела: 'nai' — только не олл-ин, 'ai' — только олл-ин (открытием считается только он)
+      const p = c.pos[i], a = c.act[i], open = opt.ot === 'nai' ? a === 2 : opt.ot === 'ai' ? a === 3 : a === 2 || a === 3;
       if (has('day')) {
         const d = out.cal[c.day[i]] || (out.cal[c.day[i]] = { hands: 0, x: 0, n: 0, net: 0 });
         d.hands++; if (has('net')) d.net += c.net[i];
@@ -125,7 +126,8 @@
   const STEAL_SZ = [['2–2.25', 0, 225], ['2.25–2.6', 225, 260], ['2.6+', 260, 1e9]];
   const BLIND_STK = [['≤10', 0, 10], ['10–20', 10, 20], ['20+', 20, 1e9]];
   const BX_STK = [['<15', 0, 15], ['15–35', 15, 35], ['35+', 35, 1e9]]; // стек SB и BB по отдельности, BB
-  function stealExtra(db, idx) {
+  function stealExtra(db, idx, opt) {
+    opt = opt || {};
     const c = db.cols, has = (k) => c[k] != null && c[k].length === db.count, EV = c.nev || c.net;
     const R = () => ({ x: 0, n: 0 });
     const Z = () => ({ sum: 0, es: 0, n: 0, ids: [] });
@@ -135,7 +137,7 @@
     const out = { CO: mk(), BTN: mk() };
     for (const i of idx) {
       const p = c.pos[i]; if (c.sit[i] !== 0 || (p !== 3 && p !== 4)) continue;
-      const o = out[p === 3 ? 'CO' : 'BTN'], open = c.act[i] >= 2;
+      const o = out[p === 3 ? 'CO' : 'BTN'], open = opt.ot === 'nai' ? c.act[i] === 2 : opt.ot === 'ai' ? c.act[i] === 3 : c.act[i] >= 2;
       o.all.n++; if (open) o.all.x++;
       const sb = c.bb[i] / 10; const k = STEAL_STK.findIndex(z => sb >= z[1] && sb < z[2]); if (k >= 0) { o.stk[k].n++; if (open) o.stk[k].x++; }
       const mo = o.month[c.month[i]] || (o.month[c.month[i]] = R()); mo.n++; if (open) mo.x++;
