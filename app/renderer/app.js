@@ -2304,17 +2304,19 @@ function render() {
   // Пересчёт под тем же разделом (фильтры, переключатели): карточки выше по странице могут поменять высоту, и экран
   // «уезжал». Запоминаем первую видимую карточку и её место, после перерисовки возвращаем её туда же.
   const cont = $('content'), sameTab = RENDER_TAB === tab.id; RENDER_TAB = tab.id;
+  // якорь — первая карточка (или заголовок группы), которая начинается в видимой части; если такой нет — та, что под верхним краем
+  const ANC = '.insight, .block, .sm, .sec';
+  const cardsOf = () => [...cont.querySelectorAll(ANC)].filter(e => !e.querySelector(ANC) && e.offsetParent);
+  const keyOf = (e) => { const t = e.matches('.sec') ? 'sec:' + (e.querySelector('h3') || e).textContent : (e.querySelector('.num-tag') || e.querySelector('h2, .k, b') || e).textContent; return e.className.split(' ')[0] + '|' + t.trim().slice(0, 80); };
   let anchor = null;
   if (sameTab && cont.scrollTop > 0) {
-    const top = cont.getBoundingClientRect().top, keyOf = (e) => (e.querySelector(':scope .num-tag') || e.querySelector('h2, .sec-t, .k') || e).textContent.trim().slice(0, 80);
-    const cand = [...cont.querySelectorAll('.insight, .block, .sm, section, .sec, .sum-pair')].filter(e => e.querySelector('.num-tag, h2, .k'));
-    const vis = cand.find(e => e.getBoundingClientRect().bottom > top + 4);
-    if (vis) anchor = { key: keyOf(vis), cls: vis.className, dy: vis.getBoundingClientRect().top - top };
+    const top = cont.getBoundingClientRect().top, list = cardsOf();
+    const vis = list.find(e => e.getBoundingClientRect().top >= top - 1) || list.find(e => e.getBoundingClientRect().bottom > top);
+    if (vis) { const k = keyOf(vis); anchor = { key: k, nth: list.filter(e => keyOf(e) === k).indexOf(vis), dy: vis.getBoundingClientRect().top - top }; }
   }
   cont.replaceChildren(tab.render ? tab.render(idx) : renderSoon(tab));
   if (anchor) {
-    const top = cont.getBoundingClientRect().top, keyOf = (e) => (e.querySelector(':scope .num-tag') || e.querySelector('h2, .sec-t, .k') || e).textContent.trim().slice(0, 80);
-    const same = [...cont.querySelectorAll('.insight, .block, .sm, section, .sec, .sum-pair')].find(e => e.className === anchor.cls && keyOf(e) === anchor.key);
+    const top = cont.getBoundingClientRect().top, same = cardsOf().filter(e => keyOf(e) === anchor.key)[anchor.nth];
     if (same) cont.scrollTop += (same.getBoundingClientRect().top - top) - anchor.dy;
   }
   if (LAST_NET_ITEMS.length) refreshPinned(LAST_NET_ITEMS); else unpin();
