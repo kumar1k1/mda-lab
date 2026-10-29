@@ -2255,7 +2255,7 @@ window.mdaBusy = (on, text) => {
   if (on && text) BUSY_EL.lastChild.textContent = text; else if (on) BUSY_EL.lastChild.textContent = 'Загружаю данные…';
   BUSY_EL.classList.toggle('on', BUSY_N > 0);
 };
-let RS_F = 0, LASTBTN = null, RENDER_TAB = null;
+let RS_F = 0, LASTBTN = null, RENDER_TAB = null, HSTD = {};
 document.addEventListener('click', (e) => { LASTBTN = e.target && e.target.closest ? e.target.closest('button') : null; }, true);
 function renderNext() {
   const b = LASTBTN; LASTBTN = null;
@@ -2315,6 +2315,13 @@ function render() {
     if (vis) { const k = keyOf(vis); anchor = { key: k, nth: list.filter(e => keyOf(e) === k).indexOf(vis), dy: vis.getBoundingClientRect().top - top }; }
   }
   cont.replaceChildren(tab.render ? tab.render(idx) : renderSoon(tab));
+  // Размер карточек как в «стандартном» виде раздела (при входе в раздел, фильтры по умолчанию): при фильтрах карточка
+  // не становится ниже — пустое место остаётся внутри неё, соседние карточки не прыгают. Больше стандарта — растёт.
+  {
+    const list = cardsOf();
+    if (!sameTab) { HSTD = {}; requestAnimationFrame(() => { cardsOf().forEach(e => { HSTD[keyOf(e)] = e.getBoundingClientRect().height; }); }); }
+    else list.forEach(e => { const h = HSTD[keyOf(e)]; if (h) e.style.minHeight = h + 'px'; });
+  }
   if (anchor) {
     const top = cont.getBoundingClientRect().top, same = cardsOf().filter(e => keyOf(e) === anchor.key)[anchor.nth];
     if (same) cont.scrollTop += (same.getBoundingClientRect().top - top) - anchor.dy;
