@@ -1873,7 +1873,19 @@ body.rendering{cursor:progress}
 .mx-fill.fold{background:var(--mx-fold)}
 .mx-c.na{background:var(--bg)}
 .mx-c.na .mx-lab{color:var(--faint);text-shadow:none;opacity:.55}
-.szmx-part button:disabled{opacity:.4;cursor:default}
+/* вкладки-карточки окна ответа: название, число раздач, итог BB за раздачу (факт и EV) */
+.szmx-part{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.szmx-pt{display:flex;flex-direction:column;align-items:flex-start;gap:3px;padding:7px 9px;border-radius:9px;border:1px solid var(--line2);background:var(--bg);color:var(--soft);font:inherit;text-align:left;cursor:pointer;min-width:0}
+.szmx-pt:hover:not(:disabled){border-color:var(--amber)}
+.szmx-pt.on{border-color:var(--amber);background:rgba(var(--amber-rgb),.1);color:var(--text)}
+.szmx-pt:disabled{opacity:.4;cursor:default}
+.szmx-pt .pt-h{display:flex;gap:6px;align-items:baseline;width:100%;font-size:12px}
+.szmx-pt .pt-h b{font-size:13px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.szmx-pt .pt-h span{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--faint);white-space:nowrap}
+.szmx-pt .pt-v{display:flex;gap:8px;align-items:baseline;font-family:var(--mono);font-size:15px;font-weight:700;line-height:1.2}
+.szmx-pt .pt-v.muted{font-size:11px;font-weight:500;color:var(--faint)}
+.szmx-pt .pt-ev{font-size:11px;font-weight:600;opacity:.85}
+.szmx-ptcap{font-size:10.5px;color:var(--faint);margin-top:-2px}
 
 /* Дополнения только для онлайн-превью: тёмная тема и узкие экраны */
 :root{color-scheme:dark}
@@ -3941,9 +3953,17 @@ function drawSzMx(title, z, pinned) {
   // вкладки по вашему ответу (весь диапазон / колл / 5-бет / фолд) — если окно их даёт (z.parts); в каждой — диапазон, факт и EV
   const PART = pinned && z.parts && SZMX_PART !== 'all' && z.parts[SZMX_PART] ? SZMX_PART : 'all';
   if (pinned && z.parts) {
-    const segP = el('div', 'seg szmx-seg szmx-part'); segP.setAttribute('role', 'group'); segP.setAttribute('aria-label', 'Какой ответ');
-    [['all', 'Весь диапазон'], ['call', z.labels[2] || 'колл'], ['rz', z.labels[0] || 'рейз'], ['fold', z.labels[3] || 'фолд']].forEach(([k, t]) => { const n = k === 'all' ? z.n : z.parts[k].n; const b = el('button', PART === k ? 'on' : '', t + ' · ' + n); b.type = 'button'; b.disabled = !n; b.setAttribute('aria-pressed', String(PART === k)); b.onclick = () => { SZMX_PART = k; SZMX_SEL = null; drawSzMx(title, z0, true); }; segP.append(b); });
-    left.append(segP);
+    const segP = el('div', 'szmx-part'); segP.setAttribute('role', 'group'); segP.setAttribute('aria-label', 'Какой ответ');
+    // вкладки-карточки: итог раздач с этим ответом в BB за раздачу — факт и EV (у фолда — только число раздач)
+    const tot = (zz) => zz.rmx.reduce((acc, m) => { acc.s += m.sum; acc.e += m.es; acc.n += m.n; return acc; }, { s: 0, e: 0, n: 0 });
+    [['all', 'Весь диапазон'], ['call', z.labels[2] || 'колл'], ['rz', z.labels[0] || 'рейз'], ['fold', z.labels[3] || 'фолд']].forEach(([k, t]) => {
+      const zk = k === 'all' ? z : z.parts[k], n = zk.n, b = el('button', 'szmx-pt' + (PART === k ? ' on' : '')); b.type = 'button'; b.disabled = !n; b.setAttribute('aria-pressed', String(PART === k));
+      const top = el('span', 'pt-h'); top.append(el('b', null, t), el('span', null, n.toLocaleString('ru-RU') + ' раз')); b.append(top);
+      if (k !== 'fold' && n) { const T = tot(zk); const f = T.n ? T.s / 10 / T.n : null, e = T.n ? T.e / 10 / T.n : null; const v = el('span', 'pt-v'); v.append(el('span', f >= 0 ? 'up' : 'down', signed(f, 2)), el('span', 'pt-ev ' + (e >= 0 ? 'up' : 'down'), 'EV ' + signed(e, 2))); b.append(v); b.title = t + ': ' + signed(f, 2) + ' BB факт, ' + signed(e, 2) + ' BB EV за раздачу, ' + n + ' раз; всего ' + signed(T.s / 10, 1) + ' BB / EV ' + signed(T.e / 10, 1) + ' BB'; }
+      else if (k === 'fold') b.append(el('span', 'pt-v muted', 'без итога'));
+      b.onclick = () => { SZMX_PART = k; SZMX_SEL = null; drawSzMx(title, z0, true); }; segP.append(b);
+    });
+    left.append(segP, el('div', 'szmx-ptcap', 'BB за раздачу: факт и EV. «Весь диапазон» — все ответы вместе, включая фолды.'));
   }
   if (PART !== 'all') {
     // только этот ответ: в «Диапазоне» — доля этого ответа у каждой руки, в факте и EV — итог именно этих раздач

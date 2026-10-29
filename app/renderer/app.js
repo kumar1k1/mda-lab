@@ -1294,9 +1294,17 @@ function drawSzMx(title, z, pinned) {
   // вкладки по вашему ответу (весь диапазон / колл / 5-бет / фолд) — если окно их даёт (z.parts); в каждой — диапазон, факт и EV
   const PART = pinned && z.parts && SZMX_PART !== 'all' && z.parts[SZMX_PART] ? SZMX_PART : 'all';
   if (pinned && z.parts) {
-    const segP = el('div', 'seg szmx-seg szmx-part'); segP.setAttribute('role', 'group'); segP.setAttribute('aria-label', 'Какой ответ');
-    [['all', 'Весь диапазон'], ['call', z.labels[2] || 'колл'], ['rz', z.labels[0] || 'рейз'], ['fold', z.labels[3] || 'фолд']].forEach(([k, t]) => { const n = k === 'all' ? z.n : z.parts[k].n; const b = el('button', PART === k ? 'on' : '', t + ' · ' + n); b.type = 'button'; b.disabled = !n; b.setAttribute('aria-pressed', String(PART === k)); b.onclick = () => { SZMX_PART = k; SZMX_SEL = null; drawSzMx(title, z0, true); }; segP.append(b); });
-    left.append(segP);
+    const segP = el('div', 'szmx-part'); segP.setAttribute('role', 'group'); segP.setAttribute('aria-label', 'Какой ответ');
+    // вкладки-карточки: итог раздач с этим ответом в BB за раздачу — факт и EV (у фолда — только число раздач)
+    const tot = (zz) => zz.rmx.reduce((acc, m) => { acc.s += m.sum; acc.e += m.es; acc.n += m.n; return acc; }, { s: 0, e: 0, n: 0 });
+    [['all', 'Весь диапазон'], ['call', z.labels[2] || 'колл'], ['rz', z.labels[0] || 'рейз'], ['fold', z.labels[3] || 'фолд']].forEach(([k, t]) => {
+      const zk = k === 'all' ? z : z.parts[k], n = zk.n, b = el('button', 'szmx-pt' + (PART === k ? ' on' : '')); b.type = 'button'; b.disabled = !n; b.setAttribute('aria-pressed', String(PART === k));
+      const top = el('span', 'pt-h'); top.append(el('b', null, t), el('span', null, n.toLocaleString('ru-RU') + ' раз')); b.append(top);
+      if (k !== 'fold' && n) { const T = tot(zk); const f = T.n ? T.s / 10 / T.n : null, e = T.n ? T.e / 10 / T.n : null; const v = el('span', 'pt-v'); v.append(el('span', f >= 0 ? 'up' : 'down', signed(f, 2)), el('span', 'pt-ev ' + (e >= 0 ? 'up' : 'down'), 'EV ' + signed(e, 2))); b.append(v); b.title = t + ': ' + signed(f, 2) + ' BB факт, ' + signed(e, 2) + ' BB EV за раздачу, ' + n + ' раз; всего ' + signed(T.s / 10, 1) + ' BB / EV ' + signed(T.e / 10, 1) + ' BB'; }
+      else if (k === 'fold') b.append(el('span', 'pt-v muted', 'без итога'));
+      b.onclick = () => { SZMX_PART = k; SZMX_SEL = null; drawSzMx(title, z0, true); }; segP.append(b);
+    });
+    left.append(segP, el('div', 'szmx-ptcap', 'BB за раздачу: факт и EV. «Весь диапазон» — все ответы вместе, включая фолды.'));
   }
   if (PART !== 'all') {
     // только этот ответ: в «Диапазоне» — доля этого ответа у каждой руки, в факте и EV — итог именно этих раздач
