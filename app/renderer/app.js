@@ -1152,7 +1152,7 @@ function isoPanel(d) {
 
 // Переключатели над графиком «Результат …» (RFI #8, колд-колл #8, 3-бет #2): тип действия, ваш стек и свой диапазон стека.
 // pre — префикс ключей в uiState (S — стек, C — свой диапазон, T — тип); types — кнопки типа или null
-const RES_STK = [['all', 'Любой стек', null], ['s15', '< 15', [0, 15]], ['s25', '15–25', [15, 25]], ['s40', '25–40', [25, 40]], ['s40p', '40+', [40, 1e9]]];
+const RES_STK = [['all', 'Любой', null], ['s15', '< 15', [0, 15]], ['s25', '15–25', [15, 25]], ['s40', '25–40', [25, 40]], ['s40p', '40+', [40, 1e9]]];
 function resFilter(pre, types) {
   const S = uiState, cust = S[pre + 'S'] === 'custom' && S[pre + 'C'] ? S[pre + 'C'] : null;
   const rng = cust || (RES_STK.find(x => x[0] === S[pre + 'S']) || RES_STK[0])[2], ty = types ? (S[pre + 'T'] || 'all') : 'all', c = DB.cols;

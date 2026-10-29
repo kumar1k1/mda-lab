@@ -785,6 +785,8 @@ g.pick:hover rect,g.pick:focus-visible rect{stroke:var(--text);stroke-width:1.5}
 .bx-lr{grid-template-columns:minmax(110px,1fr) minmax(min-content,1fr) minmax(min-content,1fr)}
 .bx-lr .hg-c{grid-template-columns:minmax(30px,1fr) max-content max-content;column-gap:8px}
 .bx-lr .hg-v,.bx-lr .hg-n{white-space:nowrap}
+@container (max-width: 520px){.res-host .res-left .v{font-size:21px}.res-host .res-top > .tb-res-ctl{min-width:200px}.tb-res-ctl > .seg{overflow:hidden}}
+@container (max-width: 420px){.res-host .res-top{flex-direction:column}.res-host .res-top > .tb-res-ctl{flex:none;width:100%}} /* совсем узкая карточка — кнопки под итогом */
 @container (max-width: 640px){.bx-lr .hg-v .evs{display:block;font-size:10px;line-height:1.2}.bx-lr .hg-v{line-height:1.15}}
 @container (max-width: 470px){
   .bx-lr{grid-template-columns:1fr;row-gap:3px;gap:3px}
@@ -1886,12 +1888,12 @@ body.rendering{cursor:progress}
 .szmx-pt .pt-v.muted{font-size:11px;font-weight:500;color:var(--faint)}
 .szmx-pt .pt-ev{font-size:11px;font-weight:600;opacity:.85}
 .szmx-ptcap{font-size:10.5px;color:var(--faint);margin-top:-2px}
-.tb-res-ctl{display:flex;flex-direction:column;gap:8px;align-items:stretch;margin:0;width:360px;max-width:100%} /* три ряда одной ширины: края совпадают, кнопки не сдвигаются */
+.tb-res-ctl{display:flex;flex-direction:column;gap:6px;align-items:stretch;margin:0;width:330px;max-width:100%} /* три ряда одной ширины: края совпадают, кнопки не сдвигаются */
 .tb-res-ctl > .seg{display:flex;width:100%;box-sizing:border-box}
 .tb-res-ctl > .seg{padding:2px;flex-wrap:nowrap}
-.tb-res-ctl > .seg button{flex:1 1 auto;min-width:0;padding:0 5px;white-space:nowrap;min-height:26px;font-size:11.5px}
-.tb-res-ctl .mx-range input{min-height:28px;font-size:12px;padding:0 7px}
-.tb-res-ctl .mx-range .btn{min-height:28px;padding:0 10px;font-size:12px}
+.tb-res-ctl > .seg button{flex:1 1 auto;min-width:0;padding:0 4px;white-space:nowrap;min-height:24px;font-size:11px}
+.tb-res-ctl .mx-range input{min-height:26px;font-size:11.5px;padding:0 6px}
+.tb-res-ctl .mx-range .btn{min-height:26px;padding:0 9px;font-size:11.5px}
 .tb-res-ctl .mx-unit{font-size:11px}
 .tb-res-ctl .mx-range{flex-wrap:nowrap;width:100%}
 .tb-res-ctl .mx-range input{flex:1 1 0;min-width:0;width:auto}
@@ -1904,9 +1906,11 @@ body.rendering{cursor:progress}
 /* «Результат …»: итог слева крупно, переключатели справа */
 .res-host{container-type:inline-size}
 .res-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px 28px;padding-right:34px;flex-wrap:nowrap}
-/* узкая карточка: итог — отдельной строкой сверху, кнопки — под ним от левого края */
-@container (max-width: 600px){.res-top{flex-direction:column;padding-right:0}.res-top > .tb-res-ctl{flex:none;width:min(360px,100%)}}
-.res-top > .tb-res-ctl{flex:0 1 360px;min-width:300px} /* справа от итога с зазором; если рядом не помещается — отдельной строкой под итогом, от левого края */
+/* узкая карточка: кнопки ещё компактнее, но всегда справа от итога */
+@container (max-width: 520px){.res-host .res-left .v{font-size:21px}.res-host .res-top > .tb-res-ctl{min-width:200px}.tb-res-ctl > .seg{overflow:hidden}}
+@container (max-width: 420px){.res-host .res-top{flex-direction:column}.res-host .res-top > .tb-res-ctl{flex:none;width:100%}} /* совсем узкая карточка — кнопки под итогом */
+@container (max-width: 640px){.res-top{gap:16px}.tb-res-ctl > .seg button{font-size:10.5px;padding:0 3px;min-height:22px}.tb-res-ctl .mx-range input{min-height:24px;font-size:11px}.tb-res-ctl .mx-range .btn{min-height:24px;padding:0 7px;font-size:11px}.tb-res-ctl{gap:5px}}
+.res-top > .tb-res-ctl{flex:0 1 330px;min-width:220px} /* справа от итога с зазором; если рядом не помещается — отдельной строкой под итогом, от левого края */
 .res-left{display:flex;flex-direction:column;gap:4px;flex:0 1 auto} /* сжимается до самой длинной части итога, не меньше */
 .res-left .v{white-space:normal}
 .res-left .v > span,.res-left .v > small{white-space:nowrap} /* итог переносится только между частями: «факт / EV» и «BB за …» */
@@ -3840,7 +3844,7 @@ function isoPanel(d) {
 
 // Переключатели над графиком «Результат …» (RFI #8, колд-колл #8, 3-бет #2): тип действия, ваш стек и свой диапазон стека.
 // pre — префикс ключей в uiState (S — стек, C — свой диапазон, T — тип); types — кнопки типа или null
-const RES_STK = [['all', 'Любой стек', null], ['s15', '< 15', [0, 15]], ['s25', '15–25', [15, 25]], ['s40', '25–40', [25, 40]], ['s40p', '40+', [40, 1e9]]];
+const RES_STK = [['all', 'Любой', null], ['s15', '< 15', [0, 15]], ['s25', '15–25', [15, 25]], ['s40', '25–40', [25, 40]], ['s40p', '40+', [40, 1e9]]];
 function resFilter(pre, types) {
   const S = uiState, cust = S[pre + 'S'] === 'custom' && S[pre + 'C'] ? S[pre + 'C'] : null;
   const rng = cust || (RES_STK.find(x => x[0] === S[pre + 'S']) || RES_STK[0])[2], ty = types ? (S[pre + 'T'] || 'all') : 'all', c = DB.cols;
