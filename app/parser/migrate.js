@@ -43,7 +43,9 @@ const MIGRATIONS = [
   { id: 'fp', col: ['fp', 'i8'], uses: ['rz'], need: (C, i) => C.rz[i] === 1 && C.fp[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).fp },
   { id: 'fop', col: ['fop', 'i8'], uses: ['rz'], need: (C, i) => C.rz[i] === 1 && C.fop[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).fop },
   { id: 't3r', col: ['t3r', 'i8'], uses: ['rz', 'act'], need: (C, i) => C.rz[i] === 1 && C.act[i] >= 2 && C.t3r[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).t3r },
-  { id: 't4', col: ['t4', 'i8'], uses: ['rz', 'act'], need: (C, i) => C.rz[i] === 1 && C.act[i] >= 2 && C.t4[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).t4 }
+  { id: 't4', col: ['t4', 'i8'], uses: ['rz', 'act'], need: (C, i) => C.rz[i] === 1 && C.act[i] >= 2 && C.t4[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).t4 },
+  // 0.7.23: у ответа на 4-бет отметка «холодный 4-бет» (+8) — пересчёт строк, где 4-бет был
+  { id: 't4c', col: ['t4', 'i8'], uses: ['rz', 'act'], need: (C, i) => C.rz[i] === 1 && C.act[i] >= 2 && C.t4[i] >= 0 && C.t4[i] < 8, calc: (rec, s) => TB.tbetOf(rec, s).t4 }
 ];
 // обновления формата (после досчёта колонок): двоичный реплеер и сжатые колонки (0.7)
 const FORMAT_IDS = ['rpbin', 'colz', 'names', 'dedup']; // names (0.7.2) — ники за столом; dedup (0.7.8) — копии раздач из разных выгрузок убираются
