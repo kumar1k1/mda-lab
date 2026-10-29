@@ -110,7 +110,7 @@ function placeNear(pop, ev, anchor) {
 }
 
 function showHandPop(it, v, ev, anchor) {
-  if (pinned) return; // закреплённое окно не подменяем наведением
+  if (pinned || (window.hoverMuted && window.hoverMuted(ev))) return; // закреплённое окно не подменяем наведением
   const pop = popEl();
   if (pop._src !== it || pop.classList.contains('pinned')) buildPop(it, v, false);
   pop.hidden = false;

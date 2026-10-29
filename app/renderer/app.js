@@ -341,8 +341,15 @@ function periodChart(wins, maxDay, avg) {
 
 // #13 — матрица рук 13×13
 // маленькое окно при наведении на клетку матрицы #13: действие цветом и процент
+// после клика по кнопке (переключатель, «Показать», «Сброс») страница перерисовывается под неподвижной мышью —
+// всплывающие окна при наведении не открываются, пока мышь не сдвинется хотя бы на 24 px от места клика
+let HMUTE = null;
+document.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('button') && !e.target.closest('.hand-pop, .szmx')) { HMUTE = { x: e.clientX, y: e.clientY }; [typeof hideHandPop === 'function' && hideHandPop, typeof hideSzMx === 'function' && hideSzMx, typeof hideGroupTip === 'function' && hideGroupTip, typeof hideMxTip === 'function' && hideMxTip].forEach(f => { if (f) try { f(); } catch (x) { /* окна ещё нет */ } }); } }, true);
+function hoverMuted(e) { if (!HMUTE || !e || e.clientX == null) return false; if (Math.hypot(e.clientX - HMUTE.x, e.clientY - HMUTE.y) < 24) return true; HMUTE = null; return false; }
+window.hoverMuted = hoverMuted;
 let mxTip = null;
 function showMxTip(info, e) {
+  if (hoverMuted(e)) return;
   if (!mxTip) { mxTip = el('div', 'mx-tip'); mxTip.setAttribute('role', 'tooltip'); document.body.append(mxTip); }
   mxTip.replaceChildren();
   const h = el('div', 'mt-h'); h.append(el('b', null, info.name), el('span', null, info.n ? info.n + ' раз' : 'не было'));
@@ -587,6 +594,7 @@ function handGroup(k) {
 // всплывающее окно над ячейкой 3.4: какие руки входят в группу и их результат с позиции
 let groupTip = null;
 function showGroupTip(pos, label, k, z, hands, e, verb) {
+  if (hoverMuted(e)) return;
   if (!groupTip) { groupTip = el('div', 'gt'); groupTip.setAttribute('role', 'tooltip'); document.body.append(groupTip); }
   groupTip.replaceChildren();
   const h = el('div', 'gt-h'); h.append(el('b', null, pos + ' · ' + label));
@@ -910,6 +918,7 @@ function respTiles(resp, title, labels) {
 // всплывающее окно над клеткой 4.1: диапазон пуша — какие руки и как часто вы пушили
 let pushTip = null;
 function showPushTip(lab, z, f, w, e, we) {
+  if (hoverMuted(e)) return;
   if (!pushTip) { pushTip = el('div', 'gt'); pushTip.setAttribute('role', 'tooltip'); document.body.append(pushTip); }
   pushTip.replaceChildren();
   const h = el('div', 'gt-h'); h.append(el('b', null, lab));
@@ -1356,7 +1365,7 @@ function placeSzMx(row, e) {
   y = Math.max(8, Math.min(y, window.innerHeight - hh - 8));
   m.style.left = x + 'px'; m.style.top = y + 'px';
 }
-function showSzMx(title, z, row, e) { if (SZMX_PIN) return; drawSzMx(title, z, false); placeSzMx(row, e); }
+function showSzMx(title, z, row, e) { if (SZMX_PIN || hoverMuted(e)) return; drawSzMx(title, z, false); placeSzMx(row, e); }
 function pinSzMx(title, z, row, e) {
   if (SZMX_PIN && SZMX_PIN.row === row) { unpinSzMx(); return; }
   SZMX_PIN = { row }; SZMX_SEL = null; SZMX_PART = 'all'; drawSzMx(title, z, true); placeSzMx(row, e);

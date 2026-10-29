@@ -1882,6 +1882,6 @@ body.rendering{cursor:progress}
 .szmx-pt .pt-v.muted{font-size:11px;font-weight:500;color:var(--faint)}
 .szmx-pt .pt-ev{font-size:11px;font-weight:600;opacity:.85}
 .szmx-ptcap{font-size:10.5px;color:var(--faint);margin-top:-2px}
-.tb-res-ctl{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:6px 0 4px}
+.tb-res-ctl{display:flex;flex-direction:column;gap:8px;align-items:flex-start;margin:6px 0 4px} /* каждая группа — своей строкой: положение кнопок не меняется */
 .tb-res-ctl .mx-range{margin:0}
 .tb-res-n{display:block;margin-bottom:2px}
