@@ -1192,9 +1192,10 @@ function drawSecFilters(tab) {
   const grp = (lab, ...nodes) => { const g = el('div', 'sf-g'); g.append(el('span', 'flt-k', lab)); const row = el('div', 'sf-row'); row.append(...nodes); g.append(row); return g; };
   if (types) box.append(grp(tab === 'rfi' ? 'Открытие' : '3-бет', segBtns(types, f.T, (k) => { f.T = k; renderNext(); })));
   const cust = f.S === 'custom' ? f.C : null;
-  box.append(grp('Ваш стек, BB', stkSeg(cust, f.S, (k) => { f.S = k; renderNext(); })),
-    grp('Свой диапазон стека', rangeForm('secRng', cust, (v) => { if (v) { f.C = v; f.S = 'custom'; } else { f.C = null; f.S = 'all'; } render(); })));
-  if (types) box.append(el('span', 'sf-note', 'Тип действия — для карточек результата; стек — для всех карточек раздела'));
+  // свой диапазон — под кнопками стека, с тем же левым краем
+  const g = grp('Ваш стек, BB', stkSeg(cust, f.S, (k) => { f.S = k; renderNext(); }));
+  g.append(rangeForm('secRng', cust, (v) => { if (v) { f.C = v; f.S = 'custom'; } else { f.C = null; f.S = 'all'; } render(); }));
+  box.append(g);
 }
 // раздачи набора (ids) под фильтр: итог, матрица рук, список
 function subHands(z, pass) {
