@@ -3813,6 +3813,28 @@ function isoPanel(d) {
   return card;
 }
 
+// Переключатели над графиком «Результат …» (RFI #8, колд-колл #8, 3-бет #2): тип действия, ваш стек и свой диапазон стека.
+// pre — префикс ключей в uiState (S — стек, C — свой диапазон, T — тип); types — кнопки типа или null
+const RES_STK = [['all', 'Любой стек', null], ['s15', '< 15', [0, 15]], ['s25', '15–25', [15, 25]], ['s40', '25–40', [25, 40]], ['s40p', '40+', [40, 1e9]]];
+function resFilter(pre, types) {
+  const S = uiState, cust = S[pre + 'S'] === 'custom' && S[pre + 'C'] ? S[pre + 'C'] : null;
+  const rng = cust || (RES_STK.find(x => x[0] === S[pre + 'S']) || RES_STK[0])[2], ty = types ? (S[pre + 'T'] || 'all') : 'all', c = DB.cols;
+  const pass = (i) => (!rng || (c.bb[i] >= rng[0] * 10 && c.bb[i] < rng[1] * 10)) && (ty === 'all' || (ty === 'ai' ? c.act[i] === 3 : c.act[i] === 2));
+  const ctl = el('div', 'tb-res-ctl');
+  if (types) ctl.append(segBtns(types, ty, (k) => { S[pre + 'T'] = k; renderNext(); }));
+  ctl.append(segBtns(RES_STK.map(x => [x[0], x[1]]).concat(cust ? [['custom', rangeTxt(cust)]] : []), cust ? 'custom' : (S[pre + 'S'] || 'all'), (k) => { S[pre + 'S'] = k; renderNext(); }),
+    rangeForm(pre + 'Rng', cust, (v) => { if (v) { S[pre + 'C'] = v; S[pre + 'S'] = 'custom'; } else { S[pre + 'C'] = null; S[pre + 'S'] = 'all'; } render(); }));
+  const tyLab = types && ty !== 'all' ? (types.find(x => x[0] === ty) || [])[1] : '';
+  const label = (n, what) => el('span', 'muted small tb-res-n', [tyLab, rng ? (tyLab ? 'ваш' : 'Ваш') + ' стек ' + rangeTxt(rng) : ''].filter(Boolean).join(', ') + (tyLab || rng ? ': ' : '') + n.toLocaleString('ru-RU') + ' ' + what);
+  return { rng, ty, flt: !!rng || ty !== 'all', pass, ctl, label };
+}
+// раздачи набора (ids) под фильтр: итог, матрица рук, список
+function subHands(z, pass) {
+  const c = DB.cols, E = EVcol(), o = { n: 0, sum: 0, es: 0, ids: [], mx: Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })) };
+  (z.ids || []).forEach(i => { if (!pass(i)) return; o.n++; o.sum += c.net[i]; o.es += E[i]; o.ids.push(i); if (c.hc[i] >= 0) { const m = o.mx[c.hc[i]]; m.n++; m.sum += c.net[i]; m.es += E[i]; } });
+  return o;
+}
+
 function renderRFISummary(idx, r) {
   const x = Stats.rfiExtra(DB, idx, { mxPos: uiState.mxPos, mxStk: uiState.mxStk === 'custom' && uiState.mxCustom ? uiState.mxCustom : (MX_STK.find(z => z[0] === uiState.mxStk) || MX_STK[0])[2] });
   const zone = el('div', 'summary');
@@ -3841,7 +3863,20 @@ function renderRFISummary(idx, r) {
   const sp1 = el('div'); sp1.append(el('span', 'k', 'без борьбы'), wrNode('b', unc, perEv(x.netUnc), 2), el('span', 'n', x.netUnc.n.toLocaleString('ru-RU') + ' раз'));
   const sp2 = el('div'); sp2.append(el('span', 'k', 'когда сыграли'), wrNode('b', con, perEv(x.netCon), 2), el('span', 'n', x.netCon.n.toLocaleString('ru-RU') + ' раз'));
   split.append(sp1, sp2);
-  const c8 = card(8, 'Результат открытий', wrHtml(nb == null ? null : nb / 100, perEv(x.openNet), 2) + ' <small>BB за открытие</small>', null, netChart((LAST_NET_ITEMS = ['UTG', 'MP', 'CO', 'BTN', 'SB'].map(p => ({ p, o: x.openNetPos[p], mx: x.netMx[p], r: x.respPos[p] }))), nb == null ? null : nb / 100, 'EV открытий'));
+  // #8 — результат открытий по позициям; переключатели: открытие рейзом / олл-ином, ваш стек, свой диапазон
+  const F8 = resFilter('rfiRes', [['all', 'Все открытия'], ['nai', 'Не олл-ин'], ['ai', 'Олл-ин']]);
+  let it8, avg8, ev8, n8;
+  if (!F8.flt) { it8 = ['UTG', 'MP', 'CO', 'BTN', 'SB'].map(p => ({ p, o: x.openNetPos[p], mx: x.netMx[p], r: x.respPos[p] })); avg8 = nb == null ? null : nb / 100; ev8 = perEv(x.openNet); n8 = x.openNet.n; }
+  else {
+    const cc = DB.cols, EVc = EVcol(), H = {}; let T = { n: 0, sum: 0, es: 0 };
+    ['UTG', 'MP', 'CO', 'BTN', 'SB'].forEach(p => { H[p] = { n: 0, sum: 0, es: 0, ids: [], mx: Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })), r: [0, 0, 0] }; });
+    for (const i of idx) { if (cc.sit[i] !== 0 || cc.act[i] < 2) continue; const z = H[Stats.POS[cc.pos[i]]]; if (!z || !F8.pass(i)) continue; z.n++; z.sum += cc.net[i]; z.es += EVc[i]; z.ids.push(i); T.n++; T.sum += cc.net[i]; T.es += EVc[i]; if (cc.hc[i] >= 0) { const m = z.mx[cc.hc[i]]; m.n++; m.sum += cc.net[i]; m.es += EVc[i]; } if (cc.orsp && cc.orsp[i] >= 0) z.r[cc.orsp[i]]++; }
+    it8 = ['UTG', 'MP', 'CO', 'BTN', 'SB'].map(p => ({ p, key: 'rfi8 ' + p + F8.ty + (F8.rng || []).join('-'), o: { n: H[p].n, sum: H[p].sum, es: H[p].es }, mx: H[p].mx, ids: H[p].ids, r: H[p].r }));
+    avg8 = T.n ? T.sum / 10 / T.n : null; ev8 = T.n ? T.es / 10 / T.n : null; n8 = T.n;
+  }
+  LAST_NET_ITEMS = it8;
+  const box8 = el('div'); box8.append(F8.ctl, F8.label(n8, 'открытий'), netChart(it8, avg8, 'EV открытий'));
+  const c8 = card(8, 'Результат открытий', wrHtml(avg8, ev8, 2) + ' <small>BB за открытие</small>', null, box8);
   c8.classList.add('wide', 'span3');
   cards.append(c8);
   // #3 — стил + ответ блайндов (CO и BTN вместе), как в #1
@@ -4553,11 +4588,14 @@ function renderCC(idx) {
   c2.append(note);
   // #8 — винрейт колд-колла по позициям, как в RFI: наведение — руки, клик — закрепить, раздачи и реплеер
   const ccPos = r.CC_COLS.slice(1).filter(k => r.cc[k].n >= SMALL);
-  const items = ccPos.map(p => { const h = r.hands[p]; return { p, key: 'cc' + p, o: { n: h.n, sum: h.sum, es: h.es }, mx: h.mx, ids: h.ids, sit: 2, act: 1, title: 'Ваш колд-колл с ' + p, vlab: ' BB за колд-колл', nlab: ' колд-коллов' }; });
-  const t = r.hands.TOT, avg = t.n ? t.sum / 10 / t.n : null, avgE = t.n ? t.es / 10 / t.n : null;
+  // #8: переключатели вашего стека и свой диапазон (как «Результат 3-бета»)
+  const F8 = resFilter('ccRes', null), HH = (p) => (F8.flt ? subHands(r.hands[p], F8.pass) : r.hands[p]);
+  const items = ccPos.map(p => { const h = HH(p); return { p, key: 'cc' + p + (F8.rng || []).join('-'), o: { n: h.n, sum: h.sum, es: h.es }, mx: h.mx, ids: h.ids, sit: 2, act: 1, title: 'Ваш колд-колл с ' + p, vlab: ' BB за колд-колл', nlab: ' колд-коллов' }; });
+  const t = HH('TOT'), avg = t.n ? t.sum / 10 / t.n : null, avgE = t.n ? t.es / 10 / t.n : null;
   LAST_NET_ITEMS = items;
   const tb = r.hands.BB, nAll = t.n + tb.n, allF = nAll ? (t.sum + tb.sum) / 10 / nAll : null, allE = nAll ? (t.es + tb.es) / 10 / nAll : null;
-  const c8 = card(8, 'Результат колд-колла', wrHtml(avg, avgE, 2) + ' <small>BB за колд-колл</small>', null, netChart(items, avg, 'EV колд-колла'));
+  const box8 = el('div'); box8.append(F8.ctl, F8.label(t.n, 'колд-коллов без BB'), netChart(items, avg, 'EV колд-колла'));
+  const c8 = card(8, 'Результат колд-колла', wrHtml(avg, avgE, 2) + ' <small>BB за колд-колл</small>', null, box8);
   c8.classList.add('wide');
   const zone = el('div', 'summary'); const pair = el('div', 'sum-pair'); pair.append(c1, c8); zone.append(pair);
   c2.classList.add('cc-table');
