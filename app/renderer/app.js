@@ -188,7 +188,7 @@ function block(title, note, tableNode, vizNodes) {
 
 // ---------- вкладка RFI ----------
 // ---------- сводка вкладки RFI (нумерованные элементы — чтобы удобно выбирать, что оставить) ----------
-const uiState = { mxPos: 'UTG', mxStk: '20–30', mxCustom: null, ccPos: 'BTN', ccStk: '20–30', ccCustom: null, ccOPos: 'BTN', ccOStkR: null, ccOMyR: null, ccOOpen: [], tbOPos: 'BTN', tbOStkR: null, tbOMyR: null, tbOOpen: [] };
+const uiState = { mxPos: 'UTG', mxStk: '20–30', mxCustom: null, ccPos: 'BTN', ccStk: '20–30', ccCustom: null, ccOPos: 'BTN', ccOStkR: null, ccOMyR: null, ccOOpen: [], tbOPos: 'BTN', tbOStkR: null, tbOMyR: null, tbOOpen: [], tbRes: 'all', tbResC: null, tbResT: 'all' };
 const MX_STK = [['<12', '<12', [0, 12]], ['12–16', '12–16', [12, 16]], ['16–20', '16–20', [16, 20]], ['20–30', '20–30', [20, 30]], ['30–50', '30–50', [30, 50]], ['50+', '50+', [50, 1e9]]];
 function getTarget() { try { const v = parseFloat(localStorage.getItem('mdalab.rfiTarget')); return isNaN(v) ? 30 : v; } catch (e) { return 30; } }
 function setTarget(v) { try { localStorage.setItem('mdalab.rfiTarget', String(v)); } catch (e) { /* без сохранения */ } }
@@ -1944,30 +1944,6 @@ function tbTable(r) {
     el('span', 's tb-sub', 'После вашего 3-бета — колонки тоже ваша позиция, открыть мог любой игрок перед вами'), w2);
   return card;
 }
-// #3.1 — реакция на 3-бет: ваш стек × стек открывающего; «Открывающий сбросил» или «Все сбросили — банк ваш»
-let TB_RE = { m: 'op', pos: 'TOT', ty: 'all' };
-function tbReactBlock(r) {
-  const card = el('div', 'insight cc-table tb-react');
-  const posList = ['TOT'].concat(TB_POS.filter(p => r.tb[p].n >= SMALL));
-  const body = el('div');
-  const segs = el('div', 'tb-re-segs');
-  card.append(numTag('3.1'), el('span', 'k', 'Реакция на 3-бет по стекам'), el('span', 's', 'как часто сбрасывают на ваш 3-бет в зависимости от вашего стека и стека открывающего'), segs, body);
-  function draw() {
-    segs.replaceChildren(
-      segBtns([['op', 'Открывающий сбросил'], ['all', 'Все сбросили — банк ваш']], TB_RE.m, (k) => { TB_RE.m = k; draw(); }),
-      segBtns([['all', 'Все 3-беты'], ['nai', 'Не олл-ин'], ['ai', 'Олл-ин']], TB_RE.ty, (k) => { TB_RE.ty = k; draw(); }),
-      segBtns(posList.map(p => [p, p === 'TOT' ? 'Все позиции' : p]), TB_RE.pos, (k) => { TB_RE.pos = k; draw(); }));
-    const g = r.react[TB_RE.ty][TB_RE.pos], key = TB_RE.m === 'op' ? 'op' : 'all', L = r.TB_STK;
-    // таблица: строки — ваш стек, колонки — стек открывающего; справа — итог по вашему стеку, снизу — по стеку открывающего
-    const cols = ['Всего'].concat(L);
-    const rows = L.map((lab, hi) => { const d = {}; let n = 0, x = 0; L.forEach((ol, oi) => { const z = g[hi][oi]; d[ol] = { n: z.n, x: z[key] }; n += z.n; x += z[key]; }); d['Всего'] = { n, x }; return { key: 'h' + hi, label: 'Ваш стек ' + lab, tone: 'ice', data: d }; });
-    const tot = { key: 'tot', label: 'Любой ваш стек', tone: 'ice', split: true, data: {} }; cols.forEach(cl => { let n = 0, x = 0; rows.forEach(rw => { n += rw.data[cl].n; x += rw.data[cl].x; }); tot.data[cl] = { n, x }; });
-    const w = heatTable({ cols, rows: rows.concat([tot]) });
-    body.replaceChildren(el('span', 's tb-sub', 'Строки — ваш стек, колонки — стек открывающего, которого вы 3-бетили (BB, в начале раздачи). «Всего» — по одному из стеков без учёта другого.'), w);
-  }
-  draw();
-  return card;
-}
 // #5 — позиция против позиции: все 3-беты / без олл-инов / олл-ин
 function tbVsBlock(r) {
   const card = el('div', 'insight cc-table');
@@ -2129,14 +2105,26 @@ function renderTB(idx) {
   const posRows = TB_POS.filter(p => r.tb[p].n >= SMALL).map(p => { const z = r.tb[p]; return [p, z.n ? z.x / z.n : null, p + ': ' + z.x + ' из ' + z.n]; });
   const c1 = card(1, '3-бетите', '<em>' + pctTxt(r.tb.TOT) + '</em>', 'из ' + r.tb.TOT.n.toLocaleString('ru-RU') + ' открытий перед вами',
     fillBox(posStrip('По позициям', posRows), respTiles(r.resp, 'Ваш ответ на открытие', [['фолд', 'var(--good)'], ['колл', 'var(--ice)'], ['3-бет', 'var(--bad)']])));
-  const pos = TB_POS.filter(p => r.hands[p].n >= SMALL);
-  const items = pos.map(p => { const it = tbItem(r, p); const a = r.t3r[p]; it.r = [a[0], a[1], a[2] + a[3]]; return it; });
+  // #2 — результат по позициям; переключатель вашего стека (BB в начале раздачи) и свой диапазон
+  const STK2 = [['all', 'Любой стек', null], ['s15', '< 15', [0, 15]], ['s25', '15–25', [15, 25]], ['s40', '25–40', [25, 40]], ['s40p', '40+', [40, 1e9]]];
+  const rng = uiState.tbRes === 'custom' && uiState.tbResC ? uiState.tbResC : (STK2.find(x => x[0] === uiState.tbRes) || STK2[0])[2];
+  const ty2 = uiState.tbResT || 'all', flt = rng || ty2 !== 'all'; // тип 3-бета: все / не олл-ин / олл-ин
+  const cc = DB.cols, EVc = EVcol(), inR = (i) => (!rng || (cc.bb[i] >= rng[0] * 10 && cc.bb[i] < rng[1] * 10)) && (ty2 === 'all' || (ty2 === 'ai' ? cc.act[i] === 3 : cc.act[i] === 2));
+  const sub2 = (z) => { if (!flt) return z; const o = { n: 0, sum: 0, es: 0, ids: [], mx: Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })) }; z.ids.forEach(i => { if (!inR(i)) return; const m = o.mx[cc.hc[i]]; o.n++; o.sum += cc.net[i]; o.es += EVc[i]; o.ids.push(i); m.n++; m.sum += cc.net[i]; m.es += EVc[i]; }); return o; };
+  const resp = (p, z) => { if (!flt) { const a = r.t3r[p]; return [a[0], a[1], a[2] + a[3]]; } const a = [0, 0, 0]; z.ids.forEach(i => { const v = cc.t3r ? cc.t3r[i] : -1; if (v >= 0) a[Math.min(2, v & 3)]++; }); return a; };
+  const H2 = {}; ['TOT'].concat(TB_POS).forEach(p => { H2[p] = sub2(r.hands[p]); });
+  const pos = TB_POS.filter(p => H2[p].n >= (flt ? 1 : SMALL));
+  const items = pos.map(p => { const z = H2[p], it = tbItem(r, p); Object.assign(it, { o: { n: z.n, sum: z.sum, es: z.es }, mx: z.mx, ids: z.ids, key: 'tb ' + p + (rng ? ' ' + rng.join('-') : '') + ty2 }); it.r = resp(p, z); return it; });
   LAST_NET_ITEMS = items;
-  const t = r.hands.TOT, avg = t.n ? t.sum / 10 / t.n : null, avgE = t.n ? t.es / 10 / t.n : null;
-  const c2 = card(2, 'Результат 3-бета', wrHtml(avg, avgE, 2) + ' <small>BB за 3-бет</small>', null, netChart(items, avg, 'EV 3-бета'));
+  const t = H2.TOT, avg = t.n ? t.sum / 10 / t.n : null, avgE = t.n ? t.es / 10 / t.n : null;
+  const ctl = el('div', 'tb-res-ctl');
+  ctl.append(segBtns([['all', 'Все 3-беты'], ['nai', 'Не олл-ин'], ['ai', 'Олл-ин']], ty2, (k) => { uiState.tbResT = k; renderNext(); }), segBtns(STK2.map(x => [x[0], x[1]]).concat(uiState.tbRes === 'custom' && uiState.tbResC ? [['custom', rangeTxt(uiState.tbResC)]] : []), uiState.tbRes || 'all', (k) => { uiState.tbRes = k; renderNext(); }),
+    rangeForm('tbRes', uiState.tbRes === 'custom' ? uiState.tbResC : null, (v) => { if (v) { uiState.tbResC = v; uiState.tbRes = 'custom'; } else { uiState.tbResC = null; uiState.tbRes = 'all'; } render(); }));
+  const chartBox = el('div'); chartBox.append(ctl, el('span', 'muted small tb-res-n', [ty2 === 'ai' ? 'Олл-ин' : ty2 === 'nai' ? 'Не олл-ин' : '', rng ? 'ваш стек ' + rangeTxt(rng) : ''].filter(Boolean).join(', ').replace(/^в/, (m) => (ty2 === 'all' ? 'В' : m)) + (flt ? ': ' : '') + t.n.toLocaleString('ru-RU') + ' 3-бетов'), netChart(items, avg, 'EV 3-бета'));
+  const c2 = card(2, 'Результат 3-бета', wrHtml(avg, avgE, 2) + ' <small>BB за 3-бет</small>', null, chartBox);
   c2.classList.add('wide');
   const zone = el('div', 'summary'); const pair = el('div', 'sum-pair'); pair.append(c1, c2); zone.append(pair);
-  zone.append(tbTable(r), tbReactBlock(r),
+  zone.append(tbTable(r),
     ccGroupBlock(r, { cols: TB_POS, tag: 4, title: 'Результат 3-бета по группам рук', sub: 'BB за 3-бет: всего и по группам рук, факт / EV', name: '3-бет', nameOf: (p) => 'Ваш 3-бет с ' + p, verb: 'не 3-бетили', act: undefined, vlab: ' BB за 3-бет', nlab: ' 3-бетов', none: 'Нет 3-бетов в выборке.', key: 'tbg', p: false,
       note: 'В ячейке — результат 3-бета группой рук с этой позиции в BB (вместе с олл-инами): сверху факт, под ним EV, справа мелко — число 3-бетов. Цвет — плюс или минус. Наведите — матрица рук группы и их итог; клик закрепит окно, клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше 30 раздач.' }),
     tbVsBlock(r), tbOppBlock(r), tbSizeBlock(r), tbStackBlock(r), tbSplitBlock(r), tbXBlock(r), tb4Block(r), tbIsoBlock(r));
