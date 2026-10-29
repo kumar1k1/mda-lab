@@ -131,7 +131,7 @@
     const c = db.cols, has = (k) => c[k] != null && c[k].length === db.count, EV = c.nev || c.net;
     const R = () => ({ x: 0, n: 0 });
     const Z = () => ({ sum: 0, es: 0, n: 0, ids: [] });
-    const mk = () => ({ all: R(), stk: STEAL_STK.map(R), resp: [0, 0, 0], f3b: R(), net: { sum: 0, es: 0, n: 0 }, sz: [0, 0, 0, 0], szx: {}, bx: BX_STK.map(() => BX_STK.map(() => ({ n: 0, x: 0, rn: 0, fold: 0, rr: 0, sum: 0, es: 0, sn: 0 }))), month: {}, blind: BLIND_STK.map(R),
+    const mk = () => ({ all: R(), stk: STEAL_STK.map(R), resp: [0, 0, 0], f3b: R(), net: { sum: 0, es: 0, n: 0 }, sz: [0, 0, 0, 0], szx: {}, bx: BX_STK.map(() => BX_STK.map(() => ({ n: 0, x: 0, rn: 0, fold: 0, rr: 0, sum: 0, es: 0, sn: 0, ids: [] }))), month: {}, blind: BLIND_STK.map(R),
       // результат стила (BB×10) по разрезам, с номерами раздач для списка
       nr: { all: Z(), resp: [Z(), Z(), Z()], stk: STEAL_STK.map(Z), kind: [Z(), Z()], type: [Z(), Z()], fight: [Z(), Z()], room: {}, month: {} } });
     const out = { CO: mk(), BTN: mk() };
@@ -151,6 +151,7 @@
       if (bxc) {
         if (has('orsp') && c.orsp[i] >= 0) { bxc.rn++; if (c.orsp[i] === 0) bxc.fold++; if (c.orsp[i] === 2) bxc.rr++; }
         if (has('net')) { bxc.sum += c.net[i]; bxc.es += EV[i]; bxc.sn++; }
+        bxc.ids.push(i); // раздачи открытий — для матрицы рук при наведении (3.7)
       }
       if (has('orsp') && c.orsp[i] >= 0) o.resp[c.orsp[i]]++;
       if (has('f3b') && c.f3b[i] >= 0) { o.f3b.n++; if (c.f3b[i] === 1) o.f3b.x++; }

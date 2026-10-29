@@ -831,6 +831,18 @@ function bxListCore(o, opt) {
         f.style.background = col; tr.append(f);
         cell.append(tr, M.e ? wrNode('hg-v', v, M.e(z), 2) : el('span', 'hg-v', v == null ? '—' : M.f(v)), el('span', 'hg-n', n ? String(n) : ''));
         if (n < 30) cell.classList.add('low');
+        // наведение — матрица рук этих открытий и их итог (как в 3.4); клик — закрепить окно, раздачи и реплеер
+        if (z.ids && z.ids.length) {
+          const cc = DB.cols, E = EVcol(), mx = Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })), o2 = { n: 0, sum: 0, es: 0 };
+          z.ids.forEach(i => { o2.n++; o2.sum += cc.net[i]; o2.es += E[i]; if (cc.hc[i] >= 0) { const q = mx[cc.hc[i]]; q.n++; q.sum += cc.net[i]; q.es += E[i]; } });
+          const pos = cell.dataset.pos, it = { p: pos, key: 'bx' + pos + r.i + r.j + z.ids.length, title: 'Стил с ' + pos + ' · SB ' + BX_NAMES[r.i] + ' · BB ' + BX_NAMES[r.j], o: o2, mx, ids: z.ids };
+          const v2 = o2.sum / 10 / o2.n;
+          cell.classList.add('click'); cell.tabIndex = 0; cell.setAttribute('role', 'button');
+          const show = (e) => showHandPop(it, v2, e, cell);
+          cell.addEventListener('mouseenter', show); cell.addEventListener('mousemove', show); cell.addEventListener('mouseleave', hideHandPop);
+          cell.addEventListener('click', (e) => pinHandPop(it, v2, e, cell));
+          cell.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pinHandPop(it, v2, null, cell); } });
+        }
         row.append(cell);
       });
       t.append(row);
