@@ -287,7 +287,8 @@
       // ответ на 4-бет: t4 — 4-бет от открывающего (основные строки), t4c — холодный 4-бет игрока за спиной (отдельная строка)
       const t4r = has('t4') ? c.t4[i] : -1, t4 = t4r >= 0 && !(t4r & 8) ? t4r : -1, t4c = t4r >= 8 ? t4r & 7 : -1, t3r0 = has('t3r') ? c.t3r[i] : -1, t3 = t3r0 >= 0 ? t3r0 & 3 : -1, opF = t3r0 >= 0 ? (t3r0 & 4 ? 1 : 0) : -1; // t3 — первый ответ соперников, opF — сбросил ли открывающий
       if (c.lr && c.lr[i] > 0) { // 3-бет против изолейта
-        keys.forEach(k => { const z = out.iso[k]; z.n++; if (r3) z.x++; if (r3 && t4 >= 0) { const f = out.isoF[k]; f.n++; if ((t4 & 3) === 0) f.x++; } });
+        keys.forEach(k => { const z = out.iso[k]; z.n++; if (r3) z.x++; if (r3 && t4 >= 0) { const f = out.isoF[k]; f.n++; if ((t4 & 3) === 0) f.x++; }
+          if (r3 && c.hc[i] >= 0) { const nv = c.net ? c.net[i] : 0, ne = c.net ? EV[i] : 0, h = z.h || (z.h = hset()), m = h.mx[c.hc[i]]; h.n++; h.sum += nv; h.es += ne; h.ids.push(i); m.n++; m.sum += nv; m.es += ne; } }); // матрица для наведения (#11)
         continue;
       }
       const v0 = c.net ? c.net[i] : 0, e0 = c.net ? EV[i] : 0;
@@ -319,16 +320,18 @@
           if (t4 >= 0) { const f = out.f4[k], b = t4 & 3; f.n++; if (b === 0) f.fold++; else if (b === 1) f.call++; else f.rz++; if ((t4 & 4) === 0) { f.n5++; if (b === 2) f.x5++; } }
           // размер 3-бета в разах от открытия; олл-ин — отдельно
           const xr = a === 3 ? 8 : c.osz[i] > 0 ? xIdx(c.size[i] / c.osz[i]) : -1;
-          if (xr >= 0) { const q = out.x[k][xr]; q.n++; q.ids.push(i); q.sum += v0; q.es += e0; if (t3 >= 0) { q.r[t3]++; q.rn++; } }
+          if (xr >= 0) { const q = out.x[k][xr]; q.n++; q.ids.push(i); q.sum += v0; q.es += e0; if (t3 >= 0) { q.r[t3]++; q.rn++; } if (c.hc[i] >= 0) { const h = q.h || (q.h = hset()), m = h.mx[c.hc[i]]; h.n++; h.sum += v0; h.es += e0; h.ids.push(i); m.n++; m.sum += v0; m.es += e0; } }
           if (xr >= 0 && (k === 'TOT' || k === 'SB' || k === 'BB' || (k === p && (p === 'CO' || p === 'BTN')))) { const gs = k === 'TOT' ? ['TOT'] : k === 'SB' || k === 'BB' ? [k] : ['IP'];
-            gs.forEach(gk => { const q = out.xg[gk][xr]; q.n++; q.ids.push(i); q.sum += v0; q.es += e0; if (t3 >= 0) { q.r[t3]++; q.rn++; } if (t4 >= 0) { q.f4n++; if ((t4 & 3) === 0) q.f4f++; } }); }
+            gs.forEach(gk => { const q = out.xg[gk][xr]; q.n++; q.ids.push(i); q.sum += v0; q.es += e0; if (t3 >= 0) { q.r[t3]++; q.rn++; } if (t4 >= 0) { q.f4n++; if ((t4 & 3) === 0) q.f4f++; } if (c.hc[i] >= 0) { const h = q.h || (q.h = hset()), m = h.mx[c.hc[i]]; h.n++; h.sum += v0; h.es += e0; h.ids.push(i); m.n++; m.sum += v0; m.es += e0; } }); } // h — матрица для наведения (#9.1)
         }
       });
       out.resp[a === 0 ? 0 : a === 1 ? 1 : 2]++;
       // «Split» как в Hand2Note: в позиции — CO и BTN; SB; BB без блайнда против блайнда. Частота 3-бета не олл-ином каждого размера и фолд на 4-бет после него
       { const gk = p === 'CO' || p === 'BTN' ? 'IP' : p === 'SB' ? 'SB' : p === 'BB' && !bvb ? 'BB' : null;
-        for (const g of gk ? ['TOT', gk] : ['TOT']) { const sp = out.split[g]; sp.n++; if (a === 2 && c.osz[i] > 0) { const b = sp.b[xIdx(c.size[i] / c.osz[i])]; sp.x++; b.x++; if (t4 >= 0) { sp.fn++; b.fn++; if ((t4 & 3) === 0) { sp.ff++; b.ff++; } } } } }
-      if (op) { const row = out.vs[p] || (out.vs[p] = {}), z = row[op] || (row[op] = tbc()); z.n++; if (r3) { z.x++; if (a === 3) z.ai++; else z.nai++; } }
+        for (const g of gk ? ['TOT', gk] : ['TOT']) { const sp = out.split[g]; sp.n++; if (a === 2 && c.osz[i] > 0) { const b = sp.b[xIdx(c.size[i] / c.osz[i])]; sp.x++; b.x++; if (t4 >= 0) { sp.fn++; b.fn++; if ((t4 & 3) === 0) { sp.ff++; b.ff++; } }
+          if (c.hc[i] >= 0) for (const h of [sp.h || (sp.h = hset()), b.h || (b.h = hset())]) { const m = h.mx[c.hc[i]]; h.n++; h.sum += v0; h.es += e0; h.ids.push(i); m.n++; m.sum += v0; m.es += e0; } } } } // h — матрицы для наведения (#9)
+      if (op) { const row = out.vs[p] || (out.vs[p] = {}), z = row[op] || (row[op] = tbc()); z.n++; if (r3) { z.x++; if (a === 3) z.ai++; else z.nai++;
+        if (c.hc[i] >= 0) for (const h of [z.hA || (z.hA = hset()), (a === 3 ? z.hI || (z.hI = hset()) : z.hN || (z.hN = hset()))]) { const m = h.mx[c.hc[i]]; h.n++; h.sum += v0; h.es += e0; h.ids.push(i); m.n++; m.sum += v0; m.es += e0; } } } // hA/hN/hI — матрицы для наведения (#5): все 3-беты / не олл-ин / олл-ин
       if (op && r3 && t4 >= 0) { const row = out.vs4[p] || (out.vs4[p] = {}), f = row[op] || (row[op] = { n: 0, fold: 0, call: 0, rz: 0, n5: 0, x5: 0 }), b = t4 & 3; f.n++; if (b === 0) f.fold++; else if (b === 1) f.call++; else f.rz++; if ((t4 & 4) === 0) { f.n5++; if (b === 2) f.x5++; } }
       // #5: ответ каждой рукой против стека открывающего (позиция, позиции открывающего, стеки — из настроек блока)
       if (c.hc[i] >= 0 && p === opt.oPos && (!opt.oStk || (c.ostk[i] >= opt.oStk[0] * 10 && c.ostk[i] < opt.oStk[1] * 10)) && (!opt.oMy || (c.bb[i] >= opt.oMy[0] * 10 && c.bb[i] < opt.oMy[1] * 10)) && (!opt.oOpen || !opt.oOpen.length || opt.oOpen.includes(op))) {
