@@ -304,13 +304,15 @@
             if (a === 1) q.call++; else if (a === 2) q.rz++; else if (a === 3) q.ai++; else q.fold++;
             if (r3) { q.sum += v0; q.es += e0; q.sn++; q.ids.push(i); }
             if (c.hc[i] >= 0) { if (!q.rmx) q.rmx = Array.from({ length: 169 }, () => ({ n: 0, x: 0, ai: 0, lp: 0, sum: 0, es: 0 })); const m = q.rmx[c.hc[i]]; m.n++; m.sum += v0; m.es += e0; q.rids.push(i); if (a === 1) m.lp++; else if (r3) { m.x++; if (a === 3) m.ai++; } }
+            if (r3 && c.hc[i] >= 0) { if (!q.vmx) q.vmx = Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })); const v2 = q.vmx[c.hc[i]]; v2.n++; v2.sum += v0; v2.es += e0; } // «Факт/EV» в окне — только 3-беты
           }
         }
-        // #7.1 — корзины стека открывающего: возможности, 3-беты (все/олл-ином) и их результат; rmx — окно «Диапазон» по рукам
+        // #7.1 — корзины стека открывающего: возможности, 3-беты (все/олл-ином) и их результат; rmx — окно «Диапазон», vmx/ids — «Факт/EV» и списки только по 3-бетам
         if (c.ostk[i] >= 0) {
           const ok = c.ostk[i] / 10 < 20 ? 0 : c.ostk[i] / 10 < 40 ? 1 : 2, q = out.ostk[k][ok];
-          q.n++; if (r3) { q.x++; if (a === 3) q.ai++; q.sum += v0; q.es += e0; q.sn++; }
+          q.n++; if (r3) { q.x++; if (a === 3) q.ai++; q.sum += v0; q.es += e0; q.sn++; (q.ids || (q.ids = [])).push(i); }
           if (c.hc[i] >= 0) { if (!q.rmx) { q.rmx = Array.from({ length: 169 }, () => ({ n: 0, x: 0, ai: 0, lp: 0, sum: 0, es: 0 })); q.rids = []; } const m = q.rmx[c.hc[i]]; m.n++; m.sum += v0; m.es += e0; q.rids.push(i); if (a === 1) m.lp++; else if (r3) { m.x++; if (a === 3) m.ai++; } }
+          if (r3 && c.hc[i] >= 0) { if (!q.vmx) q.vmx = Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })); const v2 = q.vmx[c.hc[i]]; v2.n++; v2.sum += v0; v2.es += e0; }
         }
         // #9.1 окно «Диапазон» (как #7): возможности и ответы по группам позиций — по рукам (все ответы, включая фолды и коллы); в бакет размера — сами 3-беты
         if (c.hc[i] >= 0) {

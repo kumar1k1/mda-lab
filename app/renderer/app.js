@@ -1446,17 +1446,20 @@ function placeSzMx(row, e) {
   m.style.left = x + 'px'; m.style.top = y + 'px';
 }
 function showSzMx(title, z, row, e) { if (SZMX_PIN || document.querySelector('.hand-pop.pinned') || hoverMuted(e)) return; drawSzMx(title, z, false); placeSzMx(row, e); }
+// закреплённое окно — в месте нажатия: чуть ниже и правее курсора; не влезает — сверху или слева; всегда в пределах экрана
+function placePopAtClick(el, e) {
+  const w = el.offsetWidth, h = el.offsetHeight, vw = window.innerWidth, vh = window.innerHeight;
+  const cx = e && e.clientX != null ? e.clientX : vw - 24, cy = e && e.clientY != null ? e.clientY : 24;
+  let x = cx + 16, y = cy + 14;
+  if (x + w > vw - 8) x = cx - w - 16;
+  if (y + h > vh - 8) y = cy - h - 14;
+  el.style.left = Math.max(8, Math.min(x, vw - w - 8)) + 'px';
+  el.style.top = Math.max(8, Math.min(y, vh - h - 8)) + 'px';
+}
 function pinSzMx(title, z, row, e) {
   if (SZMX_PIN && SZMX_PIN.row === row) { unpinSzMx(); return; }
-  // окно не прыгает: если под курсором уже открыто наведение — закреплённое остаётся на его месте
-  const keep = szMx && !szMx.hidden ? { left: szMx.style.left, top: szMx.style.top } : null;
   SZMX_PIN = { row }; SZMX_SEL = null; SZMX_PART = 'all'; drawSzMx(title, z, true);
-  if (keep) {
-    const w = szMx.offsetWidth, h = szMx.offsetHeight;
-    let x = parseFloat(keep.left) || 0, y = parseFloat(keep.top) || 0;
-    szMx.style.left = Math.max(8, Math.min(x, window.innerWidth - w - 8)) + 'px';
-    szMx.style.top = Math.max(8, Math.min(y, window.innerHeight - h - 8)) + 'px';
-  } else placeSzMx(row, e);
+  if (e && e.clientX != null) placePopAtClick(szMx, e); else placeSzMx(row, e);
   syncScrollLock();
 }
 function unpinSzMx() { SZMX_PIN = null; SZMX_SEL = null; if (SZMX_LIST) { SZMX_LIST.stop(); SZMX_LIST = null; } if (szMx) { szMx.hidden = true; szMx.classList.remove('with-list'); } syncScrollLock(); }
@@ -2097,11 +2100,13 @@ function tbSizeBlock(r) {
         wrNode('sz5-v', wr, we, 2), el('small', null, z.n.toLocaleString('ru-RU') + ' раз'), tk);
       if (z.rmx) {
         const title = (TB_SZPOS === 'TOT' ? 'Вы на всех позициях' : 'Вы на ' + TB_SZPOS) + ' · перед вами открытие ' + r.CC_SZ[k][0];
+        // «Факт/EV» в окне и списки раздач — только по 3-бетам; «Диапазон» — все ответы
+        const zz = Object.assign({}, z, { vmx: z.vmx || null, rids: z.ids || z.rids });
         row.classList.add('has-mx'); row.tabIndex = 0;
-        row.addEventListener('mouseenter', (e) => showSzMx(title, z, row, e)); row.addEventListener('mousemove', (e) => { if (!SZMX_PIN && szMx && !szMx.hidden) placeSzMx(row, e); }); row.addEventListener('mouseleave', hideSzMx);
-        row.addEventListener('focus', () => showSzMx(title, z, row)); row.addEventListener('blur', hideSzMx);
-        row.addEventListener('click', (e) => pinSzMx(title, z, row, e));
-        row.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pinSzMx(title, z, row); } });
+        row.addEventListener('mouseenter', (e) => showSzMx(title, zz, row, e)); row.addEventListener('mousemove', (e) => { if (!SZMX_PIN && szMx && !szMx.hidden) placeSzMx(row, e); }); row.addEventListener('mouseleave', hideSzMx);
+        row.addEventListener('focus', () => showSzMx(title, zz, row)); row.addEventListener('blur', hideSzMx);
+        row.addEventListener('click', (e) => pinSzMx(title, zz, row, e));
+        row.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pinSzMx(title, zz, row); } });
       }
       t.append(row);
     });
@@ -2135,7 +2140,7 @@ function tbOstkBlock(r) {
       // наведение — окно «Диапазон» (как #7): ответы по рукам в этой корзине стека; клик — закрепить, клик по руке — раздачи и реплеер
       if (z.rmx) {
         const gl = TB_OSTKPOS === 'TOT' ? 'все позиции' : 'с ' + TB_OSTKPOS;
-        const zz = { n: z.n, rmx: z.rmx, rids: z.rids };
+        const zz = { n: z.n, rmx: z.rmx, vmx: z.vmx || null, rids: z.ids || z.rids }; // «Факт/EV» и списки — только 3-беты
         const wt = 'Ваш ответ против открывающего ' + r.TB_OSTK[k] + ' · ' + gl;
         row.addEventListener('mouseenter', (e) => showSzMx(wt, zz, row, e));
         row.addEventListener('mousemove', (e) => { if (!SZMX_PIN && szMx && !szMx.hidden) placeSzMx(row, e); });
@@ -2204,7 +2209,7 @@ function tbXBlock(r) {
         const R = r.xgR && r.xgR[TB_XPOS];
         if (R && R.rmx && z.n) {
           const mx = R.rmx.map((m2, q) => ({ n: m2.n, x: z.rmx ? z.rmx[q].x : 0, ai: z.rmx ? z.rmx[q].ai : 0, lp: m2.lp, sum: m2.sum, es: m2.es }));
-          const zz = { n: R.rmx.reduce((a2, m2) => a2 + m2.n, 0), rmx: mx, vmx: z.rmx || null, rids: R.rids };
+          const zz = { n: R.rmx.reduce((a2, m2) => a2 + m2.n, 0), rmx: mx, vmx: z.rmx || null, rids: z.ids || R.rids }; // «Факт/EV» и списки — только 3-беты этого размера
           const wt = 'Ваш ответ на открытие · ' + gl + (z.n ? ' · 3-бет ' + r.TB_X[k] : '');
           row.addEventListener('mouseenter', (e) => showSzMx(wt, zz, row, e));
           row.addEventListener('mousemove', (e) => { if (!SZMX_PIN && szMx && !szMx.hidden) placeSzMx(row, e); });
