@@ -4822,7 +4822,7 @@ function tbOstkBlock(r) {
   const posList = ['TOT'].concat(TB_POS.filter(p => r.tb[p].n >= SMALL));
   const body = el('div');
   card.append(segBtns(posList.map(p => [p, p === 'TOT' ? 'Все' : p]), TB_OSTKPOS, (k) => { TB_OSTKPOS = k; draw(); }), body,
-    infoNote('Стек — стек открывающего в начале раздачи, BB: короткий до 20, средний 20–40, глубокий 40+. «Случаев» — сколько раз перед вами было одно открытие (не олл-ином) без лимперов и коллеров. 3-бет и Олл-ин — ваш ответ от этих случаев. Результат — средний итог раздачи после 3-бета (вместе с олл-инами), факт / EV. Наведите на строку — матрица рук этих 3-бетов и итог; клик по строке — раздачи и реплеер. Бледные строки — меньше 30 раздач.'));
+    infoNote('Стек — стек открывающего в начале раздачи, BB: короткий до 20, средний 20–40, глубокий 40+. «Случаев» — сколько раз перед вами было одно открытие (не олл-ином) без лимперов и коллеров. 3-бет и Олл-ин — ваш ответ от этих случаев. Результат — средний итог раздачи после 3-бета (вместе с олл-инами), факт / EV. Наведите на строку — матрица рук этих 3-бетов и итог; клик закрепит окно, в нём — переключатель «Факт, BB» / «EV, BB», клик по руке откроет раздачи и реплеер. Бледные строки — меньше 30 раздач.'));
   function draw() {
     const rows = r.ostk[TB_OSTKPOS] || [], tot = rows.reduce((a, z) => a + z.n, 0);
     const t = el('div', 'sz5-t tb-sz');
@@ -4835,12 +4835,14 @@ function tbOstkBlock(r) {
       const share = tot ? z.n / tot : 0, tk = el('span', 'sz5-tk'); const tr = el('i'); tr.style.width = Math.max(1, share * 100) + '%'; tk.append(tr);
       row.append(el('b', null, r.TB_OSTK[k]), el('span', 'sz5-sh', z.n.toLocaleString('ru-RU')), v(pc(z.x), 'var(--bad)'), v(pc(z.ai), 'var(--ice)'),
         wrNode('sz5-v', wr, we, 2), el('small', null, z.sn.toLocaleString('ru-RU') + ' 3-бетов'), tk);
-      // наведение на строку — матрица рук этих 3-бетов и итог (как #9.1); клик — раздачи и реплеер
+      // наведение на строку — матрица рук этих 3-бетов и итог; клик — закрепить окно (как #7), клик по руке — раздачи и реплеер
       if (z.h && z.h.n) {
         const gl = TB_OSTKPOS === 'TOT' ? 'все позиции' : 'с ' + TB_OSTKPOS;
         const it = { p: TB_OSTKPOS, anyPos: true, key: 'tbostk' + TB_OSTKPOS + k, title: 'Ваш 3-бет против открывающего ' + r.TB_OSTK[k] + ' · ' + gl, o: { n: z.h.n, sum: z.h.sum, es: z.h.es }, mx: z.h.mx, ids: z.h.ids, sit: 2, vlab: ' BB за 3-бет', nlab: ' 3-бетов' };
         const hv = z.h.sum / 10 / z.h.n;
         row.addEventListener('mouseenter', (e) => showHandPop(it, hv, e, row)); row.addEventListener('mousemove', (e) => showHandPop(it, hv, e, row)); row.addEventListener('mouseleave', hideHandPop);
+        row.addEventListener('click', (e) => pinHandPop(it, hv, e, row));
+        row.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pinHandPop(it, hv, null, row); } };
       }
       t.append(row);
     });
@@ -4882,7 +4884,7 @@ function tbXBlock(r) {
   card.append(numTag('9.1'), el('b', 'pm-title', 'Размер вашего 3-бета: ответ соперников и результат'), el('span', 'sm-s', 'во сколько раз больше открытия вы 3-бетите в позиции, с SB и с BB; как отвечают соперники, как часто вы сбрасываете на 4-бет и какой результат'));
   const body = el('div');
   card.append(segBtns([['TOT', 'Все'], ['IP', 'В позиции (CO, BTN)'], ['SB', 'SB'], ['BB', 'BB']], TB_XPOS, (k) => { TB_XPOS = k; draw(); }), body,
-    infoNote('Размер — ваш 3-бет, делённый на открытие (×3 — в три раза больше). Олл-ин — отдельной строкой. «В позиции» — 3-беты с CO и BTN (как в Hand2Note), BB — без раздач против открытия SB. Фолд / Колл / 4-бет — первый ответ соперников. «Фолд на 4-бет» — как часто вы сбросили, когда на этот 3-бет пришёл 4-бет (в скобках — сколько раз был 4-бет). Результат — средний итог раздачи, факт / EV. Наведите на строку — матрица рук этого размера и итог; клик — раздачи и реплеер.'));
+    infoNote('Размер — ваш 3-бет, делённый на открытие (×3 — в три раза больше). Олл-ин — отдельной строкой. «В позиции» — 3-беты с CO и BTN (как в Hand2Note), BB — без раздач против открытия SB. Фолд / Колл / 4-бет — первый ответ соперников. «Фолд на 4-бет» — как часто вы сбросили, когда на этот 3-бет пришёл 4-бет (в скобках — сколько раз был 4-бет). Результат — средний итог раздачи, факт / EV. Наведите на строку — матрица рук этого размера и итог; клик закрепит окно, в нём — переключатель «Факт, BB» / «EV, BB», клик по руке откроет раздачи и реплеер.'));
   function draw() {
     const rows = r.xg[TB_XPOS] || [], tot = rows.reduce((a, z) => a + z.n, 0);
     const t = el('div', 'sz5-t tb-sz');
@@ -4898,14 +4900,14 @@ function tbXBlock(r) {
         wrNode('sz5-v', z.sum / 10 / z.n, z.es / 10 / z.n, 2), el('small', null, z.n.toLocaleString('ru-RU') + ' раз'), tk);
       row.tabIndex = 0; row.setAttribute('role', 'button');
       const gl = { TOT: 'все позиции', IP: 'в позиции', SB: 'SB', BB: 'BB' }[TB_XPOS];
-      // наведение на строку — матрица рук этого размера и итог (как #7); клик — раздачи и реплеер
+      // наведение на строку — матрица рук этого размера и итог; клик — закрепить окно (как #7), клик по руке — раздачи и реплеер
       if (z.h && z.h.n) {
         const it = { p: TB_XPOS, anyPos: true, key: 'tbx' + TB_XPOS + k, title: 'Ваш 3-бет ' + r.TB_X[k] + ' · ' + gl, o: { n: z.h.n, sum: z.h.sum, es: z.h.es }, mx: z.h.mx, ids: z.h.ids, sit: 2, vlab: ' BB за 3-бет', nlab: ' 3-бетов' };
         const hv = z.h.sum / 10 / z.h.n;
         row.addEventListener('mouseenter', (e) => showHandPop(it, hv, e, row)); row.addEventListener('mousemove', (e) => showHandPop(it, hv, e, row)); row.addEventListener('mouseleave', hideHandPop);
+        row.addEventListener('click', (e) => pinHandPop(it, hv, e, row));
+        row.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pinHandPop(it, hv, null, row); } };
       }
-      const open = () => openIdsList('Ваш 3-бет ' + r.TB_X[k] + ' · ' + gl, z.ids);
-      row.onclick = open; row.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } };
       t.append(row);
     });
     body.replaceChildren(tot ? t : el('p', 'muted small', 'Нет 3-бетов в выборке.'));
