@@ -1147,7 +1147,7 @@ function isoPanel(d) {
       const title = nm + ', vs ' + lab + ' лимпер' + (r ? 'а' : '');
       if (z.rmx) {
         // окно «Диапазон» (как #7): изолейт (олл-ин — синим), колл, фолд; «Факт/EV» и раздачи — только изолейты, в «Диапазоне» нажимаются только руки с изолейтом
-        const zz = { n: z.o, rmx: z.rmx, vmx: z.vmx || null, rids: z.ids || z.rids, labels: ['изолейт', 'олл-ин', 'колл', 'фолд'] };
+        const zz = { n: z.o, rmx: z.rmx, vmx: z.vmx || null, rids: z.ids || z.rids, labels: ['изолейт', 'олл-ин', 'колл', 'фолд'], capAll: 'только ваши изолейты' };
         const wt = title + ' · изолейт ' + fmtPct(f) + '%';
         c.tabIndex = 0; c.setAttribute('role', 'button'); c.setAttribute('aria-label', title + ': показать руки и раздачи'); c.classList.add('click');
         c.addEventListener('mouseenter', (ev) => showSzMx(wt, zz, c, ev));
@@ -1479,7 +1479,7 @@ function ccSizeBlock(r) {
       // наведение на строку — матрица рук: колл / 3-бет / олл-ин / фолд против этого размера; «Факт/EV» и раздачи — только коллы
       if (z.rmx) {
         const title = (CC_SZPOS === 'TOT' ? 'Вы на всех позициях без BB' : 'Вы на ' + CC_SZPOS) + ' · перед вами открытие ' + r.CC_SZ[k][0];
-        const zz = Object.assign({}, z, { vmx: z.mx || null, rids: z.ids || z.rids });
+        const zz = Object.assign({}, z, { vmx: z.mx || null, rids: z.ids || z.rids, capAll: 'только ваши коллы' });
         row.classList.add('has-mx'); row.tabIndex = 0;
         row.addEventListener('mouseenter', (e) => showSzMx(title, zz, row, e)); row.addEventListener('mousemove', (e) => { if (!SZMX_PIN && szMx && !szMx.hidden) placeSzMx(row, e); }); row.addEventListener('mouseleave', hideSzMx);
         row.addEventListener('focus', () => showSzMx(title, zz, row)); row.addEventListener('blur', hideSzMx);
@@ -2072,13 +2072,13 @@ function tbVsBlock(r, ty) {
   return card;
 }
 // #7 — 3-бет против сайзинга открытия: ответ и результат 3-бетов
-function tbSizeBlock(r) {
+function tbSizeBlock(r, ty) {
   const card = el('div', 'insight cc-table');
   card.append(numTag(7), el('b', 'pm-title', 'Против сайзинга открытия'), el('span', 'sm-s', 'как вы отвечаете на открытие разного размера и какой результат дают ваши 3-беты'));
   const posList = ['TOT'].concat(TB_POS.filter(p => r.tb[p].n >= SMALL));
   const body = el('div');
   card.append(segBtns(posList.map(p => [p, p === 'TOT' ? 'Все' : p]), TB_SZPOS, (k) => { TB_SZPOS = k; draw(); }), body,
-    infoNote('Размер — до скольких BB открыл соперник. Доля — какая часть открытий перед вами была такого размера. 3-бет / Олл-ин / Колл / Фолд — ваш ответ. Результат — средний итог раздачи после вашего 3-бета (вместе с олл-инами), факт / EV. Наведите на строку — матрица ответа рукой; клик закрепит окно. Бледные строки — меньше 30 раздач.'));
+    infoNote('Размер — до скольких BB открыл соперник. Доля — какая часть открытий перед вами была такого размера. 3-бет / Олл-ин / Колл / Фолд — ваш ответ. Результат — средний итог раздачи после вашего 3-бета, факт / EV; при выбранном в шапке раздела типе 3-бета — только он (по умолчанию — все, вместе с олл-инами). Наведите на строку — матрица ответа рукой; клик закрепит окно. Бледные строки — меньше 30 раздач.'));
   function draw() {
     const rows = r.sz[TB_SZPOS] || [], tot = rows.reduce((a, z) => a + z.n, 0);
     const t = el('div', 'sz5-t tb-sz');
@@ -2093,8 +2093,8 @@ function tbSizeBlock(r) {
         wrNode('sz5-v', wr, we, 2), el('small', null, z.n.toLocaleString('ru-RU') + ' раз'), tk);
       if (z.rmx) {
         const title = (TB_SZPOS === 'TOT' ? 'Вы на всех позициях' : 'Вы на ' + TB_SZPOS) + ' · перед вами открытие ' + r.CC_SZ[k][0];
-        // «Факт/EV» в окне и списки раздач — только по 3-бетам; «Диапазон» — все ответы
-        const zz = Object.assign({}, z, { vmx: z.vmx || null, rids: z.ids || z.rids });
+        // «Факт/EV» в окне и списки раздач — только по 3-бетам (тип — из шапки раздела); «Диапазон» — все ответы
+        const zz = Object.assign({}, z, { vmx: z.vmx || null, rids: z.ids || z.rids, capAll: 'только ваши 3-беты' + (ty === 'ai' ? ' олл-ином' : ty === 'nai' ? ' не олл-ином' : '') });
         row.classList.add('has-mx'); row.tabIndex = 0;
         row.addEventListener('mouseenter', (e) => showSzMx(title, zz, row, e)); row.addEventListener('mousemove', (e) => { if (!SZMX_PIN && szMx && !szMx.hidden) placeSzMx(row, e); }); row.addEventListener('mouseleave', hideSzMx);
         row.addEventListener('focus', () => showSzMx(title, zz, row)); row.addEventListener('blur', hideSzMx);
@@ -2111,13 +2111,13 @@ function tbSizeBlock(r) {
 // #8 «3-бет по вашему стеку» удалена по просьбе (0.7.25)
 // #7.1 — 3-бет против стека открывающего: готовые корзины (короткий / средний / глубокий)
 let TB_OSTKPOS = 'TOT';
-function tbOstkBlock(r) {
+function tbOstkBlock(r, ty) {
   const card = el('div', 'insight cc-table');
   card.append(numTag('7.1'), el('b', 'pm-title', 'Против стека открывающего'), el('span', 'sm-s', 'как часто вы 3-бетите против короткого, среднего и глубокого открывающего и что это приносит'));
   const posList = ['TOT'].concat(TB_POS.filter(p => r.tb[p].n >= SMALL));
   const body = el('div');
   card.append(segBtns(posList.map(p => [p, p === 'TOT' ? 'Все' : p]), TB_OSTKPOS, (k) => { TB_OSTKPOS = k; draw(); }), body,
-    infoNote('Стек — стек открывающего в начале раздачи, BB: короткий до 20, средний 20–40, глубокий 40+. «Случаев» — сколько раз перед вами было одно открытие (не олл-ином) без лимперов и коллеров. 3-бет и Олл-ин — ваш ответ от этих случаев. Результат — средний итог раздачи после 3-бета (вместе с олл-инами), факт / EV. Наведите на строку — матрица рук этих 3-бетов и итог; клик закрепит окно, в нём — переключатель «Факт, BB» / «EV, BB», клик по руке откроет раздачи и реплеер. Бледные строки — меньше 30 раздач.'));
+    infoNote('Стек — стек открывающего в начале раздачи, BB: короткий до 20, средний 20–40, глубокий 40+. «Случаев» — сколько раз перед вами было одно открытие (не олл-ином) без лимперов и коллеров. 3-бет и Олл-ин — ваш ответ от этих случаев. Результат — средний итог раздачи после 3-бета, факт / EV; при выбранном в шапке раздела типе 3-бета — только он (по умолчанию — все, вместе с олл-инами). Наведите на строку — матрица рук этих 3-бетов и итог; клик закрепит окно, в нём — переключатель «Факт, BB» / «EV, BB», клик по руке откроет раздачи и реплеер. Бледные строки — меньше 30 раздач.'));
   function draw() {
     const rows = r.ostk[TB_OSTKPOS] || [], tot = rows.reduce((a, z) => a + z.n, 0);
     const t = el('div', 'sz5-t tb-sz');
@@ -2133,7 +2133,7 @@ function tbOstkBlock(r) {
       // наведение — окно «Диапазон» (как #7): ответы по рукам в этой корзине стека; клик — закрепить, клик по руке — раздачи и реплеер
       if (z.rmx) {
         const gl = TB_OSTKPOS === 'TOT' ? 'все позиции' : 'с ' + TB_OSTKPOS;
-        const zz = { n: z.n, rmx: z.rmx, vmx: z.vmx || null, rids: z.ids || z.rids }; // «Факт/EV» и списки — только 3-беты
+        const zz = { n: z.n, rmx: z.rmx, vmx: z.vmx || null, rids: z.ids || z.rids, capAll: 'только ваши 3-беты' + (ty === 'ai' ? ' олл-ином' : ty === 'nai' ? ' не олл-ином' : '') }; // «Факт/EV» и списки — только 3-беты (тип — из шапки раздела)
         const wt = 'Ваш ответ против открывающего ' + r.TB_OSTK[k] + ' · ' + gl;
         row.addEventListener('mouseenter', (e) => showSzMx(wt, zz, row, e));
         row.addEventListener('mousemove', (e) => { if (!SZMX_PIN && szMx && !szMx.hidden) placeSzMx(row, e); });
@@ -2202,7 +2202,7 @@ function tbXBlock(r) {
         const R = r.xgR && r.xgR[TB_XPOS];
         if (R && R.rmx && z.n) {
           const mx = R.rmx.map((m2, q) => ({ n: m2.n, x: z.rmx ? z.rmx[q].x : 0, ai: z.rmx ? z.rmx[q].ai : 0, lp: m2.lp, sum: m2.sum, es: m2.es }));
-          const zz = { n: R.rmx.reduce((a2, m2) => a2 + m2.n, 0), rmx: mx, vmx: z.rmx || null, rids: z.ids || R.rids }; // «Факт/EV» и списки — только 3-беты этого размера
+          const zz = { n: R.rmx.reduce((a2, m2) => a2 + m2.n, 0), rmx: mx, vmx: z.rmx || null, rids: z.ids || R.rids, capAll: 'только ваши 3-беты этого размера' }; // «Факт/EV» и списки — только 3-беты этого размера
           const wt = 'Ваш ответ на открытие · ' + gl + (z.n ? ' · 3-бет ' + r.TB_X[k] : '');
           row.addEventListener('mouseenter', (e) => showSzMx(wt, zz, row, e));
           row.addEventListener('mousemove', (e) => { if (!SZMX_PIN && szMx && !szMx.hidden) placeSzMx(row, e); });
@@ -2236,20 +2236,23 @@ function tbIsoBlock(r) {
   return card;
 }
 function renderTB(idx) {
-  // Фильтры раздела — по карточкам: 5 и 7 — стек и тип 3-бета; 6 — свои диапазоны, без них; остальные — стек (тип у 2 и 4 — ниже, по sub2/rG)
+  // Фильтры раздела — по карточкам: 5, 7 и 7.1 — стек и тип 3-бета; 6 — свои диапазоны, без них; остальные — стек (тип у 2 и 4 — ниже, по sub2/rG)
   const sr = secRange('3bet'), cb0 = DB.cols;
   const idxS = sr ? idx.filter(i => cb0.bb[i] >= sr[0] * 10 && cb0.bb[i] < sr[1] * 10) : idx;
   const tbOpt = { oPos: uiState.tbOPos, oStk: uiState.tbOStkR, oMy: uiState.tbOMyR, oOpen: uiState.tbOOpen };
   const r = Stats.tb(DB, idxS, tbOpt);
   const r6 = sr ? Stats.tb(DB, idx, tbOpt) : r; // #6 — без стека раздела (у неё свои диапазоны стеков)
-  // #5 и #7 — тип 3-бета из шапки: числитель 3-бетов — не олл-ины или только олл-ины (тот же расчёт, что у переключателя самой #5); стек уже в r
+  // Тип 3-бета из шапки раздела: у #5 меняет числитель (матрицы/итоги у неё уже по типам — hN/hI/hA),
+  // у #7 и #7.1 — целиком частоту, результат, число 3-бетов и окна «Факт/EV»/списки (sI/iI/vmxI — олл-ин, sN/iN/vmxN — не олл-ин);
+  // возможности и ответы (колл, фолд, окно «Диапазон») остаются по всем раздачам; стек уже в r
   const T57 = secType('3bet');
   const r57 = T57.flt ? Object.assign({}, r) : r; // клон: правка типа не задевает остальные карточки
   if (T57.flt) {
     const pick = T57.ty === 'ai' ? 'ai' : 'nai';
     r57.vs = Object.fromEntries(Object.entries(r.vs).map(([p, row]) => [p, Object.fromEntries(Object.entries(row).map(([op, z]) => [op, Object.assign({}, z, { x: z[pick] })]))]));
-    r57.sz = Object.fromEntries(Object.entries(r.sz).map(([p, arr]) => [p, arr.map(z => z ? Object.assign({}, z, { rz: pick === 'ai' ? z.ai : z.rz - z.ai }) : z)]));
-    r57.ostk = Object.fromEntries(Object.entries(r.ostk).map(([p, arr]) => [p, arr.map(z => Object.assign({}, z, { x: pick === 'ai' ? z.ai : z.x - z.ai }))]));
+    const typed = (z, num) => !z ? z : Object.assign({}, z, { [num]: pick === 'ai' ? z.ai : z[num] - z.ai, sum: pick === 'ai' ? z.sI : z.sN, es: pick === 'ai' ? z.eI : z.eN, sn: pick === 'ai' ? z.nI : z.nN, ids: (pick === 'ai' ? z.iI : z.iN) || [], vmx: pick === 'ai' ? z.vmxI : z.vmxN });
+    r57.sz = Object.fromEntries(Object.entries(r.sz).map(([p, arr]) => [p, arr.map(z => typed(z, 'rz'))]));
+    r57.ostk = Object.fromEntries(Object.entries(r.ostk).map(([p, arr]) => [p, arr.map(z => typed(z, 'x'))]));
   }
   const page = el('div', 'page');
   const head = el('div', 'page-head');
@@ -2278,7 +2281,7 @@ function renderTB(idx) {
   const rG = flt ? Object.assign({}, r, { hands: H2 }) : r; // #4 — тоже по типу 3-бета из шапки
   zone.append(tbOppBlock(r6), tbTable(r), tbVsBlock(r57, T57.ty), ccGroupBlock(rG, { cols: TB_POS, tag: 4, title: 'Результат 3-бета по группам рук', sub: 'BB за 3-бет: всего и по группам рук, факт / EV', name: '3-бет', nameOf: (p) => 'Ваш 3-бет с ' + p, verb: 'не 3-бетили', act: undefined, vlab: ' BB за 3-бет', nlab: ' 3-бетов', none: 'Нет 3-бетов в выборке.', key: 'tbg', p: false,
       note: 'В ячейке — результат 3-бета группой рук с этой позиции в BB (вместе с олл-инами): сверху факт, под ним EV, справа мелко — число 3-бетов. Цвет — плюс или минус. Наведите — матрица рук группы и их итог; клик закрепит окно, клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше 30 раздач.' }),
-    tbSizeBlock(r57), tbSplitBlock(r), tbXBlock(r), tbOstkBlock(r57), tbIsoBlock(r)); // порядок: 6 после ряда 1–2, 5 за 3, 7.1 после 9.1; 5, 7 и 7.1 — стек + тип раздела, 6 — без них; #8 удалена (0.7.25), #10 — (0.7.27)
+    tbSizeBlock(r57, T57.ty), tbSplitBlock(r), tbXBlock(r), tbOstkBlock(r57, T57.ty), tbIsoBlock(r)); // порядок: 6 после ряда 1–2, 5 за 3, 7.1 после 9.1; 5, 7 и 7.1 — стек + тип раздела, 6 — без них; #8 удалена (0.7.25), #10 — (0.7.27)
   page.append(zone);
   return page;
 }

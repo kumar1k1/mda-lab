@@ -265,10 +265,10 @@
     const has = (k) => c[k] != null && c[k].length === db.count;
     const tbc = () => ({ n: 0, x: 0, nai: 0, ai: 0 });
     const hset = () => ({ n: 0, sum: 0, es: 0, ids: [], mx: Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })) });
-    const szCell = () => ({ n: 0, call: 0, rz: 0, ai: 0, fold: 0, sum: 0, es: 0, sn: 0, ids: [], rids: [], rmx: null });
+    const szCell = () => ({ n: 0, call: 0, rz: 0, ai: 0, fold: 0, sum: 0, es: 0, sn: 0, ids: [], rids: [], rmx: null, sI: 0, eI: 0, nI: 0, iI: [], sN: 0, eN: 0, nN: 0, iN: [], vmxI: null, vmxN: null }); // sI/eI/nI/iI и vmxI — олл-ин, sN/… — не олл-ин: результат и окна карточек 7/7.1 под тип из шапки раздела
     out.opF = {}; out.tb = {}; out.hands = {}; out.handsN = {}; out.handsA = {}; out.f4mx = {}; out.f5mx = {}; out.f4cmx = {}; out.f5cmx = {}; out.f4c = {}; out.t3mx = {}; out.iso = {}; out.isoF = {}; out.f4 = {}; out.t3r = {}; out.sz = {}; out.stk = {}; out.ostk = {}; out.x = {};
     const rset = (sub) => { const z = { n: 0, rids: [], rmx: Array.from({ length: 169 }, () => ({ n: 0, x: 0, ai: 0, lp: 0, sum: 0, es: 0 })) }; if (sub) z.parts = { rz: rset(), call: rset(), fold: rset() }; return z; }; // parts — раздачи по вашему ответу (для вкладок окна)
-    TB_COLS.forEach(k => { out.tb[k] = tbc(); out.hands[k] = hset(); out.handsN[k] = hset(); out.handsA[k] = hset(); out.f4mx[k] = rset(true); out.f5mx[k] = rset(true); out.f4cmx[k] = rset(true); out.f5cmx[k] = rset(true); out.f4c[k] = { n: 0, fold: 0, call: 0, rz: 0, n5: 0, x5: 0 }; out.t3mx[k] = rset(); out.iso[k] = { n: 0, x: 0 }; out.isoF[k] = { n: 0, x: 0 }; out.f4[k] = { n: 0, fold: 0, call: 0, rz: 0, n5: 0, x5: 0 }; out.t3r[k] = [0, 0, 0, 0]; out.opF[k] = { n: 0, x: 0 }; out.sz[k] = CC_SZ.map(szCell); out.stk[k] = TB_STK.map(tbc); out.ostk[k] = TB_OSTK.map(() => ({ n: 0, x: 0, ai: 0, sum: 0, es: 0, sn: 0 })); out.x[k] = TB_X.map(() => ({ n: 0, r: [0, 0, 0, 0], rn: 0, sum: 0, es: 0, ids: [] })); });
+    TB_COLS.forEach(k => { out.tb[k] = tbc(); out.hands[k] = hset(); out.handsN[k] = hset(); out.handsA[k] = hset(); out.f4mx[k] = rset(true); out.f5mx[k] = rset(true); out.f4cmx[k] = rset(true); out.f5cmx[k] = rset(true); out.f4c[k] = { n: 0, fold: 0, call: 0, rz: 0, n5: 0, x5: 0 }; out.t3mx[k] = rset(); out.iso[k] = { n: 0, x: 0 }; out.isoF[k] = { n: 0, x: 0 }; out.f4[k] = { n: 0, fold: 0, call: 0, rz: 0, n5: 0, x5: 0 }; out.t3r[k] = [0, 0, 0, 0]; out.opF[k] = { n: 0, x: 0 }; out.sz[k] = CC_SZ.map(szCell); out.stk[k] = TB_STK.map(tbc); out.ostk[k] = TB_OSTK.map(() => ({ n: 0, x: 0, ai: 0, sum: 0, es: 0, sn: 0, sI: 0, eI: 0, nI: 0, sN: 0, eN: 0, nN: 0 })); out.x[k] = TB_X.map(() => ({ n: 0, r: [0, 0, 0, 0], rn: 0, sum: 0, es: 0, ids: [] })); });
     out.vs = {}; out.vs4 = {}; out.resp = [0, 0, 0];
     // размер 3-бета по группам: в позиции (MP–BTN), SB, BB; со сбросом на 4-бет
     out.xg = {}; out.split = {}; out.xgR = {}; ['TOT', 'IP', 'SB', 'BB'].forEach(g => { out.xg[g] = TB_X.map(() => ({ n: 0, r: [0, 0, 0, 0], rn: 0, sum: 0, es: 0, ids: [], f4n: 0, f4f: 0, rmx: null })); out.split[g] = { n: 0, x: 0, fn: 0, ff: 0, b: Array.from({ length: 8 }, () => ({ x: 0, fn: 0, ff: 0 })) }; out.xgR[g] = { rmx: Array.from({ length: 169 }, () => ({ n: 0, x: 0, ai: 0, lp: 0, sum: 0, es: 0 })), rids: [] }; }); out.fineOk = 0; out.fineAll = 0;
@@ -302,17 +302,17 @@
           if (zk >= 0) {
             const q = out.sz[k][zk]; q.n++;
             if (a === 1) q.call++; else if (a === 2) q.rz++; else if (a === 3) q.ai++; else q.fold++;
-            if (r3) { q.sum += v0; q.es += e0; q.sn++; q.ids.push(i); }
+            if (r3) { q.sum += v0; q.es += e0; q.sn++; q.ids.push(i); if (a === 3) { q.sI += v0; q.eI += e0; q.nI++; q.iI.push(i); } else { q.sN += v0; q.eN += e0; q.nN++; q.iN.push(i); } }
             if (c.hc[i] >= 0) { if (!q.rmx) q.rmx = Array.from({ length: 169 }, () => ({ n: 0, x: 0, ai: 0, lp: 0, sum: 0, es: 0 })); const m = q.rmx[c.hc[i]]; m.n++; m.sum += v0; m.es += e0; q.rids.push(i); if (a === 1) m.lp++; else if (r3) { m.x++; if (a === 3) m.ai++; } }
-            if (r3 && c.hc[i] >= 0) { if (!q.vmx) q.vmx = Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })); const v2 = q.vmx[c.hc[i]]; v2.n++; v2.sum += v0; v2.es += e0; } // «Факт/EV» в окне — только 3-беты
+            if (r3 && c.hc[i] >= 0) { const vs = a === 3 ? (q.vmxI || (q.vmxI = Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })))) : (q.vmxN || (q.vmxN = Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })))); const v2 = vs[c.hc[i]]; v2.n++; v2.sum += v0; v2.es += e0; if (!q.vmx) q.vmx = Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })); const v1 = q.vmx[c.hc[i]]; v1.n++; v1.sum += v0; v1.es += e0; } // «Факт/EV» в окне — только 3-беты; отдельные матрицы олл-ин / не олл-ин — под тип из шапки раздела
           }
         }
         // #7.1 — корзины стека открывающего: возможности, 3-беты (все/олл-ином) и их результат; rmx — окно «Диапазон», vmx/ids — «Факт/EV» и списки только по 3-бетам
         if (c.ostk[i] >= 0) {
           const ok = c.ostk[i] / 10 < 20 ? 0 : c.ostk[i] / 10 < 40 ? 1 : 2, q = out.ostk[k][ok];
-          q.n++; if (r3) { q.x++; if (a === 3) q.ai++; q.sum += v0; q.es += e0; q.sn++; (q.ids || (q.ids = [])).push(i); }
+          q.n++; if (r3) { q.x++; if (a === 3) { q.ai++; q.sI += v0; q.eI += e0; q.nI++; (q.iI || (q.iI = [])).push(i); } else { q.sN += v0; q.eN += e0; q.nN++; (q.iN || (q.iN = [])).push(i); } q.sum += v0; q.es += e0; q.sn++; (q.ids || (q.ids = [])).push(i); }
           if (c.hc[i] >= 0) { if (!q.rmx) { q.rmx = Array.from({ length: 169 }, () => ({ n: 0, x: 0, ai: 0, lp: 0, sum: 0, es: 0 })); q.rids = []; } const m = q.rmx[c.hc[i]]; m.n++; m.sum += v0; m.es += e0; q.rids.push(i); if (a === 1) m.lp++; else if (r3) { m.x++; if (a === 3) m.ai++; } }
-          if (r3 && c.hc[i] >= 0) { if (!q.vmx) q.vmx = Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })); const v2 = q.vmx[c.hc[i]]; v2.n++; v2.sum += v0; v2.es += e0; }
+          if (r3 && c.hc[i] >= 0) { const vs = a === 3 ? (q.vmxI || (q.vmxI = Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })))) : (q.vmxN || (q.vmxN = Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })))); const v2 = vs[c.hc[i]]; v2.n++; v2.sum += v0; v2.es += e0; if (!q.vmx) q.vmx = Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })); const v1 = q.vmx[c.hc[i]]; v1.n++; v1.sum += v0; v1.es += e0; }
         }
         // #9.1 окно «Диапазон» (как #7): возможности и ответы по группам позиций — по рукам (все ответы, включая фолды и коллы); в бакет размера — сами 3-беты
         if (c.hc[i] >= 0) {
