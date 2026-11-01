@@ -45,7 +45,7 @@ function rowVals(h, roomIdx) {
     bdp: h.bdp, cov: h.cov, bi: h.bi, rz: h.rz, cl: h.cl, rai: h.rai, opos: h.opos, ostk: h.ostk, osz: h.osz, nev: h.net,
     hpa: h.hpa || 0, tmx: h.tblMax || 0, np: h.n || 0, lr: h.lr || 0, ant: h.ant == null ? -1 : h.ant, fcb: h.fcb == null ? -1 : h.fcb, cbs: h.cbs == null ? -1 : h.cbs,
     fp: h.fp == null ? -1 : h.fp, fop: h.fop == null ? -1 : h.fop, t3r: h.t3r == null ? -1 : h.t3r, t4: h.t4 == null ? -1 : h.t4,
-    v3: h.v3 == null ? -1 : h.v3, v3a: h.v3a == null ? -1 : h.v3a
+    v3: h.v3 == null ? -1 : h.v3, v3a: h.v3a == null ? -1 : h.v3a, v3o: h.v3o == null ? -1 : h.v3o, v3c: h.v3c == null ? -1 : h.v3c
   };
 }
 const monthOfDay = (day) => { const d = new Date(day * 864e5); return d.getUTCFullYear() * 12 + d.getUTCMonth(); };
