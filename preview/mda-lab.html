@@ -2676,7 +2676,7 @@ body{padding-left:max(0px, env(safe-area-inset-left, 0px));padding-right:max(0px
       const p = fine && c.fp[i] >= 0 ? FP[c.fp[i]] : POSF(c.pos[i]);
       const keys = R.V3B_POS.includes(p) ? ['TOT', p] : ['TOT'];
       const v = c.v3[i], v0 = c.net ? c.net[i] : 0, e0 = c.net ? EV[i] : 0;
-      const withCall = clean ? c.v3c[i] === 1 : false; // карточка #3: сам 3-бет кто-то заколлил
+      const withCall = clean ? c.v3c[i] === 1 && c.v3o[i] === 0 : false; // карточка #3 «3b пот 3+»: до хода игрока вступили, без колла открытия
       const isClean = clean ? c.v3c[i] === 0 && c.v3o[i] === 0 : false; // будущая карточка: никто не коллировал ни открытие, ни 3-бет
       keys.forEach(k => {
         for (const z of [out.d[k], withCall ? out.mw[k] : null, isClean ? out.cl[k] : null]) {
@@ -3990,7 +3990,7 @@ function drawSecFilters(tab) {
     // тип 3-бет банка по чужим коллам (под «нашим действием»): 1vs1 / 3+ игроков / сквиз поверх колла открытия
     const bg = grp('Тип трибет банка', segBtns([['all', 'Все'], ['hu', '3b пот 1vs1'], ['cc', '3b пот 3+'], ['sq', 'сквиз пот']], f.B, (k) => { f.B = k; renderNext(); }));
     const q = el('span', 'flt-q', '?');
-    q.title = 'Что значит каждая вкладка:\n3b пот 1vs1 — в раздаче только вы и 3-бетящий, чужих коллов не было.\n3b пот 3+ — 3-бет соперника заколлировал ещё один игрок или больше (без колла вашего открытия).\nсквиз пот — ваше открытие заколлировали, и 3-бет поднял банк поверх этого колла.';
+    q.title = 'Что значит каждая вкладка:\n3b пот 1vs1 — вы открылись, получили 3-бет, и после него до вашего хода никто не вступил в игру: решение только ваше против 3-бетящего.\n3b пот 3+ — вы открылись, получили 3-бет, и до вашего хода один или несколько соперников вступили в игру (кол или рейз, не фолд).\nсквиз пот — ваше открытие заколлировали один или несколько игроков, и 3-бет поднял банк поверх этих коллов (до вашего хода могли быть и другие действия).\nДействия соперников ПОСЛЕ вашего хода (например, колл вашего олл-ина) тип банка не меняют.';
     q.setAttribute('aria-label', 'Что значат вкладки фильтра «Тип трибет банка»');
     bg.append(q);
     box.append(bg);
@@ -5120,7 +5120,7 @@ function renderV3B(idx) {
   // #3 — наоборот: раздачи, где 3-бет заколлировали за спиной (один или несколько колов)
   const m = r.mw.TOT;
   const mwRows = r.V3B_POS.filter(p => r.d[p].n >= SMALL).map(p => { const z = r.mw[p]; return [p, r.d[p].n ? z.n / r.d[p].n : null, p + ': ' + z.n + ' из ' + r.d[p].n]; }); // r.d — все споты, mw — их часть с колом 3-бета
-  const c3 = card(3, '3-бет заколлили за спиной', '<em>' + fmtPct(m.n / r.all) + '%</em>', m.n.toLocaleString('ru-RU') + ' из ' + r.all.toLocaleString('ru-RU') + ' открытий с 3-бетом',
+  const c3 = card(3, '3b пот 3+', '<em>' + fmtPct(m.n / r.all) + '%</em>', m.n.toLocaleString('ru-RU') + ' из ' + r.all.toLocaleString('ru-RU') + ' открытий с 3-бетом',
     fillBox(posStrip('Доля по позициям', mwRows), respTiles(r.respMw, 'Ваш ответ на 3-бет', [['фолд', 'var(--good)'], ['колл', 'var(--ice)'], ['4-бет', 'var(--bad)']])));
   const zone = el('div', 'summary'); const pair = el('div', 'sum-pair'); pair.append(c1, c2); zone.append(pair, c3);
   page.append(zone);

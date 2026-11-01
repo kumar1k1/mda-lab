@@ -375,7 +375,7 @@
       const p = fine && c.fp[i] >= 0 ? FP[c.fp[i]] : POSF(c.pos[i]);
       const keys = R.V3B_POS.includes(p) ? ['TOT', p] : ['TOT'];
       const v = c.v3[i], v0 = c.net ? c.net[i] : 0, e0 = c.net ? EV[i] : 0;
-      const withCall = clean ? c.v3c[i] === 1 : false; // карточка #3: сам 3-бет кто-то заколлил
+      const withCall = clean ? c.v3c[i] === 1 && c.v3o[i] === 0 : false; // карточка #3 «3b пот 3+»: до хода игрока вступили, без колла открытия
       const isClean = clean ? c.v3c[i] === 0 && c.v3o[i] === 0 : false; // будущая карточка: никто не коллировал ни открытие, ни 3-бет
       keys.forEach(k => {
         for (const z of [out.d[k], withCall ? out.mw[k] : null, isClean ? out.cl[k] : null]) {
