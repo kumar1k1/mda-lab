@@ -4875,35 +4875,7 @@ function tbXBlock(r) {
   draw();
   return card;
 }
-// #11 — ваша реакция на 4-бет после 3-бета: по позициям и против каждой позиции открывающего
-let TB_4 = 'fold';
-function tb4Block(r) {
-  const card = el('div', 'insight cc-table');
-  const cols = r.TB_COLS.filter(k => k === 'TOT' || r.f4[k].n > 0 || r.f4c[k].n > 0);
-  const D = (f) => { const o = {}; cols.forEach(k => { o[k] = f(r.f4[k]); }); return o; };
-  const w = heatTable({ cols, groupGapBefore: cols.indexOf('SB'), rows: [
-    { label: 'Фолд на 4-бет', tone: 'ice', data: D(f => ({ x: f.fold, n: f.n })) },
-    { label: 'Колл 4-бета', tone: 'ice', data: D(f => ({ x: f.call, n: f.n })) },
-    { label: 'Рейз на 4-бет', tone: 'ice', data: D(f => ({ x: f.rz, n: f.n })) },
-    { label: '5-бет (когда был возможен)', data: D(f => ({ x: f.x5, n: f.n5 })) },
-    { label: 'Холодный 4-бет: фолд', tone: 'ice', own: true, split: true, data: Object.fromEntries(cols.map(k => [k, { x: r.f4c[k].fold, n: r.f4c[k].n }])) },
-    { label: 'Холодный 4-бет: колл', tone: 'ice', own: true, sub: true, data: Object.fromEntries(cols.map(k => [k, { x: r.f4c[k].call, n: r.f4c[k].n }])) },
-    { label: 'Холодный 4-бет: рейз', tone: 'ice', own: true, sub: true, data: Object.fromEntries(cols.map(k => [k, { x: r.f4c[k].rz, n: r.f4c[k].n }])) },
-    { label: 'Холодный 4-бет: 5-бет (когда был возможен)', tone: 'ice', own: true, sub: true, data: Object.fromEntries(cols.map(k => [k, { x: r.f4c[k].x5, n: r.f4c[k].n5 }])) }] });
-  const heroPos = TB_POS.filter(p => r.vs4[p]);
-  const opCols = ['EP', 'MP', 'HJ', 'CO', 'BTN', 'SB'].filter(op => heroPos.some(p => r.vs4[p][op]));
-  const body = el('div');
-  card.append(numTag(10), el('span', 'k', 'Ответ на 4-бет после вашего 3-бета'), el('span', 's', 'как часто вы сбрасываете, коллируете и ставите 5-бет — по позициям и против каждой позиции открывающего'), w,
-    el('span', 's tb-sub', 'Против позиции открывающего'), segBtns([['fold', 'Фолд'], ['call', 'Колл'], ['x5', '5-бет']], TB_4, (k) => { TB_4 = k; draw(); }), body,
-    infoNote('Верхние строки — 4-бет от открывающего (того, кого вы 3-бетили); нижние — холодный 4-бет от игрока, который ходил после вас. Считаются раздачи, где вы после 4-бета сделали ход. «Рейз на 4-бет» — любой ваш рейз (обычно олл-ин). «5-бет» — как в Hand2Note: доля рейзов только там, где 4-бет был не олл-ином и у вас оставались фишки на рейз. В таблице ниже строки — ваша позиция, колонки — позиция открывающего. 4-бетов немного, поэтому почти все ячейки с маленькой выборкой: в них указано число раздач.'));
-  function draw() {
-    const rows = heroPos.map(p => { const d = {}; opCols.forEach(op => { const f = r.vs4[p][op]; if (f) d[op] = TB_4 === 'x5' ? { x: f.x5, n: f.n5 } : { x: f[TB_4], n: f.n }; }); return { key: p, label: p, data: d }; });
-    body.replaceChildren(heroPos.length ? heatTable({ cols: opCols, rows, noTot: true }) : el('p', 'muted small', 'Нет 4-бетов против ваших 3-бетов в выборке.'));
-  }
-  draw();
-  return card;
-}
-// #10 — 3-бет против изолейта (лимп → рейз → ваш рейз), как «3B vs ISO» в Hand2Note
+// #10 «Ответ на 4-бет после вашего 3-бета» удалена по просьбе (0.7.27): фолд/колл/5-бет — строками в #3 и колонкой «Фолд на 4-бет» в #9.1
 function tbIsoBlock(r) {
   const card = el('div', 'insight cc-table');
   const cols = r.TB_COLS.filter(k => k === 'TOT' || r.iso[k].n > 0);
@@ -4963,7 +4935,7 @@ function renderTB(idx) {
   zone.append(tbTable(r),
     ccGroupBlock(rG, { cols: TB_POS, tag: 4, title: 'Результат 3-бета по группам рук', sub: 'BB за 3-бет: всего и по группам рук, факт / EV', name: '3-бет', nameOf: (p) => 'Ваш 3-бет с ' + p, verb: 'не 3-бетили', act: undefined, vlab: ' BB за 3-бет', nlab: ' 3-бетов', none: 'Нет 3-бетов в выборке.', key: 'tbg', p: false,
       note: 'В ячейке — результат 3-бета группой рук с этой позиции в BB (вместе с олл-инами): сверху факт, под ним EV, справа мелко — число 3-бетов. Цвет — плюс или минус. Наведите — матрица рук группы и их итог; клик закрепит окно, клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше 30 раздач.' }),
-    tbVsBlock(r57), tbOppBlock(r6), tbSizeBlock(r57), tbSplitBlock(r), tbXBlock(r), tb4Block(r), tbIsoBlock(r)); // 5 и 7 — стек + тип раздела; 6 — без них; #8 «3-бет по вашему стеку» удалена (0.7.25)
+    tbVsBlock(r57), tbOppBlock(r6), tbSizeBlock(r57), tbSplitBlock(r), tbXBlock(r), tbIsoBlock(r)); // 5 и 7 — стек + тип раздела; 6 — без них; #8 удалена (0.7.25), #10 «Ответ на 4-бет» удалена (0.7.27 — то же есть строками в #3 и колонкой в #9.1)
   page.append(zone);
   return page;
 }
