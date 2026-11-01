@@ -14,7 +14,7 @@ InstallDirRegKey HKCU "Software\MDALab" "InstallDir"
 RequestExecutionLevel user
 BrandingText "${APPNAME} ${APPVER}"
 
-VIProductVersion "0.7.29.0"
+VIProductVersion "0.7.32.0"
 VIAddVersionKey /LANG=1049 "ProductName" "${APPNAME}"
 VIAddVersionKey /LANG=1049 "FileDescription" "Установка ${APPNAME}"
 VIAddVersionKey /LANG=1049 "FileVersion" "${APPVER}"
