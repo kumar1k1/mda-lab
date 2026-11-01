@@ -118,14 +118,14 @@ function showHandPop(it, v, ev, anchor) {
 }
 
 function pinHandPop(it, v, ev, anchor) {
-  const was = pinned && handPop ? { left: handPop.style.left, top: handPop.style.top } : null;
+  // окно остаётся там, где высветилось при наведении (или где было закреплено); без наведения — в месте нажатия
+  const was = handPop && !handPop.hidden ? { left: handPop.style.left, top: handPop.style.top } : null;
   pinned = { pos: it.key || it.p };
   popEl()._selK = null; POP_MODE = 'net'; // каждое новое закрепление — сначала фактический результат
   const pop = buildPop(it, v, true);
   pop.hidden = false;
-  // окно — в месте нажатия (чуть ниже-правее курсора); с клавиатуры — на прежнем месте окна
-  if (ev && ev.clientX != null) placePopAtClick(pop, ev);
-  else if (was) { pop.style.left = was.left; pop.style.top = was.top; }
+  if (was) { pop.style.left = was.left; pop.style.top = was.top; }
+  else if (ev && ev.clientX != null) placePopAtClick(pop, ev);
   else placeNear(pop, ev, anchor);
   clampPop(pop);
   syncScrollLock();

@@ -1458,8 +1458,15 @@ function placePopAtClick(el, e) {
 }
 function pinSzMx(title, z, row, e) {
   if (SZMX_PIN && SZMX_PIN.row === row) { unpinSzMx(); return; }
+  // окно остаётся там, где высветилось при наведении; без наведения — в месте нажатия
+  const keep = szMx && !szMx.hidden ? { left: szMx.style.left, top: szMx.style.top } : null;
   SZMX_PIN = { row }; SZMX_SEL = null; SZMX_PART = 'all'; drawSzMx(title, z, true);
-  if (e && e.clientX != null) placePopAtClick(szMx, e); else placeSzMx(row, e);
+  if (keep) {
+    const w = szMx.offsetWidth, h = szMx.offsetHeight, vw = window.innerWidth, vh = window.innerHeight;
+    szMx.style.left = Math.max(8, Math.min(parseFloat(keep.left) || 8, vw - w - 8)) + 'px';
+    szMx.style.top = Math.max(8, Math.min(parseFloat(keep.top) || 8, vh - h - 8)) + 'px';
+  } else if (e && e.clientX != null) placePopAtClick(szMx, e);
+  else placeSzMx(row, e);
   syncScrollLock();
 }
 function unpinSzMx() { SZMX_PIN = null; SZMX_SEL = null; if (SZMX_LIST) { SZMX_LIST.stop(); SZMX_LIST = null; } if (szMx) { szMx.hidden = true; szMx.classList.remove('with-list'); } syncScrollLock(); }
