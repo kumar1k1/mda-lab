@@ -58,7 +58,9 @@ const MIGRATIONS = [
   { id: 'v3o', col: ['v3o', 'i8'], uses: ['sit', 'act'], need: (C, i) => C.sit[i] === 0 && C.act[i] >= 2 && C.v3o[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).v3o },
   { id: 'v3c', col: ['v3c', 'i8'], uses: ['sit', 'act'], need: (C, i) => C.sit[i] === 0 && C.act[i] >= 2 && C.v3c[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).v3c },
   // 0.7.42: v3c — «3b пот 3+» = другие игроки вступили (не фолд) МЕЖДУ 3-бетом и ходом игрока; действия после его хода не считаются — пересчёт
-  { id: 'v3c2', col: ['v3c', 'i8'], uses: ['sit', 'act'], need: (C, i) => C.sit[i] === 0 && C.act[i] >= 2 && C.v3c[i] >= 0, calc: (rec, s) => TB.tbetOf(rec, s).v3c }
+  { id: 'v3c2', col: ['v3c', 'i8'], uses: ['sit', 'act'], need: (C, i) => C.sit[i] === 0 && C.act[i] >= 2 && C.v3c[i] >= 0, calc: (rec, s) => TB.tbetOf(rec, s).v3c },
+  // 0.7.43: v3a — «олл-ин» эффективно: явный пуш, весь стек 3-бетящего или ставка, покрывающая стек открывающего и коллеров открытия — пересчёт
+  { id: 'v3a2', col: ['v3a', 'i8'], uses: ['sit', 'act'], need: (C, i) => C.sit[i] === 0 && C.act[i] >= 2 && C.v3a[i] >= 0, calc: (rec, s) => TB.tbetOf(rec, s).v3a }
 ];
 // обновления формата (после досчёта колонок): двоичный реплеер и сжатые колонки (0.7)
 const FORMAT_IDS = ['rpbin', 'colz', 'names', 'dedup']; // names (0.7.2) — ники за столом; dedup (0.7.8) — копии раздач из разных выгрузок убираются
