@@ -4704,7 +4704,7 @@ function renderCC(idx) {
 }
 
 // ---------- 3-бет (как в Hand2Note: позиции MP / HJ / CO / BTN / SB / BB, сквиз — отдельно) ----------
-let TB_VS = 'all', TB_SZPOS = 'TOT', TB_XPOS = 'IP';
+let TB_SZPOS = 'TOT', TB_XPOS = 'IP';
 const TB_POS = ['MP', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
 const tbItem = (r, p, title) => { const z = r.hands[p]; return { p, anyPos: true, key: 'tb ' + p, title: title || 'Ваш 3-бет' + (p === 'TOT' ? ' (все позиции)' : ' с ' + p), o: { n: z.n, sum: z.sum, es: z.es }, mx: z.mx, ids: z.ids, sit: 2, vlab: ' BB за 3-бет', nlab: ' 3-бетов' }; };
 function hoverHands(td, it, v) {
@@ -4754,23 +4754,23 @@ function tbTable(r) {
   return card;
 }
 // #5 — позиция против позиции: все 3-беты / без олл-инов / олл-ин
-function tbVsBlock(r) {
+function tbVsBlock(r, ty) {
   const card = el('div', 'insight cc-table');
   const heroPos = TB_POS.filter(p => r.tb[p].n >= SMALL);
   const opCols = ['EP', 'MP', 'HJ', 'CO', 'BTN', 'SB'].filter(op => heroPos.some(p => r.vs[p] && r.vs[p][op] && r.vs[p][op].n >= SMALL));
   const body = el('div');
-  card.append(numTag(5), el('span', 'k', '3-бет: позиция против позиции'), el('span', 's', 'строки — ваша позиция, колонки — позиция открывающего'),
-    segBtns([['all', 'Все 3-беты'], ['nai', 'Без олл-инов'], ['ai', 'Только олл-ин']], TB_VS, (k) => { TB_VS = k; draw(); }), body,
-    infoNote('«Все 3-беты» — доля 3-бетов вместе с олл-инами, «Без олл-инов» — только 3-беты не олл-ином, «Только олл-ин» — 3-беты олл-ином. Пустые ячейки (--) — ситуация невозможна: открывающий ходит раньше вас. Наведите на ячейку — покажется матрица рук, которыми вы 3-бетили, и их итог; клик закрепит окно, клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше ' + SMALL + ' раздач.'));
+  card.append(numTag(5), el('span', 'k', '3-бет: позиция против позиции'), el('span', 's', 'строки — ваша позиция, колонки — позиция открывающего; тип 3-бета — фильтром в шапке раздела'), body,
+    infoNote('В ячейке — доля 3-бетов от раздач, где перед вами было одно открытие (тип 3-бета — фильтром в шапке раздела). Пустые ячейки (--) — ситуация невозможна: открывающий ходит раньше вас. Наведите на ячейку — покажется матрица рук, которыми вы 3-бетили, и их итог; клик закрепит окно, клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше ' + SMALL + ' раздач.'));
   function draw() {
-    const rows = heroPos.map(p => { const d = {}; opCols.forEach(op => { const z = r.vs[p] && r.vs[p][op]; if (z) d[op] = TB_VS === 'all' ? z : sub(z, TB_VS); }); return { key: p, label: p, data: d }; });
+    const rows = heroPos.map(p => { const d = {}; opCols.forEach(op => { const z = r.vs[p] && r.vs[p][op]; if (z) d[op] = z; }); return { key: p, label: p, data: d }; });
     const tbl = heatTable({ cols: opCols, rows, noTot: true });
-    // наведение на ячейку — матрица рук этих 3-бетов и итог (как #3), под выбранный тип
+    // наведение на ячейку — матрица рук этих 3-бетов и итог (как #3), под тип 3-бета из шапки
+    const hp = ty === 'nai' ? 'hN' : ty === 'ai' ? 'hI' : 'hA';
     tbl.querySelectorAll('td.c').forEach(td => {
       const p = td.dataset.row, op = td.dataset.col, z = r.vs[p] && r.vs[p][op];
-      const h = z && (TB_VS === 'nai' ? z.hN : TB_VS === 'ai' ? z.hI : z.hA);
+      const h = z && z[hp];
       if (!h || !h.n) return;
-      const it = { p, anyPos: true, key: 'tbvs' + p + op + TB_VS, title: 'Ваш 3-бет с ' + p + ' против ' + op, o: { n: h.n, sum: h.sum, es: h.es }, mx: h.mx, ids: h.ids, sit: 2, vlab: ' BB за 3-бет', nlab: ' 3-бетов' };
+      const it = { p, anyPos: true, key: 'tbvs' + p + op + (ty || 'all'), title: 'Ваш 3-бет с ' + p + ' против ' + op, o: { n: h.n, sum: h.sum, es: h.es }, mx: h.mx, ids: h.ids, sit: 2, vlab: ' BB за 3-бет', nlab: ' 3-бетов' };
       hoverHands(td, it, h.sum / 10 / h.n);
     });
     body.replaceChildren(tbl);
@@ -4971,7 +4971,7 @@ function renderTB(idx) {
   c2.classList.add('wide');
   const zone = el('div', 'summary'); const pair = el('div', 'sum-pair'); pair.append(c1, c2); zone.append(pair);
   const rG = flt ? Object.assign({}, r, { hands: H2 }) : r; // #4 — тоже по типу 3-бета из шапки
-  zone.append(tbOppBlock(r6), tbTable(r), tbVsBlock(r57), ccGroupBlock(rG, { cols: TB_POS, tag: 4, title: 'Результат 3-бета по группам рук', sub: 'BB за 3-бет: всего и по группам рук, факт / EV', name: '3-бет', nameOf: (p) => 'Ваш 3-бет с ' + p, verb: 'не 3-бетили', act: undefined, vlab: ' BB за 3-бет', nlab: ' 3-бетов', none: 'Нет 3-бетов в выборке.', key: 'tbg', p: false,
+  zone.append(tbOppBlock(r6), tbTable(r), tbVsBlock(r57, T57.ty), ccGroupBlock(rG, { cols: TB_POS, tag: 4, title: 'Результат 3-бета по группам рук', sub: 'BB за 3-бет: всего и по группам рук, факт / EV', name: '3-бет', nameOf: (p) => 'Ваш 3-бет с ' + p, verb: 'не 3-бетили', act: undefined, vlab: ' BB за 3-бет', nlab: ' 3-бетов', none: 'Нет 3-бетов в выборке.', key: 'tbg', p: false,
       note: 'В ячейке — результат 3-бета группой рук с этой позиции в BB (вместе с олл-инами): сверху факт, под ним EV, справа мелко — число 3-бетов. Цвет — плюс или минус. Наведите — матрица рук группы и их итог; клик закрепит окно, клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше 30 раздач.' }),
     tbSizeBlock(r57), tbSplitBlock(r), tbXBlock(r), tbOstkBlock(r57), tbIsoBlock(r)); // порядок: 6 после ряда 1–2, 5 за 3, 7.1 после 9.1; 5, 7 и 7.1 — стек + тип раздела, 6 — без них; #8 удалена (0.7.25), #10 — (0.7.27)
   page.append(zone);
