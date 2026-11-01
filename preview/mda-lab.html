@@ -3084,7 +3084,7 @@ function hoverMuted(e) { if (!HMUTE || !e || e.clientX == null) return false; if
 window.hoverMuted = hoverMuted;
 let mxTip = null;
 function showMxTip(info, e) {
-  if (hoverMuted(e)) return;
+  if (hoverMuted(e) || SZMX_PIN || document.querySelector('.hand-pop.pinned')) return; // закреплённое окно открыто — подсказки не наслаиваются
   if (!mxTip) { mxTip = el('div', 'mx-tip'); mxTip.setAttribute('role', 'tooltip'); document.body.append(mxTip); }
   mxTip.replaceChildren();
   const h = el('div', 'mt-h'); h.append(el('b', null, info.name), el('span', null, info.n ? info.n + ' раз' : 'не было'));
@@ -3329,7 +3329,7 @@ function handGroup(k) {
 // всплывающее окно над ячейкой 3.4: какие руки входят в группу и их результат с позиции
 let groupTip = null;
 function showGroupTip(pos, label, k, z, hands, e, verb) {
-  if (hoverMuted(e)) return;
+  if (hoverMuted(e) || SZMX_PIN || document.querySelector('.hand-pop.pinned')) return; // закреплённое окно открыто — подсказки не наслаиваются
   if (!groupTip) { groupTip = el('div', 'gt'); groupTip.setAttribute('role', 'tooltip'); document.body.append(groupTip); }
   groupTip.replaceChildren();
   const h = el('div', 'gt-h'); h.append(el('b', null, pos + ' · ' + label));
@@ -3663,7 +3663,7 @@ function respTiles(resp, title, labels) {
 // всплывающее окно над клеткой 4.1: диапазон пуша — какие руки и как часто вы пушили
 let pushTip = null;
 function showPushTip(lab, z, f, w, e, we) {
-  if (hoverMuted(e)) return;
+  if (hoverMuted(e) || SZMX_PIN || document.querySelector('.hand-pop.pinned')) return; // закреплённое окно открыто — подсказки не наслаиваются
   if (!pushTip) { pushTip = el('div', 'gt'); pushTip.setAttribute('role', 'tooltip'); document.body.append(pushTip); }
   pushTip.replaceChildren();
   const h = el('div', 'gt-h'); h.append(el('b', null, lab));
@@ -3766,7 +3766,7 @@ function renderShovePanel(idx, stackBars) {
 // ---------- #5 / #5+ — изоляция лимперов ----------
 const ISO_POS = ['MP', 'HJ', 'CO', 'BTN', 'SB', 'BB']; // индекс = позиция − 1; HJ не показывается
 function isoData(idx, ot) {
-  const c = DB.cols, EV = EVcol(), cell = () => ({ o: 0, x: 0, sum: 0, es: 0, n: 0, f: 0, fn: 0, rmx: null, rids: null });
+  const c = DB.cols, EV = EVcol(), cell = () => ({ o: 0, x: 0, sum: 0, es: 0, n: 0, f: 0, fn: 0, rmx: null, rids: null, vmx: null, ids: null });
   const M = [ISO_POS.map(cell), ISO_POS.map(cell)], tot = [cell(), cell()], resp = [0, 0, 0], respL = [[0, 0, 0], [0, 0, 0]], szx = [{}, {}];
   for (const i of idx) {
     const p = c.pos[i]; if (c.sit[i] !== 1 || p < 1) continue;
@@ -3774,10 +3774,12 @@ function isoData(idx, ot) {
     const bvb = c.bvb ? c.bvb[i] === 1 : false, raised = ot === 'nai' ? c.act[i] === 2 : ot === 'ai' ? c.act[i] === 3 : c.act[i] >= 2;
     t.o++; if (raised) t.x++;
     z.o++; if (raised) z.x++; // как в Hand2Note: в BB считается и лимп SB
-    // окно «Диапазон» (как #7): все ответы по рукам — изолейт (олл-ин отдельно), колл, фолд
+    // окно «Диапазон» (как #7): все ответы по рукам — изолейт (олл-ин отдельно), колл, фолд; vmx/ids — только изолейты («Факт/EV» и раздачи)
     const hc = c.hc ? c.hc[i] : -1;
     if (hc >= 0) { if (!z.rmx) { z.rmx = Array.from({ length: 169 }, () => ({ n: 0, x: 0, ai: 0, lp: 0, sum: 0, es: 0 })); z.rids = []; } const m = z.rmx[hc]; m.n++; if (c.net) { m.sum += c.net[i]; m.es += EV[i]; } z.rids.push(i); if (raised) { m.x++; if (c.act[i] === 3) m.ai++; } else if (c.act[i] === 1) m.lp++; }
     if (!raised) continue;
+    (z.ids || (z.ids = [])).push(i);
+    if (hc >= 0) { if (!z.vmx) z.vmx = Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })); const vv = z.vmx[hc]; vv.n++; if (c.net) { vv.sum += c.net[i]; vv.es += EV[i]; } }
     if (c.orsp && c.orsp[i] >= 0) { resp[c.orsp[i]]++; respL[r][c.orsp[i]]++; }
     if (c.act[i] === 2 && c.bb[i] / 10 - c.size[i] / 100 >= 0.5) { // сайзинг изолейта с точностью до 0.5 BB, без олл-инов
       const key = String(Math.round(c.size[i] / 50) / 2);
@@ -3879,8 +3881,8 @@ function isoPanel(d) {
       if (z.o < 20) c.classList.add('low');
       const title = nm + ', vs ' + lab + ' лимпер' + (r ? 'а' : '');
       if (z.rmx) {
-        // окно «Диапазон» (как #7): изолейт (олл-ин — синим), колл, фолд; клик — закрепить, в окне «Факт, BB» / «EV, BB», клик по руке — раздачи и реплеер
-        const zz = { n: z.o, rmx: z.rmx, rids: z.rids, labels: ['изолейт', 'олл-ин', 'колл', 'фолд'] };
+        // окно «Диапазон» (как #7): изолейт (олл-ин — синим), колл, фолд; «Факт/EV» и раздачи — только изолейты, в «Диапазоне» нажимаются только руки с изолейтом
+        const zz = { n: z.o, rmx: z.rmx, vmx: z.vmx || null, rids: z.ids || z.rids, labels: ['изолейт', 'олл-ин', 'колл', 'фолд'] };
         const wt = title + ' · изолейт ' + fmtPct(f) + '%';
         c.tabIndex = 0; c.setAttribute('role', 'button'); c.setAttribute('aria-label', title + ': показать руки и раздачи'); c.classList.add('click');
         c.addEventListener('mouseenter', (ev) => showSzMx(wt, zz, c, ev));
@@ -3892,7 +3894,7 @@ function isoPanel(d) {
       tb.append(c);
     });
   });
-  card.append(tb, infoNote('В клетке: частота изолейта (как часто вы рейзите, когда перед вами лимпили), и винрейт за изолейт в BB. Чем ярче клетка, тем чаще изолейт; бледные — меньше 20 возможностей. Наведите на клетку — покажутся руки, клик закрепит окно, клик по руке откроет раздачи и реплеер.'), isoSizing(d));
+  card.append(tb, infoNote('В клетке: частота изолейта (как часто вы рейзите, когда перед вами лимпили), и винрейт за изолейт в BB. Чем ярче клетка, тем чаще изолейт; бледные — меньше 20 возможностей. Наведите на клетку — матрица ответов; клик закрепит окно: «Диапазон» — все ответы (нажимаются только руки с изолейтом), «Факт, BB» и «EV, BB» — итоги изолейтов, клик по руке — только раздачи с изолейтом.'), isoSizing(d));
   return card;
 }
 
@@ -4181,27 +4183,10 @@ function placeSzMx(row, e) {
   m.style.left = x + 'px'; m.style.top = y + 'px';
 }
 function showSzMx(title, z, row, e) { if (SZMX_PIN || document.querySelector('.hand-pop.pinned') || hoverMuted(e)) return; drawSzMx(title, z, false); placeSzMx(row, e); }
-// закреплённое окно — в месте нажатия: чуть ниже и правее курсора; не влезает — сверху или слева; всегда в пределах экрана
-function placePopAtClick(el, e) {
-  const w = el.offsetWidth, h = el.offsetHeight, vw = window.innerWidth, vh = window.innerHeight;
-  const cx = e && e.clientX != null ? e.clientX : vw - 24, cy = e && e.clientY != null ? e.clientY : 24;
-  let x = cx + 16, y = cy + 14;
-  if (x + w > vw - 8) x = cx - w - 16;
-  if (y + h > vh - 8) y = cy - h - 14;
-  el.style.left = Math.max(8, Math.min(x, vw - w - 8)) + 'px';
-  el.style.top = Math.max(8, Math.min(y, vh - h - 8)) + 'px';
-}
 function pinSzMx(title, z, row, e) {
   if (SZMX_PIN && SZMX_PIN.row === row) { unpinSzMx(); return; }
-  // окно остаётся там, где высветилось при наведении; без наведения — в месте нажатия
-  const keep = szMx && !szMx.hidden ? { left: szMx.style.left, top: szMx.style.top } : null;
   SZMX_PIN = { row }; SZMX_SEL = null; SZMX_PART = 'all'; drawSzMx(title, z, true);
-  if (keep) {
-    const w = szMx.offsetWidth, h = szMx.offsetHeight, vw = window.innerWidth, vh = window.innerHeight;
-    szMx.style.left = Math.max(8, Math.min(parseFloat(keep.left) || 8, vw - w - 8)) + 'px';
-    szMx.style.top = Math.max(8, Math.min(parseFloat(keep.top) || 8, vh - h - 8)) + 'px';
-  } else if (e && e.clientX != null) placePopAtClick(szMx, e);
-  else placeSzMx(row, e);
+  placeSzMx(row, e); // тот же якорь, что при наведении: окно центрировано на курсоре и не смещается
   syncScrollLock();
 }
 function unpinSzMx() { SZMX_PIN = null; SZMX_SEL = null; if (SZMX_LIST) { SZMX_LIST.stop(); SZMX_LIST = null; } if (szMx) { szMx.hidden = true; szMx.classList.remove('with-list'); } syncScrollLock(); }
@@ -4213,7 +4198,7 @@ function ccSizeBlock(r) {
   const posList = ['TOT'].concat(r.CC_COLS.slice(1).filter(p => r.cc[p].n >= SMALL));
   const body = el('div');
   card.append(segBtns(posList.map(p => [p, p === 'TOT' ? 'Все без BB' : p]), CC_SZPOS, (k) => { CC_SZPOS = k; draw(); }), body,
-    infoNote('Размер — до скольких BB открыл соперник. Доля — какая часть всех открытий перед вами была такого размера. Колл / 3-бет / Фолд — ваш ответ. Винрейт — средний итог раздачи после вашего колла. Бледные строки — меньше 30 раздач.'));
+    infoNote('Размер — до скольких BB открыл соперник. Доля — какая часть всех открытий перед вами была такого размера. Колл / 3-бет / Фолд — ваш ответ. Винрейт — средний итог раздачи после вашего колла. Наведите на строку — матрица ответов; клик закрепит окно: «Диапазон» — все ответы, «Факт, BB» и «EV, BB» — итоги ваших коллов, клик по руке — только раздачи с коллом. Бледные строки — меньше 30 раздач.'));
   function draw() {
     const rows = r.sz[CC_SZPOS] || [], tot = rows.reduce((a, z) => a + z.n, 0);
     const t = el('div', 'sz5-t cc-sz');
@@ -4226,14 +4211,15 @@ function ccSizeBlock(r) {
       const v = (txt, col) => { const e = el('span', 'sz5-v', txt); e.style.color = col; return e; };
       row.append(el('b', null, r.CC_SZ[k][0]), el('span', 'sz5-sh', fmtPct(share) + '%'), v(pc(z.call), 'var(--ice)'), v(pc(z.rz), 'var(--bad)'), v(pc(z.fold), 'var(--good)'),
         wrNode('sz5-v', wr, we, 2), el('small', null, z.n.toLocaleString('ru-RU') + ' раз'), tk);
-      // наведение на строку — матрица рук: колл / 3-бет / олл-ин / фолд против этого размера
+      // наведение на строку — матрица рук: колл / 3-бет / олл-ин / фолд против этого размера; «Факт/EV» и раздачи — только коллы
       if (z.rmx) {
         const title = (CC_SZPOS === 'TOT' ? 'Вы на всех позициях без BB' : 'Вы на ' + CC_SZPOS) + ' · перед вами открытие ' + r.CC_SZ[k][0];
+        const zz = Object.assign({}, z, { vmx: z.mx || null, rids: z.ids || z.rids });
         row.classList.add('has-mx'); row.tabIndex = 0;
-        row.addEventListener('mouseenter', (e) => showSzMx(title, z, row, e)); row.addEventListener('mousemove', (e) => { if (!SZMX_PIN && szMx && !szMx.hidden) placeSzMx(row, e); }); row.addEventListener('mouseleave', hideSzMx);
-        row.addEventListener('focus', () => showSzMx(title, z, row)); row.addEventListener('blur', hideSzMx);
-        row.addEventListener('click', (e) => pinSzMx(title, z, row, e));
-        row.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pinSzMx(title, z, row); } });
+        row.addEventListener('mouseenter', (e) => showSzMx(title, zz, row, e)); row.addEventListener('mousemove', (e) => { if (!SZMX_PIN && szMx && !szMx.hidden) placeSzMx(row, e); }); row.addEventListener('mouseleave', hideSzMx);
+        row.addEventListener('focus', () => showSzMx(title, zz, row)); row.addEventListener('blur', hideSzMx);
+        row.addEventListener('click', (e) => pinSzMx(title, zz, row, e));
+        row.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pinSzMx(title, zz, row); } });
       }
       t.append(row);
     });
@@ -6199,15 +6185,11 @@ function showHandPop(it, v, ev, anchor) {
 }
 
 function pinHandPop(it, v, ev, anchor) {
-  // окно остаётся там, где высветилось при наведении (или где было закреплено); без наведения — в месте нажатия
-  const was = handPop && !handPop.hidden ? { left: handPop.style.left, top: handPop.style.top } : null;
   pinned = { pos: it.key || it.p };
   popEl()._selK = null; POP_MODE = 'net'; // каждое новое закрепление — сначала фактический результат
   const pop = buildPop(it, v, true);
   pop.hidden = false;
-  if (was) { pop.style.left = was.left; pop.style.top = was.top; }
-  else if (ev && ev.clientX != null) placePopAtClick(pop, ev);
-  else placeNear(pop, ev, anchor);
+  placeNear(pop, ev, anchor); // тот же якорь, что при наведении: окно центрировано на курсоре и не смещается
   clampPop(pop);
   syncScrollLock();
 }
