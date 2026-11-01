@@ -2405,6 +2405,9 @@ window.mdaBusy = (on, text) => {
 let RS_F = 0, LASTBTN = null, RENDER_TAB = null, HSTD = {};
 document.addEventListener('click', (e) => { LASTBTN = e.target && e.target.closest ? e.target.closest('button') : null; }, true);
 function renderNext() {
+  // перерисовка под новые фильтры: висящие окна, списки и реплеер со старой выборкой закрываются —
+  // иначе открытая старая раздача выглядит частью новой фильтрации
+  try { if (typeof closeReplayer === 'function') closeReplayer(); if (typeof unpin === 'function') unpin(); if (typeof unpinSzMx === 'function') unpinSzMx(); } catch (e) { /* окна ещё не созданы */ }
   const b = LASTBTN; LASTBTN = null;
   if (b && b.isConnected && b.parentElement) {
     const sib = [...b.parentElement.children].filter(x => x !== b && x.tagName === 'BUTTON' && (x.classList.contains('on') || x.classList.contains('active')));
