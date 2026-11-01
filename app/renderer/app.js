@@ -2099,6 +2099,34 @@ function tbSizeBlock(r) {
   return card;
 }
 // #8 «3-бет по вашему стеку» удалена по просьбе (0.7.25)
+// #7.1 — 3-бет против стека открывающего: готовые корзины (короткий / средний / глубокий)
+let TB_OSTKPOS = 'TOT';
+function tbOstkBlock(r) {
+  const card = el('div', 'insight cc-table');
+  card.append(numTag('7.1'), el('b', 'pm-title', 'Против стека открывающего'), el('span', 'sm-s', 'как часто вы 3-бетите против короткого, среднего и глубокого открывающего и что это приносит'));
+  const posList = ['TOT'].concat(TB_POS.filter(p => r.tb[p].n >= SMALL));
+  const body = el('div');
+  card.append(segBtns(posList.map(p => [p, p === 'TOT' ? 'Все' : p]), TB_OSTKPOS, (k) => { TB_OSTKPOS = k; draw(); }), body,
+    infoNote('Стек — стек открывающего в начале раздачи, BB: короткий до 20, средний 20–40, глубокий 40+. «Случаев» — сколько раз перед вами было одно открытие (не олл-ином) без лимперов и коллеров. 3-бет и Олл-ин — ваш ответ от этих случаев. Результат — средний итог раздачи после 3-бета (вместе с олл-инами), факт / EV. Бледные строки — меньше 30 раздач.'));
+  function draw() {
+    const rows = r.ostk[TB_OSTKPOS] || [], tot = rows.reduce((a, z) => a + z.n, 0);
+    const t = el('div', 'sz5-t tb-sz');
+    const hd = el('div', 'sz5-r sz5-h'); ['Стек открывающего', 'Случаев', '3-бет', 'Олл-ин', 'Результат 3-бета, BB / EV'].forEach(x => hd.append(el('span', null, x))); t.append(hd);
+    rows.forEach((z, k) => {
+      if (!z.n) return;
+      const row = el('div', 'sz5-r'); if (z.n < 30) row.classList.add('low');
+      const pc = (v) => fmtPct(v / z.n) + '%', wr = z.sn ? z.sum / 10 / z.sn : null, we = z.sn ? z.es / 10 / z.sn : null;
+      const v = (txt, col) => { const e = el('span', 'sz5-v', txt); e.style.color = col; return e; };
+      const share = tot ? z.n / tot : 0, tk = el('span', 'sz5-tk'); const tr = el('i'); tr.style.width = Math.max(1, share * 100) + '%'; tk.append(tr);
+      row.append(el('b', null, r.TB_OSTK[k]), el('span', 'sz5-sh', z.n.toLocaleString('ru-RU')), v(pc(z.x), 'var(--bad)'), v(pc(z.ai), 'var(--ice)'),
+        wrNode('sz5-v', wr, we, 2), el('small', null, z.sn.toLocaleString('ru-RU') + ' 3-бетов'), tk);
+      t.append(row);
+    });
+    body.replaceChildren(tot ? t : el('p', 'muted small', 'Нет открытий в выборке.'));
+  }
+  draw();
+  return card;
+}
 // #9 — «Split» как в Hand2Note: частота 3-бета не олл-ином каждого размера (в разах от открытия) и фолд на 4-бет после него
 function tbSplitBlock(r) {
   const card = el('div', 'insight cc-table');
@@ -2194,6 +2222,7 @@ function renderTB(idx) {
     const pick = T57.ty === 'ai' ? 'ai' : 'nai';
     r57.vs = Object.fromEntries(Object.entries(r.vs).map(([p, row]) => [p, Object.fromEntries(Object.entries(row).map(([op, z]) => [op, Object.assign({}, z, { x: z[pick] })]))]));
     r57.sz = Object.fromEntries(Object.entries(r.sz).map(([p, arr]) => [p, arr.map(z => z ? Object.assign({}, z, { rz: pick === 'ai' ? z.ai : z.rz - z.ai }) : z)]));
+    r57.ostk = Object.fromEntries(Object.entries(r.ostk).map(([p, arr]) => [p, arr.map(z => Object.assign({}, z, { x: pick === 'ai' ? z.ai : z.x - z.ai }))]));
   }
   const page = el('div', 'page');
   const head = el('div', 'page-head');
@@ -2223,7 +2252,7 @@ function renderTB(idx) {
   zone.append(tbTable(r),
     ccGroupBlock(rG, { cols: TB_POS, tag: 4, title: 'Результат 3-бета по группам рук', sub: 'BB за 3-бет: всего и по группам рук, факт / EV', name: '3-бет', nameOf: (p) => 'Ваш 3-бет с ' + p, verb: 'не 3-бетили', act: undefined, vlab: ' BB за 3-бет', nlab: ' 3-бетов', none: 'Нет 3-бетов в выборке.', key: 'tbg', p: false,
       note: 'В ячейке — результат 3-бета группой рук с этой позиции в BB (вместе с олл-инами): сверху факт, под ним EV, справа мелко — число 3-бетов. Цвет — плюс или минус. Наведите — матрица рук группы и их итог; клик закрепит окно, клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше 30 раздач.' }),
-    tbVsBlock(r57), tbOppBlock(r6), tbSizeBlock(r57), tbSplitBlock(r), tbXBlock(r), tbIsoBlock(r)); // 5 и 7 — стек + тип раздела; 6 — без них; #8 удалена (0.7.25), #10 «Ответ на 4-бет» удалена (0.7.27 — то же есть строками в #3 и колонкой в #9.1)
+    tbVsBlock(r57), tbOppBlock(r6), tbSizeBlock(r57), tbOstkBlock(r57), tbSplitBlock(r), tbXBlock(r), tbIsoBlock(r)); // 5, 7 и 7.1 — стек + тип раздела; 6 — без них; #8 удалена (0.7.25), #10 «Ответ на 4-бет» удалена (0.7.27 — то же есть строками в #3 и колонкой в #9.1)
   page.append(zone);
   return page;
 }

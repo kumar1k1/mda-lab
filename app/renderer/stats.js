@@ -255,6 +255,7 @@
   const FP = ['EP', 'MP', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
   const TB_COLS = ['TOT', 'MP', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
   const TB_STK = [['< 15 BB', 0, 15], ['15–25 BB', 15, 25], ['25–40 BB', 25, 40], ['40+ BB', 40, 1e9]];
+  const TB_OSTK = [['до 20 BB', 0, 20], ['20–40 BB', 20, 40], ['40+ BB', 40, 1e9]]; // корзины стека открывающего (#7.1)
   // размер 3-бета в разах от открытия — как «Split» в Hand2Note: до ближайших 0,5 (×2 … ×5, дальше ×5+); олл-ин — отдельно
   const TB_X = [['×2'], ['×2,5'], ['×3'], ['×3,5'], ['×4'], ['×4,5'], ['×5'], ['×5+'], ['олл-ин']];
   const xIdx = (ratio) => Math.min(7, Math.max(0, Math.round(ratio * 2) - 4));
@@ -265,14 +266,14 @@
     const tbc = () => ({ n: 0, x: 0, nai: 0, ai: 0 });
     const hset = () => ({ n: 0, sum: 0, es: 0, ids: [], mx: Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })) });
     const szCell = () => ({ n: 0, call: 0, rz: 0, ai: 0, fold: 0, sum: 0, es: 0, sn: 0, ids: [], rids: [], rmx: null });
-    out.opF = {}; out.tb = {}; out.hands = {}; out.handsN = {}; out.handsA = {}; out.f4mx = {}; out.f5mx = {}; out.f4cmx = {}; out.f5cmx = {}; out.f4c = {}; out.t3mx = {}; out.iso = {}; out.isoF = {}; out.f4 = {}; out.t3r = {}; out.sz = {}; out.stk = {}; out.x = {};
+    out.opF = {}; out.tb = {}; out.hands = {}; out.handsN = {}; out.handsA = {}; out.f4mx = {}; out.f5mx = {}; out.f4cmx = {}; out.f5cmx = {}; out.f4c = {}; out.t3mx = {}; out.iso = {}; out.isoF = {}; out.f4 = {}; out.t3r = {}; out.sz = {}; out.stk = {}; out.ostk = {}; out.x = {};
     const rset = (sub) => { const z = { n: 0, rids: [], rmx: Array.from({ length: 169 }, () => ({ n: 0, x: 0, ai: 0, lp: 0, sum: 0, es: 0 })) }; if (sub) z.parts = { rz: rset(), call: rset(), fold: rset() }; return z; }; // parts — раздачи по вашему ответу (для вкладок окна)
-    TB_COLS.forEach(k => { out.tb[k] = tbc(); out.hands[k] = hset(); out.handsN[k] = hset(); out.handsA[k] = hset(); out.f4mx[k] = rset(true); out.f5mx[k] = rset(true); out.f4cmx[k] = rset(true); out.f5cmx[k] = rset(true); out.f4c[k] = { n: 0, fold: 0, call: 0, rz: 0, n5: 0, x5: 0 }; out.t3mx[k] = rset(); out.iso[k] = { n: 0, x: 0 }; out.isoF[k] = { n: 0, x: 0 }; out.f4[k] = { n: 0, fold: 0, call: 0, rz: 0, n5: 0, x5: 0 }; out.t3r[k] = [0, 0, 0, 0]; out.opF[k] = { n: 0, x: 0 }; out.sz[k] = CC_SZ.map(szCell); out.stk[k] = TB_STK.map(tbc); out.x[k] = TB_X.map(() => ({ n: 0, r: [0, 0, 0, 0], rn: 0, sum: 0, es: 0, ids: [] })); });
+    TB_COLS.forEach(k => { out.tb[k] = tbc(); out.hands[k] = hset(); out.handsN[k] = hset(); out.handsA[k] = hset(); out.f4mx[k] = rset(true); out.f5mx[k] = rset(true); out.f4cmx[k] = rset(true); out.f5cmx[k] = rset(true); out.f4c[k] = { n: 0, fold: 0, call: 0, rz: 0, n5: 0, x5: 0 }; out.t3mx[k] = rset(); out.iso[k] = { n: 0, x: 0 }; out.isoF[k] = { n: 0, x: 0 }; out.f4[k] = { n: 0, fold: 0, call: 0, rz: 0, n5: 0, x5: 0 }; out.t3r[k] = [0, 0, 0, 0]; out.opF[k] = { n: 0, x: 0 }; out.sz[k] = CC_SZ.map(szCell); out.stk[k] = TB_STK.map(tbc); out.ostk[k] = TB_OSTK.map(() => ({ n: 0, x: 0, ai: 0, sum: 0, es: 0, sn: 0 })); out.x[k] = TB_X.map(() => ({ n: 0, r: [0, 0, 0, 0], rn: 0, sum: 0, es: 0, ids: [] })); });
     out.vs = {}; out.vs4 = {}; out.resp = [0, 0, 0];
     // размер 3-бета по группам: в позиции (MP–BTN), SB, BB; со сбросом на 4-бет
     out.xg = {}; out.split = {}; ['TOT', 'IP', 'SB', 'BB'].forEach(g => { out.xg[g] = TB_X.map(() => ({ n: 0, r: [0, 0, 0, 0], rn: 0, sum: 0, es: 0, ids: [], f4n: 0, f4f: 0 })); out.split[g] = { n: 0, x: 0, fn: 0, ff: 0, b: Array.from({ length: 8 }, () => ({ x: 0, fn: 0, ff: 0 })) }; }); out.fineOk = 0; out.fineAll = 0;
     out.mxO = Array.from({ length: 169 }, () => ({ n: 0, x: 0, ai: 0, lp: 0 }));
-    const R = { TB_COLS, TB_STK: TB_STK.map(z => z[0]), TB_X: TB_X.map(z => z[0]), CC_SZ };
+    const R = { TB_COLS, TB_STK: TB_STK.map(z => z[0]), TB_OSTK: TB_OSTK.map(z => z[0]), TB_X: TB_X.map(z => z[0]), CC_SZ };
     if (!c.rz) return Object.assign(out, R);
     const fine = has('fp'), POSF = (p) => (p === 0 ? 'EP' : p === 1 || p === 2 ? 'MP' : POS[p]); // без колонок fp — грубые позиции базы
     for (const i of idx) {
@@ -305,6 +306,8 @@
             if (c.hc[i] >= 0) { if (!q.rmx) q.rmx = Array.from({ length: 169 }, () => ({ n: 0, x: 0, ai: 0, lp: 0, sum: 0, es: 0 })); const m = q.rmx[c.hc[i]]; m.n++; m.sum += v0; m.es += e0; q.rids.push(i); if (a === 1) m.lp++; else if (r3) { m.x++; if (a === 3) m.ai++; } }
           }
         }
+        // #7.1 — корзины стека открывающего: возможности, 3-беты (все/олл-ином) и их результат
+        if (c.ostk[i] >= 0) { const ok = c.ostk[i] / 10 < 20 ? 0 : c.ostk[i] / 10 < 40 ? 1 : 2, q = out.ostk[k][ok]; q.n++; if (r3) { q.x++; if (a === 3) q.ai++; q.sum += v0; q.es += e0; q.sn++; } }
         if (r3) {
           if (c.hc[i] >= 0) for (const h of [out.hands[k], a === 3 ? out.handsA[k] : out.handsN[k]]) { const m = h.mx[c.hc[i]]; h.n++; h.sum += v0; h.es += e0; h.ids.push(i); m.n++; m.sum += v0; m.es += e0; }
           // матрицы для наведения: ответ соперников на 3-бет (x — сбросили или 4-бет, из них ai — 4-бет, lp — колл) и ваш ход против 4-бета (x — рейз, lp — колл)
