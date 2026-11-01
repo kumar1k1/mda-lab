@@ -4659,8 +4659,13 @@ function ccTable(r) {
   return w;
 }
 function renderCC(idx) {
+  // стек раздела — по карточкам (как в «Открытии»): карточка 5 со своими диапазонами стеков, без него
+  const sr = secRange('cc'), cb = DB.cols;
+  const idxS = sr ? idx.filter(i => cb.bb[i] >= sr[0] * 10 && cb.bb[i] < sr[1] * 10) : idx;
   const ccStk = uiState.ccStk === 'custom' && uiState.ccCustom ? uiState.ccCustom : (MX_STK.find(z => z[0] === uiState.ccStk) || MX_STK[0])[2];
-  const r = Stats.cc(DB, idx, { mxPos: uiState.ccPos, mxStk: ccStk, oPos: uiState.ccOPos, oStk: uiState.ccOStkR, oMy: uiState.ccOMyR, oOpen: uiState.ccOOpen });
+  const ccOpt = { mxPos: uiState.ccPos, mxStk: ccStk, oPos: uiState.ccOPos, oStk: uiState.ccOStkR, oMy: uiState.ccOMyR, oOpen: uiState.ccOOpen };
+  const r = Stats.cc(DB, idxS, ccOpt);
+  const r5 = sr ? Stats.cc(DB, idx, ccOpt) : r; // #5 — без стека раздела
   const page = el('div', 'page');
   const head = el('div', 'page-head');
   const h1 = el('h1'); h1.append(document.createTextNode('Колд-колл '), el('span', null, 'CC'));
@@ -4687,7 +4692,7 @@ function renderCC(idx) {
   c8.classList.add('wide');
   const zone = el('div', 'summary'); const pair = el('div', 'sum-pair'); pair.append(c1, c8); zone.append(pair);
   c2.classList.add('cc-table');
-  zone.append(c2, ccGroupBlock(r), ccVsTable(r), ccOppBlock(r), ccSizeBlock(r), bbDefendBlock(r), ccAllinBlock(r)); // #9 «Колд-колл × Фолд на контбет» убран по просьбе (функция ccQuadBlock оставлена)
+  zone.append(c2, ccGroupBlock(r), ccVsTable(r), ccOppBlock(r5), ccSizeBlock(r), bbDefendBlock(r), ccAllinBlock(r)); // #5 — без стека раздела; #9 «Колд-колл × Фолд на контбет» убран по просьбе (функция ccQuadBlock оставлена)
   page.append(zone);
   return page;
 }
@@ -4960,8 +4965,8 @@ function renderSoon(tab) {
 
 // ---------- отрисовка ----------
 function currentIdx() {
-  // ваш стек из фильтров раздела: в «Открытии» — только для названных карточек (отбор в renderRFISummary), в остальных разделах — для всех
-  const sr = state.tab === 'rfi' ? null : secRange(state.tab);
+  // ваш стек из фильтров раздела: в «Открытии» и «Колд-колле» — по карточкам (отбор в renderRFISummary / renderCC), в остальных разделах — для всех
+  const sr = state.tab === 'rfi' || state.tab === 'cc' ? null : secRange(state.tab);
   const idx = Stats.selectHands(DB, { aid: DB === HERO_DB && !state.player ? state.alias : null, room: state.room, type: state.type, from: state.from, to: state.to, biFrom: state.biFrom, biTo: state.biTo, tbl: state.sub === 'TOT' ? null : state.sub, minBB: sr ? sr[0] : null, maxBB: sr && sr[1] < 1e8 ? sr[1] : null });
   return idx; // у соперника своя база (DB) — все его раздачи
 }
