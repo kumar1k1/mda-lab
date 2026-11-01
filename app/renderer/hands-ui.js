@@ -123,7 +123,10 @@ function pinHandPop(it, v, ev, anchor) {
   popEl()._selK = null; POP_MODE = 'net'; // каждое новое закрепление — сначала фактический результат
   const pop = buildPop(it, v, true);
   pop.hidden = false;
-  if (was) { pop.style.left = was.left; pop.style.top = was.top; } else placeNear(pop, ev, anchor);
+  // окно — в месте нажатия (чуть ниже-правее курсора); с клавиатуры — на прежнем месте окна
+  if (ev && ev.clientX != null) placePopAtClick(pop, ev);
+  else if (was) { pop.style.left = was.left; pop.style.top = was.top; }
+  else placeNear(pop, ev, anchor);
   clampPop(pop);
   syncScrollLock();
 }
@@ -151,7 +154,8 @@ function enableDrag(pop, handle) {
     if (e.target.closest('button')) return;
     e.preventDefault();
     const r = pop.getBoundingClientRect(); const dx = e.clientX - r.left, dy = e.clientY - r.top;
-    handle.setPointerCapture(e.pointerId); pop.classList.add('dragging');
+    try { handle.setPointerCapture(e.pointerId); } catch (err) { /* захват недоступен — перенос работает и без него */ }
+    pop.classList.add('dragging');
     const move = (m) => { pop.style.left = Math.max(8 - r.width + 80, Math.min(window.innerWidth - 80, m.clientX - dx)) + 'px'; pop.style.top = Math.max(8, Math.min(window.innerHeight - 40, m.clientY - dy)) + 'px'; };
     const up = () => { handle.removeEventListener('pointermove', move); handle.removeEventListener('pointerup', up); pop.classList.remove('dragging'); };
     handle.addEventListener('pointermove', move); handle.addEventListener('pointerup', up);
@@ -327,6 +331,18 @@ async function openIdsList(title, ids, opt) {
   const list = el('div', 'hp-rows il-rows'); list.append(window.mdaLoad ? window.mdaLoad('Загружаю раздачи…') : el('p', 'muted small', 'Загружаю раздачи…'));
   box.append(head, bar, list); bg.append(box); document.body.append(bg);
   syncScrollLock(); // пока список раздач открыт — страница под ним не прокручивается
+  // окно можно передвигать за шапку
+  head.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('button, select, input')) return;
+    e.preventDefault();
+    const r = box.getBoundingClientRect(), dx = e.clientX - r.left, dy = e.clientY - r.top;
+    box.style.position = 'absolute'; box.style.margin = '0'; box.style.left = r.left + 'px'; box.style.top = r.top + 'px';
+    try { head.setPointerCapture(e.pointerId); } catch (err) { /* захват недоступен — перенос работает и без него */ }
+    box.classList.add('dragging');
+    const move = (m) => { box.style.left = Math.max(8 - r.width + 80, Math.min(window.innerWidth - 80, m.clientX - dx)) + 'px'; box.style.top = Math.max(8, Math.min(window.innerHeight - 40, m.clientY - dy)) + 'px'; };
+    const up = () => { head.removeEventListener('pointermove', move); head.removeEventListener('pointerup', up); box.classList.remove('dragging'); };
+    head.addEventListener('pointermove', move); head.addEventListener('pointerup', up);
+  });
   bg.addEventListener('click', (e) => { if (e.target === bg) closeIdsList(); });
   const keys = (e) => { if (e.key === 'Escape' && !RP) closeIdsList(); };
   document.addEventListener('keydown', keys);

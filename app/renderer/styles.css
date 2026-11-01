@@ -1931,3 +1931,7 @@ body.rendering{cursor:progress}
 /* пока открыто закреплённое окно (матрица, список раздач) — страница под ним не прокручивается колесом */
 body.noscroll{overflow:hidden}
 body.noscroll #content{overflow:hidden}
+
+.szmx.pinned .szmx-h{cursor:grab}
+.szmx.dragging .szmx-h, .il.dragging .il-head{cursor:grabbing}
+.il .il-head{cursor:grab}

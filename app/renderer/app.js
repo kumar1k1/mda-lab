@@ -1377,7 +1377,7 @@ function drawSzMx(title, z, pinned) {
   const sel = pinned ? SZMX_SEL : null; m.classList.toggle('with-list', !!sel);
   const left = el('div', 'szmx-l');
   const h = el('div', 'szmx-h'); h.append(el('b', null, title), el('span', null, z.n.toLocaleString('ru-RU') + ' раз'));
-  if (pinned) { const x = el('button', 'szmx-x', '×'); x.type = 'button'; x.title = 'Закрыть'; x.setAttribute('aria-label', 'Закрыть'); x.onclick = unpinSzMx; h.append(x); }
+  if (pinned) { const grip = el('span', 'hp-grip', '⠿'); grip.setAttribute('aria-hidden', 'true'); h.prepend(grip); const x = el('button', 'szmx-x', '×'); x.type = 'button'; x.title = 'Закрыть'; x.setAttribute('aria-label', 'Закрыть'); x.onclick = unpinSzMx; h.append(x); enableDrag(m, h); } // окно можно передвигать за шапку
   m.append(h);
   const mode = pinned ? SZMX_MODE : 'rng';
   // вкладки по вашему ответу (весь диапазон / колл / 5-бет / фолд) — если окно их даёт (z.parts); в каждой — диапазон, факт и EV
