@@ -1189,7 +1189,7 @@ function resHead(card) {
 // для карточек результата этого действия (где тип имеет смысл). Свои для каждого раздела.
 const SECF = {};
 const SEC_TYPES = { rfi: [['all', 'Все открытия'], ['nai', 'Не олл-ин'], ['ai', 'Олл-ин']], cc: null, '3bet': [['all', 'Все 3-беты'], ['nai', 'Не олл-ин'], ['ai', 'Олл-ин']], vs3bet: [['all', 'Все 3-беты'], ['nai', 'Не олл-ин'], ['ai', 'Олл-ин']] };
-const secF = (tab) => SECF[tab] || (SECF[tab] = { S: 'all', C: null, T: 'all', A: [] }); // A — «наше действие» (раздел «Против 3-бета»): список выбранных, пустой = любое
+const secF = (tab) => SECF[tab] || (SECF[tab] = { S: 'all', C: null, T: 'all', A: [], B: 'all' }); // A — «наше действие» (Против 3-бета): список выбранных, пустой = любое; B — «тип банка» там же
 function secRange(tab) { if (!(tab in SEC_TYPES)) return null; const f = secF(tab); return f.S === 'custom' && f.C ? f.C : (RES_STK.find(x => x[0] === f.S) || RES_STK[0])[2]; }
 // тип действия раздела: проверка раздачи и подпись выборки для карточки
 function secType(tab) { const ty = (tab in SEC_TYPES && SEC_TYPES[tab]) ? secF(tab).T : 'all', c = DB.cols; return { ty, flt: ty !== 'all', pass: (i) => ty === 'all' || (ty === 'ai' ? c.act[i] === 3 : c.act[i] === 2) }; }
@@ -1211,6 +1211,8 @@ function drawSecFilters(tab) {
     const mk = (k, t) => { const b = el('button', null, t); b.type = 'button'; b.dataset.k = k; b.title = k === 'all' ? 'Все ответы на 3-бет' : 'Можно выбрать несколько — повторный клик снимает'; b.onclick = () => { if (k === 'all') f.A = []; else { const j = f.A.indexOf(k); if (j >= 0) f.A.splice(j, 1); else f.A.push(k); } sync(); renderNext(); }; return b; };
     seg.append(mk('all', 'Любое'), mk('fold', 'Фолд'), mk('call', 'Колл'), mk('r4', '4-бет'), mk('ai', '4-бет олл-ин')); sync();
     box.append(grp('Наше действие', seg));
+    // тип банка по чужим коллам (под «нашим действием»): 1vs1 / кол 3-бета за спиной / 3-бет-сквиз поверх колла открытия
+    box.append(grp('Тип банка', segBtns([['all', 'Все'], ['hu', '3-бет 1vs1'], ['cc', 'Cold call 3-бет'], ['sq', 'Сквиз пот']], f.B, (k) => { f.B = k; renderNext(); })));
   }
   const cust = f.S === 'custom' ? f.C : null;
   // свой диапазон — под кнопками стека, с тем же левым краем
@@ -2305,7 +2307,11 @@ function renderV3B(idx) {
   const T = secType('vs3bet');
   if (T.flt && cb.v3a) idxS = idxS.filter(i => cb.v3a[i] >= 0 && (T.ty === 'ai' ? cb.v3a[i] === 1 : cb.v3a[i] === 0));
   const AV = { fold: 0, call: 1, r4: 2, ai: 3 };
-  const idxA = idxS; // карточка 1 — без фильтра «наше действие»: частоты ответов всегда по всем
+  const idxA = idxS; // карточка 1 — без «нашего действия» и «типа банка»: частоты ответов всегда по всем
+  // тип банка по чужим коллам: 1vs1 — никто не коллировал ни открытие, ни 3-бет; сквиз — ваше открытие заколлировали до 3-бета;
+  // cold call — сам 3-бет заколлировали за спиной (без колла открытия)
+  const BANK = { hu: i => cb.v3o[i] === 0 && cb.v3c[i] === 0, cc: i => cb.v3c[i] === 1 && cb.v3o[i] === 0, sq: i => cb.v3o[i] === 1 };
+  if (f.B !== 'all' && cb.v3o && cb.v3c) idxS = idxS.filter(BANK[f.B]); // карточки 2–3
   if (f.A.length && cb.v3) idxS = idxS.filter(i => f.A.some(a => cb.v3[i] === AV[a])); // «наше действие» — можно несколько; карточки 2–3
   const rA = Stats.v3b(DB, idxA);
   const r = Stats.v3b(DB, idxS);
@@ -2323,7 +2329,7 @@ function renderV3B(idx) {
     fillBox(posStrip('Фолд по позициям', posRows), respTiles(rA.resp, 'Ваш ответ на 3-бет', [['фолд', 'var(--good)'], ['колл', 'var(--ice)'], ['4-бет', 'var(--bad)']])));
   // #2 — результат вашей реакции на 3-бет по позициям, факт / EV; действия задаёт фильтр «Наше действие» (по умолчанию — все)
   const pos = ['TOT'].concat(r.V3B_POS).filter(p => r.d[p].n >= 1);
-  const items = pos.map(p => { const z = r.d[p]; return { p, anyPos: true, key: 'v3 ' + p + (sr ? ' ' + sr.join('-') : '') + T.ty + f.A.join('+'), title: 'Ваша реакция на 3-бет' + (p === 'TOT' ? ' (все позиции)' : ' с ' + p), o: { n: z.n, sum: z.sum, es: z.es }, mx: z.mx, ids: z.ids, sit: 0, vlab: ' BB за раздачу', nlab: ' раздач' }; }); // sit 0 — герой открылся; act не задаём: раздачи уже отобраны фильтром действия
+  const items = pos.map(p => { const z = r.d[p]; return { p, anyPos: true, key: 'v3 ' + p + (sr ? ' ' + sr.join('-') : '') + T.ty + f.A.join('+') + f.B, title: 'Ваша реакция на 3-бет' + (p === 'TOT' ? ' (все позиции)' : ' с ' + p), o: { n: z.n, sum: z.sum, es: z.es }, mx: z.mx, ids: z.ids, sit: 0, vlab: ' BB за раздачу', nlab: ' раздач' }; }); // sit 0 — герой открылся; act не задаём: раздачи уже отобраны фильтрами банка и действия
   LAST_NET_ITEMS = items;
   const avg = t.n ? t.sum / 10 / t.n : null, avgE = t.n ? t.es / 10 / t.n : null;
   const chartBox = el('div'); chartBox.append(secLabel('vs3bet', t.n, 'раздач'), netChart(items, avg, 'EV реакции на 3-бет'));
