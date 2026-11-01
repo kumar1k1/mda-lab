@@ -357,9 +357,10 @@
     return Object.assign(out, R);
   }
 
-  // «Против 3-бета» (v3B): своё открытие (sit 0), никто не коллировал ни открытие (v3o), ни сам 3-бет (v3c) —
-  // фолд / колл / 4-бет по позициям и результат коллов; отдельно (mw) — раздачи, где 3-бет кто-то заколлил за спиной
-  // v3 — ход на 3-бет (0 фолд, 1 колл, 2 4-бет, 3 4-бет олл-ином), v3a — 3-бет соперника олл-ином (тип и «наше действие» из фильтров раздела отбирают раздачи в app.js)
+  // «Против 3-бета» (v3B): своё открытие (sit 0) и 3-бет соперника — как в Hand2Note (RF,RC,RR+):
+  // чужие коллы открытия/3-бета не важны. d — все споты (карточки 1–2), mw — 3-бет кто-то заколлил (карточка 3),
+  // cl — «чистые» споты без чужих коллов (для будущей карточки). Суммы и матрицы — по всем строкам idx:
+  // «наше действие», тип 3-бета и стек из фильтров раздела отбирают раздачи до расчёта (в app.js)
   function v3b(db, idx) {
     const c = db.cols, EV = c.nev || c.net, out = {};
     const has = (k) => c[k] != null && c[k].length === db.count;
@@ -368,25 +369,27 @@
     const clean = has('v3o') && has('v3c');
     const fine = has('fp'), POSF = (p) => (p === 0 ? 'EP' : p === 1 || p === 2 ? 'MP' : POS[p]);
     const cell = () => ({ n: 0, fld: 0, call: 0, r4: 0, sum: 0, es: 0, sn: 0, ids: [], mx: Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })) });
-    out.d = {}; out.mw = {}; ['TOT'].concat(R.V3B_POS).forEach(k => { out.d[k] = cell(); out.mw[k] = cell(); });
-    out.all = 0; // все открытия с 3-бетом (для доли карточки mw)
+    out.d = {}; out.mw = {}; out.cl = {}; ['TOT'].concat(R.V3B_POS).forEach(k => { out.d[k] = cell(); out.mw[k] = cell(); out.cl[k] = cell(); });
     for (const i of idx) {
       if (c.v3[i] < 0) continue; // 3-бета не было или хода не случилось — не в этой вкладке
-      out.all++;
       const p = fine && c.fp[i] >= 0 ? FP[c.fp[i]] : POSF(c.pos[i]);
       const keys = R.V3B_POS.includes(p) ? ['TOT', p] : ['TOT'];
       const v = c.v3[i], v0 = c.net ? c.net[i] : 0, e0 = c.net ? EV[i] : 0;
       const withCall = clean ? c.v3c[i] === 1 : false; // карточка #3: сам 3-бет кто-то заколлил
-      const inMain = !clean || (c.v3c[i] === 0 && c.v3o[i] === 0); // основные карточки: никто не коллировал ни открытие, ни 3-бет
+      const isClean = clean ? c.v3c[i] === 0 && c.v3o[i] === 0 : false; // будущая карточка: никто не коллировал ни открытие, ни 3-бет
       keys.forEach(k => {
-        const z = withCall ? out.mw[k] : (inMain ? out.d[k] : null);
-        if (!z) return;
-        z.n++;
-        if (v === 0) z.fld++;
-        else if (v === 1) { z.call++; z.sum += v0; z.es += e0; z.sn++; z.ids.push(i); if (c.hc[i] >= 0) { const m = z.mx[c.hc[i]]; m.n++; m.sum += v0; m.es += e0; } }
-        else z.r4++;
+        for (const z of [out.d[k], withCall ? out.mw[k] : null, isClean ? out.cl[k] : null]) {
+          if (!z) continue;
+          z.n++;
+          if (v === 0) z.fld++;
+          else if (v === 1) z.call++;
+          else z.r4++;
+          z.sum += v0; z.es += e0; z.sn++; z.ids.push(i);
+          if (c.hc[i] >= 0) { const m = z.mx[c.hc[i]]; m.n++; m.sum += v0; m.es += e0; }
+        }
       });
     }
+    out.all = out.d.TOT.n; // все открытия с 3-бетом (знаменатель карточки 3)
     out.resp = [out.d.TOT.fld, out.d.TOT.call, out.d.TOT.r4];
     out.respMw = [out.mw.TOT.fld, out.mw.TOT.call, out.mw.TOT.r4];
     return Object.assign(out, R);
