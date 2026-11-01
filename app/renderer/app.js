@@ -1414,7 +1414,7 @@ function drawSzMx(title, z, pinned) {
     // фолд — своим цветом (z.foldPaint), руки, которых в выборке не было, — пустые клетки
     const fp = !!z.foldPaint, foldCol = fp ? 'var(--mx-fold)' : 'var(--mx-empty)';
     const legItems = [[LB[2], 'var(--mx-limp)'], [LB[0], 'var(--mx-raise)'], [LB[1], 'var(--mx-push)'], [LB[3], foldCol]];
-    if (fp) legItems.push(['руки не было', 'var(--bg)']);
+    legItems.push(['руки не было (серая рамка)', 'var(--bg)']); // пустые клетки — руки, которых в выборке не встречалось
     const leg = el('div', 'resp-legend row'); legItems.filter(x => x[0]).forEach(([l, col]) => { const it = el('span'); const i = el('i'); i.style.background = col; if (col === 'var(--mx-empty)' || col === 'var(--bg)') i.style.border = '1px solid var(--line2)'; it.append(i, document.createTextNode(l)); leg.append(it); });
     const mxEl = handMatrix(z.rmx, LB, { fold: fp });
     if (pinned) [...mxEl.children].forEach((cell, k) => { if (!(z.vmx || z.rmx)[k].n) return; const nm = cell.querySelector('.h').textContent; cell.classList.add('click'); cell.tabIndex = 0; cell.setAttribute('role', 'button'); cell.setAttribute('aria-label', nm + ' — открыть раздачи'); cell.onclick = () => szHandList(title, z0, k, nm); cell.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); szHandList(title, z0, k, nm); } }; });
