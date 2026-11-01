@@ -1932,6 +1932,10 @@ body.rendering{cursor:progress}
 .sec-f .mx-err:empty{display:none}
 .sec-f .sf-note{margin-left:auto;align-self:flex-end;padding-bottom:4px;font-size:11.5px;color:var(--faint);max-width:260px;line-height:1.35}
 
+/* пока открыто закреплённое окно (матрица, список раздач) — страница под ним не прокручивается колесом */
+body.noscroll{overflow:hidden}
+body.noscroll #content{overflow:hidden}
+
 /* Дополнения только для онлайн-превью: тёмная тема и узкие экраны */
 :root{color-scheme:dark}
 html,body{background:var(--bg);color:var(--text)}
@@ -4063,6 +4067,8 @@ let CC_SZPOS = 'TOT';
 // окно с матрицей ответа на открытие одного размера (строка #6). Наведение — посмотреть, клик — закрепить;
 // в закреплённом окне переключатель: диапазон (колл / 3-бет / олл-ин / фолд), факт BB с каждой рукой, EV BB с каждой рукой
 let szMx = null, SZMX_PIN = null, SZMX_MODE = 'rng', SZMX_SEL = null, SZMX_LIST = null, SZMX_PART = 'all'; // SZMX_SEL — рука, раздачи которой открыты справа
+// пока открыто закреплённое окно (матрица / список раздач) — страница под ним не прокручивается колесом
+function syncScrollLock() { document.body.classList.toggle('noscroll', !!(SZMX_PIN || pinned || IDS_LIST)); }
 function szMxEl() {
   if (!szMx) {
     szMx = el('div', 'szmx'); szMx.setAttribute('role', 'dialog'); szMx.hidden = true; document.body.append(szMx);
@@ -4168,12 +4174,21 @@ function placeSzMx(row, e) {
   y = Math.max(8, Math.min(y, window.innerHeight - hh - 8));
   m.style.left = x + 'px'; m.style.top = y + 'px';
 }
-function showSzMx(title, z, row, e) { if (SZMX_PIN || hoverMuted(e)) return; drawSzMx(title, z, false); placeSzMx(row, e); }
+function showSzMx(title, z, row, e) { if (SZMX_PIN || document.querySelector('.hand-pop.pinned') || hoverMuted(e)) return; drawSzMx(title, z, false); placeSzMx(row, e); }
 function pinSzMx(title, z, row, e) {
   if (SZMX_PIN && SZMX_PIN.row === row) { unpinSzMx(); return; }
-  SZMX_PIN = { row }; SZMX_SEL = null; SZMX_PART = 'all'; drawSzMx(title, z, true); placeSzMx(row, e);
+  // окно не прыгает: если под курсором уже открыто наведение — закреплённое остаётся на его месте
+  const keep = szMx && !szMx.hidden ? { left: szMx.style.left, top: szMx.style.top } : null;
+  SZMX_PIN = { row }; SZMX_SEL = null; SZMX_PART = 'all'; drawSzMx(title, z, true);
+  if (keep) {
+    const w = szMx.offsetWidth, h = szMx.offsetHeight;
+    let x = parseFloat(keep.left) || 0, y = parseFloat(keep.top) || 0;
+    szMx.style.left = Math.max(8, Math.min(x, window.innerWidth - w - 8)) + 'px';
+    szMx.style.top = Math.max(8, Math.min(y, window.innerHeight - h - 8)) + 'px';
+  } else placeSzMx(row, e);
+  syncScrollLock();
 }
-function unpinSzMx() { SZMX_PIN = null; SZMX_SEL = null; if (SZMX_LIST) { SZMX_LIST.stop(); SZMX_LIST = null; } if (szMx) { szMx.hidden = true; szMx.classList.remove('with-list'); } }
+function unpinSzMx() { SZMX_PIN = null; SZMX_SEL = null; if (SZMX_LIST) { SZMX_LIST.stop(); SZMX_LIST = null; } if (szMx) { szMx.hidden = true; szMx.classList.remove('with-list'); } syncScrollLock(); }
 function hideSzMx() { if (szMx && !SZMX_PIN) szMx.hidden = true; }
 
 function ccSizeBlock(r) {
@@ -6158,7 +6173,7 @@ function placeNear(pop, ev, anchor) {
 }
 
 function showHandPop(it, v, ev, anchor) {
-  if (pinned || (window.hoverMuted && window.hoverMuted(ev))) return; // закреплённое окно не подменяем наведением
+  if (pinned || SZMX_PIN || (window.hoverMuted && window.hoverMuted(ev))) return; // закреплённое окно не подменяем наведением; окно «Диапазона» тоже открыто — не наслаиваем
   const pop = popEl();
   if (pop._src !== it || pop.classList.contains('pinned')) buildPop(it, v, false);
   pop.hidden = false;
@@ -6173,9 +6188,10 @@ function pinHandPop(it, v, ev, anchor) {
   pop.hidden = false;
   if (was) { pop.style.left = was.left; pop.style.top = was.top; } else placeNear(pop, ev, anchor);
   clampPop(pop);
+  syncScrollLock();
 }
 
-function unpin() { pinned = null; if (handPop) { handPop.hidden = true; handPop.classList.remove('pinned'); handPop._src = null; } }
+function unpin() { pinned = null; if (handPop) { handPop.hidden = true; handPop.classList.remove('pinned'); handPop._src = null; } syncScrollLock(); }
 
 // после смены фильтров закреплённое окно остаётся на месте и пересчитывается
 function refreshPinned(items) {
@@ -6373,6 +6389,7 @@ async function openIdsList(title, ids, opt) {
   sel('Порядок', 'sort', [['new', 'сначала новые'], ['old', 'сначала старые'], ['worst', 'сначала худшие'], ['best', 'сначала лучшие']]);
   const list = el('div', 'hp-rows il-rows'); list.append(window.mdaLoad ? window.mdaLoad('Загружаю раздачи…') : el('p', 'muted small', 'Загружаю раздачи…'));
   box.append(head, bar, list); bg.append(box); document.body.append(bg);
+  syncScrollLock(); // пока список раздач открыт — страница под ним не прокручивается
   bg.addEventListener('click', (e) => { if (e.target === bg) closeIdsList(); });
   const keys = (e) => { if (e.key === 'Escape' && !RP) closeIdsList(); };
   document.addEventListener('keydown', keys);
@@ -6393,7 +6410,7 @@ async function openIdsList(title, ids, opt) {
   }
   draw();
 }
-function closeIdsList() { if (!IDS_LIST) return; document.removeEventListener('keydown', IDS_LIST.keys); IDS_LIST.bg.remove(); IDS_LIST = null; }
+function closeIdsList() { if (!IDS_LIST) return; document.removeEventListener('keydown', IDS_LIST.keys); IDS_LIST.bg.remove(); IDS_LIST = null; syncScrollLock(); }
 
 // хуки для автопроверки сборки
 window.__testPin = async (i, hand) => { window.__pinNet(i); await new Promise(r => setTimeout(r, 200)); const b = [...document.querySelectorAll('.hand-pop button.hp-c')].find(x => x.querySelector('.h').textContent === hand); if (b) b.click(); await new Promise(r => setTimeout(r, 1200)); return document.querySelectorAll('.hp-row').length; };

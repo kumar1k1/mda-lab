@@ -1338,6 +1338,8 @@ let CC_SZPOS = 'TOT';
 // окно с матрицей ответа на открытие одного размера (строка #6). Наведение — посмотреть, клик — закрепить;
 // в закреплённом окне переключатель: диапазон (колл / 3-бет / олл-ин / фолд), факт BB с каждой рукой, EV BB с каждой рукой
 let szMx = null, SZMX_PIN = null, SZMX_MODE = 'rng', SZMX_SEL = null, SZMX_LIST = null, SZMX_PART = 'all'; // SZMX_SEL — рука, раздачи которой открыты справа
+// пока открыто закреплённое окно (матрица / список раздач) — страница под ним не прокручивается колесом
+function syncScrollLock() { document.body.classList.toggle('noscroll', !!(SZMX_PIN || pinned || IDS_LIST)); }
 function szMxEl() {
   if (!szMx) {
     szMx = el('div', 'szmx'); szMx.setAttribute('role', 'dialog'); szMx.hidden = true; document.body.append(szMx);
@@ -1443,12 +1445,21 @@ function placeSzMx(row, e) {
   y = Math.max(8, Math.min(y, window.innerHeight - hh - 8));
   m.style.left = x + 'px'; m.style.top = y + 'px';
 }
-function showSzMx(title, z, row, e) { if (SZMX_PIN || hoverMuted(e)) return; drawSzMx(title, z, false); placeSzMx(row, e); }
+function showSzMx(title, z, row, e) { if (SZMX_PIN || document.querySelector('.hand-pop.pinned') || hoverMuted(e)) return; drawSzMx(title, z, false); placeSzMx(row, e); }
 function pinSzMx(title, z, row, e) {
   if (SZMX_PIN && SZMX_PIN.row === row) { unpinSzMx(); return; }
-  SZMX_PIN = { row }; SZMX_SEL = null; SZMX_PART = 'all'; drawSzMx(title, z, true); placeSzMx(row, e);
+  // окно не прыгает: если под курсором уже открыто наведение — закреплённое остаётся на его месте
+  const keep = szMx && !szMx.hidden ? { left: szMx.style.left, top: szMx.style.top } : null;
+  SZMX_PIN = { row }; SZMX_SEL = null; SZMX_PART = 'all'; drawSzMx(title, z, true);
+  if (keep) {
+    const w = szMx.offsetWidth, h = szMx.offsetHeight;
+    let x = parseFloat(keep.left) || 0, y = parseFloat(keep.top) || 0;
+    szMx.style.left = Math.max(8, Math.min(x, window.innerWidth - w - 8)) + 'px';
+    szMx.style.top = Math.max(8, Math.min(y, window.innerHeight - h - 8)) + 'px';
+  } else placeSzMx(row, e);
+  syncScrollLock();
 }
-function unpinSzMx() { SZMX_PIN = null; SZMX_SEL = null; if (SZMX_LIST) { SZMX_LIST.stop(); SZMX_LIST = null; } if (szMx) { szMx.hidden = true; szMx.classList.remove('with-list'); } }
+function unpinSzMx() { SZMX_PIN = null; SZMX_SEL = null; if (SZMX_LIST) { SZMX_LIST.stop(); SZMX_LIST = null; } if (szMx) { szMx.hidden = true; szMx.classList.remove('with-list'); } syncScrollLock(); }
 function hideSzMx() { if (szMx && !SZMX_PIN) szMx.hidden = true; }
 
 function ccSizeBlock(r) {

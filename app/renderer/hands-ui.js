@@ -110,7 +110,7 @@ function placeNear(pop, ev, anchor) {
 }
 
 function showHandPop(it, v, ev, anchor) {
-  if (pinned || (window.hoverMuted && window.hoverMuted(ev))) return; // закреплённое окно не подменяем наведением
+  if (pinned || SZMX_PIN || (window.hoverMuted && window.hoverMuted(ev))) return; // закреплённое окно не подменяем наведением; окно «Диапазона» тоже открыто — не наслаиваем
   const pop = popEl();
   if (pop._src !== it || pop.classList.contains('pinned')) buildPop(it, v, false);
   pop.hidden = false;
@@ -125,9 +125,10 @@ function pinHandPop(it, v, ev, anchor) {
   pop.hidden = false;
   if (was) { pop.style.left = was.left; pop.style.top = was.top; } else placeNear(pop, ev, anchor);
   clampPop(pop);
+  syncScrollLock();
 }
 
-function unpin() { pinned = null; if (handPop) { handPop.hidden = true; handPop.classList.remove('pinned'); handPop._src = null; } }
+function unpin() { pinned = null; if (handPop) { handPop.hidden = true; handPop.classList.remove('pinned'); handPop._src = null; } syncScrollLock(); }
 
 // после смены фильтров закреплённое окно остаётся на месте и пересчитывается
 function refreshPinned(items) {
@@ -325,6 +326,7 @@ async function openIdsList(title, ids, opt) {
   sel('Порядок', 'sort', [['new', 'сначала новые'], ['old', 'сначала старые'], ['worst', 'сначала худшие'], ['best', 'сначала лучшие']]);
   const list = el('div', 'hp-rows il-rows'); list.append(window.mdaLoad ? window.mdaLoad('Загружаю раздачи…') : el('p', 'muted small', 'Загружаю раздачи…'));
   box.append(head, bar, list); bg.append(box); document.body.append(bg);
+  syncScrollLock(); // пока список раздач открыт — страница под ним не прокручивается
   bg.addEventListener('click', (e) => { if (e.target === bg) closeIdsList(); });
   const keys = (e) => { if (e.key === 'Escape' && !RP) closeIdsList(); };
   document.addEventListener('keydown', keys);
@@ -345,7 +347,7 @@ async function openIdsList(title, ids, opt) {
   }
   draw();
 }
-function closeIdsList() { if (!IDS_LIST) return; document.removeEventListener('keydown', IDS_LIST.keys); IDS_LIST.bg.remove(); IDS_LIST = null; }
+function closeIdsList() { if (!IDS_LIST) return; document.removeEventListener('keydown', IDS_LIST.keys); IDS_LIST.bg.remove(); IDS_LIST = null; syncScrollLock(); }
 
 // хуки для автопроверки сборки
 window.__testPin = async (i, hand) => { window.__pinNet(i); await new Promise(r => setTimeout(r, 200)); const b = [...document.querySelectorAll('.hand-pop button.hp-c')].find(x => x.querySelector('.h').textContent === hand); if (b) b.click(); await new Promise(r => setTimeout(r, 1200)); return document.querySelectorAll('.hp-row').length; };
