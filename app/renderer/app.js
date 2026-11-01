@@ -1031,7 +1031,7 @@ function renderShovePanel(idx, stackBars) {
 // ---------- #5 / #5+ — изоляция лимперов ----------
 const ISO_POS = ['MP', 'HJ', 'CO', 'BTN', 'SB', 'BB']; // индекс = позиция − 1; HJ не показывается
 function isoData(idx, ot) {
-  const c = DB.cols, EV = EVcol(), cell = () => ({ o: 0, x: 0, sum: 0, es: 0, n: 0, f: 0, fn: 0, ids: [], mx: null });
+  const c = DB.cols, EV = EVcol(), cell = () => ({ o: 0, x: 0, sum: 0, es: 0, n: 0, f: 0, fn: 0, rmx: null, rids: null });
   const M = [ISO_POS.map(cell), ISO_POS.map(cell)], tot = [cell(), cell()], resp = [0, 0, 0], respL = [[0, 0, 0], [0, 0, 0]], szx = [{}, {}];
   for (const i of idx) {
     const p = c.pos[i]; if (c.sit[i] !== 1 || p < 1) continue;
@@ -1039,6 +1039,9 @@ function isoData(idx, ot) {
     const bvb = c.bvb ? c.bvb[i] === 1 : false, raised = ot === 'nai' ? c.act[i] === 2 : ot === 'ai' ? c.act[i] === 3 : c.act[i] >= 2;
     t.o++; if (raised) t.x++;
     z.o++; if (raised) z.x++; // как в Hand2Note: в BB считается и лимп SB
+    // окно «Диапазон» (как #7): все ответы по рукам — изолейт (олл-ин отдельно), колл, фолд
+    const hc = c.hc ? c.hc[i] : -1;
+    if (hc >= 0) { if (!z.rmx) { z.rmx = Array.from({ length: 169 }, () => ({ n: 0, x: 0, ai: 0, lp: 0, sum: 0, es: 0 })); z.rids = []; } const m = z.rmx[hc]; m.n++; if (c.net) { m.sum += c.net[i]; m.es += EV[i]; } z.rids.push(i); if (raised) { m.x++; if (c.act[i] === 3) m.ai++; } else if (c.act[i] === 1) m.lp++; }
     if (!raised) continue;
     if (c.orsp && c.orsp[i] >= 0) { resp[c.orsp[i]]++; respL[r][c.orsp[i]]++; }
     if (c.act[i] === 2 && c.bb[i] / 10 - c.size[i] / 100 >= 0.5) { // сайзинг изолейта с точностью до 0.5 BB, без олл-инов
@@ -1048,9 +1051,6 @@ function isoData(idx, ot) {
     }
     if (c.fvr && c.fvr[i] >= 0) { z.fn++; if (c.fvr[i] === 1) z.f++; }
     if (c.net) { z.sum += c.net[i]; z.es += EV[i]; z.n++; }
-    z.ids.push(i);
-    const hc = c.hc ? c.hc[i] : -1;
-    if (hc >= 0) { if (!z.mx) z.mx = Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })); z.mx[hc].n++; if (c.net) { z.mx[hc].sum += c.net[i]; z.mx[hc].es += EV[i]; } }
   }
   return { M, tot, resp, respL, szx };
 }
@@ -1143,15 +1143,16 @@ function isoPanel(d) {
       c.append(el('b', null, fmtPct(f) + '%'), pmxWr(w, z.n ? z.es / 10 / z.n : null));
       if (z.o < 20) c.classList.add('low');
       const title = nm + ', vs ' + lab + ' лимпер' + (r ? 'а' : '');
-      if (z.mx) {
-        const n = z.mx.reduce((a, q) => a + q.n, 0), s = z.mx.reduce((a, q) => a + q.sum, 0), es = z.mx.reduce((a, q) => a + q.es, 0);
-        const it = { p: nm, key: 'iso ' + title, title: title + ' · изолейт ' + fmtPct(f) + '%', o: { n, sum: s, es }, mx: z.mx, ids: z.ids, sit: 1, vlab: ' BB за изолейт', nlab: ' изолейтов с картами' };
-        const v = n ? s / 10 / n : 0;
+      if (z.rmx) {
+        // окно «Диапазон» (как #7): изолейт (олл-ин — синим), колл, фолд; клик — закрепить, в окне «Факт, BB» / «EV, BB», клик по руке — раздачи и реплеер
+        const zz = { n: z.o, rmx: z.rmx, rids: z.rids, labels: ['изолейт', 'олл-ин', 'колл', 'фолд'] };
+        const wt = title + ' · изолейт ' + fmtPct(f) + '%';
         c.tabIndex = 0; c.setAttribute('role', 'button'); c.setAttribute('aria-label', title + ': показать руки и раздачи'); c.classList.add('click');
-        const show = (ev) => showHandPop(it, v, ev, c);
-        c.addEventListener('mouseenter', show); c.addEventListener('mousemove', show); c.addEventListener('mouseleave', hideHandPop);
-        c.addEventListener('click', (ev) => pinHandPop(it, v, ev, c));
-        c.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); pinHandPop(it, v, null, c); } });
+        c.addEventListener('mouseenter', (ev) => showSzMx(wt, zz, c, ev));
+        c.addEventListener('mousemove', (ev) => { if (!SZMX_PIN && szMx && !szMx.hidden) placeSzMx(c, ev); });
+        c.addEventListener('mouseleave', hideSzMx);
+        c.addEventListener('click', (ev) => pinSzMx(wt, zz, c, ev));
+        c.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); pinSzMx(wt, zz, c, null); } });
       }
       tb.append(c);
     });
@@ -2120,14 +2121,16 @@ function tbOstkBlock(r) {
       const share = tot ? z.n / tot : 0, tk = el('span', 'sz5-tk'); const tr = el('i'); tr.style.width = Math.max(1, share * 100) + '%'; tk.append(tr);
       row.append(el('b', null, r.TB_OSTK[k]), el('span', 'sz5-sh', z.n.toLocaleString('ru-RU')), v(pc(z.x), 'var(--bad)'), v(pc(z.ai), 'var(--ice)'),
         wrNode('sz5-v', wr, we, 2), el('small', null, z.sn.toLocaleString('ru-RU') + ' 3-бетов'), tk);
-      // наведение на строку — матрица рук этих 3-бетов и итог; клик — закрепить окно (как #7), клик по руке — раздачи и реплеер
-      if (z.h && z.h.n) {
+      // наведение — окно «Диапазон» (как #7): ответы по рукам в этой корзине стека; клик — закрепить, клик по руке — раздачи и реплеер
+      if (z.rmx) {
         const gl = TB_OSTKPOS === 'TOT' ? 'все позиции' : 'с ' + TB_OSTKPOS;
-        const it = { p: TB_OSTKPOS, anyPos: true, key: 'tbostk' + TB_OSTKPOS + k, title: 'Ваш 3-бет против открывающего ' + r.TB_OSTK[k] + ' · ' + gl, o: { n: z.h.n, sum: z.h.sum, es: z.h.es }, mx: z.h.mx, ids: z.h.ids, sit: 2, vlab: ' BB за 3-бет', nlab: ' 3-бетов' };
-        const hv = z.h.sum / 10 / z.h.n;
-        row.addEventListener('mouseenter', (e) => showHandPop(it, hv, e, row)); row.addEventListener('mousemove', (e) => showHandPop(it, hv, e, row)); row.addEventListener('mouseleave', hideHandPop);
-        row.addEventListener('click', (e) => pinHandPop(it, hv, e, row));
-        row.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pinHandPop(it, hv, null, row); } };
+        const zz = { n: z.n, rmx: z.rmx, rids: z.rids };
+        const wt = 'Ваш ответ против открывающего ' + r.TB_OSTK[k] + ' · ' + gl;
+        row.addEventListener('mouseenter', (e) => showSzMx(wt, zz, row, e));
+        row.addEventListener('mousemove', (e) => { if (!SZMX_PIN && szMx && !szMx.hidden) placeSzMx(row, e); });
+        row.addEventListener('mouseleave', hideSzMx);
+        row.addEventListener('click', (e) => pinSzMx(wt, zz, row, e));
+        row.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pinSzMx(wt, zz, row, null); } };
       }
       t.append(row);
     });
@@ -2185,13 +2188,19 @@ function tbXBlock(r) {
         wrNode('sz5-v', z.sum / 10 / z.n, z.es / 10 / z.n, 2), el('small', null, z.n.toLocaleString('ru-RU') + ' раз'), tk);
       row.tabIndex = 0; row.setAttribute('role', 'button');
       const gl = { TOT: 'все позиции', IP: 'в позиции', SB: 'SB', BB: 'BB' }[TB_XPOS];
-      // наведение на строку — матрица рук этого размера и итог; клик — закрепить окно (как #7), клик по руке — раздачи и реплеер
-      if (z.h && z.h.n) {
-        const it = { p: TB_XPOS, anyPos: true, key: 'tbx' + TB_XPOS + k, title: 'Ваш 3-бет ' + r.TB_X[k] + ' · ' + gl, o: { n: z.h.n, sum: z.h.sum, es: z.h.es }, mx: z.h.mx, ids: z.h.ids, sit: 2, vlab: ' BB за 3-бет', nlab: ' 3-бетов' };
-        const hv = z.h.sum / 10 / z.h.n;
-        row.addEventListener('mouseenter', (e) => showHandPop(it, hv, e, row)); row.addEventListener('mousemove', (e) => showHandPop(it, hv, e, row)); row.addEventListener('mouseleave', hideHandPop);
-        row.addEventListener('click', (e) => pinHandPop(it, hv, e, row));
-        row.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pinHandPop(it, hv, null, row); } };
+      // наведение — окно «Диапазон» (как #7): ответы по рукам группы, подсвечен этот размер; клик — закрепить (в окне «Факт, BB» / «EV, BB»), клик по руке — раздачи и реплеер
+      {
+        const R = r.xgR && r.xgR[TB_XPOS];
+        if (R && R.rmx && z.n) {
+          const mx = R.rmx.map((m2, q) => ({ n: m2.n, x: z.rmx ? z.rmx[q].x : 0, ai: z.rmx ? z.rmx[q].ai : 0, lp: m2.lp, sum: m2.sum, es: m2.es }));
+          const zz = { n: R.rmx.reduce((a2, m2) => a2 + m2.n, 0), rmx: mx, vmx: z.rmx || null, rids: R.rids };
+          const wt = 'Ваш ответ на открытие · ' + gl + (z.n ? ' · 3-бет ' + r.TB_X[k] : '');
+          row.addEventListener('mouseenter', (e) => showSzMx(wt, zz, row, e));
+          row.addEventListener('mousemove', (e) => { if (!SZMX_PIN && szMx && !szMx.hidden) placeSzMx(row, e); });
+          row.addEventListener('mouseleave', hideSzMx);
+          row.addEventListener('click', (e) => pinSzMx(wt, zz, row, e));
+          row.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pinSzMx(wt, zz, row, null); } };
+        }
       }
       t.append(row);
     });
