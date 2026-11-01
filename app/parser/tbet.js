@@ -10,6 +10,8 @@
 // 0 все сбросили, 1 колл, 2 4-бет, 3 4-бет олл-ином (-1 — не было); +4 — открывающий сбросил на этот рейз.
 // t4 — ход игрока против 4-бета: 0 фолд, 1 колл, 2 5-бет; +4 — 5-бет был невозможен (4-бет олл-ином или на весь стек игрока);
 // +8 — 4-бет поставил не открывающий (холодный 4-бет).
+// v3 — ход игрока против 3-бета на своё открытие (до игрока никто не рейзил): 0 фолд, 1 колл, 2 4-бет, 3 4-бет олл-ином
+// (-1 — 3-бета не было или хода игрока после него не случилось); v3a — этот 3-бет соперника был олл-ином (1) или обычным (0), -1 — не было.
 const ACT = new Set(['f', 'x', 'c', 'b', 'r']);
 const FIX = { CO: 3, BTN: 4, SB: 5, BB: 6 };
 
@@ -22,11 +24,22 @@ function fineOf(rec, k) {
 }
 
 function tbetOf(rec, s) {
-  const out = { fp: fineOf(rec, s), fop: -1, t3r: -1, t4: -1 };
+  const out = { fp: fineOf(rec, s), fop: -1, t3r: -1, t4: -1, v3: -1, v3a: -1 };
   const p = rec.ev.filter(e => e[0] === 0 && ACT.has(e[2]));
   const hi = p.findIndex(e => e[1] === s); if (hi < 0) return out;
   const before = p.slice(0, hi), rz = before.filter(e => e[2] === 'r' || e[2] === 'b');
   if (rz.length) out.fop = fineOf(rec, rz[0][1]);
+  // против 3-бета (вкладка v3B): игрок открылся (до него никто не входил — ни рейзов, ни лимпов) и следом получил ререйз
+  if (!rz.length && !before.some(e => e[2] === 'c') && (p[hi][2] === 'r' || p[hi][2] === 'b')) {
+    const after0 = p.slice(hi + 1);
+    const r3 = after0.findIndex(e => e[1] !== s && (e[2] === 'r' || e[2] === 'b'));
+    if (r3 >= 0) {
+      const three = after0[r3], st3 = rec.pl[three[1]] ? rec.pl[three[1]][1] : 0;
+      out.v3a = three[4] || (st3 > 0 && three[3] >= st3 - 0.001) ? 1 : 0;
+      const nx = after0.slice(r3 + 1).find(e => e[1] === s);
+      if (nx) out.v3 = nx[2] === 'f' ? 0 : nx[2] === 'c' ? 1 : nx[4] ? 3 : 2;
+    }
+  }
   if (rz.length !== 1 || p[hi][2] !== 'r') return out;
   const after = p.slice(hi + 1);
   const first = after.find(e => e[1] !== s && e[2] !== 'f');

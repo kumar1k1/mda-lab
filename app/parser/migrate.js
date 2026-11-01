@@ -50,7 +50,10 @@ const MIGRATIONS = [
   { id: 't4c', col: ['t4', 'i8'], uses: ['rz', 'act'], need: (C, i) => C.rz[i] === 1 && C.act[i] >= 2 && C.t4[i] >= 0 && C.t4[i] < 8, calc: (rec, s) => TB.tbetOf(rec, s).t4 },
   // 0.7.24: у части баз t3r/t4 помечены сделанными, но пустые (баг старого расчёта в 0.7.22) — пересчёт пустых строк
   { id: 't3n', col: ['t3r', 'i8'], uses: ['rz', 'act'], need: (C, i) => C.rz[i] === 1 && C.act[i] >= 2 && C.t3r[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).t3r },
-  { id: 't4n', col: ['t4', 'i8'], uses: ['rz', 'act'], need: (C, i) => C.rz[i] === 1 && C.act[i] >= 2 && C.t4[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).t4 }
+  { id: 't4n', col: ['t4', 'i8'], uses: ['rz', 'act'], need: (C, i) => C.rz[i] === 1 && C.act[i] >= 2 && C.t4[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).t4 },
+  // против 3-бета (0.7.33): ход на 3-бет своего открытия и был ли 3-бет соперника олл-ином — у раздач-открытий
+  { id: 'v3', col: ['v3', 'i8'], uses: ['sit', 'act'], need: (C, i) => C.sit[i] === 0 && C.act[i] >= 2 && C.v3[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).v3 },
+  { id: 'v3a', col: ['v3a', 'i8'], uses: ['sit', 'act'], need: (C, i) => C.sit[i] === 0 && C.act[i] >= 2 && C.v3a[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).v3a }
 ];
 // обновления формата (после досчёта колонок): двоичный реплеер и сжатые колонки (0.7)
 const FORMAT_IDS = ['rpbin', 'colz', 'names', 'dedup']; // names (0.7.2) — ники за столом; dedup (0.7.8) — копии раздач из разных выгрузок убираются
@@ -70,7 +73,7 @@ function readCol(dir, name, type, n) {
   if (a.length === n) return a; const b = new TY[type](n); b.set(a.subarray(0, Math.min(n, a.length))); return b;
 }
 function writeCol(dir, name, a) { require('./table.js').writeCol(dir, name, a); }
-const TYPES_OF = { rz: 'i8', act: 'i8', pos: 'i8', fcb: 'i8', ant: 'i16', cbs: 'i16', fp: 'i8', fop: 'i8', t3r: 'i8', t4: 'i8' };
+const TYPES_OF = { rz: 'i8', act: 'i8', pos: 'i8', fcb: 'i8', ant: 'i16', cbs: 'i16', fp: 'i8', fop: 'i8', t3r: 'i8', t4: 'i8', sit: 'i8', v3: 'i8', v3a: 'i8' };
 
 async function doMigrate(dir, post) {
   const r1 = doRowMigrations(dir, post);
