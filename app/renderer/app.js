@@ -2305,7 +2305,9 @@ function renderV3B(idx) {
   const T = secType('vs3bet');
   if (T.flt && cb.v3a) idxS = idxS.filter(i => cb.v3a[i] >= 0 && (T.ty === 'ai' ? cb.v3a[i] === 1 : cb.v3a[i] === 0));
   const AV = { fold: 0, call: 1, r4: 2, ai: 3 };
-  if (f.A.length && cb.v3) idxS = idxS.filter(i => f.A.some(a => cb.v3[i] === AV[a])); // «наше действие» — можно несколько
+  const idxA = idxS; // карточка 1 — без фильтра «наше действие»: частоты ответов всегда по всем
+  if (f.A.length && cb.v3) idxS = idxS.filter(i => f.A.some(a => cb.v3[i] === AV[a])); // «наше действие» — можно несколько; карточки 2–3
+  const rA = Stats.v3b(DB, idxA);
   const r = Stats.v3b(DB, idxS);
   const page = el('div', 'page');
   const head = el('div', 'page-head');
@@ -2313,12 +2315,12 @@ function renderV3B(idx) {
   head.append(h1, el('p', null, 'Как вы отвечаете на 3-бет на своё открытие: фолд, колл и 4-бет по позициям и результат вашей реакции. Отдельно — раздачи, где 3-бет кто-то заколлил за спиной.'));
   page.append(head);
   if (!cb.v3) { page.append(el('p', 'muted small', 'В этой базе нет колонок против 3-бета (собрана до 0.7.33). Обновление базы досчитает их из записей реплеера при следующем запуске программы.')); return page; }
-  const t = r.d.TOT;
-  if (!r.all) { page.append(el('p', 'muted small', 'Нет открытий с 3-бетом в этой выборке.')); return page; }
-  // #1 — фолд на 3-бет: частота по позициям и все ответы (как в Hand2Note: чужие коллы не важны)
-  const posRows = r.V3B_POS.filter(p => r.d[p].n >= SMALL).map(p => { const z = r.d[p]; return [p, z.fld / z.n, p + ': ' + z.fld + ' из ' + z.n]; });
-  const c1 = card(1, 'Фолдите на 3-бет', '<em>' + fmtPct(t.fld / t.n) + '%</em>', 'из ' + t.n.toLocaleString('ru-RU') + ' ваших открытий, получивших 3-бет',
-    fillBox(posStrip('Фолд по позициям', posRows), respTiles(r.resp, 'Ваш ответ на 3-бет', [['фолд', 'var(--good)'], ['колл', 'var(--ice)'], ['4-бет', 'var(--bad)']])));
+  const t = r.d.TOT, ta = rA.d.TOT;
+  if (!rA.all) { page.append(el('p', 'muted small', 'Нет открытий с 3-бетом в этой выборке.')); return page; }
+  // #1 — фолд на 3-бет: частота по позициям и все ответы (как в Hand2Note: чужие коллы не важны); «наше действие» не применяется
+  const posRows = rA.V3B_POS.filter(p => rA.d[p].n >= SMALL).map(p => { const z = rA.d[p]; return [p, z.fld / z.n, p + ': ' + z.fld + ' из ' + z.n]; });
+  const c1 = card(1, 'Фолдите на 3-бет', '<em>' + fmtPct(ta.fld / ta.n) + '%</em>', 'из ' + ta.n.toLocaleString('ru-RU') + ' ваших открытий, получивших 3-бет',
+    fillBox(posStrip('Фолд по позициям', posRows), respTiles(rA.resp, 'Ваш ответ на 3-бет', [['фолд', 'var(--good)'], ['колл', 'var(--ice)'], ['4-бет', 'var(--bad)']])));
   // #2 — результат вашей реакции на 3-бет по позициям, факт / EV; действия задаёт фильтр «Наше действие» (по умолчанию — все)
   const pos = ['TOT'].concat(r.V3B_POS).filter(p => r.d[p].n >= 1);
   const items = pos.map(p => { const z = r.d[p]; return { p, anyPos: true, key: 'v3 ' + p + (sr ? ' ' + sr.join('-') : '') + T.ty + f.A.join('+'), title: 'Ваша реакция на 3-бет' + (p === 'TOT' ? ' (все позиции)' : ' с ' + p), o: { n: z.n, sum: z.sum, es: z.es }, mx: z.mx, ids: z.ids, sit: 0, vlab: ' BB за раздачу', nlab: ' раздач' }; }); // sit 0 — герой открылся; act не задаём: раздачи уже отобраны фильтром действия
