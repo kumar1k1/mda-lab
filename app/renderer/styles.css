@@ -1926,7 +1926,7 @@ body.rendering{cursor:progress}
 .sec-f .mx-range .btn{height:40px;box-sizing:border-box;padding:0 14px;font-size:12.5px}
 .sec-f .mx-err{position:absolute;left:0;top:calc(100% + 2px);font-size:11px;white-space:nowrap}
 .sec-f .mx-err:empty{display:none}
-.sec-f.sec-f-col{flex-direction:column;gap:10px;align-items:flex-start}
+.sec-f.sec-f-grid{display:grid;grid-template-columns:max-content max-content;column-gap:44px;row-gap:10px;align-items:start}
 .sec-f .flt-q{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border:1px dashed var(--line2);border-radius:50%;color:var(--faint);font-size:10.5px;font-weight:700;cursor:help;user-select:none}
 .sec-f .sf-note{margin-left:auto;align-self:flex-end;padding-bottom:4px;font-size:11.5px;color:var(--faint);max-width:260px;line-height:1.35}
 

@@ -1930,7 +1930,7 @@ body.rendering{cursor:progress}
 .sec-f .mx-range .btn{height:40px;box-sizing:border-box;padding:0 14px;font-size:12.5px}
 .sec-f .mx-err{position:absolute;left:0;top:calc(100% + 2px);font-size:11px;white-space:nowrap}
 .sec-f .mx-err:empty{display:none}
-.sec-f.sec-f-col{flex-direction:column;gap:10px;align-items:flex-start}
+.sec-f.sec-f-grid{display:grid;grid-template-columns:max-content max-content;column-gap:44px;row-gap:10px;align-items:start}
 .sec-f .flt-q{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border:1px dashed var(--line2);border-radius:50%;color:var(--faint);font-size:10.5px;font-weight:700;cursor:help;user-select:none}
 .sec-f .sf-note{margin-left:auto;align-self:flex-end;padding-bottom:4px;font-size:11.5px;color:var(--faint);max-width:260px;line-height:1.35}
 
@@ -3976,7 +3976,7 @@ function drawSecFilters(tab) {
   const box = $('secFilters'); if (!box) return; box.replaceChildren();
   if (!(tab in SEC_TYPES) || !DB) { box.hidden = true; return; }
   box.hidden = false; const f = secF(tab), types = SEC_TYPES[tab];
-  box.classList.toggle('sec-f-col', tab === 'vs3bet'); // 4 фильтра — столбиком, каждый от левого края
+  box.classList.toggle('sec-f-grid', tab === 'vs3bet'); // «Против 3-бета»: сетка 2×2 — слева «3-бет соперника» над «типом трибет банка», справа «наше действие» и «ваш стек» под ним; правая колонка не заезжает на левую
   // группы, как фильтры над ними: подпись сверху, кнопки под ней
   const grp = (lab, ...nodes) => { const g = el('div', 'sf-g'); g.append(el('span', 'flt-k', lab)); const row = el('div', 'sf-row'); row.append(...nodes); g.append(row); return g; };
   if (types) box.append(grp(tab === 'rfi' ? 'Открытие' : tab === 'vs3bet' ? '3-бет соперника' : '3-бет', segBtns(types, f.T, (k) => { f.T = k; renderNext(); })));
@@ -5104,30 +5104,17 @@ function renderV3B(idx) {
   if (!cb.v3) { page.append(el('p', 'muted small', 'В этой базе нет колонок против 3-бета (собрана до 0.7.33). Обновление базы досчитает их из записей реплеера при следующем запуске программы.')); return page; }
   const t = r.d.TOT, ta = rA.d.TOT;
   if (!rA.all) { page.append(el('p', 'muted small', 'Нет открытий с 3-бетом в этой выборке.')); return page; }
-  // #1 — фолд на 3-бет: частота по позициям и все ответы (как в Hand2Note: чужие коллы не важны); «наше действие» не применяется,
-  // подпись собирается из выбранных фильтров — тип 3-бета, тип банка, ваш стек
-  const bankTxt = { all: '', hu: ' один на один', cc: ', который заколлировали за спиной', sq: ' — сквиз поверх колла вашего открытия' }[f.B];
-  const tyTxt = T.ty === 'ai' ? ' олл-ином' : T.ty === 'nai' ? ' не олл-ином' : '';
-  const sub1 = 'из ' + ta.n.toLocaleString('ru-RU') + ' ваших открытий, получивших 3-бет' + tyTxt + bankTxt + (sr ? ' при вашем стеке ' + rangeTxt(sr) : '');
+  // #1 — фолд на 3-бет: частота по позициям и все ответы (как в Hand2Note: чужие коллы не важны); «наше действие» не применяется
   const posRows = rA.V3B_POS.filter(p => rA.d[p].n >= SMALL).map(p => { const z = rA.d[p]; return [p, z.fld / z.n, p + ': ' + z.fld + ' из ' + z.n]; });
-  const c1 = card(1, 'Фолдите на 3-бет', '<em>' + fmtPct(ta.fld / ta.n) + '%</em>', sub1,
+  const c1 = card(1, 'Фолдите на 3-бет', '<em>' + fmtPct(ta.fld / ta.n) + '%</em>', 'из ' + ta.n.toLocaleString('ru-RU') + ' открытий',
     fillBox(posStrip('Фолд по позициям', posRows), respTiles(rA.resp, 'Ваш ответ на 3-бет', [['фолд', 'var(--good)'], ['колл', 'var(--ice)'], ['4-бет', 'var(--bad)']])));
   // #2 — результат вашей реакции на 3-бет по позициям, факт / EV; действия задаёт фильтр «Наше действие» (по умолчанию — все)
   const pos = ['TOT'].concat(r.V3B_POS).filter(p => r.d[p].n >= 1);
   const items = pos.map(p => { const z = r.d[p]; return { p, anyPos: true, key: 'v3 ' + p + (sr ? ' ' + sr.join('-') : '') + T.ty + f.A.join('+') + f.B, title: 'Ваша реакция на 3-бет' + (p === 'TOT' ? ' (все позиции)' : ' с ' + p), o: { n: z.n, sum: z.sum, es: z.es }, mx: z.mx, ids: z.ids, sit: 0, vlab: ' BB за раздачу', nlab: ' раздач' }; }); // sit 0 — герой открылся; act не задаём: раздачи уже отобраны фильтрами банка и действия
   LAST_NET_ITEMS = items;
   const avg = t.n ? t.sum / 10 / t.n : null, avgE = t.n ? t.es / 10 / t.n : null;
-  // подпись карточки 2 — из выбранных фильтров: какие реакции, тип 3-бета, тип банка, стек (как у карточки 1)
-  { const ap = [];
-    if (f.A.includes('fold')) ap.push('фолдам');
-    if (f.A.includes('call')) ap.push('коллам');
-    const h4 = f.A.includes('r4'), hA = f.A.includes('ai');
-    if (h4 && hA) ap.push('4-бетам'); else { if (h4) ap.push('4-бетам не олл-ином'); if (hA) ap.push('4-бетам олл-ином'); }
-    var actD = ap.length === 0 || ap.length === 4 ? 'раздачам (все ответы)' : ap.length <= 2 ? ap.join(' и ') : ap.slice(0, -1).join(', ') + ' и ' + ap[ap.length - 1];
-  }
-  const sub2 = 'по ' + t.n.toLocaleString('ru-RU') + ' ' + actD + ' на 3-бет' + tyTxt + bankTxt + (sr ? ' при вашем стеке ' + rangeTxt(sr) : '');
   const chartBox = el('div'); chartBox.append(netChart(items, avg, 'EV реакции на 3-бет'));
-  const c2 = card(2, 'Результат вашей реакции на 3-бет', wrHtml(avg, avgE, 2) + ' <small>BB за раздачу</small>', sub2, chartBox);
+  const c2 = card(2, 'Результат вашей реакции на 3-бет', wrHtml(avg, avgE, 2) + ' <small>BB за раздачу</small>', 'по ' + t.n.toLocaleString('ru-RU') + ' раздачам', chartBox);
   c2.classList.add('wide');
   c2.append(infoNote('Факт — средний итог этих раздач в BB (банк минус ваши вложения): сколько приносит выбранная реакция на 3-бет. EV — тот же итог с поправкой на эквити в раздачах, закончившихся олл-ином до ривера: карта выправляет удачу. Реакции задаёт фильтр «Наше действие» в шапке раздела — по умолчанию все ответы (фолд, колл, 4-бет, 4-бет олл-ином), можно сочетать, например оба 4-бета или фолд с коллом; на столбик можно навести и закрепить окно с руками, клик по руке откроет раздачи и реплеер.'));
   // #3 — наоборот: раздачи, где 3-бет заколлировали за спиной (один или несколько колов)
