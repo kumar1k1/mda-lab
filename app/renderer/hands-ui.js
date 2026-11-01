@@ -213,7 +213,7 @@ async function showHandList(it, k, cellBtn) {
     lazy = lazyRows(box, rows, rp, { cards: false, ev: evm });
   }
   draw();
-  centerPop(pop);
+  clampPop(pop); // окно не перецентрируем — остаётся на месте, лишь не вылезает за экран
 }
 
 // Список раздач без ожидания: строки сразу из колонок базы (дата, рум, стек, итог), карты и турнир дописываются

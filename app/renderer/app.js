@@ -1350,7 +1350,7 @@ function szMxEl() {
 }
 // раздачи одной руки из строки #6 — список с реплеером
 // как в окне матрицы результата (hands-ui.js): матрица остаётся слева, раздачи руки — справа в том же окне
-function szHandList(title, z, k, name) { SZMX_SEL = { k, name }; drawSzMx(title, z, true); centerPop(szMx); }
+function szHandList(title, z, k, name) { SZMX_SEL = { k, name }; drawSzMx(title, z, true); clampPop(szMx); } // окно не перецентрируем — остаётся на месте
 function szValGrid(mx, mode, onPick) {
   const R = 'AKQJT98765432', wrap = el('div', 'szv');
   const vals = mx.filter(c => c.n >= 3).map(c => Math.abs((mode === 'ev' ? c.es : c.sum) / 10 / c.n)).sort((a, b) => a - b);
