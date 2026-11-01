@@ -1201,6 +1201,7 @@ function drawSecFilters(tab) {
   const box = $('secFilters'); if (!box) return; box.replaceChildren();
   if (!(tab in SEC_TYPES) || !DB) { box.hidden = true; return; }
   box.hidden = false; const f = secF(tab), types = SEC_TYPES[tab];
+  box.classList.toggle('sec-f-col', tab === 'vs3bet'); // 4 фильтра — столбиком, каждый от левого края
   // группы, как фильтры над ними: подпись сверху, кнопки под ней
   const grp = (lab, ...nodes) => { const g = el('div', 'sf-g'); g.append(el('span', 'flt-k', lab)); const row = el('div', 'sf-row'); row.append(...nodes); g.append(row); return g; };
   if (types) box.append(grp(tab === 'rfi' ? 'Открытие' : tab === 'vs3bet' ? '3-бет соперника' : '3-бет', segBtns(types, f.T, (k) => { f.T = k; renderNext(); })));
@@ -1211,8 +1212,13 @@ function drawSecFilters(tab) {
     const mk = (k, t) => { const b = el('button', null, t); b.type = 'button'; b.dataset.k = k; b.title = k === 'all' ? 'Все ответы на 3-бет' : 'Можно выбрать несколько — повторный клик снимает'; b.onclick = () => { if (k === 'all') f.A = []; else { const j = f.A.indexOf(k); if (j >= 0) f.A.splice(j, 1); else f.A.push(k); } sync(); renderNext(); }; return b; };
     seg.append(mk('all', 'Любое'), mk('fold', 'Фолд'), mk('call', 'Колл'), mk('r4', '4-бет'), mk('ai', '4-бет олл-ин')); sync();
     box.append(grp('Наше действие', seg));
-    // тип банка по чужим коллам (под «нашим действием»): 1vs1 / кол 3-бета за спиной / 3-бет-сквиз поверх колла открытия
-    box.append(grp('Тип банка', segBtns([['all', 'Все'], ['hu', '3-бет 1vs1'], ['cc', 'Cold call 3-бет'], ['sq', 'Сквиз пот']], f.B, (k) => { f.B = k; renderNext(); })));
+    // тип 3-бет банка по чужим коллам (под «нашим действием»): 1vs1 / 3+ игроков / сквиз поверх колла открытия
+    const bg = grp('Тип трибет банка', segBtns([['all', 'Все'], ['hu', '3b пот 1vs1'], ['cc', '3b пот 3+'], ['sq', 'сквиз пот']], f.B, (k) => { f.B = k; renderNext(); }));
+    const q = el('span', 'flt-q', '?');
+    q.title = 'Что значит каждая вкладка:\n3b пот 1vs1 — в раздаче только вы и 3-бетящий, чужих коллов не было.\n3b пот 3+ — 3-бет соперника заколлировал ещё один игрок или больше (без колла вашего открытия).\nсквиз пот — ваше открытие заколлировали, и 3-бет поднял банк поверх этого колла.';
+    q.setAttribute('aria-label', 'Что значат вкладки фильтра «Тип трибет банка»');
+    bg.append(q);
+    box.append(bg);
   }
   const cust = f.S === 'custom' ? f.C : null;
   // свой диапазон — под кнопками стека, с тем же левым краем
@@ -2307,11 +2313,11 @@ function renderV3B(idx) {
   const T = secType('vs3bet');
   if (T.flt && cb.v3a) idxS = idxS.filter(i => cb.v3a[i] >= 0 && (T.ty === 'ai' ? cb.v3a[i] === 1 : cb.v3a[i] === 0));
   const AV = { fold: 0, call: 1, r4: 2, ai: 3 };
-  const idxA = idxS; // карточка 1 — без «нашего действия» и «типа банка»: частоты ответов всегда по всем
-  // тип банка по чужим коллам: 1vs1 — никто не коллировал ни открытие, ни 3-бет; сквиз — ваше открытие заколлировали до 3-бета;
-  // cold call — сам 3-бет заколлировали за спиной (без колла открытия)
+  // тип 3-бет банка по чужим коллам: 1vs1 — никто не коллировал ни открытие, ни 3-бет; сквиз — ваше открытие заколлировали до 3-бета;
+  // 3+ — сам 3-бет заколлировали за спиной (без колла открытия)
   const BANK = { hu: i => cb.v3o[i] === 0 && cb.v3c[i] === 0, cc: i => cb.v3c[i] === 1 && cb.v3o[i] === 0, sq: i => cb.v3o[i] === 1 };
-  if (f.B !== 'all' && cb.v3o && cb.v3c) idxS = idxS.filter(BANK[f.B]); // карточки 2–3
+  if (f.B !== 'all' && cb.v3o && cb.v3c) idxS = idxS.filter(BANK[f.B]); // тип банка — все карточки
+  const idxA = idxS; // карточка 1 — без «нашего действия»: частоты ответов по всем реакциям выбранного банка
   if (f.A.length && cb.v3) idxS = idxS.filter(i => f.A.some(a => cb.v3[i] === AV[a])); // «наше действие» — можно несколько; карточки 2–3
   const rA = Stats.v3b(DB, idxA);
   const r = Stats.v3b(DB, idxS);
@@ -2323,9 +2329,13 @@ function renderV3B(idx) {
   if (!cb.v3) { page.append(el('p', 'muted small', 'В этой базе нет колонок против 3-бета (собрана до 0.7.33). Обновление базы досчитает их из записей реплеера при следующем запуске программы.')); return page; }
   const t = r.d.TOT, ta = rA.d.TOT;
   if (!rA.all) { page.append(el('p', 'muted small', 'Нет открытий с 3-бетом в этой выборке.')); return page; }
-  // #1 — фолд на 3-бет: частота по позициям и все ответы (как в Hand2Note: чужие коллы не важны); «наше действие» не применяется
+  // #1 — фолд на 3-бет: частота по позициям и все ответы (как в Hand2Note: чужие коллы не важны); «наше действие» не применяется,
+  // подпись собирается из выбранных фильтров — тип 3-бета, тип банка, ваш стек
+  const bankTxt = { all: '', hu: ' один на один', cc: ', который заколлировали за спиной', sq: ' — сквиз поверх колла вашего открытия' }[f.B];
+  const tyTxt = T.ty === 'ai' ? ' олл-ином' : T.ty === 'nai' ? ' не олл-ином' : '';
+  const sub1 = 'из ' + ta.n.toLocaleString('ru-RU') + ' ваших открытий, получивших 3-бет' + tyTxt + bankTxt + (sr ? ' при вашем стеке ' + rangeTxt(sr) : '');
   const posRows = rA.V3B_POS.filter(p => rA.d[p].n >= SMALL).map(p => { const z = rA.d[p]; return [p, z.fld / z.n, p + ': ' + z.fld + ' из ' + z.n]; });
-  const c1 = card(1, 'Фолдите на 3-бет', '<em>' + fmtPct(ta.fld / ta.n) + '%</em>', 'из ' + ta.n.toLocaleString('ru-RU') + ' ваших открытий, получивших 3-бет',
+  const c1 = card(1, 'Фолдите на 3-бет', '<em>' + fmtPct(ta.fld / ta.n) + '%</em>', sub1,
     fillBox(posStrip('Фолд по позициям', posRows), respTiles(rA.resp, 'Ваш ответ на 3-бет', [['фолд', 'var(--good)'], ['колл', 'var(--ice)'], ['4-бет', 'var(--bad)']])));
   // #2 — результат вашей реакции на 3-бет по позициям, факт / EV; действия задаёт фильтр «Наше действие» (по умолчанию — все)
   const pos = ['TOT'].concat(r.V3B_POS).filter(p => r.d[p].n >= 1);
