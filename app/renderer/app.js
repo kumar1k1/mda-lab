@@ -2107,7 +2107,7 @@ function tbOstkBlock(r) {
   const posList = ['TOT'].concat(TB_POS.filter(p => r.tb[p].n >= SMALL));
   const body = el('div');
   card.append(segBtns(posList.map(p => [p, p === 'TOT' ? 'Все' : p]), TB_OSTKPOS, (k) => { TB_OSTKPOS = k; draw(); }), body,
-    infoNote('Стек — стек открывающего в начале раздачи, BB: короткий до 20, средний 20–40, глубокий 40+. «Случаев» — сколько раз перед вами было одно открытие (не олл-ином) без лимперов и коллеров. 3-бет и Олл-ин — ваш ответ от этих случаев. Результат — средний итог раздачи после 3-бета (вместе с олл-инами), факт / EV. Бледные строки — меньше 30 раздач.'));
+    infoNote('Стек — стек открывающего в начале раздачи, BB: короткий до 20, средний 20–40, глубокий 40+. «Случаев» — сколько раз перед вами было одно открытие (не олл-ином) без лимперов и коллеров. 3-бет и Олл-ин — ваш ответ от этих случаев. Результат — средний итог раздачи после 3-бета (вместе с олл-инами), факт / EV. Наведите на строку — матрица рук этих 3-бетов и итог; клик по строке — раздачи и реплеер. Бледные строки — меньше 30 раздач.'));
   function draw() {
     const rows = r.ostk[TB_OSTKPOS] || [], tot = rows.reduce((a, z) => a + z.n, 0);
     const t = el('div', 'sz5-t tb-sz');
@@ -2120,6 +2120,13 @@ function tbOstkBlock(r) {
       const share = tot ? z.n / tot : 0, tk = el('span', 'sz5-tk'); const tr = el('i'); tr.style.width = Math.max(1, share * 100) + '%'; tk.append(tr);
       row.append(el('b', null, r.TB_OSTK[k]), el('span', 'sz5-sh', z.n.toLocaleString('ru-RU')), v(pc(z.x), 'var(--bad)'), v(pc(z.ai), 'var(--ice)'),
         wrNode('sz5-v', wr, we, 2), el('small', null, z.sn.toLocaleString('ru-RU') + ' 3-бетов'), tk);
+      // наведение на строку — матрица рук этих 3-бетов и итог (как #9.1); клик — раздачи и реплеер
+      if (z.h && z.h.n) {
+        const gl = TB_OSTKPOS === 'TOT' ? 'все позиции' : 'с ' + TB_OSTKPOS;
+        const it = { p: TB_OSTKPOS, anyPos: true, key: 'tbostk' + TB_OSTKPOS + k, title: 'Ваш 3-бет против открывающего ' + r.TB_OSTK[k] + ' · ' + gl, o: { n: z.h.n, sum: z.h.sum, es: z.h.es }, mx: z.h.mx, ids: z.h.ids, sit: 2, vlab: ' BB за 3-бет', nlab: ' 3-бетов' };
+        const hv = z.h.sum / 10 / z.h.n;
+        row.addEventListener('mouseenter', (e) => showHandPop(it, hv, e, row)); row.addEventListener('mousemove', (e) => showHandPop(it, hv, e, row)); row.addEventListener('mouseleave', hideHandPop);
+      }
       t.append(row);
     });
     body.replaceChildren(tot ? t : el('p', 'muted small', 'Нет открытий в выборке.'));
@@ -2249,10 +2256,9 @@ function renderTB(idx) {
   c2.classList.add('wide');
   const zone = el('div', 'summary'); const pair = el('div', 'sum-pair'); pair.append(c1, c2); zone.append(pair);
   const rG = flt ? Object.assign({}, r, { hands: H2 }) : r; // #4 — тоже по типу 3-бета из шапки
-  zone.append(tbTable(r),
-    ccGroupBlock(rG, { cols: TB_POS, tag: 4, title: 'Результат 3-бета по группам рук', sub: 'BB за 3-бет: всего и по группам рук, факт / EV', name: '3-бет', nameOf: (p) => 'Ваш 3-бет с ' + p, verb: 'не 3-бетили', act: undefined, vlab: ' BB за 3-бет', nlab: ' 3-бетов', none: 'Нет 3-бетов в выборке.', key: 'tbg', p: false,
+  zone.append(tbOppBlock(r6), tbTable(r), tbVsBlock(r57), ccGroupBlock(rG, { cols: TB_POS, tag: 4, title: 'Результат 3-бета по группам рук', sub: 'BB за 3-бет: всего и по группам рук, факт / EV', name: '3-бет', nameOf: (p) => 'Ваш 3-бет с ' + p, verb: 'не 3-бетили', act: undefined, vlab: ' BB за 3-бет', nlab: ' 3-бетов', none: 'Нет 3-бетов в выборке.', key: 'tbg', p: false,
       note: 'В ячейке — результат 3-бета группой рук с этой позиции в BB (вместе с олл-инами): сверху факт, под ним EV, справа мелко — число 3-бетов. Цвет — плюс или минус. Наведите — матрица рук группы и их итог; клик закрепит окно, клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше 30 раздач.' }),
-    tbVsBlock(r57), tbOppBlock(r6), tbSizeBlock(r57), tbSplitBlock(r), tbXBlock(r), tbIsoBlock(r), tbOstkBlock(r57)); // 5 и 7 — стек + тип раздела; 6 — без них; 7.1 — в конце, после #11; #8 удалена (0.7.25), #10 «Ответ на 4-бет» удалена (0.7.27 — то же есть строками в #3 и колонкой в #9.1)
+    tbSizeBlock(r57), tbSplitBlock(r), tbXBlock(r), tbOstkBlock(r57), tbIsoBlock(r)); // порядок: 6 после ряда 1–2, 5 за 3, 7.1 после 9.1; 5, 7 и 7.1 — стек + тип раздела, 6 — без них; #8 удалена (0.7.25), #10 — (0.7.27)
   page.append(zone);
   return page;
 }

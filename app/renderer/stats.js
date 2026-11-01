@@ -306,8 +306,8 @@
             if (c.hc[i] >= 0) { if (!q.rmx) q.rmx = Array.from({ length: 169 }, () => ({ n: 0, x: 0, ai: 0, lp: 0, sum: 0, es: 0 })); const m = q.rmx[c.hc[i]]; m.n++; m.sum += v0; m.es += e0; q.rids.push(i); if (a === 1) m.lp++; else if (r3) { m.x++; if (a === 3) m.ai++; } }
           }
         }
-        // #7.1 — корзины стека открывающего: возможности, 3-беты (все/олл-ином) и их результат
-        if (c.ostk[i] >= 0) { const ok = c.ostk[i] / 10 < 20 ? 0 : c.ostk[i] / 10 < 40 ? 1 : 2, q = out.ostk[k][ok]; q.n++; if (r3) { q.x++; if (a === 3) q.ai++; q.sum += v0; q.es += e0; q.sn++; } }
+        // #7.1 — корзины стека открывающего: возможности, 3-беты (все/олл-ином) и их результат; h — матрица для наведения
+        if (c.ostk[i] >= 0) { const ok = c.ostk[i] / 10 < 20 ? 0 : c.ostk[i] / 10 < 40 ? 1 : 2, q = out.ostk[k][ok]; q.n++; if (r3) { q.x++; if (a === 3) q.ai++; q.sum += v0; q.es += e0; q.sn++; if (c.hc[i] >= 0) { const h = q.h || (q.h = hset()), m = h.mx[c.hc[i]]; h.n++; h.sum += v0; h.es += e0; h.ids.push(i); m.n++; m.sum += v0; m.es += e0; } } }
         if (r3) {
           if (c.hc[i] >= 0) for (const h of [out.hands[k], a === 3 ? out.handsA[k] : out.handsN[k]]) { const m = h.mx[c.hc[i]]; h.n++; h.sum += v0; h.es += e0; h.ids.push(i); m.n++; m.sum += v0; m.es += e0; }
           // матрицы для наведения: ответ соперников на 3-бет (x — сбросили или 4-бет, из них ai — 4-бет, lp — колл) и ваш ход против 4-бета (x — рейз, lp — колл)
