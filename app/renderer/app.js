@@ -1621,7 +1621,7 @@ function rangeForm(id, cur, onSet) {
   };
   return f;
 }
-const rangeTxt = (r) => (r ? r[0] + '–' + (r[1] < 1e8 ? r[1] : '∞') + ' BB' : 'любой');
+const rangeTxt = (r) => (r ? (r[1] < 1e8 ? r[0] + '–' + r[1] : r[0] + '+') + ' BB' : 'любой');
 function ccOppBlock(r) {
   const b = el('section', 'block cc-table'); b.append(numTag(5));
   const h = el('div', 'block-head'); h.append(el('h2', null, 'Ваш ответ против стека открывающего'), el('p', null, 'колл, 3-бет, олл-ин или фолд каждой рукой, когда перед вами был один рейз; стеки задаёте сами'));
@@ -2342,8 +2342,17 @@ function renderV3B(idx) {
   const items = pos.map(p => { const z = r.d[p]; return { p, anyPos: true, key: 'v3 ' + p + (sr ? ' ' + sr.join('-') : '') + T.ty + f.A.join('+') + f.B, title: 'Ваша реакция на 3-бет' + (p === 'TOT' ? ' (все позиции)' : ' с ' + p), o: { n: z.n, sum: z.sum, es: z.es }, mx: z.mx, ids: z.ids, sit: 0, vlab: ' BB за раздачу', nlab: ' раздач' }; }); // sit 0 — герой открылся; act не задаём: раздачи уже отобраны фильтрами банка и действия
   LAST_NET_ITEMS = items;
   const avg = t.n ? t.sum / 10 / t.n : null, avgE = t.n ? t.es / 10 / t.n : null;
-  const chartBox = el('div'); chartBox.append(secLabel('vs3bet', t.n, 'раздач'), netChart(items, avg, 'EV реакции на 3-бет'));
-  const c2 = card(2, 'Результат вашей реакции на 3-бет', wrHtml(avg, avgE, 2) + ' <small>BB за раздачу</small>', null, chartBox);
+  // подпись карточки 2 — из выбранных фильтров: какие реакции, тип 3-бета, тип банка, стек (как у карточки 1)
+  { const ap = [];
+    if (f.A.includes('fold')) ap.push('фолдам');
+    if (f.A.includes('call')) ap.push('коллам');
+    const h4 = f.A.includes('r4'), hA = f.A.includes('ai');
+    if (h4 && hA) ap.push('4-бетам'); else { if (h4) ap.push('4-бетам не олл-ином'); if (hA) ap.push('4-бетам олл-ином'); }
+    var actD = ap.length === 0 || ap.length === 4 ? 'раздачам (все ответы)' : ap.length <= 2 ? ap.join(' и ') : ap.slice(0, -1).join(', ') + ' и ' + ap[ap.length - 1];
+  }
+  const sub2 = 'по ' + t.n.toLocaleString('ru-RU') + ' ' + actD + ' на 3-бет' + tyTxt + bankTxt + (sr ? ' при вашем стеке ' + rangeTxt(sr) : '');
+  const chartBox = el('div'); chartBox.append(netChart(items, avg, 'EV реакции на 3-бет'));
+  const c2 = card(2, 'Результат вашей реакции на 3-бет', wrHtml(avg, avgE, 2) + ' <small>BB за раздачу</small>', sub2, chartBox);
   c2.classList.add('wide');
   c2.append(infoNote('Факт — средний итог этих раздач в BB (банк минус ваши вложения): сколько приносит выбранная реакция на 3-бет. EV — тот же итог с поправкой на эквити в раздачах, закончившихся олл-ином до ривера: карта выправляет удачу. Реакции задаёт фильтр «Наше действие» в шапке раздела — по умолчанию все ответы (фолд, колл, 4-бет, 4-бет олл-ином), можно сочетать, например оба 4-бета или фолд с коллом; на столбик можно навести и закрепить окно с руками, клик по руке откроет раздачи и реплеер.'));
   // #3 — наоборот: раздачи, где 3-бет заколлировали за спиной (один или несколько колов)
