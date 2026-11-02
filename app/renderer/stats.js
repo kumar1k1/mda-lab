@@ -365,7 +365,8 @@
   // (v3/c3), entry — вступили за спиной до вашего хода (v3e/c3e). d — все строки idx (карточки 1–2),
   // e1/e2 — «за спиной вступили» (карточка 3), cl — «чистые» asR-споты (будущая карточка).
   // «наше действие», тип, банк и позиция из фильтров раздела отбирают раздачи до расчёта (в app.js)
-  function v3b(db, idx) {
+  function v3b(db, idx, opt) {
+    opt = opt || {};
     const c = db.cols, EV = c.nev || c.net, out = {};
     const has = (k) => c[k] != null && c[k].length === db.count;
     const R = { V3B_POS: ['EP', 'MP', 'HJ', 'CO', 'BTN', 'SB'] };
@@ -374,6 +375,10 @@
     const fine = has('fp'), POSF = (p) => (p === 0 ? 'EP' : p === 1 || p === 2 ? 'MP' : POS[p]);
     const cell = () => ({ n: 0, fld: 0, call: 0, r4: 0, sum: 0, es: 0, sn: 0, ids: [], mx: Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })) });
     out.d = {}; out.e1 = {}; out.e2 = {}; out.cl = {}; ['TOT'].concat(R.V3B_POS).forEach(k => { out.d[k] = cell(); out.e1[k] = cell(); out.e2[k] = cell(); out.cl[k] = cell(); });
+    // карточка «Ваш ответ против трибета агрессора»: матрица рук (4-бет / олл-ин / колл / фолд) при заданных
+    // позиции 3-бетящего (v3oOpen — можно несколько), его стеке (v3oStk) и вашем стеке (v3oMy); позиция ваша — v3oPos
+    if (opt.v3oPos) out.mxV = Array.from({ length: 169 }, () => ({ n: 0, x: 0, ai: 0, lp: 0 }));
+    const hasQ = has('v3q') && has('c3q');
     for (const i of idx) {
       const isC = hasC && c.c3[i] >= 0; // asC: кол открытия + сквиз за спиной
       if (!isC && c.v3[i] < 0) continue; // спота нет или хода не случилось
@@ -396,6 +401,21 @@
           if (c.hc[i] >= 0) { const m = z.mx[c.hc[i]]; m.n++; m.sum += v0; m.es += e0; }
         }
       });
+      // позиция 3-бетящего (v3q для asR, c3q для asC) — для карточки «Ваш ответ против трибета агрессора»
+      if (opt.v3oPos && c.hc[i] >= 0 && p === opt.v3oPos && hasQ) {
+        const q = isC ? c.c3q[i] : c.v3q[i];
+        const opP = q >= 0 ? FP[q] : null;
+        const okStk = !opt.v3oStk || (c.ostk[i] >= opt.v3oStk[0] * 10 && c.ostk[i] < opt.v3oStk[1] * 10);
+        const okMy = !opt.v3oMy || (c.bb[i] >= opt.v3oMy[0] * 10 && c.bb[i] < opt.v3oMy[1] * 10);
+        const okOpen = !opt.v3oOpen || !opt.v3oOpen.length || opt.v3oOpen.includes(opP);
+        if (okStk && okMy && okOpen) {
+          const m = out.mxV[c.hc[i]];
+          m.n++;
+          if (v === 0) m.fo = (m.fo || 0) + 1;
+          else if (v === 1) m.lp++;
+          else { m.x++; if (v === 3) m.ai++; }
+        }
+      }
     }
     out.all = out.d.TOT.n; // все споты выборки (знаменатель карточки 3)
     out.resp = [out.d.TOT.fld, out.d.TOT.call, out.d.TOT.r4];

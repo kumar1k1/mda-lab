@@ -70,7 +70,10 @@ const MIGRATIONS = [
   { id: 'c3', col: ['c3', 'i8'], uses: ['rz', 'act'], need: (C, i) => C.rz[i] === 1 && C.act[i] === 1 && C.c3[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).c3 },
   { id: 'c3a', col: ['c3a', 'i8'], uses: ['rz', 'act'], need: (C, i) => C.rz[i] === 1 && C.act[i] === 1 && C.c3a[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).c3a },
   { id: 'c3e', col: ['c3e', 'i8'], uses: ['rz', 'act'], need: (C, i) => C.rz[i] === 1 && C.act[i] === 1 && C.c3e[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).c3e },
-  { id: 'c3p', col: ['c3p', 'i8'], uses: ['rz', 'act'], need: (C, i) => C.rz[i] === 1 && C.act[i] === 1 && C.c3p[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).c3p }
+  { id: 'c3p', col: ['c3p', 'i8'], uses: ['rz', 'act'], need: (C, i) => C.rz[i] === 1 && C.act[i] === 1 && C.c3p[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).c3p },
+  // 0.7.49: позиция 3-бетящего/сквизера (fine-позиция) — для карточки «Ваш ответ против трибета агрессора»
+  { id: 'v3q', col: ['v3q', 'i8'], uses: ['sit', 'act'], need: (C, i) => C.sit[i] === 0 && C.act[i] >= 2 && C.v3q[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).v3q },
+  { id: 'c3q', col: ['c3q', 'i8'], uses: ['rz', 'act'], need: (C, i) => C.rz[i] === 1 && C.act[i] === 1 && C.c3q[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).c3q }
 ];
 // обновления формата (после досчёта колонок): двоичный реплеер и сжатые колонки (0.7)
 const FORMAT_IDS = ['rpbin', 'colz', 'names', 'dedup']; // names (0.7.2) — ники за столом; dedup (0.7.8) — копии раздач из разных выгрузок убираются
@@ -90,7 +93,7 @@ function readCol(dir, name, type, n) {
   if (a.length === n) return a; const b = new TY[type](n); b.set(a.subarray(0, Math.min(n, a.length))); return b;
 }
 function writeCol(dir, name, a) { require('./table.js').writeCol(dir, name, a); }
-const TYPES_OF = { rz: 'i8', act: 'i8', pos: 'i8', fcb: 'i8', ant: 'i16', cbs: 'i16', fp: 'i8', fop: 'i8', t3r: 'i8', t4: 'i8', sit: 'i8', v3: 'i8', v3a: 'i8', v3o: 'i8', v3c: 'i8', v3e: 'i8', v3p: 'i8', c3: 'i8', c3a: 'i8', c3e: 'i8', c3p: 'i8' };
+const TYPES_OF = { rz: 'i8', act: 'i8', pos: 'i8', fcb: 'i8', ant: 'i16', cbs: 'i16', fp: 'i8', fop: 'i8', t3r: 'i8', t4: 'i8', sit: 'i8', v3: 'i8', v3a: 'i8', v3o: 'i8', v3c: 'i8', v3e: 'i8', v3p: 'i8', c3: 'i8', c3a: 'i8', c3e: 'i8', c3p: 'i8', v3q: 'i8', c3q: 'i8' };
 
 async function doMigrate(dir, post) {
   const r1 = doRowMigrations(dir, post);
