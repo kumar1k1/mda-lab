@@ -1189,7 +1189,7 @@ function resHead(card) {
 // для карточек результата этого действия (где тип имеет смысл). Свои для каждого раздела.
 const SECF = {};
 const SEC_TYPES = { rfi: [['all', 'Все открытия'], ['nai', 'Не олл-ин'], ['ai', 'Олл-ин']], cc: null, '3bet': [['all', 'Все 3-беты'], ['nai', 'Не олл-ин'], ['ai', 'Олл-ин']], vs3bet: [['all', 'Все 3-беты'], ['nai', 'Не олл-ин'], ['ai', 'Олл-ин']] };
-const secF = (tab) => SECF[tab] || (SECF[tab] = { S: 'all', C: null, T: 'all', A: [], B: 'all', P: 'all' }); // A — «наше действие» (Против 3-бета): список выбранных, пустой = любое; B — «тип трибет банка», P — «наша позиция» там же
+const secF = (tab) => SECF[tab] || (SECF[tab] = { S: 'all', C: null, T: 'all', A: [], B: 'all', P: 'all', SQ: null }); // A — «наше действие» (Против 3-бета): список выбранных, пустой = любое; B — «тип трибет банка», P — «наша позиция», SQ — подтумблеры сквиз-пота ['r','c'] (null = оба) там же
 function secRange(tab) { if (!(tab in SEC_TYPES)) return null; const f = secF(tab); return f.S === 'custom' && f.C ? f.C : (RES_STK.find(x => x[0] === f.S) || RES_STK[0])[2]; }
 // тип действия раздела: проверка раздачи и подпись выборки для карточки.
 // «олл-ин» вашего 3-бета — эффективно: фактический пуш или рейз, покрывающий стек открывающего (в этом споте коллеров нет)
@@ -1218,8 +1218,22 @@ function drawSecFilters(tab) {
     seg.append(mk('all', 'Любое'), mk('fold', 'Фолд'), mk('call', 'Колл'), mk('r4', '4-бет'), mk('ai', '4-бет олл-ин')); sync();
     box.append(grp('Наше действие', seg));
     // тип 3-бет банка по чужим коллам (под «нашим действием»): 1vs1 / сквиз поверх колла открытия;
-    // раздачи, где за спиной вступили до вашего хода, — отдельной карточкой (кол 3-бета / рейз поверх)
-    box.append(grp('Тип трибет банка', segBtns([['all', 'Все'], ['hu', '3b пот 1vs1'], ['sq', 'сквиз пот']], f.B, (k) => { f.B = k; renderNext(); })));
+    // у «сквиз пот» — подтумблеры asR (вы открылись, открытие заколлировали, сквиз поверх) и asC (вы заколлировали чужое открытие, сквиз за спиной)
+    const bseg = segBtns([['all', 'Все'], ['hu', '3b пот 1vs1'], ['sq', 'сквиз пот']], f.B, (k) => { if (k === 'sq' && !f.SQ) f.SQ = ['r', 'c']; f.B = k; renderNext(); });
+    if (f.B === 'sq') {
+      [['r', 'asR', 'asR — вы открылись первым, ваше открытие заколлировали, и сквиз поднял банк поверх коллов.'], ['c', 'asC', 'asC — вы заколлировали чужое открытие (до вас одно открытие, коллеры могли быть до и после вас), и за спиной прилетел сквиз.']].forEach(([k, t, tip]) => {
+        const chip = el('button', 'sq-sub' + (f.SQ.includes(k) ? ' on' : ''), t);
+        chip.type = 'button'; chip.title = tip; chip.setAttribute('aria-pressed', String(f.SQ.includes(k)));
+        chip.onclick = (e) => {
+          e.stopPropagation();
+          const j = f.SQ.indexOf(k);
+          if (j >= 0) { if (f.SQ.length === 1) return; f.SQ.splice(j, 1); } else f.SQ.push(k);
+          renderNext();
+        };
+        bseg.append(chip);
+      });
+    }
+    box.append(grp('Тип трибет банка', bseg));
   }
   const cust = f.S === 'custom' ? f.C : null;
   // свой диапазон — под кнопками стека, с тем же левым краем
@@ -2324,16 +2338,27 @@ function renderV3B(idx) {
   const sr = secRange('vs3bet'), f = secF('vs3bet'), cb = DB.cols;
   let idxS = sr ? idx.filter(i => cb.bb[i] >= sr[0] * 10 && cb.bb[i] < sr[1] * 10) : idx;
   const T = secType('vs3bet');
-  if (T.flt && cb.v3a) idxS = idxS.filter(i => cb.v3a[i] >= 0 && (T.ty === 'ai' ? cb.v3a[i] === 1 : cb.v3a[i] === 0));
+  // два семейства спотов: asR — вы открылись и получили 3-бет (v3*), asC — вы заколлировали чужое открытие, за спиной сквиз (c3*).
+  // Все фильтры работают с унифицированными значениями: RV — ваш ход, RA — «олл-ин» рейза соперника, RP — позиция относительно него
+  const isC = i => cb.c3 != null && cb.c3[i] >= 0;
+  const RV = i => isC(i) ? cb.c3[i] : cb.v3[i];
+  const RA = i => isC(i) ? (cb.c3a != null ? cb.c3a[i] : -1) : cb.v3a[i];
+  const RP = i => isC(i) ? (cb.c3p != null ? cb.c3p[i] : -1) : cb.v3p[i];
   const AV = { fold: 0, call: 1, r4: 2, ai: 3 };
-  // наша позиция относительно 3-бетящего постфлоп (v3p: 1 IP / 0 OOP) — все карточки
-  if (f.P !== 'all' && cb.v3p) idxS = idxS.filter(i => cb.v3p[i] === (f.P === 'ip' ? 1 : 0));
-  // тип 3-бет банка: 1vs1 — до вашего хода никто не вступил и открытие не коллировали; сквиз — открытие заколлировали до 3-бета.
-  // Раздачи, где за спиной вступили (кол/рейз 3-бета), — карточкой 3, в фильтр не входят
-  const BANK = { hu: i => cb.v3o[i] === 0 && (cb.v3e ? cb.v3e[i] === 0 : cb.v3c[i] === 0), sq: i => cb.v3o[i] === 1 };
-  if (f.B !== 'all' && cb.v3o) idxS = idxS.filter(BANK[f.B]); // тип банка — все карточки
+  // тип 3-бета соперника (сквиза для asC): олл-ин / не олл-ин — все карточки
+  if (T.flt) idxS = idxS.filter(i => RA(i) >= 0 && (T.ty === 'ai' ? RA(i) === 1 : RA(i) === 0));
+  // наша позиция относительно 3-бетящего/сквизера постфлоп (1 IP / 0 OOP) — все карточки
+  if (f.P !== 'all') idxS = idxS.filter(i => RP(i) === (f.P === 'ip' ? 1 : 0));
+  // тип 3-бет банка: 1vs1 — до вашего хода никто не вступил и открытие не коллировали (только asR);
+  // сквиз пот — asR (ваше открытие заколлировали, сквиз поверх) и/или asC (вы коллер) — по подтумблерам;
+  // раздачи, где за спиной вступили после 3-бета, — карточкой 3, в фильтр не входят
+  if (f.B === 'hu') idxS = idxS.filter(i => !isC(i) && cb.v3o[i] === 0 && (cb.v3e ? cb.v3e[i] === 0 : cb.v3c[i] === 0));
+  else if (f.B === 'sq') {
+    const sq = f.SQ || ['r', 'c'];
+    idxS = idxS.filter(i => (!isC(i) && cb.v3o[i] === 1 && sq.includes('r')) || (isC(i) && sq.includes('c')));
+  } else idxS = idxS.filter(i => !isC(i)); // «Все» и остальные банки — только семейство открывателя (как в Hand2Note)
   const idxA = idxS; // карточка 1 — без «нашего действия»: частоты ответов по всем реакциям выбранного банка
-  if (f.A.length && cb.v3) idxS = idxS.filter(i => f.A.some(a => cb.v3[i] === AV[a])); // «наше действие» — можно несколько; карточки 2–3
+  if (f.A.length) idxS = idxS.filter(i => f.A.some(a => RV(i) === AV[a])); // «наше действие» — можно несколько; карточки 2–3
   const rA = Stats.v3b(DB, idxA);
   const r = Stats.v3b(DB, idxS);
   const page = el('div', 'page');
@@ -2350,7 +2375,7 @@ function renderV3B(idx) {
     fillBox(posStrip('Фолд по позициям', posRows), respTiles(rA.resp, 'Ваш ответ на 3-бет', [['фолд', 'var(--good)'], ['колл', 'var(--ice)'], ['4-бет', 'var(--bad)']])));
   // #2 — результат вашей реакции на 3-бет по позициям, факт / EV; действия задаёт фильтр «Наше действие» (по умолчанию — все)
   const pos = ['TOT'].concat(r.V3B_POS).filter(p => r.d[p].n >= 1);
-  const items = pos.map(p => { const z = r.d[p]; return { p, anyPos: true, key: 'v3 ' + p + (sr ? ' ' + sr.join('-') : '') + T.ty + f.A.join('+') + f.B, title: 'Ваша реакция на 3-бет' + (p === 'TOT' ? ' (все позиции)' : ' с ' + p), o: { n: z.n, sum: z.sum, es: z.es }, mx: z.mx, ids: z.ids, sit: 0, vlab: ' BB за раздачу', nlab: ' раздач' }; }); // sit 0 — герой открылся; act не задаём: раздачи уже отобраны фильтрами банка и действия
+  const items = pos.map(p => { const z = r.d[p]; return { p, anyPos: true, pre: true, key: 'v3 ' + p + (sr ? ' ' + sr.join('-') : '') + T.ty + f.A.join('+') + f.B + (f.SQ || []).join(''), title: 'Ваша реакция на 3-бет' + (p === 'TOT' ? ' (все позиции)' : ' с ' + p), o: { n: z.n, sum: z.sum, es: z.es }, mx: z.mx, ids: z.ids, vlab: ' BB за раздачу', nlab: ' раздач' }; }); // pre — раздачи уже отобраны фильтрами (asR открыватели и asC коллеры вперемешку)
   LAST_NET_ITEMS = items;
   const avg = t.n ? t.sum / 10 / t.n : null, avgE = t.n ? t.es / 10 / t.n : null;
   const chartBox = el('div'); chartBox.append(netChart(items, avg, 'EV реакции на 3-бет'));

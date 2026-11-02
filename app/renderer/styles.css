@@ -1943,3 +1943,6 @@ body.noscroll #content{overflow:hidden}
 .v3e-hd{display:flex;align-items:baseline;gap:10px}
 .v3e-hd span{color:var(--muted);font-size:12px}
 .v3e-res{font-size:13px}
+
+.sec-f .sq-sub{padding:0 8px;font-size:11px;font-weight:700;letter-spacing:.02em;border:1px solid var(--line2);border-radius:6px;color:var(--muted);margin-left:4px}
+.sec-f .sq-sub.on{border-color:var(--accent,var(--ice));color:var(--ice)}

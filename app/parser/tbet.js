@@ -20,6 +20,11 @@
 // v3e (0.7.44) — чем вступили за спиной до хода игрока: 0 никто, 1 только колы (включая короткий олл-ин, не превышающий размер 3-бета),
 // 2 был рейз поверх 3-бета (холодный 4-бет, хотя бы один; колы при этом могли быть). -1 — 3-бета не было.
 // v3p (0.7.44) — позиция игрока относительно 3-бетящего ПОСТФЛОП: 1 — игрок в позиции (действует после 3-бетящего), 0 — вне позиции. -1 — 3-бета не было.
+// asC (0.7.47, «сквиз пот» — вы колером): игрок заколлировал чужое открытие (ровно один рейз до него, без лимпов до открытия;
+// коллеры открытия до и после него допускаются), и за спиной подняли поверх — сквиз. Коды зеркальны семейству v3:
+// c3 — ход игрока против сквиза (0 фолд, 1 колл, 2 4-бет, 3 4-бет олл-ином; -1 — сквиза не было или хода не случилось);
+// c3a — сквиз «олл-ин» эффективно (пуш, весь стек сквизера или ставка, покрывающая стеки открывающего и всех коллеров);
+// c3e — вступили между сквизом и ходом игрока (0/1 колы/2 рейз); c3p — позиция игрока относительно сквизера постфлоп (1 IP / 0 OOP).
 const ACT = new Set(['f', 'x', 'c', 'b', 'r']);
 const FIX = { CO: 3, BTN: 4, SB: 5, BB: 6 };
 
@@ -32,11 +37,37 @@ function fineOf(rec, k) {
 }
 
 function tbetOf(rec, s) {
-  const out = { fp: fineOf(rec, s), fop: -1, t3r: -1, t4: -1, v3: -1, v3a: -1, v3o: -1, v3c: -1, v3e: -1, v3p: -1 };
+  const out = { fp: fineOf(rec, s), fop: -1, t3r: -1, t4: -1, v3: -1, v3a: -1, v3o: -1, v3c: -1, v3e: -1, v3p: -1, c3: -1, c3a: -1, c3e: -1, c3p: -1 };
   const p = rec.ev.filter(e => e[0] === 0 && ACT.has(e[2]));
   const hi = p.findIndex(e => e[1] === s); if (hi < 0) return out;
   const before = p.slice(0, hi), rz = before.filter(e => e[2] === 'r' || e[2] === 'b');
   if (rz.length) out.fop = fineOf(rec, rz[0][1]);
+  // asC: игрок заколлировал чужое открытие (ровно один рейз до него, до открытия — ни лимпов), и за спиной подняли поверх (сквиз)
+  if (rz.length === 1 && p[hi][2] === 'c' && !before.slice(0, before.indexOf(rz[0])).some(e => e[2] === 'c')) {
+    const afterC = p.slice(hi + 1);
+    const rs = afterC.findIndex(e => e[1] !== s && (e[2] === 'r' || e[2] === 'b'));
+    if (rs >= 0) {
+      const sq = afterC[rs], stS = rec.pl[sq[1]] ? rec.pl[sq[1]][1] : 0;
+      // «олл-ин» сквиза — эффективно: покрывает стеки открывающего и всех коллеров (включая игрока)
+      const eff = Math.max(...[rz[0]].concat(before.slice(before.indexOf(rz[0]) + 1).filter(e => e[2] === 'c'), afterC.slice(0, rs).filter(e => e[2] === 'c')).map(e => (rec.pl[e[1]] || [])[1] || 0).concat([rec.pl[s] ? rec.pl[s][1] : 0]));
+      out.c3a = sq[4] || (stS > 0 && sq[3] >= stS - 0.001) || (eff > 0 && sq[3] >= eff - 0.001) ? 1 : 0;
+      const afterS = afterC.slice(rs + 1), nx = afterS.find(e => e[1] === s);
+      const seg = nx ? afterS.slice(0, afterS.indexOf(nx)) : afterS;
+      let entry = 0;
+      for (const e of seg) {
+        if (e[1] === s || e[2] === 'f') continue;
+        const isRaise = (e[2] === 'r' || e[2] === 'b') && e[3] > sq[3] + 0.001; // рейз больше сквиза; короткий олл-ин ≤ сквиза — кол
+        if (isRaise) { entry = 2; break; }
+        if (entry === 0) entry = 1;
+      }
+      out.c3e = entry;
+      const N = rec.pl.length;
+      let bi = rec.pl.findIndex(x => x[0] === 'BTN');
+      if (bi < 0 && N === 2) bi = rec.pl.findIndex(x => x[0] === 'SB');
+      if (bi >= 0 && rec.pl[sq[1]]) { const o = (k) => ((k - bi - 1 + N) % N) + 1; out.c3p = o(s) > o(sq[1]) ? 1 : 0; }
+      if (nx) out.c3 = nx[2] === 'f' ? 0 : nx[2] === 'c' ? 1 : nx[4] ? 3 : 2;
+    }
+  }
   // против 3-бета (вкладка v3B): игрок открылся (до него никто не входил — ни рейзов, ни лимпов) и следом получил ререйз
   if (!rz.length && !before.some(e => e[2] === 'c') && (p[hi][2] === 'r' || p[hi][2] === 'b')) {
     const after0 = p.slice(hi + 1);

@@ -163,7 +163,8 @@ async function showHandList(it, k, cellBtn) {
   const pop = handPop; const list = pop.querySelector('.hp-list'); pop._selK = k;
   pop.querySelectorAll('.hp-c.sel').forEach(c => c.classList.remove('sel')); cellBtn.classList.add('sel');
   const p = it.anyPos ? -1 : POS_NAMES.indexOf(it.p), c = DB.cols; // anyPos — раздачи уже отобраны по позиции (позиции «как в Hand2Note» во вкладке 3-бет)
-  const all = (it.ids || CURRENT_IDX).filter(i => c.sit[i] === (it.sit || 0) && (it.act != null ? c.act[i] === it.act : c.act[i] >= 2) && (p < 0 || c.pos[i] === p) && c.hc[i] === k);
+  // pre — раздачи уже отобраны фильтрами раздела (например, «Против 3-бета» смешивает открывателей и коллеров) — sit/act не проверяем
+  const all = (it.ids || CURRENT_IDX).filter(i => (it.pre || (c.sit[i] === (it.sit || 0) && (it.act != null ? c.act[i] === it.act : c.act[i] >= 2))) && (p < 0 || c.pos[i] === p) && c.hc[i] === k);
   list.hidden = false; pop.classList.add('with-list');
   const rp = {}; let lazy = null; // записи реплеера — подгружаются по мере показа строк
   const reach = (i) => { const r = rp[i]; if (!r) return 0; if (r.sh && Object.keys(r.sh).length) return 4; return r.bd.length === 5 ? 3 : r.bd.length === 4 ? 2 : r.bd.length === 3 ? 1 : 0; };
