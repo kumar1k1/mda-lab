@@ -59,8 +59,11 @@ function tbetOf(rec, s) {
       }
       out.v3c = seg.some(e => e[1] !== s && e[2] !== 'f') ? 1 : 0;
       out.v3e = entry;
-      // v3p: позиция игрока относительно 3-бетящего постфлоп (позже по ходу — в позиции): порядок от блайндов к баттону
-      const bi = rec.pl.findIndex(x => x[0] === 'BTN'), N = rec.pl.length;
+      // v3p: позиция игрока относительно 3-бетящего постфлоп (позже по ходу — в позиции): порядок от блайндов к баттону.
+      // В хедз-апе метки BTN в записи нет — баттоном является SB (он и действует последним постфлоп)
+      const N = rec.pl.length;
+      let bi = rec.pl.findIndex(x => x[0] === 'BTN');
+      if (bi < 0 && N === 2) bi = rec.pl.findIndex(x => x[0] === 'SB');
       if (bi >= 0 && rec.pl[three[1]]) {
         const o = (k) => ((k - bi - 1 + N) % N) + 1; // SB=1 … BTN=N (кто позже — тот в позиции)
         out.v3p = o(s) > o(three[1]) ? 1 : 0;

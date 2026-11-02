@@ -63,7 +63,9 @@ const MIGRATIONS = [
   { id: 'v3a2', col: ['v3a', 'i8'], uses: ['sit', 'act'], need: (C, i) => C.sit[i] === 0 && C.act[i] >= 2 && C.v3a[i] >= 0, calc: (rec, s) => TB.tbetOf(rec, s).v3a },
   // 0.7.44: v3e — чем вступили за спиной до хода игрока (0/1/2), v3p — позиция игрока относительно 3-бетящего постфлоп (1 IP / 0 OOP)
   { id: 'v3e', col: ['v3e', 'i8'], uses: ['sit', 'act'], need: (C, i) => C.sit[i] === 0 && C.act[i] >= 2 && C.v3e[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).v3e },
-  { id: 'v3p', col: ['v3p', 'i8'], uses: ['sit', 'act'], need: (C, i) => C.sit[i] === 0 && C.act[i] >= 2 && C.v3p[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).v3p }
+  { id: 'v3p', col: ['v3p', 'i8'], uses: ['sit', 'act'], need: (C, i) => C.sit[i] === 0 && C.act[i] >= 2 && C.v3p[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).v3p },
+  // 0.7.46: хедз-ап — метки BTN в записи нет, кнопкой является SB; позиция для таких раздач пересчитывается
+  { id: 'v3p2', col: ['v3p', 'i8'], uses: ['sit', 'act'], need: (C, i) => C.sit[i] === 0 && C.act[i] >= 2 && C.v3p[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).v3p }
 ];
 // обновления формата (после досчёта колонок): двоичный реплеер и сжатые колонки (0.7)
 const FORMAT_IDS = ['rpbin', 'colz', 'names', 'dedup']; // names (0.7.2) — ники за столом; dedup (0.7.8) — копии раздач из разных выгрузок убираются
