@@ -5235,9 +5235,11 @@ function renderV3B(idx) {
     const seg = el('div', 'seg');
     MY_POS.filter(p => posN(p) >= SMALL).forEach(p => { const bt = el('button', uiState.v3OPos === p ? 'on' : '', p); bt.type = 'button'; bt.title = p === 'MP' ? 'MP и HJ (за 6-max среднее место — HJ)' : ''; bt.onclick = () => { uiState.v3OPos = p; uiState.v3OOpen = uiState.v3OOpen.filter(op => POS_ORDER[op] > POS_ORDER[p] || (op === 'MP' && p === 'MP')); renderNext(); }; seg.append(bt); });
     const segO = el('div', 'seg seg-multi');
-    // 3-бетящий: только позиции позже вашей (или MP при вашей MP — два места за большим столом)
+    // 3-бетящий: только позиции позже вашей; одинаковая MP — только за 7+ max (два места MP);
+    // при фильтре 6-max MP×MP невозможна (одно среднее место)
     const hero = POS_ORDER[uiState.v3OPos] != null ? POS_ORDER[uiState.v3OPos] : 3;
-    const opts = Object.keys(POS_ORDER).filter(op => POS_ORDER[op] > hero || (op === 'MP' && hero === 1));
+    const is6 = state.sub === '6max';
+    const opts = Object.keys(POS_ORDER).filter(op => POS_ORDER[op] > hero || (op === 'MP' && hero === 1 && !is6));
     const sel = uiState.v3OOpen.filter(op => opts.includes(op));
     const ball = el('button', sel.length ? '' : 'on', 'Все'); ball.type = 'button'; ball.setAttribute('aria-pressed', String(!sel.length)); ball.onclick = () => { uiState.v3OOpen = []; renderNext(); }; segO.append(ball);
     opts.forEach(op => { const on = sel.includes(op); const bt = el('button', on ? 'on' : '', op); bt.type = 'button'; bt.setAttribute('aria-pressed', String(on)); bt.onclick = () => { uiState.v3OOpen = on ? sel.filter(x => x !== op) : sel.concat([op]); renderNext(); }; segO.append(bt); });
