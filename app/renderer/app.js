@@ -2407,13 +2407,14 @@ function renderV3B(idx) {
   const c4 = el('section', 'block cc-table'); c4.append(numTag(4));
   {
     const h = el('div', 'block-head'); h.append(el('h2', null, 'Ваш ответ против трибета агрессора'), el('p', null, 'какими руками вы 4-бетите, коллируете, пушите и фолдите против 3-бета; вашу позицию, позицию 3-бетящего и стеки задаёте сами'));
-    // умные связки позиций: порядок хода EP → MP → CO → BTN → SB → BB (HJ убран — почти нет спотов);
+    // умные связки позиций: порядок хода EP → MP(вкл. HJ) → CO → BTN → SB → BB;
     // 3-бетящий действует позже открывающего — его позиция не может быть раньше вашей;
-    // одинаковая позиция возможна только для MP (за 8+ столами два места MP)
+    // одинаковая позиция возможна только для MP (за 8+ столами два места MP; HJ за 6-max тоже MP)
     const POS_ORDER = { EP: 0, MP: 1, CO: 3, BTN: 4, SB: 5, BB: 6 };
     const MY_POS = ['EP', 'MP', 'CO', 'BTN', 'SB'];
+    const posN = (p) => (rV.d[p] ? rV.d[p].n : 0) + (p === 'MP' && rV.d['HJ'] ? rV.d['HJ'].n : 0); // MP включает HJ
     const seg = el('div', 'seg');
-    MY_POS.filter(p => rV.d[p] && rV.d[p].n >= SMALL).forEach(p => { const bt = el('button', uiState.v3OPos === p ? 'on' : '', p); bt.type = 'button'; bt.onclick = () => { uiState.v3OPos = p; uiState.v3OOpen = uiState.v3OOpen.filter(op => POS_ORDER[op] > POS_ORDER[p] || (op === 'MP' && p === 'MP')); renderNext(); }; seg.append(bt); });
+    MY_POS.filter(p => posN(p) >= SMALL).forEach(p => { const bt = el('button', uiState.v3OPos === p ? 'on' : '', p); bt.type = 'button'; bt.title = p === 'MP' ? 'MP и HJ (за 6-max среднее место — HJ)' : ''; bt.onclick = () => { uiState.v3OPos = p; uiState.v3OOpen = uiState.v3OOpen.filter(op => POS_ORDER[op] > POS_ORDER[p] || (op === 'MP' && p === 'MP')); renderNext(); }; seg.append(bt); });
     const segO = el('div', 'seg seg-multi');
     // 3-бетящий: только позиции позже вашей (или MP при вашей MP — два места за большим столом)
     const hero = POS_ORDER[uiState.v3OPos] != null ? POS_ORDER[uiState.v3OPos] : 3;

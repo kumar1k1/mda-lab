@@ -402,20 +402,24 @@
         }
       });
       // карточка 4 «Ваш ответ против трибета агрессора» — только 1vs1 (asR, v3o=0, v3e=0, не asC):
-      // позиция 3-бетящего по v3q, его стек по v3s (ostk для asR всегда -1)
-      if (opt.v3oPos && c.hc[i] >= 0 && p === opt.v3oPos && hasQ && !isC && c.v3o[i] === 0 && c.v3e[i] === 0) {
-        const q = c.v3q[i];
-        const opP = q >= 0 ? FP[q] : null;
-        const v3s = has('v3s') ? c.v3s[i] : -1;
-        const okStk = !opt.v3oStk || (v3s >= opt.v3oStk[0] * 10 && v3s < opt.v3oStk[1] * 10);
-        const okMy = !opt.v3oMy || (c.bb[i] >= opt.v3oMy[0] * 10 && c.bb[i] < opt.v3oMy[1] * 10);
-        const okOpen = !opt.v3oOpen || !opt.v3oOpen.length || opt.v3oOpen.includes(opP);
-        if (okStk && okMy && okOpen) {
-          const m = out.mxV[c.hc[i]];
-          m.n++;
-          if (v === 0) m.fo = (m.fo || 0) + 1;
-          else if (v === 1) m.lp++;
-          else { m.x++; if (v === 3) m.ai++; }
+      // позиция 3-бетящего по v3q, его стек по v3s; HJ объединена с MP (за 6-max единственное среднее место — HJ)
+      if (opt.v3oPos) {
+        const heroP = p === 'HJ' ? 'MP' : p; // HJ→MP: за 6-max среднее место = HJ
+        if (c.hc[i] >= 0 && heroP === opt.v3oPos && hasQ && !isC && c.v3o[i] === 0 && c.v3e[i] === 0) {
+          const q = c.v3q[i];
+          const rawP = q >= 0 ? FP[q] : null;
+          const opP = rawP === 'HJ' ? 'MP' : rawP; // HJ 3-бетящего → MP
+          const v3s = has('v3s') ? c.v3s[i] : -1;
+          const okStk = !opt.v3oStk || (v3s >= opt.v3oStk[0] * 10 && v3s < opt.v3oStk[1] * 10);
+          const okMy = !opt.v3oMy || (c.bb[i] >= opt.v3oMy[0] * 10 && c.bb[i] < opt.v3oMy[1] * 10);
+          const okOpen = !opt.v3oOpen || !opt.v3oOpen.length || opt.v3oOpen.includes(opP);
+          if (okStk && okMy && okOpen) {
+            const m = out.mxV[c.hc[i]];
+            m.n++;
+            if (v === 0) m.fo = (m.fo || 0) + 1;
+            else if (v === 1) m.lp++;
+            else { m.x++; if (v === 3) m.ai++; }
+          }
         }
       }
     }
