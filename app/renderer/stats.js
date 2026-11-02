@@ -361,27 +361,29 @@
   }
 
   // «Против 3-бета» (v3B): своё открытие (sit 0) и 3-бет соперника — как в Hand2Note (RF,RC,RR+):
-  // чужие коллы открытия/3-бета не важны. d — все споты (карточки 1–2), mw — 3-бет кто-то заколлил (карточка 3),
+  // чужие коллы открытия/3-бета не важны. d — все споты (карточки 1–2), e1/e2 — до хода игрока 3-бет заколлировали / переставили (карточка 3),
   // cl — «чистые» споты без чужих коллов (для будущей карточки). Суммы и матрицы — по всем строкам idx:
-  // «наше действие», тип 3-бета и стек из фильтров раздела отбирают раздачи до расчёта (в app.js)
+  // «наше действие», тип 3-бета, банк и позиция из фильтров раздела отбирают раздачи до расчёта (в app.js)
   function v3b(db, idx) {
     const c = db.cols, EV = c.nev || c.net, out = {};
     const has = (k) => c[k] != null && c[k].length === db.count;
     const R = { V3B_POS: ['EP', 'MP', 'HJ', 'CO', 'BTN', 'SB'] };
     if (!has('v3')) return Object.assign(out, R); // база до 0.7.33 — колонки нет, раздел пуст
-    const clean = has('v3o') && has('v3c');
+    const clean = has('v3o') && has('v3c'), fine6 = has('v3e');
     const fine = has('fp'), POSF = (p) => (p === 0 ? 'EP' : p === 1 || p === 2 ? 'MP' : POS[p]);
     const cell = () => ({ n: 0, fld: 0, call: 0, r4: 0, sum: 0, es: 0, sn: 0, ids: [], mx: Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })) });
-    out.d = {}; out.mw = {}; out.cl = {}; ['TOT'].concat(R.V3B_POS).forEach(k => { out.d[k] = cell(); out.mw[k] = cell(); out.cl[k] = cell(); });
+    out.d = {}; out.e1 = {}; out.e2 = {}; out.cl = {}; ['TOT'].concat(R.V3B_POS).forEach(k => { out.d[k] = cell(); out.e1[k] = cell(); out.e2[k] = cell(); out.cl[k] = cell(); });
     for (const i of idx) {
       if (c.v3[i] < 0) continue; // 3-бета не было или хода не случилось — не в этой вкладке
       const p = fine && c.fp[i] >= 0 ? FP[c.fp[i]] : POSF(c.pos[i]);
       const keys = R.V3B_POS.includes(p) ? ['TOT', p] : ['TOT'];
       const v = c.v3[i], v0 = c.net ? c.net[i] : 0, e0 = c.net ? EV[i] : 0;
-      const withCall = clean ? c.v3c[i] === 1 && c.v3o[i] === 0 : false; // карточка #3 «3b пот 3+»: до хода игрока вступили, без колла открытия
-      const isClean = clean ? c.v3c[i] === 0 && c.v3o[i] === 0 : false; // будущая карточка: никто не коллировал ни открытие, ни 3-бет
+      const isClean = clean ? c.v3c[i] === 0 && c.v3o[i] === 0 : false; // «3b пот 1vs1»
+      // карточка #3: за спиной вступили до хода игрока (без колла открытия): e1 — только колы, e2 — был рейз поверх 3-бета
+      const e1 = fine6 && c.v3o[i] === 0 && c.v3e[i] === 1;
+      const e2 = fine6 && c.v3o[i] === 0 && c.v3e[i] === 2;
       keys.forEach(k => {
-        for (const z of [out.d[k], withCall ? out.mw[k] : null, isClean ? out.cl[k] : null]) {
+        for (const z of [out.d[k], e1 ? out.e1[k] : null, e2 ? out.e2[k] : null, isClean ? out.cl[k] : null]) {
           if (!z) continue;
           z.n++;
           if (v === 0) z.fld++;
@@ -394,7 +396,8 @@
     }
     out.all = out.d.TOT.n; // все открытия с 3-бетом (знаменатель карточки 3)
     out.resp = [out.d.TOT.fld, out.d.TOT.call, out.d.TOT.r4];
-    out.respMw = [out.mw.TOT.fld, out.mw.TOT.call, out.mw.TOT.r4];
+    out.respE1 = [out.e1.TOT.fld, out.e1.TOT.call, out.e1.TOT.r4];
+    out.respE2 = [out.e2.TOT.fld, out.e2.TOT.call, out.e2.TOT.r4];
     return Object.assign(out, R);
   }
 

@@ -1937,3 +1937,9 @@ body.noscroll #content{overflow:hidden}
 .szmx.pinned .szmx-h{cursor:grab}
 .szmx.dragging .szmx-h, .il.dragging .il-head{cursor:grabbing}
 .il .il-head{cursor:grab}
+
+.v3e-row{display:flex;flex-direction:column;gap:4px;padding:8px 10px;border:1px solid var(--line);border-radius:8px}
+.v3e-row + .v3e-row{margin-top:8px}
+.v3e-hd{display:flex;align-items:baseline;gap:10px}
+.v3e-hd span{color:var(--muted);font-size:12px}
+.v3e-res{font-size:13px}

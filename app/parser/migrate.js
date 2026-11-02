@@ -60,7 +60,10 @@ const MIGRATIONS = [
   // 0.7.42: v3c — «3b пот 3+» = другие игроки вступили (не фолд) МЕЖДУ 3-бетом и ходом игрока; действия после его хода не считаются — пересчёт
   { id: 'v3c2', col: ['v3c', 'i8'], uses: ['sit', 'act'], need: (C, i) => C.sit[i] === 0 && C.act[i] >= 2 && C.v3c[i] >= 0, calc: (rec, s) => TB.tbetOf(rec, s).v3c },
   // 0.7.43: v3a — «олл-ин» эффективно: явный пуш, весь стек 3-бетящего или ставка, покрывающая стек открывающего и коллеров открытия — пересчёт
-  { id: 'v3a2', col: ['v3a', 'i8'], uses: ['sit', 'act'], need: (C, i) => C.sit[i] === 0 && C.act[i] >= 2 && C.v3a[i] >= 0, calc: (rec, s) => TB.tbetOf(rec, s).v3a }
+  { id: 'v3a2', col: ['v3a', 'i8'], uses: ['sit', 'act'], need: (C, i) => C.sit[i] === 0 && C.act[i] >= 2 && C.v3a[i] >= 0, calc: (rec, s) => TB.tbetOf(rec, s).v3a },
+  // 0.7.44: v3e — чем вступили за спиной до хода игрока (0/1/2), v3p — позиция игрока относительно 3-бетящего постфлоп (1 IP / 0 OOP)
+  { id: 'v3e', col: ['v3e', 'i8'], uses: ['sit', 'act'], need: (C, i) => C.sit[i] === 0 && C.act[i] >= 2 && C.v3e[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).v3e },
+  { id: 'v3p', col: ['v3p', 'i8'], uses: ['sit', 'act'], need: (C, i) => C.sit[i] === 0 && C.act[i] >= 2 && C.v3p[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).v3p }
 ];
 // обновления формата (после досчёта колонок): двоичный реплеер и сжатые колонки (0.7)
 const FORMAT_IDS = ['rpbin', 'colz', 'names', 'dedup']; // names (0.7.2) — ники за столом; dedup (0.7.8) — копии раздач из разных выгрузок убираются
@@ -80,7 +83,7 @@ function readCol(dir, name, type, n) {
   if (a.length === n) return a; const b = new TY[type](n); b.set(a.subarray(0, Math.min(n, a.length))); return b;
 }
 function writeCol(dir, name, a) { require('./table.js').writeCol(dir, name, a); }
-const TYPES_OF = { rz: 'i8', act: 'i8', pos: 'i8', fcb: 'i8', ant: 'i16', cbs: 'i16', fp: 'i8', fop: 'i8', t3r: 'i8', t4: 'i8', sit: 'i8', v3: 'i8', v3a: 'i8', v3o: 'i8', v3c: 'i8' };
+const TYPES_OF = { rz: 'i8', act: 'i8', pos: 'i8', fcb: 'i8', ant: 'i16', cbs: 'i16', fp: 'i8', fop: 'i8', t3r: 'i8', t4: 'i8', sit: 'i8', v3: 'i8', v3a: 'i8', v3o: 'i8', v3c: 'i8', v3e: 'i8', v3p: 'i8' };
 
 async function doMigrate(dir, post) {
   const r1 = doRowMigrations(dir, post);
