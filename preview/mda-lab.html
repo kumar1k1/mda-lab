@@ -4012,8 +4012,10 @@ function drawSecFilters(tab) {
     box.append(grp('Наше действие', seg));
     // тип 3-бет банка по чужим коллам (под «нашим действием»): 1vs1 / сквиз поверх колла открытия;
     // у «сквиз пот» — подтумблеры asR (вы открылись, открытие заколлировали, сквиз поверх) и asC (вы заколлировали чужое открытие, сквиз за спиной)
-    const bseg = segBtns([['all', 'Все'], ['hu', '3b пот 1vs1'], ['sq', 'сквиз пот']], f.B, (k) => { if (k === 'sq' && !f.SQ) f.SQ = ['r', 'c']; f.B = k; renderNext(); });
+    const bseg = segBtns([['all', 'Все'], ['hu', '3b пот 1vs1'], ['sq', 'сквиз пот']], f.B, (k) => { if (k === 'sq') f.SQ = ['r', 'c']; f.B = k; renderNext(); }); // повторный клик по «сквиз пот» возвращает asR + asC вместе
     if (f.B === 'sq') {
+      const sqBtn = [...bseg.querySelectorAll('button')].find(x => x.textContent.trim() === 'сквиз пот');
+      if (sqBtn) sqBtn.title = 'Все сквиз-споты (asR + asC). Повторный клик возвращает оба семейства, если выключали чип.';
       [['r', 'asR', 'asR — вы открылись первым, ваше открытие заколлировали, и сквиз поднял банк поверх коллов.'], ['c', 'asC', 'asC — вы заколлировали чужое открытие (до вас одно открытие, коллеры могли быть до и после вас), и за спиной прилетел сквиз.']].forEach(([k, t, tip]) => {
         const chip = el('button', 'sq-sub' + (f.SQ.includes(k) ? ' on' : ''), t);
         chip.type = 'button'; chip.title = tip; chip.setAttribute('aria-pressed', String(f.SQ.includes(k)));
