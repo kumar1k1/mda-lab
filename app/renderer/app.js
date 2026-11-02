@@ -2407,10 +2407,17 @@ function renderV3B(idx) {
   const c4 = el('section', 'block cc-table'); c4.append(numTag(4));
   {
     const h = el('div', 'block-head'); h.append(el('h2', null, 'Ваш ответ против трибета агрессора'), el('p', null, 'какими руками вы 4-бетите, коллируете, пушите и фолдите против 3-бета; вашу позицию, позицию 3-бетящего и стеки задаёте сами'));
+    // умные связки позиций: порядок хода EP → MP → CO → BTN → SB → BB (HJ убран — почти нет спотов);
+    // 3-бетящий действует позже открывающего — его позиция не может быть раньше вашей;
+    // одинаковая позиция возможна только для MP (за 8+ столами два места MP)
+    const POS_ORDER = { EP: 0, MP: 1, CO: 3, BTN: 4, SB: 5, BB: 6 };
+    const MY_POS = ['EP', 'MP', 'CO', 'BTN', 'SB'];
     const seg = el('div', 'seg');
-    rV.V3B_POS.filter(p => rV.d[p] && rV.d[p].n >= SMALL).forEach(p => { const bt = el('button', uiState.v3OPos === p ? 'on' : '', p); bt.type = 'button'; bt.onclick = () => { uiState.v3OPos = p; uiState.v3OOpen = []; renderNext(); }; seg.append(bt); });
+    MY_POS.filter(p => rV.d[p] && rV.d[p].n >= SMALL).forEach(p => { const bt = el('button', uiState.v3OPos === p ? 'on' : '', p); bt.type = 'button'; bt.onclick = () => { uiState.v3OPos = p; uiState.v3OOpen = uiState.v3OOpen.filter(op => POS_ORDER[op] > POS_ORDER[p] || (op === 'MP' && p === 'MP')); renderNext(); }; seg.append(bt); });
     const segO = el('div', 'seg seg-multi');
-    const opts = ['EP', 'MP', 'HJ', 'CO', 'BTN', 'SB', 'BB'].filter(op => rV.d[uiState.v3OPos] && rV.d[uiState.v3OPos].n > 0);
+    // 3-бетящий: только позиции позже вашей (или MP при вашей MP — два места за большим столом)
+    const hero = POS_ORDER[uiState.v3OPos] != null ? POS_ORDER[uiState.v3OPos] : 3;
+    const opts = Object.keys(POS_ORDER).filter(op => POS_ORDER[op] > hero || (op === 'MP' && hero === 1));
     const sel = uiState.v3OOpen.filter(op => opts.includes(op));
     const ball = el('button', sel.length ? '' : 'on', 'Все'); ball.type = 'button'; ball.setAttribute('aria-pressed', String(!sel.length)); ball.onclick = () => { uiState.v3OOpen = []; renderNext(); }; segO.append(ball);
     opts.forEach(op => { const on = sel.includes(op); const bt = el('button', on ? 'on' : '', op); bt.type = 'button'; bt.setAttribute('aria-pressed', String(on)); bt.onclick = () => { uiState.v3OOpen = on ? sel.filter(x => x !== op) : sel.concat([op]); renderNext(); }; segO.append(bt); });
