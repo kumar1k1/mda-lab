@@ -9,17 +9,18 @@ const fs = require('fs');
 const path = require('path');
 
 // Источники: новостные порталы (EN/RU) и стратегические блоги (kind: 'strat' — всегда с тегом «Стратегия»).
-// feeds — известные адреса лент (проверены по каталогу Feedspot, где отмечено); при неудаче адрес ищется на site.
+// feeds — известные адреса лент; при неудаче адрес ищется на site.
+// Адреса проверены с компьютера пользователя 02.11.2026 (curl): отвечают 16 источников; убраны без рабочего фида —
+// PokerGO (404), Poker.ru и PokerNews RU (отдают HTML), Planpokera (500), Pokeroff (нет соединения).
 const SOURCES = [
   // новости — английский
   { id: 'pokernews', name: 'PokerNews', lang: 'en', site: 'https://www.pokernews.com/', feeds: ['https://www.pokernews.com/rss.php'] },
   { id: 'cardplayer', name: 'CardPlayer', lang: 'en', site: 'https://www.cardplayer.com/poker-news', feeds: ['https://www.cardplayer.com/poker-news.rss'] },
-  { id: 'pokerorg', name: 'Poker.org', lang: 'en', site: 'https://www.poker.org/', feeds: ['https://www.poker.org/feed/'] },
-  { id: 'pokerfuse', name: 'pokerfuse', lang: 'en', site: 'https://pokerfuse.com/', feeds: ['https://pokerfuse.com/rss/', 'https://pokerfuse.com/feed/'] },
+  { id: 'pokerorg', name: 'Poker.org', lang: 'en', site: 'https://www.poker.org/', feeds: ['https://www.poker.org/rss'] },
+  { id: 'pokerfuse', name: 'pokerfuse', lang: 'en', site: 'https://pokerfuse.com/', feeds: ['https://pokerfuse.com/feeds/headlines/pokerfuse/'] },
   { id: 'pokertube', name: 'PokerTube', lang: 'en', site: 'https://www.pokertube.com/', feeds: ['https://www.pokertube.com/rss', 'https://www.pokertube.com/feed'] },
-  { id: 'pokergo', name: 'PokerGO', lang: 'en', site: 'https://www.pokergo.com/news', feeds: ['https://www.pokergo.com/news/rss'] },
   { id: 'pnd', name: 'Poker News Daily', lang: 'en', site: 'https://www.pokernewsdaily.com/', feeds: ['https://www.pokernewsdaily.com/feed/'] },
-  { id: 'gamblingnews', name: 'GamblingNews', lang: 'en', site: 'https://www.gamblingnews.com/news/poker/', feeds: ['https://www.gamblingnews.com/news/poker/feed/'] },
+  { id: 'gamblingnews', name: 'GamblingNews', lang: 'en', site: 'https://www.gamblingnews.com/news/poker/', feeds: ['https://www.gamblingnews.com/feed/'] },
   { id: 'wcn', name: 'World Casino News', lang: 'en', site: 'https://news.worldcasinodirectory.com/poker', feeds: ['https://news.worldcasinodirectory.com/poker/feed'] },
   { id: 'vipgrinders', name: 'VIP-Grinders', lang: 'en', site: 'https://www.vip-grinders.com/', feeds: ['https://www.vip-grinders.com/feed/'] },
   { id: 'cplifestyle', name: 'Cardplayer Lifestyle', lang: 'en', site: 'https://cardplayerlifestyle.com/', feeds: ['https://feeds.feedburner.com/cplifestyle'] },
@@ -30,11 +31,7 @@ const SOURCES = [
   { id: 'jlittle', name: 'Jonathan Little', lang: 'en', kind: 'strat', site: 'https://jonathanlittlepoker.com/', feeds: ['https://jonathanlittlepoker.com/feed/'] },
   { id: 'pokercoaching', name: 'PokerCoaching', lang: 'en', kind: 'strat', site: 'https://pokercoaching.com/blog/', feeds: ['https://pokercoaching.com/blog/feed/'] },
   // русский
-  { id: 'pokerru', name: 'Poker.ru', lang: 'ru', site: 'https://poker.ru/novosti-pokera/', feeds: ['https://poker.ru/feed/'] },
-  { id: 'gipsyteam', name: 'GipsyTeam', lang: 'ru', site: 'https://www.gipsyteam.ru/', feeds: ['https://www.gipsyteam.ru/rss/news', 'https://www.gipsyteam.ru/rss'] },
-  { id: 'pokeroff', name: 'Pokeroff', lang: 'ru', site: 'https://www.pokeroff.ru/', feeds: ['https://www.pokeroff.ru/rss'] },
-  { id: 'planpokera', name: 'Planpokera', lang: 'ru', site: 'https://planpokera.com/novosti/', feeds: ['https://planpokera.com/feed/'] },
-  { id: 'pokerok', name: 'PokerNews RU', lang: 'ru', site: 'https://ru.pokernews.com/', feeds: ['https://ru.pokernews.com/rss.php'] }
+  { id: 'gipsyteam', name: 'GipsyTeam', lang: 'ru', site: 'https://www.gipsyteam.ru/', feeds: ['https://www.gipsyteam.ru/rss/news.xml', 'https://www.gipsyteam.ru/rss/all.xml'] }
 ];
 const WEEK = 7 * 864e5, MAX_AGE = 31 * 864e5, FRESH = 10 * 60e3, PER_SOURCE = 60; // лента — за последний месяц
 
