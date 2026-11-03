@@ -75,7 +75,12 @@ const MIGRATIONS = [
   { id: 'v3q', col: ['v3q', 'i8'], uses: ['sit', 'act'], need: (C, i) => C.sit[i] === 0 && C.act[i] >= 2 && C.v3q[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).v3q },
   { id: 'c3q', col: ['c3q', 'i8'], uses: ['rz', 'act'], need: (C, i) => C.rz[i] === 1 && C.act[i] === 1 && C.c3q[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).c3q },
   // 0.7.50: стек 3-бетящего для карточки «Ваш ответ против трибета агрессора»
-  { id: 'v3s', col: ['v3s', 'i32'], uses: ['sit', 'act'], need: (C, i) => C.sit[i] === 0 && C.act[i] >= 2 && C.v3s[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).v3s }
+  { id: 'v3s', col: ['v3s', 'i32'], uses: ['sit', 'act'], need: (C, i) => C.sit[i] === 0 && C.act[i] >= 2 && C.v3s[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).v3s },
+  // 0.7.54: починка v3c/v3a — базы, мигрировавшие одной пачкой с 0.7.33 до 0.7.50+: v3c2/v3a2 пересчитывали строки
+  // по значениям, снятым до работы v3c/v3a того же запуска, и затирали колонки в -1 (фильтр «олл-ин» пуст, чистых спотов 0).
+  // Досчёт: где значения нет — пересчитать из записей реплеера; у здоровых баз ничего не меняет
+  { id: 'v3c3', col: ['v3c', 'i8'], uses: ['sit', 'act'], need: (C, i) => C.sit[i] === 0 && C.act[i] >= 2 && C.v3c[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).v3c },
+  { id: 'v3a3', col: ['v3a', 'i8'], uses: ['sit', 'act'], need: (C, i) => C.sit[i] === 0 && C.act[i] >= 2 && C.v3a[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).v3a }
 ];
 // обновления формата (после досчёта колонок): двоичный реплеер и сжатые колонки (0.7)
 const FORMAT_IDS = ['rpbin', 'colz', 'names', 'dedup']; // names (0.7.2) — ники за столом; dedup (0.7.8) — копии раздач из разных выгрузок убираются
@@ -291,9 +296,13 @@ function doRowMigrations(dir, post) {
     for (const m of todo) {
       for (const job of plan.filter(x => x.m === m)) {
         const { t, C } = job;
-        // перечитать строки: fcb мог только что обновиться предыдущей миграцией
-        const rows = m.id === 'cbs' ? (() => { const r = []; C.fcb = readCol(t.d, 'fcb', 'i8', t.n); for (let i = 0; i < t.n; i++) if (t.rpp[i] >= 0 && m.need(C, i)) r.push(i); return r; })() : job.rows;
-        if (m.id === 'cbs') { total += rows.length - job.rows.length; }
+        // перечитать колонки и строки: предыдущая миграция этого же запуска могла только что обновить их
+        // (v3c2/v3a2 берут строки по значениям v3c/v3a — при съёмке «до» они теряли всё, что посчитал v3c/v3a, и затирали колонку обратно в -1)
+        for (const u of m.uses.concat([m.col[0]])) { const a = readCol(t.d, u, TYPES_OF[u], t.n); if (a) C[u] = a; }
+        if (!C[m.col[0]]) C[m.col[0]] = new TY[m.col[1]](t.n).fill(-1);
+        const rows = [];
+        for (let i = 0; i < t.n; i++) if (t.rpp[i] >= 0 && m.need(C, i)) rows.push(i);
+        total += rows.length - job.rows.length;
         rows.sort((a, b) => t.rpp[a] - t.rpp[b] || t.rpo[a] - t.rpo[b]); // чтение по порядку файла
         const out = C[m.col[0]];
         for (const i of rows) {
