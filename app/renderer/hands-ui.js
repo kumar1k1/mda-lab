@@ -37,14 +37,15 @@ function hideHandPop() { if (handPop && !pinned) handPop.hidden = true; }
 let POP_MODE = 'net';
 function buildPop(it, v, isPinned) {
   const pop = popEl();
-  const ev = isPinned && POP_MODE === 'ev' && it.o.es != null;
+  // окно второго типа (итог по рукам): при наведении — тот же режим, что выбран в таблицах («EV, BB / Факт, BB», VAL_MODE); в закреплённом — свой переключатель
+  const ev = (isPinned ? POP_MODE : (typeof VAL_MODE !== 'undefined' ? VAL_MODE : 'net')) === 'ev' && it.o.es != null;
   const sumOf = (m) => (ev ? m.es : m.sum);
   if (ev) v = it.o.es / 10 / it.o.n;
   pop._src = it; pop.classList.toggle('pinned', isPinned);
   pop.replaceChildren();
   const head = el('div', 'hp-head');
   if (isPinned) { const grip = el('span', 'hp-grip', '⠿'); grip.setAttribute('aria-hidden', 'true'); head.append(grip); }
-  // при наведении — фактический винрейт; в закреплённом окне — факт или EV по переключателю
+  // при наведении — в режиме таблиц (EV или факт); в закреплённом окне — по переключателю окна
   // заголовок всегда в две строки: название, под ним винрейт и число раздач — одинаково для любой ячейки
   head.append(el('b', null, it.title || it.p));
   if (isPinned) {
@@ -119,7 +120,7 @@ function showHandPop(it, v, ev, anchor) {
 
 function pinHandPop(it, v, ev, anchor) {
   pinned = { pos: it.key || it.p };
-  popEl()._selK = null; POP_MODE = 'net'; // каждое новое закрепление — сначала фактический результат
+  popEl()._selK = null; POP_MODE = typeof VAL_MODE !== 'undefined' ? VAL_MODE : 'net'; // закрепление открывается в режиме таблиц (EV или факт), дальше — переключатель в окне
   const pop = buildPop(it, v, true);
   pop.hidden = false;
   placeNear(pop, ev, anchor); // тот же якорь, что при наведении: окно центрировано на курсоре и не смещается
