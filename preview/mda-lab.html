@@ -2005,6 +2005,10 @@ body.noscroll #content{overflow:hidden}
 .tab .name{white-space:normal;line-height:1.2;padding:3px 0;overflow-wrap:anywhere} /* длинное название раздела («Против 3-бета / сквиза») — в две строки, без многоточия */
 .ht.v3-r21 th.help{cursor:help;text-decoration:underline dotted;text-underline-offset:3px}
 .ht.v3-r21 td.v3-tot{cursor:help}
+.sz5-v.v3-act{display:flex;flex-direction:column;align-items:flex-end;gap:1px}
+.sz5-v.v3-act b{font-size:12.5px;font-weight:600}
+.sz5-v.v3-act .wr{font-size:10.5px;white-space:nowrap}
+.sz5-v.v3-act .wr .evs{font-size:9.5px}
 
 /* Дополнения только для онлайн-превью: тёмная тема и узкие экраны */
 :root{color-scheme:dark}
@@ -5468,10 +5472,11 @@ function renderV3B(idx) {
 // ---------- #6–#15: карточки-предложения «Против 3-бета» ----------
 // Общий счётчик ответа: n — раздач, fld / call / r4 (4-бет не олл-ином) / ai (4-бет олл-ином), sum / es — итог в BB×10 (факт / EV),
 // ids и mx — для окна рук при наведении (как у карточки 2).
-function v3Cell() { return { n: 0, fld: 0, call: 0, r4: 0, ai: 0, sum: 0, es: 0, ids: [], mx: Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })) }; }
+function v3Cell() { return { n: 0, fld: 0, call: 0, r4: 0, ai: 0, sum: 0, es: 0, act: [0, 1, 2, 3].map(() => ({ sum: 0, es: 0 })), ids: [], mx: Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })) }; }
 function v3Add(z, i, v, c, EV) {
   z.n++; if (v === 0) z.fld++; else if (v === 1) z.call++; else if (v === 3) z.ai++; else z.r4++;
   const nv = c.net ? c.net[i] : 0, ne = c.net ? EV[i] : 0; z.sum += nv; z.es += ne;
+  { const q = z.act[v === 0 ? 0 : v === 1 ? 1 : v === 3 ? 3 : 2]; q.sum += nv; q.es += ne; } // итог каждой реакции отдельно: фолд / колл / рейз / рейз олл-ином
   if (c.hc[i] >= 0) { z.ids.push(i); const m = z.mx[c.hc[i]]; m.n++; m.sum += nv; m.es += ne; }
 }
 function v3Group(ids, keyOf, RV) {
@@ -5482,16 +5487,17 @@ function v3Group(ids, keyOf, RV) {
 // таблица «строка — ответ на 3-бет»: раз, фолд, колл, 4-бет, 4-бет олл-ин, результат; наведение — руки этих раздач и итог
 function v3RespTable(rows, title, NR, keyPre, heads) {
   const t = el('div', 'sz5-t tb-sz');
-  const hd = el('div', 'sz5-r sz5-h'); [title, 'Раз'].concat(heads || ['Фолд', 'Колл', '4-бет', 'Олл-ин']).concat(['Результат, BB / EV']).forEach(x => hd.append(el('span', null, x))); t.append(hd);
+  const hd = el('div', 'sz5-r sz5-h'); [title, 'Раз'].concat(heads || ['Фолд', 'Колл', '4-бет', 'Олл-ин']).concat(['В среднем за раздачу']).forEach(x => hd.append(el('span', null, x))); t.append(hd);
   // строка-итог («Всего», «Все позиции») — сама и есть 100%: доли считаются от неё, а не от суммы строк (иначе итог удваивался)
   const isTot = (lab) => /^Вс[её]/.test(lab), totRow = rows.find(r => isTot(r[0]) && r[1]);
   const tot = totRow ? totRow[1].n : rows.reduce((a, r) => a + (r[1] ? r[1].n : 0), 0);
   rows.forEach(([lab, z]) => {
     if (!z || !z.n) return;
     const row = el('div', 'sz5-r click'); if (z.n < 30) row.classList.add('low');
-    const pc = (v) => fmtPct(v / z.n) + '%', v = (txt, col) => { const e = el('span', 'sz5-v', txt); e.style.color = col; return e; };
+    // в ячейке реакции — доля и под ней средний итог этой реакции (факт / EV)
+    const pc = (v) => fmtPct(v / z.n) + '%', v = (cnt0, k, col) => { const e = el('span', 'sz5-v v3-act'), b = el('b', null, pc(cnt0)); b.style.color = col; e.append(b); if (cnt0) e.append(wrNode('wr', z.act[k].sum / 10 / cnt0, z.act[k].es / 10 / cnt0, 2)); return e; };
     const tk = el('span', 'sz5-tk'), tr = el('i'); tr.style.width = Math.max(1, z.n / tot * 100) + '%'; tk.append(tr);
-    row.append(el('b', null, lab), el('span', 'sz5-sh', z.n.toLocaleString('ru-RU')), v(pc(z.fld), 'var(--good)'), v(pc(z.call), 'var(--ice)'), v(pc(z.r4), 'var(--bad)'), v(pc(z.ai), 'var(--amber)'),
+    row.append(el('b', null, lab), el('span', 'sz5-sh', z.n.toLocaleString('ru-RU')), v(z.fld, 0, 'var(--good)'), v(z.call, 1, 'var(--ice)'), v(z.r4, 2, 'var(--bad)'), v(z.ai, 3, 'var(--amber)'),
       wrNode('sz5-v', z.sum / 10 / z.n, z.es / 10 / z.n, 2), el('small', null, fmtPct(z.n / tot) + '% раздач'), tk);
     if (z.ids.length) { row.tabIndex = 0; row.setAttribute('role', 'button'); hoverHands(row, { p: lab, anyPos: true, pre: true, key: keyPre + lab, title: 'Ваша реакция на ' + NR + ' · ' + lab, o: { n: z.ids.length, sum: z.ids.reduce((a, i) => a + DB.cols.net[i], 0), es: z.ids.reduce((a, i) => a + EVcol()[i], 0) }, mx: z.mx, ids: z.ids, vlab: ' BB за раздачу', nlab: ' раздач' }, z.sum / 10 / z.n); }
     t.append(row);

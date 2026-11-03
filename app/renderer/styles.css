@@ -2001,3 +2001,7 @@ body.noscroll #content{overflow:hidden}
 .tab .name{white-space:normal;line-height:1.2;padding:3px 0;overflow-wrap:anywhere} /* длинное название раздела («Против 3-бета / сквиза») — в две строки, без многоточия */
 .ht.v3-r21 th.help{cursor:help;text-decoration:underline dotted;text-underline-offset:3px}
 .ht.v3-r21 td.v3-tot{cursor:help}
+.sz5-v.v3-act{display:flex;flex-direction:column;align-items:flex-end;gap:1px}
+.sz5-v.v3-act b{font-size:12.5px;font-weight:600}
+.sz5-v.v3-act .wr{font-size:10.5px;white-space:nowrap}
+.sz5-v.v3-act .wr .evs{font-size:9.5px}
