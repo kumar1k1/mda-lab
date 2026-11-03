@@ -40,22 +40,17 @@ function secLabel(tab, n, what) {
   const w = what.split(' ')[0];
   return el('span', 'muted small tb-res-n', WORDS[w] ? cnt(n, w) + what.slice(w.length) : n.toLocaleString('ru-RU') + ' ' + what);
 }
+const PQ_TIP = 'Ваша позиция относительно 3-бетящего (первого агрессора — трибетера или сквизера) на постфлопе:\nIP — вы действуете последним на флопе, терне и ривере (в позиции), OOP — первым, до агрессора (вне позиции).';
 function drawSecFilters(tab) {
   const box = $('secFilters'); if (!box) return; box.replaceChildren();
   if (!(tab in SEC_TYPES) || !DB) { box.hidden = true; return; }
   box.hidden = false; const f = secF(tab), types = SEC_TYPES[tab];
-  box.classList.toggle('sec-f-grid', tab === 'vs3bet'); // «Против 3-бета»: сетка 2×2 — слева «3-бет соперника» над «типом трибет банка», справа «наше действие» и «ваш стек» под ним; правая колонка не заезжает на левую
+  box.classList.toggle('sec-f-grid', tab === 'vs3bet'); // «Против 3-бета»: фильтры столбиком, по одному в строке, по левому краю
   // группы, как фильтры над ними: подпись сверху, кнопки под ней
   const grp = (lab, ...nodes) => { const g = el('div', 'sf-g'); g.append(el('span', 'flt-k', lab)); const row = el('div', 'sf-row'); row.append(...nodes); g.append(row); return g; };
   if (types) box.append(grp(tab === 'rfi' ? 'Открытие' : tab === 'vs3bet' ? '3-бет соперника' : '3-бет', segBtns(types, f.T, (k) => { f.T = k; renderNext(); })));
-  // «Против 3-бета»: наше действие на 3-бет — под фильтром типа 3-бета соперника; действия можно сочетать (фолд+колл, оба 4-бета…)
   if (tab === 'vs3bet') {
-    const seg = el('div', 'seg bx-seg');
-    const sync = () => seg.querySelectorAll('button').forEach(b => { const on2 = b.dataset.k === 'all' ? !f.A.length : f.A.includes(b.dataset.k); b.classList.toggle('on', on2); b.setAttribute('aria-pressed', String(on2)); });
-    const mk = (k, t) => { const b = el('button', null, t); b.type = 'button'; b.dataset.k = k; b.title = k === 'all' ? 'Все ответы на 3-бет' : 'Можно выбрать несколько — повторный клик снимает'; b.onclick = () => { if (k === 'all') f.A = []; else { const j = f.A.indexOf(k); if (j >= 0) f.A.splice(j, 1); else f.A.push(k); } sync(); renderNext(); }; return b; };
-    seg.append(mk('all', 'Любое'), mk('fold', 'Фолд'), mk('call', 'Колл'), mk('r4', '4-бет'), mk('ai', '4-бет олл-ин')); sync();
-    box.append(grp('Наше действие', seg));
-    // тип 3-бет банка по чужим коллам (под «нашим действием»): 1vs1 / сквиз поверх колла открытия;
+    // тип 3-бет банка по чужим коллам (под «3-бетом соперника»): 1vs1 / сквиз поверх колла открытия;
     // у «сквиз пот» — подтумблеры asR (вы открылись, открытие заколлировали, сквиз поверх) и asC (вы заколлировали чужое открытие, сквиз за спиной)
     const bseg = segBtns([['all', 'Все'], ['hu', '3b пот 1vs1'], ['sq', 'сквиз пот']], f.B, (k) => { if (k === 'sq') f.SQ = ['r', 'c']; f.B = k; renderNext(); }); // повторный клик по «сквиз пот» возвращает asR + asC вместе
     if (f.B === 'sq') {
@@ -78,15 +73,16 @@ function drawSecFilters(tab) {
   const cust = f.S === 'custom' ? f.C : null;
   // свой диапазон — под кнопками стека, с тем же левым краем
   const fr = rangeForm('secRng', cust, (v) => { if (v) { f.C = v; f.S = 'custom'; } else { f.C = null; f.S = 'all'; } render(); });
-  // «Против 3-бета»: «Наша позиция» — на одной линии с полями «от / до» фильтра стека (сетка: позиция слева, форма справа)
+  // «Против 3-бета»: четыре фильтра столбиком по левому краю — 3-бет соперника, тип банка, наша позиция, ваш стек (поля «от / до» — под кнопками стека)
   if (tab === 'vs3bet') {
-    box.append(grp('Ваш стек, BB', stkSeg(cust, f.S, (k) => { f.S = k; renderNext(); })));
     const pg = grp('Наша позиция', segBtns([['all', 'Все'], ['ip', 'IP'], ['oop', 'OOP']], f.P, (k) => { f.P = k; renderNext(); }));
     const pq = el('span', 'flt-q', '?');
-    pq.title = 'Ваша позиция относительно 3-бетящего (первого агрессора — трибетера или сквизера) на постфлопе:\nIP — вы действуете последним на флопе, терне и ривере (в позиции), OOP — первым, до агрессора (вне позиции).';
+    pq.title = PQ_TIP;
     pq.setAttribute('aria-label', 'Что значит IP и OOP');
-    pg.append(pq);
-    box.append(pg, fr);
+    pg.querySelector('.sf-row').append(pq);
+    const g = grp('Ваш стек, BB', stkSeg(cust, f.S, (k) => { f.S = k; renderNext(); }));
+    g.append(fr);
+    box.append(pg, g);
   } else {
     const g = grp('Ваш стек, BB', stkSeg(cust, f.S, (k) => { f.S = k; renderNext(); }));
     g.append(fr);
@@ -112,14 +108,14 @@ const CARD_FILTERS = {
   rfi: { '#1': 'ST', '#8': 'ST', '#13': '', '#3': 'ST', '#3.4': 'ST', '#3.5': 'S', '#3.7': 'ST', '#4': 'S', '#4+': '', '#5': 'S', '#5+': 'S' },
   cc: { '#1': 'S', '#8': 'S', '#2': 'S', '#2.1': 'S', '#3': 'S', '#5': '', '#6': 'S', '#6.1': 'S', '#7': 'S' },
   '3bet': { '#1': 'S', '#2': 'ST', '#6': '', '#3': 'S', '#5': 'ST', '#4': 'ST', '#7': 'ST', '#9': 'S', '#9.1': 'S', '#7.1': 'ST', '#11': 'S' },
-  vs3bet: { '#1': 'STBP', '#4': '', '#18': 'STBP', '#3': 'STBP', '#16': 'STB', '#17': 'STBP', '#6': 'STBP', '#7': 'ST', '#8': 'STBP', '#9': 'STBP', '#10': 'STB', '#11': 'SBP', '#12': 'STBP' } // #1 и частоты #5 — без «нашего действия», результат #5 — с ним
+  vs3bet: { '#1': 'STBP', '#2': '', '#3': 'STBP', '#4': 'STBP', '#5': 'STB', '#6': 'STB', '#7': 'SBP', '#8': 'STBP', '#9': 'STBP', '#10': 'STBP', '#11': 'ST', '#12': 'STBP', '#13': 'STBP' } // порядок карточек 03.11.2026; «наше действие» сейчас не действует ни на одну
 };
 const SEC_EXEMPT = Object.fromEntries(Object.entries(CARD_FILTERS).map(([t, m]) => [t, Object.keys(m).filter(k => !m[k])]));
 window.CARD_FILTERS = CARD_FILTERS;
 function secActive(tab) {
   if (!(tab in SEC_TYPES) || !SECF[tab]) return false;
   const f = SECF[tab];
-  return f.S !== 'all' || f.T !== 'all' || (f.A && f.A.length > 0) || (f.B && f.B !== 'all') || (f.P && f.P !== 'all');
+  return f.S !== 'all' || f.T !== 'all' || (f.B && f.B !== 'all') || (f.P && f.P !== 'all');
 }
 function markExempt(root, tab) {
   const list = SEC_EXEMPT[tab]; if (!list || !secActive(tab)) return;
