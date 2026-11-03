@@ -161,7 +161,7 @@ function markFilters(root, tab) {
 // FAST — скорость (px/мс), выше которой движение считается «перелётом» и таймер переключения сбрасывается;
 // LEAVE — сколько подсветка держится после ухода с карточки в пустое место (успеть дойти до шапки); в шапке — держится, пока мышь там;
 // SCROLL_IDLE — после окончания прокрутки (колесо, тачпад, клавиши, полоса) заново смотрим, какая карточка под мышью.
-const SF = { ENTER: 260, FAST: 0.45, LEAVE: 2000, SCROLL_IDLE: 180 };
+const SF = { ENTER: 260, FAST: 0.45, LEAVE: 2000, SCROLL_IDLE: 220 };
 const SF_SEL = '.sm, .r34-m, .insight, .block';
 let sfCur = null, sfPend = null, sfEnterT = 0, sfLeaveT = 0, sfScrollT = 0, sfScrolling = false, sfX = -1, sfY = -1, sfV = 0, sfLt = 0;
 function sfCardOf(node) {

@@ -300,7 +300,25 @@ function periodChart(wins, maxDay, avg) {
 // всплывающие окна при наведении не открываются, пока мышь не сдвинется хотя бы на 24 px от места клика
 let HMUTE = null;
 document.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('button') && !e.target.closest('.hand-pop, .szmx')) { HMUTE = { x: e.clientX, y: e.clientY }; [typeof hideHandPop === 'function' && hideHandPop, typeof hideSzMx === 'function' && hideSzMx, typeof hideGroupTip === 'function' && hideGroupTip, typeof hideMxTip === 'function' && hideMxTip].forEach(f => { if (f) try { f(); } catch (x) { /* окна ещё нет */ } }); } }, true);
-function hoverMuted(e) { if (!HMUTE || !e || e.clientX == null) return false; if (Math.hypot(e.clientX - HMUTE.x, e.clientY - HMUTE.y) < 24) return true; HMUTE = null; return false; }
+// Прокрутка: пока страница едет, всплывающие окна не открываются (мышь «проезжает» по ячейкам — было мерцание), открытые незакреплённые прячутся.
+// После остановки окна снова открываются только когда мышь реально сдвинулась (≥ 4 px) — синтетическое «движение» браузера после прокрутки не считается.
+// (События мыши у карточек не выключаем: клик сразу после прокрутки должен попадать в ячейку.)
+const SCR = { IDLE: 200, MOVE: 4 }; let SCR_ON = false, SCR_GATE = null, SCR_T = 0, SCR_X = -1, SCR_Y = -1;
+function scrHideAll() { [typeof hideHandPop === 'function' && hideHandPop, typeof hideSzMx === 'function' && hideSzMx, typeof hideMxTip === 'function' && hideMxTip, typeof hideGroupTip === 'function' && hideGroupTip, typeof hidePushTip === 'function' && hidePushTip].forEach(f => { if (f) try { f(); } catch (er) {} }); try { if (typeof qdTip !== 'undefined' && qdTip) qdTip.hidden = true; } catch (er) {} }
+document.addEventListener('scroll', (e) => {
+  const t = e.target; if (t && t.closest && t.closest('.hand-pop, .szmx, .il-bg, .rp-bg, .player-menu')) return; // прокрутка внутри окна или списка — окна не трогаем
+  if (!SCR_ON) { SCR_ON = true; scrHideAll(); }
+  clearTimeout(SCR_T); SCR_T = setTimeout(() => { SCR_ON = false; SCR_GATE = { x: SCR_X, y: SCR_Y }; }, SCR.IDLE);
+}, { capture: true, passive: true });
+document.addEventListener('pointermove', (e) => {
+  SCR_X = e.clientX; SCR_Y = e.clientY;
+  if (SCR_GATE && !SCR_ON && Math.hypot(e.clientX - SCR_GATE.x, e.clientY - SCR_GATE.y) >= SCR.MOVE) {
+    SCR_GATE = null; // мышь сдвинулась — открываем окно элемента под ней, как при обычном наведении
+    const content = document.getElementById('content'); let n = document.elementFromPoint(e.clientX, e.clientY);
+    while (n && n !== content && n !== document.body) { n.dispatchEvent(new MouseEvent('mouseenter', { clientX: e.clientX, clientY: e.clientY })); n = n.parentElement; }
+  }
+}, { passive: true, capture: true });
+function hoverMuted(e) { if (SCR_ON || SCR_GATE) return true; if (!HMUTE || !e || e.clientX == null) return false; if (Math.hypot(e.clientX - HMUTE.x, e.clientY - HMUTE.y) < 24) return true; HMUTE = null; return false; }
 window.hoverMuted = hoverMuted;
 let mxTip = null;
 function showMxTip(info, e) {

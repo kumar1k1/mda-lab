@@ -2061,6 +2061,10 @@ body.noscroll #content{overflow:hidden}
 /* основные фильтры (рум, тип, период, бай-ин) — по левому краю колонки статов, а не меню вкладок */
 @media (min-width: 761px){.filters{padding-left:calc(228px + 22px)}}
 
+/* «Столы» (все / 6-max / 7–9 max) — в строке основных фильтров, высотой как выпадающие списки */
+.flt-tbl .seg{padding:2px}
+.flt-tbl .seg button{height:auto;min-height:0;padding:5px 14px;line-height:18px;font-size:13px}
+
 /* Дополнения только для онлайн-превью: тёмная тема и узкие экраны */
 :root{color-scheme:dark}
 html,body{background:var(--bg);color:var(--text)}
@@ -2189,6 +2193,10 @@ body{padding-left:max(0px, env(safe-area-inset-left, 0px));padding-right:max(0px
         <select id="fBiFrom" aria-label="Бай-ин от"></select><span class="flt-dash" aria-hidden="true">—</span><select id="fBiTo" aria-label="Бай-ин до"></select>
       </div>
     </div>
+    <div class="flt flt-tbl" role="group" aria-labelledby="fTblK" title="Размер стола — действует на все вкладки">
+      <span class="flt-k" id="fTblK">Столы</span>
+      <div class="seg" id="subtabs" role="tablist" aria-label="Размер стола"></div>
+    </div>
   </div>
 </header>
 
@@ -2198,7 +2206,6 @@ body{padding-left:max(0px, env(safe-area-inset-left, 0px));padding-right:max(0px
   <section class="panel">
     <div class="toolbar">
       <div class="crumbs"><span class="crumb-group" id="crumbGroup">—</span><span class="crumb-sep">/</span><span class="crumb-tab" id="crumbTab">—</span></div>
-      <div class="seg" id="subtabs" role="tablist" aria-label="Размер стола"></div>
       <div class="sec-f" id="secFilters" hidden></div>
       <span class="ev-bg" id="evBg" hidden title="EV олл-инов последней загрузки досчитывается в фоне — пока у новых раздач «по EV» равно факту"></span>
       <span class="sel-count" id="selCount" title="Раздач после фильтров">—</span>
@@ -3301,7 +3308,25 @@ function periodChart(wins, maxDay, avg) {
 // всплывающие окна при наведении не открываются, пока мышь не сдвинется хотя бы на 24 px от места клика
 let HMUTE = null;
 document.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('button') && !e.target.closest('.hand-pop, .szmx')) { HMUTE = { x: e.clientX, y: e.clientY }; [typeof hideHandPop === 'function' && hideHandPop, typeof hideSzMx === 'function' && hideSzMx, typeof hideGroupTip === 'function' && hideGroupTip, typeof hideMxTip === 'function' && hideMxTip].forEach(f => { if (f) try { f(); } catch (x) { /* окна ещё нет */ } }); } }, true);
-function hoverMuted(e) { if (!HMUTE || !e || e.clientX == null) return false; if (Math.hypot(e.clientX - HMUTE.x, e.clientY - HMUTE.y) < 24) return true; HMUTE = null; return false; }
+// Прокрутка: пока страница едет, всплывающие окна не открываются (мышь «проезжает» по ячейкам — было мерцание), открытые незакреплённые прячутся.
+// После остановки окна снова открываются только когда мышь реально сдвинулась (≥ 4 px) — синтетическое «движение» браузера после прокрутки не считается.
+// (События мыши у карточек не выключаем: клик сразу после прокрутки должен попадать в ячейку.)
+const SCR = { IDLE: 200, MOVE: 4 }; let SCR_ON = false, SCR_GATE = null, SCR_T = 0, SCR_X = -1, SCR_Y = -1;
+function scrHideAll() { [typeof hideHandPop === 'function' && hideHandPop, typeof hideSzMx === 'function' && hideSzMx, typeof hideMxTip === 'function' && hideMxTip, typeof hideGroupTip === 'function' && hideGroupTip, typeof hidePushTip === 'function' && hidePushTip].forEach(f => { if (f) try { f(); } catch (er) {} }); try { if (typeof qdTip !== 'undefined' && qdTip) qdTip.hidden = true; } catch (er) {} }
+document.addEventListener('scroll', (e) => {
+  const t = e.target; if (t && t.closest && t.closest('.hand-pop, .szmx, .il-bg, .rp-bg, .player-menu')) return; // прокрутка внутри окна или списка — окна не трогаем
+  if (!SCR_ON) { SCR_ON = true; scrHideAll(); }
+  clearTimeout(SCR_T); SCR_T = setTimeout(() => { SCR_ON = false; SCR_GATE = { x: SCR_X, y: SCR_Y }; }, SCR.IDLE);
+}, { capture: true, passive: true });
+document.addEventListener('pointermove', (e) => {
+  SCR_X = e.clientX; SCR_Y = e.clientY;
+  if (SCR_GATE && !SCR_ON && Math.hypot(e.clientX - SCR_GATE.x, e.clientY - SCR_GATE.y) >= SCR.MOVE) {
+    SCR_GATE = null; // мышь сдвинулась — открываем окно элемента под ней, как при обычном наведении
+    const content = document.getElementById('content'); let n = document.elementFromPoint(e.clientX, e.clientY);
+    while (n && n !== content && n !== document.body) { n.dispatchEvent(new MouseEvent('mouseenter', { clientX: e.clientX, clientY: e.clientY })); n = n.parentElement; }
+  }
+}, { passive: true, capture: true });
+function hoverMuted(e) { if (SCR_ON || SCR_GATE) return true; if (!HMUTE || !e || e.clientX == null) return false; if (Math.hypot(e.clientX - HMUTE.x, e.clientY - HMUTE.y) < 24) return true; HMUTE = null; return false; }
 window.hoverMuted = hoverMuted;
 let mxTip = null;
 function showMxTip(info, e) {
@@ -3554,7 +3579,7 @@ function markFilters(root, tab) {
 // FAST — скорость (px/мс), выше которой движение считается «перелётом» и таймер переключения сбрасывается;
 // LEAVE — сколько подсветка держится после ухода с карточки в пустое место (успеть дойти до шапки); в шапке — держится, пока мышь там;
 // SCROLL_IDLE — после окончания прокрутки (колесо, тачпад, клавиши, полоса) заново смотрим, какая карточка под мышью.
-const SF = { ENTER: 260, FAST: 0.45, LEAVE: 2000, SCROLL_IDLE: 180 };
+const SF = { ENTER: 260, FAST: 0.45, LEAVE: 2000, SCROLL_IDLE: 220 };
 const SF_SEL = '.sm, .r34-m, .insight, .block';
 let sfCur = null, sfPend = null, sfEnterT = 0, sfLeaveT = 0, sfScrollT = 0, sfScrolling = false, sfX = -1, sfY = -1, sfV = 0, sfLt = 0;
 function sfCardOf(node) {

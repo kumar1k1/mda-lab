@@ -2056,3 +2056,7 @@ body.noscroll #content{overflow:hidden}
 .rgroup.closed + .rgroup{margin-top:4px}
 /* основные фильтры (рум, тип, период, бай-ин) — по левому краю колонки статов, а не меню вкладок */
 @media (min-width: 761px){.filters{padding-left:calc(228px + 22px)}}
+
+/* «Столы» (все / 6-max / 7–9 max) — в строке основных фильтров, высотой как выпадающие списки */
+.flt-tbl .seg{padding:2px}
+.flt-tbl .seg button{height:auto;min-height:0;padding:5px 14px;line-height:18px;font-size:13px}

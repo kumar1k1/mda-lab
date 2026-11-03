@@ -1,4 +1,4 @@
-// живой сценарий мышью: наведение → клик (окно закрепилось) → клик по руке (список раздач) → ▶ (реплеер) → закрыть; 4 вкладки × 2 набора фильтров
+// пустые ячейки групп рук («—», без .click) окна не имеют — не берём; живой сценарий мышью: наведение → клик (окно закрепилось) → клик по руке (список раздач) → ▶ (реплеер) → закрыть; 4 вкладки × 2 набора фильтров
 const { chromium } = require('playwright');
 (async () => {
   const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 1400, height: 1000 } });
@@ -7,7 +7,7 @@ const { chromium } = require('playwright');
   await pg.goto('http://127.0.0.1:8783/MDA-Lab-preview.html');
   await pg.waitForFunction(() => typeof DB !== 'undefined' && DB && DB.cols && DB.cols.v3, null, { timeout: 180000 });
   let ok = 0, tried = 0; const fails = [], kinds = {};
-  const SEL = '#content .net-bar, #content td.c.click, #content .sz5-r.has-mx, #content .sz5-r.click, #content .hg-c, #content .pmx-c, #content .bx-c';
+  const SEL = '#content .net-bar, #content td.c.click, #content .sz5-r.has-mx, #content .sz5-r.click, #content .hg-c.click, #content .pmx-c, #content .bx-c';
   const reset = () => pg.evaluate(() => { if (window.closeReplayer) closeReplayer(); if (window.unpinSzMx) unpinSzMx(); if (window.unpin) unpin(); if (window.hideHandPop) hideHandPop(); if (window.hideSzMx) hideSzMx(); });
   for (const tab of ['rfi', 'cc', '3bet', 'vs3bet']) for (const f of [{}, { S: 's25', T: 'nai' }]) {
     await pg.evaluate(([t, f]) => { for (const k in SECF) delete SECF[k]; Object.assign(secF(t), f); if (!SEC_TYPES[t]) delete secF(t).T; __go(t, 'TOT'); }, [tab, f]); await pg.waitForTimeout(400);
