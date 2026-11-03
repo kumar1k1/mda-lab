@@ -9,7 +9,7 @@
   - `main.js`, `preload.js` — оболочка Electron
   - `parser/parse.js` — разбор историй раздач (PokerStars и экспорт GG/PokerDom в его формате, Winamax, WPN)
   - `parser/build.js` — потоковая сборка базы и оценка до загрузки; `parser/store.js` — формат базы на диске; `parser/ev-pool.js`, `ev-worker.js` — EV по ядрам
-  - `renderer/` — интерфейс: `index.html`, `styles.css`, `app.js` (вкладки, RFI, сводка), `stats.js` (расчёт статов),
+  - `renderer/` — интерфейс: `index.html`, `styles.css`, `core.js` (помощники, база, фильтры шапки), `widgets.js` (таблицы, графики, карточки, матрица рук), `sec-filters.js` (фильтры раздела — правило в docs/filters.md), `windows.js` (окно «Диапазон / Факт / EV»), вкладки — `tab-rfi.js`, `tab-cc.js`, `tab-3bet.js`, `tab-vs3bet.js`, `app.js` (список разделов, отрисовка, алиасы, загрузка базы); порядок подключения — в index.html и preview/build.js, `stats.js` (расчёт статов),
     `hands-ui.js` (окно матрицы, список раздач, реплеер), `replay.js` (кадры реплеера)
   - `data/my-base.json` — база героя (109 688 раздач, без имён соперников), старый формат JSON — для разработки и превью
   - `data/my-base-replays.json` — ход раздач-открытий для реплеера
