@@ -2,7 +2,7 @@
 // и смотрим, какие карточки поменялись. Карточка с буквой фильтра должна поменяться, без буквы — остаться как была.
 // Плюс: в разделе нет карточек, которых нет в таблице, и метка «без фильтров раздела» стоит ровно на карточках с ''.
 const { chromium } = require('playwright');
-const FL = { S: { S: 's15' }, T: { T: 'ai' }, A: { A: ['call'] }, B: { B: 'sq', SQ: ['r', 'c'] }, P: { P: 'ip' } };
+const FL = { S: { S: 's15' }, T: { T: 'ai' }, A: { A: ['call'] }, B: { B: 'sq', SQ: ['r', 'c'] }, P: { P: 'oop' } }; // OOP: у «3-бета» #9 по умолчанию показана группа IP — фильтр IP её не меняет
 (async () => {
   const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 1400, height: 1000 } });
   await ctx.addInitScript(() => { try { localStorage.setItem('mda.welcome.later', '1'); } catch (e) {} });

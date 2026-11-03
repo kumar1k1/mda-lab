@@ -45,7 +45,7 @@ function drawSecFilters(tab) {
   const box = $('secFilters'); if (!box) return; box.replaceChildren();
   if (!(tab in SEC_TYPES) || !DB) { box.hidden = true; return; }
   box.hidden = false; const f = secF(tab), types = SEC_TYPES[tab];
-  box.classList.toggle('sec-f-grid', tab === 'vs3bet'); // «Против 3-бета»: сетка 2×2 — слева «3-бет соперника» и «тип трибет банка», справа «наша позиция» и «ваш стек»
+  box.classList.toggle('sec-f-grid', tab === 'vs3bet' || tab === '3bet'); box.classList.toggle('sec-f-g3', tab === '3bet'); // «Против 3-бета»: сетка 2×2 — слева «3-бет соперника» и «тип трибет банка», справа «наша позиция» и «ваш стек»
   // группы, как фильтры над ними: подпись сверху, кнопки под ней
   const grp = (lab, ...nodes) => { const g = el('div', 'sf-g'); g.append(el('span', 'flt-k', lab)); const row = el('div', 'sf-row'); row.append(...nodes); g.append(row); return g; };
   const grpL = (L, lab, ...nodes) => { const g = grp(lab, ...nodes); g.dataset.l = L; return g; }; // буква фильтра — для «умной» подсветки (sfApply)
@@ -86,7 +86,7 @@ function drawSecFilters(tab) {
     box.append(pg, g);
   } else {
     // «Сквиз»: наша позиция после флопа (как в «Против 3-бета»): из SB и BB вы ходите первым — OOP, с других мест — после открывающего и коллеров — IP
-    if (tab === 'sqz') { const pg = grpL('P', 'Наша позиция', segBtns([['all', 'Все'], ['ip', 'IP'], ['oop', 'OOP']], f.P, (k) => { f.P = k; renderNext(); })); const pq = el('span', 'flt-q', '?'); pq.title = 'Ваша позиция после флопа как сквизера:\nIP — вы ходите после открывающего и коллеров (сквиз не с блайндов),\nOOP — вы ходите первым (сквиз с SB или BB).'; pq.setAttribute('aria-label', 'Что значит IP и OOP'); pg.querySelector('.sf-row').append(pq); box.append(pg); }
+    if (tab === 'sqz' || tab === '3bet') { const pg = grpL('P', 'Наша позиция', segBtns([['all', 'Все'], ['ip', 'IP'], ['oop', 'OOP']], f.P, (k) => { f.P = k; renderNext(); })); const pq = el('span', 'flt-q', '?'); pq.title = tab === '3bet' ? 'Ваша позиция после флопа как 3-бетящего:\nIP — вы ходите после открывающего (3-бет не с блайндов),\nOOP — вы ходите первым (3-бет с SB или BB).' : 'Ваша позиция после флопа как сквизера:\nIP — вы ходите после открывающего и коллеров (сквиз не с блайндов),\nOOP — вы ходите первым (сквиз с SB или BB).'; pq.setAttribute('aria-label', 'Что значит IP и OOP'); pg.querySelector('.sf-row').append(pq); box.append(pg); }
     const g = grpL('S', 'Ваш стек, BB', stkSeg(cust, f.S, (k) => { f.S = k; renderNext(); }));
     g.append(fr);
     box.append(g);
@@ -111,7 +111,7 @@ function subHands(z, pass) {
 const CARD_FILTERS = {
   rfi: { '#1': 'ST', '#2': 'ST', '#3': '', '#4': 'ST', '#5': 'ST', '#6': 'S', '#7': 'ST', '#8': 'S', '#9': '', '#10': 'S', '#11': 'S' },
   cc: { '#1': 'S', '#2': 'S', '#3': 'S', '#9': 'S', '#4': 'S', '#8': '', '#5': 'S', '#6': 'S', '#7': 'S' },
-  '3bet': { '#1': 'S', '#2': 'ST', '#3': '', '#4': 'S', '#5': 'ST', '#10': 'ST', '#6': 'ST', '#8': 'S', '#9': 'S', '#7': 'ST', '#11': 'S' },
+  '3bet': { '#1': 'SP', '#2': 'STP', '#3': '', '#4': 'SP', '#5': 'STP', '#10': 'STP', '#6': 'STP', '#8': 'SP', '#9': 'SP', '#7': 'STP', '#11': 'SP' }, // P — наша позиция (IP / OOP)
   sqz: { '#1': 'SP', '#2': 'STP', '#3': 'SP', '#4': 'SP', '#5': 'STP', '#6': 'SP', '#7': 'SP', '#8': 'P', '#9': 'SP', '#10': 'STP', '#11': 'STP' }, // «Сквиз»: P — наша позиция (IP / OOP) на все; 6, 7, 9 — тип сквиза и есть колонки/строки, 8 — строки по стеку
   vs3bet: { '#1': 'STBP', '#2': '', '#3': 'STBP', '#4': 'STBP', '#5': 'STB', '#6': 'STB', '#7': 'SBP', '#8': 'STBP', '#9': 'STBP', '#10': 'STBP', '#11': 'ST', '#12': 'STBP', '#13': 'STBP' } // порядок карточек 03.11.2026; «наше действие» сейчас не действует ни на одну
 };

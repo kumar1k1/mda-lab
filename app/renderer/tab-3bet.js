@@ -246,10 +246,13 @@ function tbIsoBlock(r) {
 function renderTB(idx) {
   // Фильтры раздела — по карточкам: 5, 7 и 7.1 — стек и тип 3-бета; 6 — свои диапазоны, без них; остальные — стек (тип у 2 и 4 — ниже, по sub2/rG)
   const sr = secRange('3bet'), cb0 = DB.cols;
+  // «Наша позиция» (IP / OOP) — где вы после флопа как 3-бетящий: с SB и BB ходите первым (OOP), с других мест — после открывающего (IP); все карточки, кроме #3
+  const fP = secF('3bet').P, blind = (i) => (cb0.fp && cb0.fp[i] >= 0 ? cb0.fp[i] >= 5 : cb0.pos[i] >= 5);
+  const idx0 = idx; if (fP && fP !== 'all') idx = idx.filter(i => (fP === 'ip') === !blind(i));
   const idxS = sr ? idx.filter(i => cb0.bb[i] >= sr[0] * 10 && cb0.bb[i] < sr[1] * 10) : idx;
   const tbOpt = { oPos: uiState.tbOPos, oStk: uiState.tbOStkR, oMy: uiState.tbOMyR, oOpen: uiState.tbOOpen };
   const r = Stats.tb(DB, idxS, tbOpt);
-  const r6 = sr ? Stats.tb(DB, idx, tbOpt) : r; // #3 — без стека раздела (у неё свои диапазоны стеков)
+  const r6 = sr || idx0 !== idx ? Stats.tb(DB, idx0, tbOpt) : r; // #3 — без фильтров раздела (у неё свои диапазоны стеков)
   // Тип 3-бета из шапки раздела: у #5 меняет числитель (матрицы/итоги у неё уже по типам — hN/hI/hA),
   // у #6 и #7 — целиком частоту, результат, число 3-бетов и окна «Факт/EV»/списки (sI/iI/vmxI — олл-ин, sN/iN/vmxN — не олл-ин);
   // возможности и ответы (колл, фолд, окно «Диапазон») остаются по всем раздачам; стек уже в r
