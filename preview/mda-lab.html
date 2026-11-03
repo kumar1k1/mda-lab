@@ -5765,11 +5765,12 @@ function v3ExtraCards(x) {
   // #6 — фолд на 3-бет: ваша позиция × позиция 3-бетящего
   {
     const g = {}; for (const i of A) { const p = posOf(i), q = x.isC(i) ? c.c3q[i] : c.v3q[i], op = q >= 0 ? V3_FP[q] : null; if (!p || !op) continue; const row = g[p] || (g[p] = {}), z = row[op] || (row[op] = v3Cell()); v3Add(z, i, RV(i), c, EVcol()); }
-    // развёрнуто по диагонали: строки снизу вверх от EP (сверху SB), колонки справа налево от MP (слева BB)
-    const rows = V3_POS.filter(p => g[p]).reverse(), cols = ['BB', 'SB', 'BTN', 'CO', 'HJ', 'MP'].filter(op => rows.some(p => g[p][op] && g[p][op].n >= SMALL));
-    const tbl = heatTable({ cols, noTot: true, rows: rows.map(p => ({ key: p, label: p, data: Object.fromEntries(cols.map(op => [op, g[p][op] ? { x: g[p][op].fld, n: g[p][op].n } : null])) })) });
-    tbl.querySelectorAll('td.c').forEach(td => { const z = g[td.dataset.row] && g[td.dataset.row][td.dataset.col]; if (!z || !z.ids.length) return; hoverRange(td, 'Вы ' + td.dataset.row + ' против ' + NRg + ' с ' + td.dataset.col, v3Zz(z)); });
-    out.push(sec(6, 'Фолд на ' + NR + ': ваша позиция против позиции ' + (NR === 'сквиз' ? 'сквизера' : '3-бетящего'), 'строки — где вы, колонки — кто ' + (NR === 'сквиз' ? 'сквизит' : '3-бетит') + '; в ячейке — как часто вы сбросили', tbl,
+    // как таблица «Pos vs…» в Hand2Note: строки — кто 3-бетит (сверху MP, внизу BB), колонки — ваша позиция (слева EP, справа SB); ячейки — лесенкой под диагональю
+    const OPS = ['MP', 'HJ', 'CO', 'BTN', 'SB', 'BB'], G6 = {}; Object.entries(g).forEach(([p, row]) => Object.entries(row).forEach(([op, z]) => { (G6[op] || (G6[op] = {}))[p] = z; }));
+    const cols = V3_POS.filter(p => g[p]), rows = OPS.filter(op => G6[op] && cols.some(p => G6[op][p] && G6[op][p].n >= SMALL));
+    const tbl = heatTable({ cols, noTot: true, rows: rows.map(op => ({ key: op, label: op, data: Object.fromEntries(cols.map(p => [p, G6[op][p] ? { x: G6[op][p].fld, n: G6[op][p].n } : null])) })) });
+    tbl.querySelectorAll('td.c').forEach(td => { const z = G6[td.dataset.row] && G6[td.dataset.row][td.dataset.col]; if (!z || !z.ids.length) return; hoverRange(td, 'Вы ' + td.dataset.col + ' против ' + NRg + ' с ' + td.dataset.row, v3Zz(z)); });
+    out.push(sec(6, 'Фолд на ' + NR + ': ваша позиция против позиции ' + (NR === 'сквиз' ? 'сквизера' : '3-бетящего'), 'строки — кто ' + (NR === 'сквиз' ? 'сквизит' : '3-бетит') + ', колонки — ваша позиция; в ячейке — как часто вы сбросили', tbl,
       infoNote('Показывает, от кого вы сдаётесь чаще всего: например, против 3-бета с блайндов многие фолдят больше, чем против 3-бета с BTN. Наведите на ячейку — диапазон: как вы ответили каждой рукой (фолд, колл, 4-бет, олл-ин); клик закрепит окно с вкладками «Диапазон / Факт / EV», клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше ' + cnt(SMALL, 'раздач', 'gen') + '.')));
   }
   // #7 — как часто вас 3-бетят: от ваших открытий не олл-ином, по позиции и по размеру открытия (только стек раздела)
