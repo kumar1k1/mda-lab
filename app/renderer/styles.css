@@ -1996,3 +1996,5 @@ body.noscroll #content{overflow:hidden}
 .ht.v3-r21 thead th{text-align:left;padding:0 10px 4px}
 .ht.v3-r21 thead th:nth-child(2){text-align:right}
 .ht.v3-r21 tbody th{padding-right:14px}
+.ht.v3-r21 td.v3-tot{font-family:var(--mono);font-size:12.5px;padding:0 10px;white-space:nowrap}
+.card-fill > .ht.v3-r21,.insight .ht.v3-r21{align-self:flex-start;width:auto}

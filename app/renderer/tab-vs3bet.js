@@ -48,15 +48,7 @@ function renderV3B(idx) {
   const t = r.d.TOT, ta = rA.d.TOT;
   if (!rA.all) { page.append(el('p', 'muted small', 'Нет ' + UNIT + ' ' + NRc + ' в этой выборке.')); return page; }
   // #1 «Фолдите на 3-бет» — v3Card1 (0.7.56): переключатель «Все споты / Только чистые 1vs1», таблица по позициям с окнами рук
-  // #2 — результат вашей реакции на 3-бет по позициям, факт / EV; действия задаёт фильтр «Наше действие» (по умолчанию — все)
-  const pos = ['TOT'].concat(r.V3B_POS).filter(p => r.d[p].n >= 1);
-  const items = pos.map(p => { const z = r.d[p]; return { p, anyPos: true, pre: true, key: 'v3 ' + p + (sr ? ' ' + sr.join('-') : '') + T.ty + f.A.join('+') + f.B + (f.SQ || []).join(''), title: 'Ваша реакция на ' + NR + (p === 'TOT' ? ' (все позиции)' : ' с ' + p), o: { n: z.n, sum: z.sum, es: z.es }, mx: z.mx, ids: z.ids, vlab: ' BB за раздачу', nlab: ' раздач' }; }); // pre — раздачи уже отобраны фильтрами (asR открыватели и asC коллеры вперемешку)
-  LAST_NET_ITEMS = items;
-  const avg = t.n ? t.sum / 10 / t.n : null, avgE = t.n ? t.es / 10 / t.n : null;
-  const chartBox = el('div'); chartBox.append(netChart(items, avg, 'EV реакции на ' + NR));
-  const c2 = card(2, 'Результат вашей реакции на ' + NR, wrHtml(avg, avgE, 2) + ' <small>BB за раздачу</small>', 'по ' + cnt(t.n, 'раздач', 'dat'), chartBox);
-  c2.classList.add('wide');
-  c2.append(infoNote('Факт — средний итог этих раздач в BB (банк минус ваши вложения): сколько приносит выбранная реакция на 3-бет. EV — тот же итог с поправкой на эквити в раздачах, закончившихся олл-ином до ривера: карта выправляет удачу. Реакции задаёт фильтр раздела «Наше действие» — по умолчанию все ответы (фолд, колл, 4-бет, 4-бет олл-ином), можно сочетать, например оба 4-бета или фолд с коллом; на столбик можно навести и закрепить окно с руками, клик по руке откроет раздачи и реплеер.'));
+  // #2 «Результат вашей реакции» объединена с карточкой 1 (0.7.56): итог каждой реакции по позициям — в таблице карточки 1
   // #3 «Вступили до вашего хода» и «Против размера 3-бета» — в v3ExtraCards (0.7.55), с выбором вашей позиции
   // #4 — «Ваш ответ против трибета агрессора»: матрица рук (4-бет / олл-ин / колл / фолд) при заданных
   // вашей позиции, позиции 3-бетящего, его стеке и вашем стеке; фильтры шапки раздела НЕ действуют —
@@ -132,8 +124,7 @@ function renderV3B(idx) {
   const pick = (...L) => spot.filter(i => L.every(k => PRED[k](i)));
   const extra = v3ExtraCards({ idx, spot, pick, RV, RA, RP, isC, NR, NRg, sr, T });
   const c1 = v3Card1({ pick, RV, isC, NR, UNIT });
-  const c21 = v3Card21({ pick, RV, isC, NR, UNIT });
-  const zone = el('div', 'summary'); zone.append(c1, c2, c21, c4, ...extra); // #5 «Чистые споты» убрана (0.7.56) — теперь это переключатель карточки 1
+  const zone = el('div', 'summary'); zone.append(c1, c4, ...extra); // #5 «Чистые споты» убрана (0.7.56) — теперь это переключатель карточки 1
   page.append(zone);
   return page;
 }
@@ -212,22 +203,21 @@ function v3PerAct(ids, labs, RV) {
 let V3_C1MODE = 'all';
 // раздачи карточек 1 и 2.1: «Все споты» (S, T, B, P) или «Только чистые 1vs1» (S, T, P + чистый спот)
 function v3C1Ids(x) { const c = DB.cols; return V3_C1MODE === 'clean' ? x.pick('S', 'T', 'P').filter(i => !x.isC(i) && c.v3o[i] === 0 && (c.v3e ? c.v3e[i] === 0 : c.v3c[i] === 0)) : x.pick('S', 'T', 'B', 'P'); }
-// #2.1 — итог каждой реакции по позициям: доля фолда / колла / 4-бета и средний итог этой реакции (факт / EV); те же раздачи, что карточка 1
-function v3Card21(x) {
-  const c = DB.cols, EV = EVcol(), ids = v3C1Ids(x), NR = V3_C1MODE === 'clean' ? '3-бет' : x.NR, posOf = (i) => (c.fp[i] >= 0 ? V3_FP[c.fp[i]] : null);
+// таблица карточки 1: по вашей позиции — доля фолда / колла / 4-бета и средний итог каждой реакции (факт / EV), справа — итог всех раздач
+function v3PosTable(x, ids) {
+  const c = DB.cols, EV = EVcol(), NR = V3_C1MODE === 'clean' ? '3-бет' : x.NR, posOf = (i) => (c.fp[i] >= 0 ? V3_FP[c.fp[i]] : null);
   const cell = () => [0, 1, 2].map(() => ({ n: 0, sum: 0, es: 0, ids: [], mx: Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })) }));
-  const G = { all: cell() }, N = { all: 0 };
-  for (const i of ids) { const v = x.RV(i), k = v === 0 ? 0 : v === 1 ? 1 : 2, p = posOf(i); for (const key of ['all'].concat(p && V3_POS.includes(p) ? [p] : [])) { const z = (G[key] || (G[key] = cell()))[k]; N[key] = (N[key] || 0) + 1; z.n++; z.sum += c.net[i]; z.es += EV[i]; if (c.hc[i] >= 0) { z.ids.push(i); const m = z.mx[c.hc[i]]; m.n++; m.sum += c.net[i]; m.es += EV[i]; } } }
-  const t = el('table', 'ht v3-grp v3-r21'), hr = el('tr'); ['Ваша позиция', 'Раз', 'Фолд', 'Колл', '4-бет'].forEach(h => hr.append(el('th', null, h))); const th = el('thead'); th.append(hr); t.append(th);
+  const G = { all: cell() }, N = { all: 0 }, T = {};
+  for (const i of ids) { const v = x.RV(i), k = v === 0 ? 0 : v === 1 ? 1 : 2, p = posOf(i); for (const key of ['all'].concat(p && V3_POS.includes(p) ? [p] : [])) { const z = (G[key] || (G[key] = cell()))[k]; N[key] = (N[key] || 0) + 1; const tt = T[key] || (T[key] = { sum: 0, es: 0 }); tt.sum += c.net[i]; tt.es += EV[i]; z.n++; z.sum += c.net[i]; z.es += EV[i]; if (c.hc[i] >= 0) { z.ids.push(i); const m = z.mx[c.hc[i]]; m.n++; m.sum += c.net[i]; m.es += EV[i]; } } }
+  const t = el('table', 'ht v3-grp v3-r21'), hr = el('tr'); ['Ваша позиция', 'Раз', 'Фолд', 'Колл', '4-бет', 'Итог раздачи'].forEach(h => hr.append(el('th', null, h))); const th = el('thead'); th.append(hr); t.append(th);
   const tb = el('tbody'), LAB = ['фолд', 'колл', '4-бет'], COL = ['var(--good)', 'var(--ice)', 'var(--bad)'];
   ['all'].concat(V3_POS).forEach(key => { const row = G[key]; if (!row || !N[key]) return; const tr = el('tr'); tr.append(el('th', null, key === 'all' ? 'Все позиции' : key), el('td', 'v3-n', N[key].toLocaleString('ru-RU')));
     row.forEach((z, k) => { const td = el('td', 'c'); if (!z.n) { td.textContent = '—'; tr.append(td); return; } const b = el('b', null, fmtPct(z.n / N[key]) + '%'); b.style.color = COL[k]; td.append(b, wrNode('wr', z.sum / 10 / z.n, z.es / 10 / z.n, 2), el('span', 'n', z.n)); if (z.n < 20) td.classList.add('low');
       if (z.ids.length) hoverHands(td, { p: key, anyPos: true, pre: true, key: 'v321' + V3_C1MODE + key + k, title: LAB[k][0].toUpperCase() + LAB[k].slice(1) + ' на ' + NR + (key === 'all' ? ' (все позиции)' : ' с ' + key), o: { n: z.ids.length, sum: z.sum, es: z.es }, mx: z.mx, ids: z.ids, vlab: ' BB за раздачу', nlab: ' раздач' }, z.sum / 10 / z.n);
-      tr.append(td); }); tb.append(tr); });
+      tr.append(td); });
+    const tt = T[key], tdT = el('td', 'v3-tot'); tdT.append(wrNode('wr', tt.sum / 10 / N[key], tt.es / 10 / N[key], 2)); tr.append(tdT); tb.append(tr); });
   t.append(tb);
-  const d = el('div', 'insight cc-table'); d.append(numTag('2.1'), el('span', 'k', 'Итог каждой реакции по позициям'), el('span', 's', 'сколько приносит фолд, колл и 4-бет против ' + (NR === 'сквиз' ? 'сквиза' : '3-бета') + ' с каждой позиции' + (V3_C1MODE === 'clean' ? ' · только чистые споты 1vs1' : '')), ids.length ? t : el('p', 'muted small', 'Нет раздач в выборке.'),
-    infoNote('В ячейке: сверху — как часто вы так ответили с этой позиции, ниже — средний итог раздачи после этой реакции в BB (факт / EV), справа мелко — число раздач. Фолд всегда стоит вложенное в открытие; колл и 4-бет показывают, окупается ли продолжение. Те же раздачи, что в карточке 1 (и её переключатель «Все споты / Только чистые 1vs1»). Наведите на ячейку — руки и итог; клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше ' + cnt(20, 'раздач', 'gen') + '.'));
-  return d;
+  return t;
 }
 function v3Card1(x) {
   const c = DB.cols, clean = V3_C1MODE === 'clean';
@@ -237,11 +227,10 @@ function v3Card1(x) {
   const sub = !t || !t.n ? 'нет раздач в выборке' : 'из ' + (clean ? cnt(t.n, 'чистых спотов', 'gen') + ' 1vs1' : cnt(t.n, x.UNIT, 'gen'));
   const body = el('div', 'card-fill'); body.append(seg);
   if (t && t.n) {
-    const rows = [['Все позиции', t]].concat(V3_POS.filter(p => g[p]).map(p => [p, g[p]]));
-    body.append(v3Tiles(ids, x.RV, 'Ваш ответ на ' + NR), v3RespTable(rows, 'Ваша позиция', NR, 'v31' + V3_C1MODE));
+    body.append(v3Tiles(ids, x.RV, 'Ваш ответ на ' + NR), el('span', 'resp-t', 'По вашей позиции: как часто и что приносит каждая реакция'), v3PosTable(x, ids));
   }
   const c1 = card(1, 'Фолдите на ' + NR, t && t.n ? '<em>' + fmtPct(t.fld / t.n) + '%</em>' : '<span class="muted">—</span>', sub, body);
-  c1.append(infoNote('«Все споты» — как в Hand2Note: все раздачи, где вы открылись и получили ' + x.NR + ', в том числе сквиз-поты и раздачи, где до вашего хода кто-то ещё вступил. «Только чистые 1vs1» — вы открылись, открытие никто не коллировал, пришёл 3-бет и до вашего хода больше никто не вступал: ровно вы и 3-бетящий. Таблица — по вашей позиции: фолд, колл, 4-бет, 4-бет олл-ином и средний итог раздачи (факт / EV); наведите на строку — руки и итог, клик по руке откроет раздачи и реплеер. В плитках ответа под долей — средний итог этой реакции в BB за раздачу, факт / EV. Фильтры раздела: ваш стек, тип 3-бета соперника, ваша позиция относительно 3-бетящего; «тип трибет банка» — только в режиме «Все споты» (чистые споты сами и есть банк 1vs1); «наше действие» не применяется — ваши реакции и есть содержимое карточки.'));
+  c1.append(infoNote('«Все споты» — как в Hand2Note: все раздачи, где вы открылись и получили ' + x.NR + ', в том числе сквиз-поты и раздачи, где до вашего хода кто-то ещё вступил. «Только чистые 1vs1» — вы открылись, открытие никто не коллировал, пришёл 3-бет и до вашего хода больше никто не вступал: ровно вы и 3-бетящий. Таблица — по вашей позиции: в каждой ячейке доля реакции, ниже — средний итог раздачи после неё (факт / EV), справа мелко — число раздач; последняя колонка — итог всех раздач позиции. Фолд всегда стоит вложенное в открытие; колл и 4-бет показывают, окупается ли продолжение. Наведите на ячейку — руки и итог, клик по руке откроет раздачи и реплеер. В плитках ответа под долей — средний итог этой реакции в BB за раздачу, факт / EV. Фильтры раздела: ваш стек, тип 3-бета соперника, ваша позиция относительно 3-бетящего; «тип трибет банка» — только в режиме «Все споты» (чистые споты сами и есть банк 1vs1); «наше действие» не применяется — ваши реакции и есть содержимое карточки.'));
   return c1;
 }
 // подпись карточки 3, если выборка по смыслу пуста
