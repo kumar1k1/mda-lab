@@ -262,7 +262,7 @@
   const FP = ['EP', 'MP', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
   const TB_COLS = ['TOT', 'MP', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
   const TB_STK = [['< 15 BB', 0, 15], ['15–25 BB', 15, 25], ['25–40 BB', 25, 40], ['40+ BB', 40, 1e9]];
-  const TB_OSTK = [['до 20 BB', 0, 20], ['20–40 BB', 20, 40], ['40+ BB', 40, 1e9]]; // корзины стека открывающего (#7.1)
+  const TB_OSTK = [['до 20 BB', 0, 20], ['20–40 BB', 20, 40], ['40+ BB', 40, 1e9]]; // корзины стека открывающего (#10)
   // размер 3-бета в разах от открытия — как «Split» в Hand2Note: до ближайших 0,5 (×2 … ×5, дальше ×5+); олл-ин — отдельно
   const TB_X = [['×2'], ['×2,5'], ['×3'], ['×3,5'], ['×4'], ['×4,5'], ['×5'], ['×5+'], ['олл-ин']];
   const xIdx = (ratio) => Math.min(7, Math.max(0, Math.round(ratio * 2) - 4));
@@ -317,14 +317,14 @@
             if (r3 && c.hc[i] >= 0) { const vs = aI ? (q.vmxI || (q.vmxI = Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })))) : (q.vmxN || (q.vmxN = Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })))); const v2 = vs[c.hc[i]]; v2.n++; v2.sum += v0; v2.es += e0; if (!q.vmx) q.vmx = Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })); const v1 = q.vmx[c.hc[i]]; v1.n++; v1.sum += v0; v1.es += e0; } // «Факт/EV» в окне — только 3-беты; отдельные матрицы олл-ин / не олл-ин — под тип из шапки раздела
           }
         }
-        // #7.1 — корзины стека открывающего: возможности, 3-беты (все/олл-ином) и их результат; rmx — окно «Диапазон», vmx/ids — «Факт/EV» и списки только по 3-бетам
+        // #10 — корзины стека открывающего: возможности, 3-беты (все/олл-ином) и их результат; rmx — окно «Диапазон», vmx/ids — «Факт/EV» и списки только по 3-бетам
         if (c.ostk[i] >= 0) {
           const ok = c.ostk[i] / 10 < 20 ? 0 : c.ostk[i] / 10 < 40 ? 1 : 2, q = out.ostk[k][ok];
           q.n++; if (r3) { q.x++; if (aI) { q.ai++; q.sI += v0; q.eI += e0; q.nI++; (q.iI || (q.iI = [])).push(i); } else { q.sN += v0; q.eN += e0; q.nN++; (q.iN || (q.iN = [])).push(i); } q.sum += v0; q.es += e0; q.sn++; (q.ids || (q.ids = [])).push(i); }
           if (c.hc[i] >= 0) { if (!q.rmx) { q.rmx = Array.from({ length: 169 }, () => ({ n: 0, x: 0, ai: 0, lp: 0, sum: 0, es: 0 })); q.rids = []; } const m = q.rmx[c.hc[i]]; m.n++; m.sum += v0; m.es += e0; q.rids.push(i); if (a === 1) m.lp++; else if (r3) { m.x++; if (aI) m.ai++; } }
           if (r3 && c.hc[i] >= 0) { const vs = aI ? (q.vmxI || (q.vmxI = Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })))) : (q.vmxN || (q.vmxN = Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })))); const v2 = vs[c.hc[i]]; v2.n++; v2.sum += v0; v2.es += e0; if (!q.vmx) q.vmx = Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })); const v1 = q.vmx[c.hc[i]]; v1.n++; v1.sum += v0; v1.es += e0; }
         }
-        // #9.1 окно «Диапазон» (как #7): возможности и ответы по группам позиций — по рукам (все ответы, включая фолды и коллы); в бакет размера — сами 3-беты
+        // #9 окно «Диапазон» (как #7): возможности и ответы по группам позиций — по рукам (все ответы, включая фолды и коллы); в бакет размера — сами 3-беты
         if (k === 'TOT' && c.hc[i] >= 0) { // один раз на раздачу (цикл идёт по TOT и позиции — иначе раздача попадала в окно дважды)
           const gs2 = ['TOT'].concat(p === 'CO' || p === 'BTN' ? ['IP'] : p === 'SB' ? ['SB'] : p === 'BB' && !bvb ? ['BB'] : []);
           const xr2 = aI ? 8 : c.osz[i] > 0 ? xIdx(c.size[i] / c.osz[i]) : -1;

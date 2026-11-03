@@ -305,7 +305,7 @@ function cardEl(code, small) {
 
 let RP = null; // открытый реплеер (replayer.js: openReplayer / closeReplayer)
 
-// ---------- список раздач по выбранному столбику (#3.4.8) ----------
+// ---------- список раздач по выбранному столбику («Открытие» #5) ----------
 let IDS_LIST = null;
 async function openIdsList(title, ids, opt) {
   opt = opt || {};
