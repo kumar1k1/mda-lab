@@ -9,7 +9,7 @@ const GROUPS = [
     { id: 'cc', code: 'CC', label: 'Колд-колл', render: renderCC, plan: 'Колд-колл против открытия по позициям, сайзингам открытия и стеку.' },
     { id: '3bet', code: '3B', label: '3-бет', render: renderTB },
     { id: 'vs3bet', code: 'v3B', label: 'Против 3-бета / сквиза', render: renderV3B, plan: 'Фолд / колл / 4-бет против 3-бета по позициям и стеку.' },
-    { id: 'sqz', code: 'SQZ', label: 'Сквиз', plan: 'Сквиз после открытия и колла, по позициям и числу коллеров.' },
+    { id: 'sqz', code: 'SQZ', label: 'Сквиз', render: renderSQZ, plan: 'Сквиз после открытия и колла, по позициям и числу коллеров.' },
     { id: '4bet', code: '4B', label: '4-бет', plan: '4-бет и 4-бет олл-ин, реакция на 5-бет.' },
     { id: 'vssteal', code: 'vST', label: 'Против стила', plan: 'Защита блайндов против стила с CO / BTN / SB: фолд, колл, 3-бет.' },
     { id: 'mwr', code: 'MWR', label: 'Мультивей: рейзер', plan: 'Мультивей-банки, где вы префлоп-рейзер.' },
@@ -47,7 +47,7 @@ function renderSoon(tab) {
 // ---------- отрисовка ----------
 function currentIdx() {
   // ваш стек из фильтров раздела: в «Открытии», «Колд-колле», «3-бете» и «Против 3-бета» — по карточкам, в остальных разделах — для всех
-  const sr = state.tab === 'rfi' || state.tab === 'cc' || state.tab === '3bet' || state.tab === 'vs3bet' ? null : secRange(state.tab); // стек раздела — по карточкам (renderRFISummary / renderCC / renderTB / renderV3B)
+  const sr = state.tab === 'rfi' || state.tab === 'cc' || state.tab === '3bet' || state.tab === 'vs3bet' || state.tab === 'sqz' ? null : secRange(state.tab); // стек раздела — по карточкам (renderRFISummary / renderCC / renderTB / renderV3B)
   const idx = Stats.selectHands(DB, { aid: DB === HERO_DB && !state.player ? state.alias : null, room: state.room, type: state.type, from: state.from, to: state.to, biFrom: state.biFrom, biTo: state.biTo, tbl: state.sub === 'TOT' ? null : state.sub, minBB: sr ? sr[0] : null, maxBB: sr && sr[1] < 1e8 ? sr[1] : null });
   return idx; // у соперника своя база (DB) — все его раздачи
 }

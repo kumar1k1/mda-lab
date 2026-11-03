@@ -24,7 +24,7 @@ const { computeEv, STRIDE } = require('./ev-pool.js');
 const { internTitle, appendNames, playersIn } = require('./rpbin.js');
 
 const FORMAT = 'mdalab-cols-v3';
-const NEW3B = new Set(['fp', 'fop', 't3r', 't4', 'v3k', 'v3x', 'v3z', 'v3f']); // колонки 3-бета (0.7.23): у старых строк неизвестны (-1), досчитываются обновлением базы (migrate.js)
+const NEW3B = new Set(['fp', 'fop', 't3r', 't4', 'v3k', 'v3x', 'v3z', 'v3f', 'sqc']); // колонки 3-бета (0.7.23): у старых строк неизвестны (-1), досчитываются обновлением базы (migrate.js)
 // колонки ваших раздач: статы + ссылка на запись реплеера + отпечаток раздачи
 // aid — номер алиаса (в базе может быть несколько игроков со своими никами: вы, друг…)
 const HERO_SCHEMA = SCHEMA.concat([['rpp', 'i32'], ['rpo', 'u32'], ['rpl', 'u32'], ['key', 'f64'], ['aid', 'i16'], ['nk', 'i16'],
@@ -46,7 +46,7 @@ function rowVals(h, roomIdx) {
     hpa: h.hpa || 0, tmx: h.tblMax || 0, np: h.n || 0, lr: h.lr || 0, ant: h.ant == null ? -1 : h.ant, fcb: h.fcb == null ? -1 : h.fcb, cbs: h.cbs == null ? -1 : h.cbs,
     fp: h.fp == null ? -1 : h.fp, fop: h.fop == null ? -1 : h.fop, t3r: h.t3r == null ? -1 : h.t3r, t4: h.t4 == null ? -1 : h.t4,
     v3: h.v3 == null ? -1 : h.v3, v3a: h.v3a == null ? -1 : h.v3a, v3o: h.v3o == null ? -1 : h.v3o, v3c: h.v3c == null ? -1 : h.v3c, v3e: h.v3e == null ? -1 : h.v3e, v3p: h.v3p == null ? -1 : h.v3p,
-    c3: h.c3 == null ? -1 : h.c3, c3a: h.c3a == null ? -1 : h.c3a, c3e: h.c3e == null ? -1 : h.c3e, c3p: h.c3p == null ? -1 : h.c3p, v3q: h.v3q == null ? -1 : h.v3q, c3q: h.c3q == null ? -1 : h.c3q, v3s: h.v3s == null ? -1 : h.v3s, v3k: h.v3k == null ? -1 : h.v3k, v3x: h.v3x == null ? -1 : h.v3x, v3z: h.v3z == null ? -1 : h.v3z, v3f: h.v3f == null ? -1 : h.v3f
+    c3: h.c3 == null ? -1 : h.c3, c3a: h.c3a == null ? -1 : h.c3a, c3e: h.c3e == null ? -1 : h.c3e, c3p: h.c3p == null ? -1 : h.c3p, v3q: h.v3q == null ? -1 : h.v3q, c3q: h.c3q == null ? -1 : h.c3q, v3s: h.v3s == null ? -1 : h.v3s, v3k: h.v3k == null ? -1 : h.v3k, v3x: h.v3x == null ? -1 : h.v3x, v3z: h.v3z == null ? -1 : h.v3z, v3f: h.v3f == null ? -1 : h.v3f, sqc: h.sqc == null ? -1 : h.sqc
   };
 }
 const monthOfDay = (day) => { const d = new Date(day * 864e5); return d.getUTCFullYear() * 12 + d.getUTCMonth(); };
