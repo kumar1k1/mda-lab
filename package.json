@@ -1,10 +1,10 @@
 {
   "name": "mdalab",
   "version": "1.0.0",
-  "description": "",
+  "description": "MDA Lab — служебные команды разработки (npm run audit — сверка вкладок по полной базе)",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "audit": "node tests/audit/run.js"
   },
   "keywords": [],
   "author": "",
