@@ -16,6 +16,7 @@ const CHECKS = [
   ['filters-table.js', 'Таблица фильтров раздела', /ошибок 0\b/],
   ['windows-vs-filters.js', 'Окна и списки раздач против фильтров', null], // свой разбор: в каждой строке «ошибок 0»
   ['replayer-links.js', 'Реплеер по раздачам ситуаций', /совпало (\d+) из \1\b/],
+  ['click-flow.js', 'Мышью: окно → список раздач → реплеер', /сценариев (\d+) успешно \1\b/],
 ];
 const run = (file) => new Promise((res) => { const out = []; const p = spawn(process.execPath, [path.join(__dirname, file), fs.mkdtempSync(path.join(require('os').tmpdir(), 'mda-audit-'))], { cwd: ROOT }); p.stdout.on('data', d => { out.push(d); process.stdout.write(d); }); p.stderr.on('data', d => process.stderr.write(d)); p.on('close', (code) => res({ code, text: Buffer.concat(out).toString() })); });
 srv.listen(8783, '127.0.0.1', async () => {
