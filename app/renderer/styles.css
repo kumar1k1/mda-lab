@@ -2041,3 +2041,18 @@ body.noscroll #content{overflow:hidden}
 .hg.hg3 .hg-row > :nth-child(3),.hg.hg3 .hg-row > :nth-child(4){padding-left:14px;padding-right:14px;border-left:1px solid var(--line)}
 .hg.hg3 .hg-row > :nth-child(2){padding-right:14px}
 .hg.hg3 .hg-head{grid-column:1 / -1}
+
+/* «умные» фильтры раздела: недействующие на карточку под мышью — тусклые (кликать можно) */
+.sec-f .sf-g{transition:opacity .2s ease}
+.sec-f .sf-g.sf-dim{opacity:.3}
+.sec-f .sf-g.sf-dim:hover{opacity:.75}
+
+/* левое меню: заголовки групп сворачивают свои вкладки; у свёрнутой группы видна только вкладка открытого раздела */
+.rgroup-title{display:flex;align-items:center;justify-content:space-between;width:100%;border:none;background:transparent;cursor:pointer;text-align:left;font-family:inherit;border-radius:7px}
+.rgroup-title:hover{color:var(--soft);background:var(--card)}
+.rgroup-title .rg-chev{width:7px;height:7px;border-right:1.6px solid currentColor;border-bottom:1.6px solid currentColor;transform:rotate(45deg) translateY(-2px);transition:transform .18s ease;margin-right:4px}
+.rgroup.closed .rg-chev{transform:rotate(-45deg)}
+.rgroup.closed .tab:not(.active){display:none}
+.rgroup.closed + .rgroup{margin-top:4px}
+/* основные фильтры (рум, тип, период, бай-ин) — по левому краю колонки статов, а не меню вкладок */
+@media (min-width: 761px){.filters{padding-left:calc(228px + 22px)}}

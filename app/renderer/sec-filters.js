@@ -48,7 +48,8 @@ function drawSecFilters(tab) {
   box.classList.toggle('sec-f-grid', tab === 'vs3bet'); // «Против 3-бета»: сетка 2×2 — слева «3-бет соперника» и «тип трибет банка», справа «наша позиция» и «ваш стек»
   // группы, как фильтры над ними: подпись сверху, кнопки под ней
   const grp = (lab, ...nodes) => { const g = el('div', 'sf-g'); g.append(el('span', 'flt-k', lab)); const row = el('div', 'sf-row'); row.append(...nodes); g.append(row); return g; };
-  if (types) box.append(grp(tab === 'rfi' ? 'Открытие' : tab === 'vs3bet' ? '3-бет соперника' : '3-бет', segBtns(types, f.T, (k) => { f.T = k; renderNext(); })));
+  const grpL = (L, lab, ...nodes) => { const g = grp(lab, ...nodes); g.dataset.l = L; return g; }; // буква фильтра — для «умной» подсветки (sfApply)
+  if (types) box.append(grpL('T', tab === 'rfi' ? 'Открытие' : tab === 'vs3bet' ? '3-бет соперника' : '3-бет', segBtns(types, f.T, (k) => { f.T = k; renderNext(); })));
   if (tab === 'vs3bet') {
     // тип 3-бет банка по чужим коллам (под «3-бетом соперника»): 1vs1 / сквиз поверх колла открытия;
     // у «сквиз пот» — подтумблеры asR (вы открылись, открытие заколлировали, сквиз поверх) и asC (вы заколлировали чужое открытие, сквиз за спиной)
@@ -68,26 +69,27 @@ function drawSecFilters(tab) {
         bseg.append(chip);
       });
     }
-    box.append(grp('Тип трибет банка', bseg));
+    box.append(grpL('B', 'Тип трибет банка', bseg));
   }
   const cust = f.S === 'custom' ? f.C : null;
   // свой диапазон — под кнопками стека, с тем же левым краем
   const fr = rangeForm('secRng', cust, (v) => { if (v) { f.C = v; f.S = 'custom'; } else { f.C = null; f.S = 'all'; } render(); });
   // «Против 3-бета»: порядок в сетке (по колонкам) — 3-бет соперника, тип банка | наша позиция, ваш стек (поля «от / до» — под кнопками стека)
   if (tab === 'vs3bet') {
-    const pg = grp('Наша позиция', segBtns([['all', 'Все'], ['ip', 'IP'], ['oop', 'OOP']], f.P, (k) => { f.P = k; renderNext(); }));
+    const pg = grpL('P', 'Наша позиция', segBtns([['all', 'Все'], ['ip', 'IP'], ['oop', 'OOP']], f.P, (k) => { f.P = k; renderNext(); }));
     const pq = el('span', 'flt-q', '?');
     pq.title = PQ_TIP;
     pq.setAttribute('aria-label', 'Что значит IP и OOP');
     pg.querySelector('.sf-row').append(pq);
-    const g = grp('Ваш стек, BB', stkSeg(cust, f.S, (k) => { f.S = k; renderNext(); }));
+    const g = grpL('S', 'Ваш стек, BB', stkSeg(cust, f.S, (k) => { f.S = k; renderNext(); }));
     g.append(fr);
     box.append(pg, g);
   } else {
-    const g = grp('Ваш стек, BB', stkSeg(cust, f.S, (k) => { f.S = k; renderNext(); }));
+    const g = grpL('S', 'Ваш стек, BB', stkSeg(cust, f.S, (k) => { f.S = k; renderNext(); }));
     g.append(fr);
     box.append(g);
   }
+  sfApply();
 }
 // раздачи набора (ids) под фильтр: итог, матрица рук, список
 function subHands(z, pass) {
@@ -106,8 +108,8 @@ function subHands(z, pass) {
 // карточки поменялись). Меняете, на что действует фильтр, — меняйте здесь, в коде карточки и в docs/filters.md.
 const CARD_FILTERS = {
   rfi: { '#1': 'ST', '#2': 'ST', '#3': '', '#4': 'ST', '#5': 'ST', '#6': 'S', '#7': 'ST', '#8': 'S', '#9': '', '#10': 'S', '#11': 'S' },
-  cc: { '#1': 'S', '#2': 'S', '#3': 'S', '#4': 'S', '#5': 'S', '#6': '', '#7': 'S', '#8': 'S', '#9': 'S' },
-  '3bet': { '#1': 'S', '#2': 'ST', '#3': '', '#4': 'S', '#5': 'ST', '#6': 'ST', '#7': 'ST', '#8': 'S', '#9': 'S', '#10': 'ST', '#11': 'S' },
+  cc: { '#1': 'S', '#2': 'S', '#3': 'S', '#9': 'S', '#4': 'S', '#8': '', '#5': 'S', '#6': 'S', '#7': 'S' },
+  '3bet': { '#1': 'S', '#2': 'ST', '#3': '', '#4': 'S', '#5': 'ST', '#10': 'ST', '#6': 'ST', '#8': 'S', '#9': 'S', '#7': 'ST', '#11': 'S' },
   vs3bet: { '#1': 'STBP', '#2': '', '#3': 'STBP', '#4': 'STBP', '#5': 'STB', '#6': 'STB', '#7': 'SBP', '#8': 'STBP', '#9': 'STBP', '#10': 'STBP', '#11': 'ST', '#12': 'STBP', '#13': 'STBP' } // порядок карточек 03.11.2026; «наше действие» сейчас не действует ни на одну
 };
 const SEC_EXEMPT = Object.fromEntries(Object.entries(CARD_FILTERS).map(([t, m]) => [t, Object.keys(m).filter(k => !m[k])]));
@@ -151,3 +153,52 @@ function markFilters(root, tab) {
     const m = el('span', 'sec-on', txt); m.title = 'Фильтры раздела на этой карточке: ' + txt; host.append(m);
   });
 }
+
+
+// ---------- «Умные» фильтры раздела: наведение на карточку — фильтры шапки, которые на неё НЕ действуют, тускнеют ----------
+// Таблица действия — CARD_FILTERS. Задержки подобраны под разные привычки: колесо, тачпад, полоса прокрутки, быстрый перевод мыши к шапке.
+// ENTER — сколько мышь должна задержаться на карточке, чтобы подсветка переключилась (пролёт над карточками по пути к шапке не считается);
+// FAST — скорость (px/мс), выше которой движение считается «перелётом» и таймер переключения сбрасывается;
+// LEAVE — сколько подсветка держится после ухода с карточки в пустое место (успеть дойти до шапки); в шапке — держится, пока мышь там;
+// SCROLL_IDLE — после окончания прокрутки (колесо, тачпад, клавиши, полоса) заново смотрим, какая карточка под мышью.
+const SF = { ENTER: 260, FAST: 0.45, LEAVE: 2000, SCROLL_IDLE: 180 };
+const SF_SEL = '.sm, .r34-m, .insight, .block';
+let sfCur = null, sfPend = null, sfEnterT = 0, sfLeaveT = 0, sfScrollT = 0, sfScrolling = false, sfX = -1, sfY = -1, sfV = 0, sfLt = 0;
+function sfCardOf(node) {
+  const T = CARD_FILTERS[state.tab]; if (!T || !node || !node.closest || !node.closest('#content')) return null;
+  for (let n = node.closest(SF_SEL); n; n = n.parentElement && n.parentElement.closest(SF_SEL)) {
+    const t = [...n.querySelectorAll('.num-tag')].find(q => q.closest(SF_SEL) === n);
+    if (t) { const k = t.textContent.trim(); if (k in T) return k; }
+  }
+  return null;
+}
+function sfApply() {
+  const box = $('secFilters'); if (!box) return;
+  const T = CARD_FILTERS[state.tab], k = sfCur && sfCur.tab === state.tab ? sfCur.tag : null, L = T && k != null ? T[k] : null;
+  box.querySelectorAll('.sf-g[data-l]').forEach(g => { const dim = L != null && !L.includes(g.dataset.l); g.classList.toggle('sf-dim', dim); if (dim) g.title = 'На карточку ' + k + ' этот фильтр не действует'; else g.removeAttribute('title'); });
+}
+function sfSet(tag) { clearTimeout(sfLeaveT); sfLeaveT = 0; const nx = tag == null ? null : { tab: state.tab, tag }; if ((sfCur && sfCur.tag) === (nx && nx.tag) && (sfCur && sfCur.tab) === (nx && nx.tab)) return; sfCur = nx; sfApply(); }
+function sfLeaveSoon() { if (!sfCur || sfLeaveT) return; sfLeaveT = setTimeout(() => { sfLeaveT = 0; sfSet(null); }, SF.LEAVE); }
+function sfInBar(node) { return !!(node && node.closest && node.closest('.toolbar, header')); }
+function sfConsider(tag, delay) {
+  if (tag == null) { clearTimeout(sfEnterT); sfPend = null; sfLeaveSoon(); return; }
+  clearTimeout(sfLeaveT); sfLeaveT = 0;
+  if (sfCur && sfCur.tab === state.tab && sfCur.tag === tag) { clearTimeout(sfEnterT); sfPend = null; return; }
+  if (sfPend === tag && sfV < SF.FAST) return; // уже ждём эту карточку и мышь не «летит» — не сбрасываем
+  clearTimeout(sfEnterT); sfPend = tag;
+  sfEnterT = setTimeout(() => { sfPend = null; if (sfScrolling) return; const now = sfCardOf(document.elementFromPoint(sfX, sfY)); if (now === tag) sfSet(tag); else sfConsider(now, SF.ENTER); }, delay);
+}
+document.addEventListener('pointermove', (e) => {
+  if (e.pointerType && e.pointerType !== 'mouse') return;
+  const t = performance.now(), dt = Math.max(1, t - sfLt), d = Math.hypot(e.clientX - sfX, e.clientY - sfY);
+  sfV = sfLt ? sfV * 0.6 + Math.min(5, d / dt) * 0.4 : 0; sfLt = t; sfX = e.clientX; sfY = e.clientY;
+  if (sfScrolling) return;
+  if (sfInBar(e.target)) { clearTimeout(sfEnterT); sfPend = null; clearTimeout(sfLeaveT); sfLeaveT = 0; return; } // в шапке — держим
+  sfConsider(sfCardOf(e.target), SF.ENTER);
+}, { passive: true });
+document.addEventListener('scroll', () => {
+  sfScrolling = true; clearTimeout(sfEnterT); sfPend = null; clearTimeout(sfScrollT);
+  sfScrollT = setTimeout(() => { sfScrolling = false; if (sfX < 0) return; const n = document.elementFromPoint(sfX, sfY); if (sfInBar(n)) return; sfV = 0; sfConsider(sfCardOf(n), SF.ENTER); }, SF.SCROLL_IDLE);
+}, { capture: true, passive: true });
+document.documentElement.addEventListener('mouseleave', () => { clearTimeout(sfEnterT); sfPend = null; sfLeaveSoon(); });
+document.addEventListener('focusin', (e) => { const k = sfCardOf(e.target); if (k != null) sfSet(k); }); // с клавиатуры — сразу

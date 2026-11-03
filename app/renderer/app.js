@@ -78,12 +78,17 @@ function renderNext() {
   document.body.classList.add('rendering'); window.mdaBusy(true, 'Считаю статистику…');
   RS_F = requestAnimationFrame(() => setTimeout(() => { RS_F = 0; try { render(); } finally { document.body.classList.remove('rendering'); window.mdaBusy(false); } }, 0));
 }
+let RAIL_CLOSED = new Set(); try { RAIL_CLOSED = new Set(JSON.parse(localStorage.getItem('mda.rail.closed') || '[]')); } catch (e) {}
 function render() {
   hideHandPop(); hideMxTip(); hideGroupTip(); hidePushTip(); unpinSzMx(); if (qdTip) qdTip.hidden = true;
   const rail = $('rail'); rail.replaceChildren();
   GROUPS.forEach(g => {
-    const box = el('div', 'rgroup');
-    box.append(el('div', 'rgroup-title', g.title));
+    // группы вкладок сворачиваются по клику на заголовок; группа с открытым разделом не сворачивается целиком — её вкладка видна всегда
+    const closed = RAIL_CLOSED.has(g.title), box = el('div', 'rgroup' + (closed ? ' closed' : ''));
+    const ht = el('button', 'rgroup-title'); ht.type = 'button'; ht.setAttribute('aria-expanded', String(!closed));
+    ht.append(el('span', null, g.title), el('i', 'rg-chev')); ht.title = closed ? 'Развернуть' : 'Свернуть';
+    ht.onclick = () => { if (RAIL_CLOSED.has(g.title)) RAIL_CLOSED.delete(g.title); else RAIL_CLOSED.add(g.title); try { localStorage.setItem('mda.rail.closed', JSON.stringify([...RAIL_CLOSED])); } catch (e) {} const c2 = RAIL_CLOSED.has(g.title); box.classList.toggle('closed', c2); ht.setAttribute('aria-expanded', String(!c2)); ht.title = c2 ? 'Развернуть' : 'Свернуть'; }; // без перерисовки статов
+    box.append(ht);
     g.tabs.forEach(t => {
       const b = el('button', 'tab' + (t.id === state.tab ? ' active' : '') + (t.render ? ' ready' : ''));
       b.append(el('span', 'code', t.code), el('span', 'name', t.label), el('span', 'dot'));

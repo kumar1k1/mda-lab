@@ -2046,6 +2046,21 @@ body.noscroll #content{overflow:hidden}
 .hg.hg3 .hg-row > :nth-child(2){padding-right:14px}
 .hg.hg3 .hg-head{grid-column:1 / -1}
 
+/* «умные» фильтры раздела: недействующие на карточку под мышью — тусклые (кликать можно) */
+.sec-f .sf-g{transition:opacity .2s ease}
+.sec-f .sf-g.sf-dim{opacity:.3}
+.sec-f .sf-g.sf-dim:hover{opacity:.75}
+
+/* левое меню: заголовки групп сворачивают свои вкладки; у свёрнутой группы видна только вкладка открытого раздела */
+.rgroup-title{display:flex;align-items:center;justify-content:space-between;width:100%;border:none;background:transparent;cursor:pointer;text-align:left;font-family:inherit;border-radius:7px}
+.rgroup-title:hover{color:var(--soft);background:var(--card)}
+.rgroup-title .rg-chev{width:7px;height:7px;border-right:1.6px solid currentColor;border-bottom:1.6px solid currentColor;transform:rotate(45deg) translateY(-2px);transition:transform .18s ease;margin-right:4px}
+.rgroup.closed .rg-chev{transform:rotate(-45deg)}
+.rgroup.closed .tab:not(.active){display:none}
+.rgroup.closed + .rgroup{margin-top:4px}
+/* основные фильтры (рум, тип, период, бай-ин) — по левому краю колонки статов, а не меню вкладок */
+@media (min-width: 761px){.filters{padding-left:calc(228px + 22px)}}
+
 /* Дополнения только для онлайн-превью: тёмная тема и узкие экраны */
 :root{color-scheme:dark}
 html,body{background:var(--bg);color:var(--text)}
@@ -3426,7 +3441,8 @@ function drawSecFilters(tab) {
   box.classList.toggle('sec-f-grid', tab === 'vs3bet'); // «Против 3-бета»: сетка 2×2 — слева «3-бет соперника» и «тип трибет банка», справа «наша позиция» и «ваш стек»
   // группы, как фильтры над ними: подпись сверху, кнопки под ней
   const grp = (lab, ...nodes) => { const g = el('div', 'sf-g'); g.append(el('span', 'flt-k', lab)); const row = el('div', 'sf-row'); row.append(...nodes); g.append(row); return g; };
-  if (types) box.append(grp(tab === 'rfi' ? 'Открытие' : tab === 'vs3bet' ? '3-бет соперника' : '3-бет', segBtns(types, f.T, (k) => { f.T = k; renderNext(); })));
+  const grpL = (L, lab, ...nodes) => { const g = grp(lab, ...nodes); g.dataset.l = L; return g; }; // буква фильтра — для «умной» подсветки (sfApply)
+  if (types) box.append(grpL('T', tab === 'rfi' ? 'Открытие' : tab === 'vs3bet' ? '3-бет соперника' : '3-бет', segBtns(types, f.T, (k) => { f.T = k; renderNext(); })));
   if (tab === 'vs3bet') {
     // тип 3-бет банка по чужим коллам (под «3-бетом соперника»): 1vs1 / сквиз поверх колла открытия;
     // у «сквиз пот» — подтумблеры asR (вы открылись, открытие заколлировали, сквиз поверх) и asC (вы заколлировали чужое открытие, сквиз за спиной)
@@ -3446,26 +3462,27 @@ function drawSecFilters(tab) {
         bseg.append(chip);
       });
     }
-    box.append(grp('Тип трибет банка', bseg));
+    box.append(grpL('B', 'Тип трибет банка', bseg));
   }
   const cust = f.S === 'custom' ? f.C : null;
   // свой диапазон — под кнопками стека, с тем же левым краем
   const fr = rangeForm('secRng', cust, (v) => { if (v) { f.C = v; f.S = 'custom'; } else { f.C = null; f.S = 'all'; } render(); });
   // «Против 3-бета»: порядок в сетке (по колонкам) — 3-бет соперника, тип банка | наша позиция, ваш стек (поля «от / до» — под кнопками стека)
   if (tab === 'vs3bet') {
-    const pg = grp('Наша позиция', segBtns([['all', 'Все'], ['ip', 'IP'], ['oop', 'OOP']], f.P, (k) => { f.P = k; renderNext(); }));
+    const pg = grpL('P', 'Наша позиция', segBtns([['all', 'Все'], ['ip', 'IP'], ['oop', 'OOP']], f.P, (k) => { f.P = k; renderNext(); }));
     const pq = el('span', 'flt-q', '?');
     pq.title = PQ_TIP;
     pq.setAttribute('aria-label', 'Что значит IP и OOP');
     pg.querySelector('.sf-row').append(pq);
-    const g = grp('Ваш стек, BB', stkSeg(cust, f.S, (k) => { f.S = k; renderNext(); }));
+    const g = grpL('S', 'Ваш стек, BB', stkSeg(cust, f.S, (k) => { f.S = k; renderNext(); }));
     g.append(fr);
     box.append(pg, g);
   } else {
-    const g = grp('Ваш стек, BB', stkSeg(cust, f.S, (k) => { f.S = k; renderNext(); }));
+    const g = grpL('S', 'Ваш стек, BB', stkSeg(cust, f.S, (k) => { f.S = k; renderNext(); }));
     g.append(fr);
     box.append(g);
   }
+  sfApply();
 }
 // раздачи набора (ids) под фильтр: итог, матрица рук, список
 function subHands(z, pass) {
@@ -3484,8 +3501,8 @@ function subHands(z, pass) {
 // карточки поменялись). Меняете, на что действует фильтр, — меняйте здесь, в коде карточки и в docs/filters.md.
 const CARD_FILTERS = {
   rfi: { '#1': 'ST', '#2': 'ST', '#3': '', '#4': 'ST', '#5': 'ST', '#6': 'S', '#7': 'ST', '#8': 'S', '#9': '', '#10': 'S', '#11': 'S' },
-  cc: { '#1': 'S', '#2': 'S', '#3': 'S', '#4': 'S', '#5': 'S', '#6': '', '#7': 'S', '#8': 'S', '#9': 'S' },
-  '3bet': { '#1': 'S', '#2': 'ST', '#3': '', '#4': 'S', '#5': 'ST', '#6': 'ST', '#7': 'ST', '#8': 'S', '#9': 'S', '#10': 'ST', '#11': 'S' },
+  cc: { '#1': 'S', '#2': 'S', '#3': 'S', '#9': 'S', '#4': 'S', '#8': '', '#5': 'S', '#6': 'S', '#7': 'S' },
+  '3bet': { '#1': 'S', '#2': 'ST', '#3': '', '#4': 'S', '#5': 'ST', '#10': 'ST', '#6': 'ST', '#8': 'S', '#9': 'S', '#7': 'ST', '#11': 'S' },
   vs3bet: { '#1': 'STBP', '#2': '', '#3': 'STBP', '#4': 'STBP', '#5': 'STB', '#6': 'STB', '#7': 'SBP', '#8': 'STBP', '#9': 'STBP', '#10': 'STBP', '#11': 'ST', '#12': 'STBP', '#13': 'STBP' } // порядок карточек 03.11.2026; «наше действие» сейчас не действует ни на одну
 };
 const SEC_EXEMPT = Object.fromEntries(Object.entries(CARD_FILTERS).map(([t, m]) => [t, Object.keys(m).filter(k => !m[k])]));
@@ -3529,6 +3546,55 @@ function markFilters(root, tab) {
     const m = el('span', 'sec-on', txt); m.title = 'Фильтры раздела на этой карточке: ' + txt; host.append(m);
   });
 }
+
+
+// ---------- «Умные» фильтры раздела: наведение на карточку — фильтры шапки, которые на неё НЕ действуют, тускнеют ----------
+// Таблица действия — CARD_FILTERS. Задержки подобраны под разные привычки: колесо, тачпад, полоса прокрутки, быстрый перевод мыши к шапке.
+// ENTER — сколько мышь должна задержаться на карточке, чтобы подсветка переключилась (пролёт над карточками по пути к шапке не считается);
+// FAST — скорость (px/мс), выше которой движение считается «перелётом» и таймер переключения сбрасывается;
+// LEAVE — сколько подсветка держится после ухода с карточки в пустое место (успеть дойти до шапки); в шапке — держится, пока мышь там;
+// SCROLL_IDLE — после окончания прокрутки (колесо, тачпад, клавиши, полоса) заново смотрим, какая карточка под мышью.
+const SF = { ENTER: 260, FAST: 0.45, LEAVE: 2000, SCROLL_IDLE: 180 };
+const SF_SEL = '.sm, .r34-m, .insight, .block';
+let sfCur = null, sfPend = null, sfEnterT = 0, sfLeaveT = 0, sfScrollT = 0, sfScrolling = false, sfX = -1, sfY = -1, sfV = 0, sfLt = 0;
+function sfCardOf(node) {
+  const T = CARD_FILTERS[state.tab]; if (!T || !node || !node.closest || !node.closest('#content')) return null;
+  for (let n = node.closest(SF_SEL); n; n = n.parentElement && n.parentElement.closest(SF_SEL)) {
+    const t = [...n.querySelectorAll('.num-tag')].find(q => q.closest(SF_SEL) === n);
+    if (t) { const k = t.textContent.trim(); if (k in T) return k; }
+  }
+  return null;
+}
+function sfApply() {
+  const box = $('secFilters'); if (!box) return;
+  const T = CARD_FILTERS[state.tab], k = sfCur && sfCur.tab === state.tab ? sfCur.tag : null, L = T && k != null ? T[k] : null;
+  box.querySelectorAll('.sf-g[data-l]').forEach(g => { const dim = L != null && !L.includes(g.dataset.l); g.classList.toggle('sf-dim', dim); if (dim) g.title = 'На карточку ' + k + ' этот фильтр не действует'; else g.removeAttribute('title'); });
+}
+function sfSet(tag) { clearTimeout(sfLeaveT); sfLeaveT = 0; const nx = tag == null ? null : { tab: state.tab, tag }; if ((sfCur && sfCur.tag) === (nx && nx.tag) && (sfCur && sfCur.tab) === (nx && nx.tab)) return; sfCur = nx; sfApply(); }
+function sfLeaveSoon() { if (!sfCur || sfLeaveT) return; sfLeaveT = setTimeout(() => { sfLeaveT = 0; sfSet(null); }, SF.LEAVE); }
+function sfInBar(node) { return !!(node && node.closest && node.closest('.toolbar, header')); }
+function sfConsider(tag, delay) {
+  if (tag == null) { clearTimeout(sfEnterT); sfPend = null; sfLeaveSoon(); return; }
+  clearTimeout(sfLeaveT); sfLeaveT = 0;
+  if (sfCur && sfCur.tab === state.tab && sfCur.tag === tag) { clearTimeout(sfEnterT); sfPend = null; return; }
+  if (sfPend === tag && sfV < SF.FAST) return; // уже ждём эту карточку и мышь не «летит» — не сбрасываем
+  clearTimeout(sfEnterT); sfPend = tag;
+  sfEnterT = setTimeout(() => { sfPend = null; if (sfScrolling) return; const now = sfCardOf(document.elementFromPoint(sfX, sfY)); if (now === tag) sfSet(tag); else sfConsider(now, SF.ENTER); }, delay);
+}
+document.addEventListener('pointermove', (e) => {
+  if (e.pointerType && e.pointerType !== 'mouse') return;
+  const t = performance.now(), dt = Math.max(1, t - sfLt), d = Math.hypot(e.clientX - sfX, e.clientY - sfY);
+  sfV = sfLt ? sfV * 0.6 + Math.min(5, d / dt) * 0.4 : 0; sfLt = t; sfX = e.clientX; sfY = e.clientY;
+  if (sfScrolling) return;
+  if (sfInBar(e.target)) { clearTimeout(sfEnterT); sfPend = null; clearTimeout(sfLeaveT); sfLeaveT = 0; return; } // в шапке — держим
+  sfConsider(sfCardOf(e.target), SF.ENTER);
+}, { passive: true });
+document.addEventListener('scroll', () => {
+  sfScrolling = true; clearTimeout(sfEnterT); sfPend = null; clearTimeout(sfScrollT);
+  sfScrollT = setTimeout(() => { sfScrolling = false; if (sfX < 0) return; const n = document.elementFromPoint(sfX, sfY); if (sfInBar(n)) return; sfV = 0; sfConsider(sfCardOf(n), SF.ENTER); }, SF.SCROLL_IDLE);
+}, { capture: true, passive: true });
+document.documentElement.addEventListener('mouseleave', () => { clearTimeout(sfEnterT); sfPend = null; sfLeaveSoon(); });
+document.addEventListener('focusin', (e) => { const k = sfCardOf(e.target); if (k != null) sfSet(k); }); // с клавиатуры — сразу
 
 </script>
 <script>
@@ -4572,12 +4638,12 @@ function renderRFI(idx) {
 /* global mda, Stats */
 // Вкладка «Колд-колл» (CC).
 // ---------- вкладка «Колд-колл» ----------
-// #7 — колд-колл против разных сайзингов открытия (без олл-инов): частоты ответа и винрейт колла
+// #5 — колд-колл против разных сайзингов открытия (без олл-инов): частоты ответа и винрейт колла
 let CC_SZPOS = 'TOT';
 
 function ccSizeBlock(r) {
   const card = el('div', 'insight cc-table');
-  card.append(numTag(7), el('b', 'pm-title', 'Против сайзинга открытия'), el('span', 'sm-s', 'как вы отвечаете на открытие разного размера и какой результат дают ваши коллы'));
+  card.append(numTag(5), el('b', 'pm-title', 'Против сайзинга открытия'), el('span', 'sm-s', 'как вы отвечаете на открытие разного размера и какой результат дают ваши коллы'));
   const posList = ['TOT'].concat(r.CC_COLS.slice(1).filter(p => r.cc[p].n >= SMALL));
   const body = el('div');
   card.append(segBtns(posList.map(p => [p, p === 'TOT' ? 'Все без BB' : p]), CC_SZPOS, (k) => { CC_SZPOS = k; draw(); }), body,
@@ -4612,12 +4678,12 @@ function ccSizeBlock(r) {
   return card;
 }
 
-// #9 — колд-колл против олл-ина: частота колла пуша, винрейт по позициям и по стеку пушера
+// #7 — колд-колл против олл-ина: частота колла пуша, винрейт по позициям и по стеку пушера
 let CC_AIPOS = 'TOT';
-// #8 — защита BB по размеру открытия против минимальной частоты защиты (MDF)
+// #6 — защита BB по размеру открытия против минимальной частоты защиты (MDF)
 function bbDefendBlock(r) {
   const card = el('div', 'insight cc-table bbd');
-  card.append(numTag('8'), el('b', 'pm-title', 'Защита BB по размеру открытия'), el('span', 'sm-s', 'как часто вы защищаете BB (колл + 3-бет) против открытия каждого размера и сколько нужно по шансам банка'));
+  card.append(numTag('6'), el('b', 'pm-title', 'Защита BB по размеру открытия'), el('span', 'sm-s', 'как часто вы защищаете BB (колл + 3-бет) против открытия каждого размера и сколько нужно по шансам банка'));
   const rows = (r.sz.BB || []).map((z, k) => ({ z, k, lab: r.CC_SZ[k][0] })).filter(x => x.z.n);
   if (!rows.length) { card.append(el('p', 'muted small', 'Нет открытий против вашего BB в выборке.')); return card; }
   const W = 640, H = 230, P = { l: 38, r: 12, t: 22, b: 44 };
@@ -4654,13 +4720,13 @@ function bbDefendBlock(r) {
     t.append(row);
   });
   const tw = el('div', 'bbd-wrap'); tw.append(t);
-  card.append(lg, chart, tw, infoNote('Защита — доля раздач, где вы на BB ответили на открытие коллом или 3-бетом (открытия олл-ином — в блоке #9). Жёлтая линия — минимальная частота защиты (MDF): банк до открытия ÷ (банк + ставка открывающего), с настоящими анте раздачи (в базе, собранной до версии 0.6, — анте 1 BB); если открыл SB — с учётом его малого блайнда. Защита ниже линии — вы перефолживаете против такого размера, соперник выигрывает открытием в лоб. Это ориентир: с плохими руками защищаться не обязательно, но сильно ниже линии — повод расширить защиту. Бледные столбики и строки — меньше 30 раздач.'));
+  card.append(lg, chart, tw, infoNote('Защита — доля раздач, где вы на BB ответили на открытие коллом или 3-бетом (открытия олл-ином — в блоке #7). Жёлтая линия — минимальная частота защиты (MDF): банк до открытия ÷ (банк + ставка открывающего), с настоящими анте раздачи (в базе, собранной до версии 0.6, — анте 1 BB); если открыл SB — с учётом его малого блайнда. Защита ниже линии — вы перефолживаете против такого размера, соперник выигрывает открытием в лоб. Это ориентир: с плохими руками защищаться не обязательно, но сильно ниже линии — повод расширить защиту. Бледные столбики и строки — меньше 30 раздач.'));
   return card;
 }
 
 function ccAllinBlock(r) {
   const card = el('div', 'insight cc-table');
-  card.append(numTag(9), el('b', 'pm-title', 'Колл против олл-ина'), el('span', 'sm-s', 'перед вами открылись олл-ином (или почти всем стеком), а вы коллировали'));
+  card.append(numTag(7), el('b', 'pm-title', 'Колл против олл-ина'), el('span', 'sm-s', 'перед вами открылись олл-ином (или почти всем стеком), а вы коллировали'));
   // таблица частоты колла пуша по позициям: наведение — руки, клик — раздачи и реплеер
   const cols = r.CC_COLS.filter(k => k === 'TOT' || r.ai[k].n >= SMALL);
   const w = heatTable({ cols, groupGapBefore: cols.indexOf('SB') >= 0 ? cols.indexOf('SB') : cols.indexOf('BB'), rows: [{ label: 'Колл пуша', data: r.ai }] });
@@ -4704,7 +4770,7 @@ function ccAllinBlock(r) {
   return card;
 }
 
-// #6 — ответ против открытия с произвольными диапазонами: стек открывающего и мой стек (поля «от — до»)
+// #8 — ответ против открытия с произвольными диапазонами: стек открывающего и мой стек (поля «от — до»)
 function rangeForm(id, cur, onSet) {
   const f = el('form', 'mx-range');
   const mkIn = (sfx, ph, val) => { const i = el('input'); i.type = 'number'; i.id = id + sfx; i.min = '0'; i.max = '1000'; i.step = '0.5'; i.placeholder = ph; i.inputMode = 'decimal'; if (val != null) i.value = String(val); return i; };
@@ -4725,7 +4791,7 @@ function rangeForm(id, cur, onSet) {
 }
 const rangeTxt = (r) => (r ? (r[1] < 1e8 ? r[0] + '–' + r[1] : r[0] + '+') + ' BB' : 'любой');
 function ccOppBlock(r) {
-  const b = el('section', 'block cc-table'); b.append(numTag(6));
+  const b = el('section', 'block cc-table'); b.append(numTag(8));
   const h = el('div', 'block-head'); h.append(el('h2', null, 'Ваш ответ против стека открывающего'), el('p', null, 'колл, 3-бет, олл-ин или фолд каждой рукой, когда перед вами был один рейз; стеки задаёте сами'));
   const seg = el('div', 'seg');
   ['MP', 'CO', 'BTN', 'SB', 'BB'].filter(p => r.cc[p].n >= SMALL).forEach(p => { const bt = el('button', uiState.ccOPos === p ? 'on' : '', p); bt.type = 'button'; bt.onclick = () => { uiState.ccOPos = p; uiState.ccOOpen = []; renderNext(); }; seg.append(bt); });
@@ -4773,9 +4839,9 @@ function ccOppBlock(r) {
   b.append(h, body);
   return b;
 }
-// #4 — какими руками вы коллируете, 3-бетите и фолдите против открытия: по позиции и вашему стеку (как #3 во вкладке «Открытие»)
+// #9 — какими руками вы коллируете, 3-бетите и фолдите против открытия: по позиции и вашему стеку (как #3 во вкладке «Открытие»)
 function ccRangeBlock(r, o) {
-  o = o || { tag: 4, title: 'Какие руки вы коллируете', sub: 'ваш ответ каждой рукой, когда перед вами был один рейз: колл, 3-бет, олл-ин или фолд', pos: 'ccPos', stk: 'ccStk', custom: 'ccCustom', mx: r.mx, stkCap: 'Ваш стек, BB', id: 'cc' };
+  o = o || { tag: 9, title: 'Какие руки вы коллируете', sub: 'ваш ответ каждой рукой, когда перед вами был один рейз: колл, 3-бет, олл-ин или фолд', pos: 'ccPos', stk: 'ccStk', custom: 'ccCustom', mx: r.mx, stkCap: 'Ваш стек, BB', id: 'cc' };
   const b = el('section', 'block cc-table'); b.append(numTag(o.tag));
   const h = el('div', 'block-head'); h.append(el('h2', null, o.title), el('p', null, o.sub));
   const seg = el('div', 'seg');
@@ -4810,10 +4876,10 @@ function ccRangeBlock(r, o) {
 
 let CC_BX = 'bb';
 // таблица «позиция против позиции»: строки — ваша позиция, колонки — кто открыл
-// #4 — результат колд-колла по группам рук и позициям (как #5 во вкладке RFI): факт / EV, наведение — руки группы,
+// #9 — результат колд-колла по группам рук и позициям (как #4 во вкладке RFI): факт / EV, наведение — руки группы,
 // клик — закрепить окно с раздачами и реплеером
 function ccGroupBlock(r, o) {
-  o = o || { cols: r.CC_COLS.slice(1), tag: '4', title: 'Результат колд-колла по группам рук', sub: 'BB за колд-колл: всего и по группам рук, факт / EV', name: 'Колд-колл', verb: 'не коллировали', act: 1, vlab: ' BB за колд-колл', nlab: ' колд-коллов', none: 'Нет колд-коллов в выборке.', key: 'ccg', p: true };
+  o = o || { cols: r.CC_COLS.slice(1), tag: '9', title: 'Результат колд-колла по группам рук', sub: 'BB за колд-колл: всего и по группам рук, факт / EV', name: 'Колд-колл', verb: 'не коллировали', act: 1, vlab: ' BB за колд-колл', nlab: ' колд-коллов', none: 'Нет колд-коллов в выборке.', key: 'ccg', p: true };
   const pos = o.cols.filter(p => r.hands[p] && r.hands[p].n);
   const c = DB.cols, EV = EVcol(), agg = {};
   pos.forEach(p => {
@@ -4857,14 +4923,14 @@ function ccGroupBlock(r, o) {
   return card;
 }
 
-// #9 — квадрант «Колд-колл × Фолд на контбет флопа»: где находится каждый игрок базы и вы
+// #7 — квадрант «Колд-колл × Фолд на контбет флопа»: где находится каждый игрок базы и вы
 let CC_QUAD = null; // { db, rows } — таблица по игрокам базы (считается в программе один раз)
-let CC_QPOS = 'TOT'; // позиция в квадранте #9
+let CC_QPOS = 'TOT'; // позиция в квадранте #7
 const QPOS = { TOT: 0, UTG: 1, MP: 2, CO: 4, BTN: 5, SB: 6, BB: 7 }; // номер в таблице игроков (HJ в базе входит в MP)
 let qdTip = null;
 function ccQuadBlock(r, idx) {
   const card = el('div', 'insight cc-table qd');
-  card.append(numTag(9), el('b', 'pm-title', 'Колд-колл × Фолд на контбет флопа'), el('span', 'sm-s', 'ваша точка, равновесный ориентир и точка лучшего результата по игрокам базы'));
+  card.append(numTag(7), el('b', 'pm-title', 'Колд-колл × Фолд на контбет флопа'), el('span', 'sm-s', 'ваша точка, равновесный ориентир и точка лучшего результата по игрокам базы'));
   const posList = ['TOT', 'MP', 'CO', 'BTN', 'SB', 'BB']; // UTG бывает только за полным столом — у соперников по нему данных нет
   const seg = segBtns(posList.map(p => [p, p === 'TOT' ? 'Все без BB' : p]), CC_QPOS, (k) => { CC_QPOS = k; draw(LAST); });
   const body = el('div', 'qd-body'); body.append(window.mdaLoad('Считаю игроков базы…')); card.append(seg, body);
@@ -5003,7 +5069,7 @@ function ccVsTable(r) {
     if (R) hoverRange(td, it.title, ccSz(R, z)); // окно первого типа: весь ответ на открытие, «Факт / EV» и список — колд-коллы
   });
   const card = el('div', 'insight cc-table');
-  card.append(numTag(5), el('span', 'k', 'Колд-колл: позиция против позиции'), el('span', 's', 'строки — ваша позиция, колонки — позиция открывающего; в ячейке — доля коллов'), w,
+  card.append(numTag(4), el('span', 'k', 'Колд-колл: позиция против позиции'), el('span', 's', 'строки — ваша позиция, колонки — позиция открывающего; в ячейке — доля коллов'), w,
     infoNote('Пустые ячейки (--) — ситуация невозможна: открывающий ходит раньше вас. Наведите на ячейку — диапазон: как вы ответили каждой рукой на открытие с этой позиции (колл, 3-бет, олл-ин, фолд); клик закрепит окно с вкладками «Диапазон / Факт / EV» — итог колд-коллов по рукам, клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше ' + cnt(SMALL, 'раздач', 'gen') + '.'));
   return card;
 }
@@ -5032,7 +5098,7 @@ function renderCC(idx) {
   const ccStk = uiState.ccStk === 'custom' && uiState.ccCustom ? uiState.ccCustom : (MX_STK.find(z => z[0] === uiState.ccStk) || MX_STK[0])[2];
   const ccOpt = { mxPos: uiState.ccPos, mxStk: ccStk, oPos: uiState.ccOPos, oStk: uiState.ccOStkR, oMy: uiState.ccOMyR, oOpen: uiState.ccOOpen };
   const r = Stats.cc(DB, idxS, ccOpt);
-  const r5 = sr ? Stats.cc(DB, idx, ccOpt) : r; // #6 — без стека раздела
+  const r5 = sr ? Stats.cc(DB, idx, ccOpt) : r; // #8 — без стека раздела
   const page = el('div', 'page');
   const head = el('div', 'page-head');
   const h1 = el('h1'); h1.append(document.createTextNode('Колд-колл '), el('span', null, 'CC'));
@@ -5059,7 +5125,7 @@ function renderCC(idx) {
   c8.classList.add('wide');
   const zone = el('div', 'summary'); const pair = el('div', 'sum-pair'); pair.append(c1, c8); zone.append(pair);
   c2.classList.add('cc-table');
-  zone.append(c2, ccGroupBlock(r), ccVsTable(r), ccOppBlock(r5), ccSizeBlock(r), bbDefendBlock(r), ccAllinBlock(r)); // #6 — без стека раздела; #9 «Колд-колл × Фолд на контбет» убран по просьбе (функция ccQuadBlock оставлена)
+  zone.append(c2, ccVsTable(r), ccSizeBlock(r), bbDefendBlock(r), ccAllinBlock(r), ccOppBlock(r5), ccGroupBlock(r)); // порядок 03.11.2026: позиции → сайзинг → защита BB → олл-ин → стек открывающего → группы рук // #8 — без стека раздела; #7 «Колд-колл × Фолд на контбет» убран по просьбе (функция ccQuadBlock оставлена)
   page.append(zone);
   return page;
 }
@@ -5148,10 +5214,10 @@ function tbVsBlock(r, ty) {
   draw();
   return card;
 }
-// #7 — 3-бет против сайзинга открытия: ответ и результат 3-бетов
+// #6 — 3-бет против сайзинга открытия: ответ и результат 3-бетов
 function tbSizeBlock(r, ty) {
   const card = el('div', 'insight cc-table');
-  card.append(numTag(7), el('b', 'pm-title', 'Против сайзинга открытия'), el('span', 'sm-s', 'как вы отвечаете на открытие разного размера и какой результат дают ваши 3-беты'));
+  card.append(numTag(6), el('b', 'pm-title', 'Против сайзинга открытия'), el('span', 'sm-s', 'как вы отвечаете на открытие разного размера и какой результат дают ваши 3-беты'));
   const posList = ['TOT'].concat(TB_POS.filter(p => r.tb[p].n >= SMALL));
   const body = el('div');
   card.append(segBtns(posList.map(p => [p, p === 'TOT' ? 'Все' : p]), TB_SZPOS, (k) => { TB_SZPOS = k; draw(); }), body,
@@ -5186,11 +5252,11 @@ function tbSizeBlock(r, ty) {
   return card;
 }
 // #8 «3-бет по вашему стеку» удалена по просьбе (0.7.25)
-// #10 — 3-бет против стека открывающего: готовые корзины (короткий / средний / глубокий)
+// #7 — 3-бет против стека открывающего: готовые корзины (короткий / средний / глубокий)
 let TB_OSTKPOS = 'TOT';
 function tbOstkBlock(r, ty) {
   const card = el('div', 'insight cc-table');
-  card.append(numTag('10'), el('b', 'pm-title', 'Против стека открывающего'), el('span', 'sm-s', 'как часто вы 3-бетите против короткого, среднего и глубокого открывающего и что это приносит'));
+  card.append(numTag('7'), el('b', 'pm-title', 'Против стека открывающего'), el('span', 'sm-s', 'как часто вы 3-бетите против короткого, среднего и глубокого открывающего и что это приносит'));
   const posList = ['TOT'].concat(TB_POS.filter(p => r.tb[p].n >= SMALL));
   const body = el('div');
   card.append(segBtns(posList.map(p => [p, p === 'TOT' ? 'Все' : p]), TB_OSTKPOS, (k) => { TB_OSTKPOS = k; draw(); }), body,
@@ -5207,7 +5273,7 @@ function tbOstkBlock(r, ty) {
       const share = tot ? z.n / tot : 0, tk = el('span', 'sz5-tk'); const tr = el('i'); tr.style.width = Math.max(1, share * 100) + '%'; tk.append(tr);
       row.append(el('b', null, r.TB_OSTK[k]), el('span', 'sz5-sh', z.n.toLocaleString('ru-RU')), v(pc(z.x), 'var(--bad)'), v(pc(z.ai), 'var(--ice)'),
         wrNode('sz5-v', wr, we, 2), el('small', null, cnt(z.sn, '3-бетов')), tk);
-      // наведение — окно «Диапазон» (как #7): ответы по рукам в этой корзине стека; клик — закрепить, клик по руке — раздачи и реплеер
+      // наведение — окно «Диапазон» (как #6): ответы по рукам в этой корзине стека; клик — закрепить, клик по руке — раздачи и реплеер
       if (z.rmx) {
         const gl = TB_OSTKPOS === 'TOT' ? 'все позиции' : 'с ' + TB_OSTKPOS;
         const zz = { n: z.n, rmx: z.rmx, vmx: z.vmx || null, rids: z.ids || z.rids, capAll: 'только ваши 3-беты' + (ty === 'ai' ? ' олл-ином' : ty === 'nai' ? ' не олл-ином' : '') }; // «Факт/EV» и списки — только 3-беты (тип — из шапки раздела)
@@ -5274,7 +5340,7 @@ function tbXBlock(r) {
         wrNode('sz5-v', z.sum / 10 / z.n, z.es / 10 / z.n, 2), el('small', null, cnt(z.n, 'раз')), tk);
       row.tabIndex = 0; row.setAttribute('role', 'button');
       const gl = { TOT: 'все позиции', IP: 'в позиции', SB: 'SB', BB: 'BB' }[TB_XPOS];
-      // наведение — окно «Диапазон» (как #7): ответы по рукам группы, подсвечен этот размер; клик — закрепить (в окне «Факт, BB» / «EV, BB»), клик по руке — раздачи и реплеер
+      // наведение — окно «Диапазон» (как #6): ответы по рукам группы, подсвечен этот размер; клик — закрепить (в окне «Факт, BB» / «EV, BB»), клик по руке — раздачи и реплеер
       {
         const R = r.xgR && r.xgR[TB_XPOS];
         if (R && R.rmx && z.n) {
@@ -5295,7 +5361,7 @@ function tbXBlock(r) {
   draw();
   return card;
 }
-// #10 «Ответ на 4-бет после вашего 3-бета» удалена по просьбе (0.7.27): фолд/колл/5-бет — строками в #4 и колонкой «Фолд на 4-бет» в #9
+// #7 «Ответ на 4-бет после вашего 3-бета» удалена по просьбе (0.7.27): фолд/колл/5-бет — строками в #4 и колонкой «Фолд на 4-бет» в #9
 function tbIsoBlock(r) {
   const card = el('div', 'insight cc-table');
   const cols = r.TB_COLS.filter(k => k === 'TOT' || r.iso[k].n > 0);
@@ -5320,15 +5386,15 @@ function renderTB(idx) {
   const r = Stats.tb(DB, idxS, tbOpt);
   const r6 = sr ? Stats.tb(DB, idx, tbOpt) : r; // #3 — без стека раздела (у неё свои диапазоны стеков)
   // Тип 3-бета из шапки раздела: у #5 меняет числитель (матрицы/итоги у неё уже по типам — hN/hI/hA),
-  // у #7 и #10 — целиком частоту, результат, число 3-бетов и окна «Факт/EV»/списки (sI/iI/vmxI — олл-ин, sN/iN/vmxN — не олл-ин);
+  // у #6 и #7 — целиком частоту, результат, число 3-бетов и окна «Факт/EV»/списки (sI/iI/vmxI — олл-ин, sN/iN/vmxN — не олл-ин);
   // возможности и ответы (колл, фолд, окно «Диапазон») остаются по всем раздачам; стек уже в r
   const T57 = secType('3bet');
   const r57 = T57.flt ? Object.assign({}, r) : r; // клон: правка типа не задевает остальные карточки
   if (T57.flt) {
     const pick = T57.ty === 'ai' ? 'ai' : 'nai';
     r57.vs = Object.fromEntries(Object.entries(r.vs).map(([p, row]) => [p, Object.fromEntries(Object.entries(row).map(([op, z]) => [op, Object.assign({}, z, { x: z[pick] })]))]));
-    // колонка «Олл-ин» — только при типе «Олл-ин»; у #7 колонки 3-бет и олл-ин не пересекаются (при «Олл-ин» 3-бет не олл-ином — 0, раньше дублировал олл-ин)
-    // sub — вычитать ли олл-ины из числителя: у #10 x считает оба типа (вычитаем), у #7 rz — уже только не олл-ины (лишний вычет занижал долю вплоть до 0)
+    // колонка «Олл-ин» — только при типе «Олл-ин»; у #6 колонки 3-бет и олл-ин не пересекаются (при «Олл-ин» 3-бет не олл-ином — 0, раньше дублировал олл-ин)
+    // sub — вычитать ли олл-ины из числителя: у #7 x считает оба типа (вычитаем), у #6 rz — уже только не олл-ины (лишний вычет занижал долю вплоть до 0)
     const typed = (z, num, sub) => !z ? z : Object.assign({}, z, { [num]: sub ? (pick === 'ai' ? z.ai : z[num] - z.ai) : (pick === 'ai' ? 0 : z[num]), ai: pick === 'ai' ? z.ai : 0, sum: pick === 'ai' ? z.sI : z.sN, es: pick === 'ai' ? z.eI : z.eN, sn: pick === 'ai' ? z.nI : z.nN, ids: (pick === 'ai' ? z.iI : z.iN) || [], vmx: pick === 'ai' ? z.vmxI : z.vmxN });
     r57.sz = Object.fromEntries(Object.entries(r.sz).map(([p, arr]) => [p, arr.map(z => typed(z, 'rz', false))]));
     r57.ostk = Object.fromEntries(Object.entries(r.ostk).map(([p, arr]) => [p, arr.map(z => typed(z, 'x', true))]));
@@ -5343,7 +5409,7 @@ function renderTB(idx) {
   const c1 = card(1, '3-бетите', '<em>' + pctTxt(r.tb.TOT) + '</em>', 'из ' + cnt(r.tb.TOT.n, 'открытий', 'gen') + ' перед вами',
     fillBox(posStrip('По позициям', posRows), respTiles(r.resp, 'Ваш ответ на открытие', [['фолд', 'var(--good)'], ['колл', 'var(--ice)'], ['3-бет', 'var(--bad)']])));
   // #2 — результат по позициям; переключатель вашего стека (BB в начале раздачи) и свой диапазон
-  // стек — из шапки раздела (уже отобран в idxS); тип 3-бета — тоже из шапки, для карточек результата (#2, #6)
+  // стек — из шапки раздела (уже отобран в idxS); тип 3-бета — тоже из шапки, для карточек результата (#2, #10)
   const T2 = secType('3bet'), ty2 = T2.ty, flt = T2.flt, rng = null;
   const cc = DB.cols, EVc = EVcol(), inR = T2.pass;
   const sub2 = (z) => { if (!flt) return z; const o = { n: 0, sum: 0, es: 0, ids: [], mx: Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })) }; z.ids.forEach(i => { if (!inR(i)) return; const m = o.mx[cc.hc[i]]; o.n++; o.sum += cc.net[i]; o.es += EVc[i]; o.ids.push(i); m.n++; m.sum += cc.net[i]; m.es += EVc[i]; }); return o; };
@@ -5357,10 +5423,11 @@ function renderTB(idx) {
   const c2 = (card(2, 'Результат 3-бета', wrHtml(avg, avgE, 2) + ' <small>BB за 3-бет</small>', null, chartBox));
   c2.classList.add('wide');
   const zone = el('div', 'summary'); const pair = el('div', 'sum-pair'); pair.append(c1, c2); zone.append(pair);
-  const rG = flt ? Object.assign({}, r, { hands: H2 }) : r; // #6 — тоже по типу 3-бета из шапки
-  zone.append(tbOppBlock(r6), tbTable(r), tbVsBlock(r57, T57.ty), ccGroupBlock(rG, { cols: TB_POS, tag: 6, title: 'Результат 3-бета по группам рук', sub: 'BB за 3-бет: всего и по группам рук, факт / EV', name: '3-бет', nameOf: (p) => 'Ваш 3-бет с ' + p, verb: 'не 3-бетили', act: undefined, vlab: ' BB за 3-бет', nlab: ' 3-бетов', none: 'Нет 3-бетов в выборке.', key: 'tbg', p: false,
+  const rG = flt ? Object.assign({}, r, { hands: H2 }) : r; // #10 — тоже по типу 3-бета из шапки
+  zone.append(tbOppBlock(r6), tbTable(r), tbVsBlock(r57, T57.ty), tbSizeBlock(r57, T57.ty), tbOstkBlock(r57, T57.ty), tbSplitBlock(r), tbXBlock(r),
+    ccGroupBlock(rG, { cols: TB_POS, tag: 10, title: 'Результат 3-бета по группам рук', sub: 'BB за 3-бет: всего и по группам рук, факт / EV', name: '3-бет', nameOf: (p) => 'Ваш 3-бет с ' + p, verb: 'не 3-бетили', act: undefined, vlab: ' BB за 3-бет', nlab: ' 3-бетов', none: 'Нет 3-бетов в выборке.', key: 'tbg', p: false,
       note: 'В ячейке — результат 3-бета группой рук с этой позиции в BB (' + (flt ? (ty2 === 'ai' ? 'только 3-беты олл-ином' : 'только 3-беты не олл-ином') + ' — фильтр раздела' : 'вместе с олл-инами') + '): EV или факт — переключатель над таблицей (оба числа — при наведении), справа мелко — число 3-бетов. Цвет — плюс или минус. Наведите — матрица рук группы и их итог; клик закрепит окно, клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше 30 раздач.' }),
-    tbSizeBlock(r57, T57.ty), tbSplitBlock(r), tbXBlock(r), tbOstkBlock(r57, T57.ty), tbIsoBlock(r)); // порядок: 6 после ряда 1–2, 5 за 3, 7.1 после 9.1; 5, 7 и 7.1 — стек + тип раздела, 6 — без них; #8 удалена (0.7.25), #10 — (0.7.27)
+    tbIsoBlock(r)); // порядок 03.11.2026: 3 стек открывающего, 4–5 позиции, 6 сайзинг открытия, 7 стек открывающего (корзины), 8–9 ваш размер, 10 группы рук, 11 против изолейта
   page.append(zone);
   return page;
 }
@@ -5919,12 +5986,17 @@ function renderNext() {
   document.body.classList.add('rendering'); window.mdaBusy(true, 'Считаю статистику…');
   RS_F = requestAnimationFrame(() => setTimeout(() => { RS_F = 0; try { render(); } finally { document.body.classList.remove('rendering'); window.mdaBusy(false); } }, 0));
 }
+let RAIL_CLOSED = new Set(); try { RAIL_CLOSED = new Set(JSON.parse(localStorage.getItem('mda.rail.closed') || '[]')); } catch (e) {}
 function render() {
   hideHandPop(); hideMxTip(); hideGroupTip(); hidePushTip(); unpinSzMx(); if (qdTip) qdTip.hidden = true;
   const rail = $('rail'); rail.replaceChildren();
   GROUPS.forEach(g => {
-    const box = el('div', 'rgroup');
-    box.append(el('div', 'rgroup-title', g.title));
+    // группы вкладок сворачиваются по клику на заголовок; группа с открытым разделом не сворачивается целиком — её вкладка видна всегда
+    const closed = RAIL_CLOSED.has(g.title), box = el('div', 'rgroup' + (closed ? ' closed' : ''));
+    const ht = el('button', 'rgroup-title'); ht.type = 'button'; ht.setAttribute('aria-expanded', String(!closed));
+    ht.append(el('span', null, g.title), el('i', 'rg-chev')); ht.title = closed ? 'Развернуть' : 'Свернуть';
+    ht.onclick = () => { if (RAIL_CLOSED.has(g.title)) RAIL_CLOSED.delete(g.title); else RAIL_CLOSED.add(g.title); try { localStorage.setItem('mda.rail.closed', JSON.stringify([...RAIL_CLOSED])); } catch (e) {} const c2 = RAIL_CLOSED.has(g.title); box.classList.toggle('closed', c2); ht.setAttribute('aria-expanded', String(!c2)); ht.title = c2 ? 'Развернуть' : 'Свернуть'; }; // без перерисовки статов
+    box.append(ht);
     g.tabs.forEach(t => {
       const b = el('button', 'tab' + (t.id === state.tab ? ' active' : '') + (t.render ? ' ready' : ''));
       b.append(el('span', 'code', t.code), el('span', 'name', t.label), el('span', 'dot'));
