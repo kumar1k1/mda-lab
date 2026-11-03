@@ -132,7 +132,8 @@ function renderV3B(idx) {
   const pick = (...L) => spot.filter(i => L.every(k => PRED[k](i)));
   const extra = v3ExtraCards({ idx, spot, pick, RV, RA, RP, isC, NR, NRg, sr, T });
   const c1 = v3Card1({ pick, RV, isC, NR, UNIT });
-  const zone = el('div', 'summary'); zone.append(c1, c2, c4, ...extra); // #5 «Чистые споты» убрана (0.7.56) — теперь это переключатель карточки 1
+  const c21 = v3Card21({ pick, RV, isC, NR, UNIT });
+  const zone = el('div', 'summary'); zone.append(c1, c2, c21, c4, ...extra); // #5 «Чистые споты» убрана (0.7.56) — теперь это переключатель карточки 1
   page.append(zone);
   return page;
 }
@@ -209,9 +210,28 @@ function v3PerAct(ids, labs, RV) {
 // Фильтры раздела: стек, тип 3-бета соперника, IP / OOP; «тип трибет банка» — только для «Все споты» (чистые споты сами и есть
 // банк 1vs1); «наше действие» — нет: ваши реакции и есть содержимое карточки.
 let V3_C1MODE = 'all';
+// раздачи карточек 1 и 2.1: «Все споты» (S, T, B, P) или «Только чистые 1vs1» (S, T, P + чистый спот)
+function v3C1Ids(x) { const c = DB.cols; return V3_C1MODE === 'clean' ? x.pick('S', 'T', 'P').filter(i => !x.isC(i) && c.v3o[i] === 0 && (c.v3e ? c.v3e[i] === 0 : c.v3c[i] === 0)) : x.pick('S', 'T', 'B', 'P'); }
+// #2.1 — итог каждой реакции по позициям: доля фолда / колла / 4-бета и средний итог этой реакции (факт / EV); те же раздачи, что карточка 1
+function v3Card21(x) {
+  const c = DB.cols, EV = EVcol(), ids = v3C1Ids(x), NR = V3_C1MODE === 'clean' ? '3-бет' : x.NR, posOf = (i) => (c.fp[i] >= 0 ? V3_FP[c.fp[i]] : null);
+  const cell = () => [0, 1, 2].map(() => ({ n: 0, sum: 0, es: 0, ids: [], mx: Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })) }));
+  const G = { all: cell() }, N = { all: 0 };
+  for (const i of ids) { const v = x.RV(i), k = v === 0 ? 0 : v === 1 ? 1 : 2, p = posOf(i); for (const key of ['all'].concat(p && V3_POS.includes(p) ? [p] : [])) { const z = (G[key] || (G[key] = cell()))[k]; N[key] = (N[key] || 0) + 1; z.n++; z.sum += c.net[i]; z.es += EV[i]; if (c.hc[i] >= 0) { z.ids.push(i); const m = z.mx[c.hc[i]]; m.n++; m.sum += c.net[i]; m.es += EV[i]; } } }
+  const t = el('table', 'ht v3-grp v3-r21'), hr = el('tr'); ['Ваша позиция', 'Раз', 'Фолд', 'Колл', '4-бет'].forEach(h => hr.append(el('th', null, h))); const th = el('thead'); th.append(hr); t.append(th);
+  const tb = el('tbody'), LAB = ['фолд', 'колл', '4-бет'], COL = ['var(--good)', 'var(--ice)', 'var(--bad)'];
+  ['all'].concat(V3_POS).forEach(key => { const row = G[key]; if (!row || !N[key]) return; const tr = el('tr'); tr.append(el('th', null, key === 'all' ? 'Все позиции' : key), el('td', 'v3-n', N[key].toLocaleString('ru-RU')));
+    row.forEach((z, k) => { const td = el('td', 'c'); if (!z.n) { td.textContent = '—'; tr.append(td); return; } const b = el('b', null, fmtPct(z.n / N[key]) + '%'); b.style.color = COL[k]; td.append(b, wrNode('wr', z.sum / 10 / z.n, z.es / 10 / z.n, 2), el('span', 'n', z.n)); if (z.n < 20) td.classList.add('low');
+      if (z.ids.length) hoverHands(td, { p: key, anyPos: true, pre: true, key: 'v321' + V3_C1MODE + key + k, title: LAB[k][0].toUpperCase() + LAB[k].slice(1) + ' на ' + NR + (key === 'all' ? ' (все позиции)' : ' с ' + key), o: { n: z.ids.length, sum: z.sum, es: z.es }, mx: z.mx, ids: z.ids, vlab: ' BB за раздачу', nlab: ' раздач' }, z.sum / 10 / z.n);
+      tr.append(td); }); tb.append(tr); });
+  t.append(tb);
+  const d = el('div', 'insight cc-table'); d.append(numTag('2.1'), el('span', 'k', 'Итог каждой реакции по позициям'), el('span', 's', 'сколько приносит фолд, колл и 4-бет против ' + (NR === 'сквиз' ? 'сквиза' : '3-бета') + ' с каждой позиции' + (V3_C1MODE === 'clean' ? ' · только чистые споты 1vs1' : '')), ids.length ? t : el('p', 'muted small', 'Нет раздач в выборке.'),
+    infoNote('В ячейке: сверху — как часто вы так ответили с этой позиции, ниже — средний итог раздачи после этой реакции в BB (факт / EV), справа мелко — число раздач. Фолд всегда стоит вложенное в открытие; колл и 4-бет показывают, окупается ли продолжение. Те же раздачи, что в карточке 1 (и её переключатель «Все споты / Только чистые 1vs1»). Наведите на ячейку — руки и итог; клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше ' + cnt(20, 'раздач', 'gen') + '.'));
+  return d;
+}
 function v3Card1(x) {
   const c = DB.cols, clean = V3_C1MODE === 'clean';
-  const ids = clean ? x.pick('S', 'T', 'P').filter(i => !x.isC(i) && c.v3o[i] === 0 && (c.v3e ? c.v3e[i] === 0 : c.v3c[i] === 0)) : x.pick('S', 'T', 'B', 'P');
+  const ids = v3C1Ids(x);
   const NR = clean ? '3-бет' : x.NR, posOf = (i) => (c.fp[i] >= 0 ? V3_FP[c.fp[i]] : null), g = v3Group(ids, posOf, x.RV), t = v3Group(ids, () => 't', x.RV).t;
   const seg = segBtns([['all', 'Все споты'], ['clean', 'Только чистые 1vs1']], V3_C1MODE, (k) => { V3_C1MODE = k; renderNext(); });
   const sub = !t || !t.n ? 'нет раздач в выборке' : 'из ' + (clean ? cnt(t.n, 'чистых спотов', 'gen') + ' 1vs1' : cnt(t.n, x.UNIT, 'gen'));
