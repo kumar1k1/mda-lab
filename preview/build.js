@@ -48,6 +48,7 @@ const out = [
   '<script>', read('tab-3bet.js'), '</script>',
   '<script>', read('tab-vs3bet.js'), '</script>',
   '<script>', read('tab-sqz.js'), '</script>',
+  '<script>', read('tab-4bet.js'), '</script>',
   '<script>', read('app.js'), '</script>',
   '<script>', read('hands-ui.js'), '</script>',
   '<script>', read('replayer.js'), '</script>',
