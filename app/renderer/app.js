@@ -1300,7 +1300,7 @@ function renderRFISummary(idx, r) {
   split.append(sp1, sp2);
   // #8 — результат открытий по позициям; переключатели: открытие рейзом / олл-ином, ваш стек, свой диапазон
   // #8 — по фильтрам раздела: x посчитан по вашему стеку и типу открытия
-  const it8 = ['UTG', 'MP', 'CO', 'BTN', 'SB'].map(p => ({ p, key: 'rfi8 ' + p + ot + (sr || []).join('-'), o: x.openNetPos[p], mx: x.netMx[p], r: x.respPos[p] })), avg8 = nb == null ? null : nb / 100, ev8 = perEv(x.openNet), n8 = x.openNet.n;
+  const it8 = ['UTG', 'MP', 'CO', 'BTN', 'SB'].map(p => ({ p, key: 'rfi8 ' + p + ot + (sr || []).join('-'), o: x.openNetPos[p], mx: x.netMx[p], ids: x.openNetPos[p].ids, r: x.respPos[p] })) /* ids — открытия под фильтрами раздела: без них список по руке брал все раздачи шапки (стек и тип раздела не действовали) */, avg8 = nb == null ? null : nb / 100, ev8 = perEv(x.openNet), n8 = x.openNet.n;
   LAST_NET_ITEMS = it8;
   const box8 = el('div'); box8.append(secLabel('rfi', n8, 'открытий'), netChart(it8, avg8, 'EV открытий'));
   const c8 = (card(8, 'Результат открытий', wrHtml(avg8, ev8, 2) + ' <small>BB за открытие</small>', null, box8));

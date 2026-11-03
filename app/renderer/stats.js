@@ -81,7 +81,7 @@
       funnel: { opp: 0, open: 0, nai: 0, std: 0 }, seats: {}, mx: [], cal: {}, maxDay: 0
     };
     for (let k = 0; k < 169; k++) out.mx.push(R());
-    POS.forEach(p => { out.seats[p] = R(); out.openNetPos[p] = { sum: 0, es: 0, n: 0 }; out.respPos[p] = [0, 0, 0]; out.netMx[p] = Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })); });
+    POS.forEach(p => { out.seats[p] = R(); out.openNetPos[p] = { sum: 0, es: 0, n: 0, ids: [] }; out.respPos[p] = [0, 0, 0]; out.netMx[p] = Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })); });
     let maxDay = 0;
     if (has('day')) for (const i of idx) if (c.day[i] > maxDay) maxDay = c.day[i];
     out.maxDay = maxDay;
@@ -101,7 +101,7 @@
       if (open) { out.funnel.open++; if (a === 2) { out.funnel.nai++; if (c.size[i] < 225) out.funnel.std++; } }
       if (open) { out.shove.n++; if (a === 3) out.shove.x++; const sb = c.bb[i] / 10; const k = SHOVE_STK.findIndex(z => sb >= z[1] && sb < z[2]); if (k >= 0) { out.shoveStk[k].n++; if (a === 3) out.shoveStk[k].x++; } }
       if (has('net') && has('hc') && open && c.hc[i] >= 0) { const m = out.netMx[POS[p]][c.hc[i]]; m.n++; m.sum += c.net[i]; m.es += EV[i]; }
-      if (has('net') && open) { out.openNet.sum += c.net[i]; out.openNet.es += EV[i]; out.openNet.n++; out.openNetPos[POS[p]].sum += c.net[i]; out.openNetPos[POS[p]].es += EV[i]; out.openNetPos[POS[p]].n++; if (has('sto') && c.sto[i] >= 0) { const g = c.sto[i] === 1 ? out.netUnc : out.netCon; g.sum += c.net[i]; g.es += EV[i]; g.n++; } }
+      if (has('net') && open) { out.openNet.sum += c.net[i]; out.openNet.es += EV[i]; out.openNet.n++; out.openNetPos[POS[p]].sum += c.net[i]; out.openNetPos[POS[p]].es += EV[i]; out.openNetPos[POS[p]].n++; if (c.hc[i] >= 0) out.openNetPos[POS[p]].ids.push(i); if (has('sto') && c.sto[i] >= 0) { const g = c.sto[i] === 1 ? out.netUnc : out.netCon; g.sum += c.net[i]; g.es += EV[i]; g.n++; } }
       if (has('sto') && c.sto[i] >= 0) { out.sto.n++; if (c.sto[i] === 1) out.sto.x++; }
       if (has('f3b') && c.f3b[i] >= 0) { out.f3b.n++; if (c.f3b[i] === 1) out.f3b.x++; }
       if (has('hc') && c.hc[i] >= 0 && (opt.mxPos === 'TOT' ? p <= 5 : POS[p] === opt.mxPos) && (!opt.mxStk || (c.bb[i] >= opt.mxStk[0] * 10 && c.bb[i] < opt.mxStk[1] * 10))) { const m = out.mx[c.hc[i]]; m.n++; if (open) m.x++; if (a === 3) m.ai = (m.ai || 0) + 1; if (a === 1) m.lp = (m.lp || 0) + 1; }
