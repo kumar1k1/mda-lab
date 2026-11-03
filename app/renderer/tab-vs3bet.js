@@ -146,24 +146,37 @@ function v3Group(ids, keyOf, RV) {
   return out;
 }
 // таблица «строка — ответ на 3-бет»: раз, фолд, колл, 4-бет, 4-бет олл-ин, результат; наведение — руки этих раздач и итог
+// Таблица «строка — ваша реакция»: раз и доля раздач; по каждой реакции — доля и ОДНО число — средний итог этой реакции
+// (EV или факт — переключатель над таблицей, общий для раздела); последняя колонка — в среднем за раздачу.
+// Наведение на строку — руки этих раздач и итог; клик по руке — раздачи и реплеер.
+let V3_VAL = 'ev';
 function v3RespTable(rows, title, NR, keyPre, heads) {
-  const t = el('div', 'sz5-t tb-sz');
-  const hd = el('div', 'sz5-r sz5-h'); [title, 'Раз'].concat(heads || ['Фолд', 'Колл', '4-бет', 'Олл-ин']).concat(['В среднем за раздачу']).forEach(x => hd.append(el('span', null, x))); t.append(hd);
-  // строка-итог («Всего», «Все позиции») — сама и есть 100%: доли считаются от неё, а не от суммы строк (иначе итог удваивался)
   const isTot = (lab) => /^Вс[её]/.test(lab), totRow = rows.find(r => isTot(r[0]) && r[1]);
   const tot = totRow ? totRow[1].n : rows.reduce((a, r) => a + (r[1] ? r[1].n : 0), 0);
+  if (!tot) return el('p', 'muted small', 'Нет раздач в выборке.');
+  const ev = V3_VAL === 'ev', val = (q, n) => (n ? (ev ? q.es : q.sum) / 10 / n : null);
+  const H = heads || ['Фолд', 'Колл', '4-бет', 'Олл-ин'], COL = ['var(--good)', 'var(--ice)', 'var(--bad)', 'var(--amber)'];
+  const box = el('div', 'v3-rt-box');
+  const seg = segBtns([['ev', 'EV, BB'], ['net', 'Факт, BB']], V3_VAL, (k) => { V3_VAL = k; renderNext(); }); seg.classList.add('v3-rt-seg'); seg.title = 'Что показывать под долей реакции: EV (с поправкой на эквити в олл-инах) или фактический результат';
+  const t = el('table', 'ht v3-rt'), hr = el('tr');
+  [title, 'Раз'].concat(H).concat(['В среднем']).forEach((h, k) => { const th = el('th', k >= 2 ? 'num' : null, h); if (h === 'В среднем') th.title = 'Средний итог одной раздачи по всем вашим реакциям, ' + (ev ? 'EV' : 'факт') + ', BB'; hr.append(th); });
+  const th = el('thead'); th.append(hr); t.append(th); const tb = el('tbody');
   rows.forEach(([lab, z]) => {
     if (!z || !z.n) return;
-    const row = el('div', 'sz5-r click'); if (z.n < 30) row.classList.add('low');
-    // в ячейке реакции — доля и под ней средний итог этой реакции (факт / EV)
-    const pc = (v) => fmtPct(v / z.n) + '%', v = (cnt0, k, col) => { const e = el('span', 'sz5-v v3-act'), b = el('b', null, pc(cnt0)); b.style.color = col; e.append(b); if (cnt0) e.append(wrNode('wr', z.act[k].sum / 10 / cnt0, z.act[k].es / 10 / cnt0, 2)); return e; };
-    const tk = el('span', 'sz5-tk'), tr = el('i'); tr.style.width = Math.max(1, z.n / tot * 100) + '%'; tk.append(tr);
-    row.append(el('b', null, lab), el('span', 'sz5-sh', z.n.toLocaleString('ru-RU')), v(z.fld, 0, 'var(--good)'), v(z.call, 1, 'var(--ice)'), v(z.r4, 2, 'var(--bad)'), v(z.ai, 3, 'var(--amber)'),
-      wrNode('sz5-v', z.sum / 10 / z.n, z.es / 10 / z.n, 2), el('small', null, fmtPct(z.n / tot) + '% раздач'), tk);
-    if (z.ids.length) { row.tabIndex = 0; row.setAttribute('role', 'button'); hoverHands(row, { p: lab, anyPos: true, pre: true, key: keyPre + lab, title: 'Ваша реакция на ' + NR + ' · ' + lab, o: { n: z.ids.length, sum: z.ids.reduce((a, i) => a + DB.cols.net[i], 0), es: z.ids.reduce((a, i) => a + EVcol()[i], 0) }, mx: z.mx, ids: z.ids, vlab: ' BB за раздачу', nlab: ' раздач' }, z.sum / 10 / z.n); }
-    t.append(row);
+    const tr = el('tr', isTot(lab) ? 'tot' : ''); if (z.n < 30) tr.classList.add('low');
+    const tdN = el('td', 'n'); tdN.append(el('b', null, z.n.toLocaleString('ru-RU')), el('small', null, fmtPct(z.n / tot) + '%'));
+    tr.append(el('th', null, lab), tdN);
+    [z.fld, z.call, z.r4, z.ai].forEach((cn, k) => {
+      const td = el('td', 'num'), p = el('b', null, fmtPct(cn / z.n) + '%'); p.style.color = COL[k]; td.append(p);
+      const v = val(z.act[k], cn); if (v != null) { const x = el('span', 'v ' + (v >= 0 ? 'up' : 'down'), signed(v, 2)); td.append(x); td.title = H[k] + ': ' + cnt(cn, 'раз') + ' · в среднем ' + signed(z.act[k].sum / 10 / cn, 2) + ' BB факт, ' + signed(z.act[k].es / 10 / cn, 2) + ' BB EV'; }
+      tr.append(td);
+    });
+    const a = val(z, z.n), tdA = el('td', 'num avg'), ax = el('b', a >= 0 ? 'up' : 'down', signed(a, 2)); tdA.append(ax); tdA.title = 'В среднем за раздачу: ' + signed(z.sum / 10 / z.n, 2) + ' BB факт, ' + signed(z.es / 10 / z.n, 2) + ' BB EV; всего ' + signed(z.sum / 10, 0) + ' / ' + signed(z.es / 10, 0) + ' EV'; tr.append(tdA);
+    if (z.ids.length) { tr.classList.add('click'); tr.tabIndex = 0; hoverHands(tr, { p: lab, anyPos: true, pre: true, key: keyPre + lab, title: 'Ваша реакция на ' + NR + ' · ' + lab, o: { n: z.ids.length, sum: z.ids.reduce((s0, i) => s0 + DB.cols.net[i], 0), es: z.ids.reduce((s0, i) => s0 + EVcol()[i], 0) }, mx: z.mx, ids: z.ids, vlab: ' BB за раздачу', nlab: ' раздач' }, z.sum / 10 / z.n); }
+    tb.append(tr);
   });
-  return tot ? t : el('p', 'muted small', 'Нет раздач в выборке.');
+  t.append(tb); box.append(seg, t);
+  return box;
 }
 // сила руки по формуле Чена (стандартная оценка стартовой руки): пары, старшая карта, одномастность, разрыв
 function chenOf(k) {

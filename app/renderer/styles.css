@@ -2005,3 +2005,24 @@ body.noscroll #content{overflow:hidden}
 .sz5-v.v3-act b{font-size:12.5px;font-weight:600}
 .sz5-v.v3-act .wr{font-size:10.5px;white-space:nowrap}
 .sz5-v.v3-act .wr .evs{font-size:9.5px}
+
+/* «Против 3-бета»: таблица реакций — доля + одно число (EV или факт) */
+.v3-rt-box{display:flex;flex-direction:column;gap:6px;margin-top:4px}
+.v3-rt-seg{align-self:flex-end}
+.ht.v3-rt{width:100%;border-collapse:separate;border-spacing:0 3px}
+.ht.v3-rt thead th{font-size:10px;letter-spacing:.03em;text-transform:uppercase;color:var(--faint);font-weight:600;text-align:left;padding:0 10px 2px}
+.ht.v3-rt thead th.num{text-align:right}
+.ht.v3-rt tbody tr{background:var(--bg)}
+.ht.v3-rt tbody tr.click{cursor:pointer}
+.ht.v3-rt tbody tr:hover{outline:1px solid var(--amber);outline-offset:-1px}
+.ht.v3-rt tbody th,.ht.v3-rt tbody td{padding:7px 10px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);text-align:left;font-weight:600;white-space:nowrap}
+.ht.v3-rt tbody th{border-left:1px solid var(--line);border-radius:8px 0 0 8px;font-family:var(--mono);font-size:13px;color:var(--text)}
+.ht.v3-rt tbody td:last-child{border-right:1px solid var(--line);border-radius:0 8px 8px 0}
+.ht.v3-rt tbody tr.tot th,.ht.v3-rt tbody tr.tot td{border-color:var(--line2)}
+.ht.v3-rt tbody tr.low{opacity:.6}
+.ht.v3-rt td.n b{display:block;font-family:var(--mono);font-size:12.5px;color:var(--soft)}
+.ht.v3-rt td.n small{font-size:10px;color:var(--faint);font-family:var(--mono)}
+.ht.v3-rt td.num{text-align:right;font-family:var(--mono)}
+.ht.v3-rt td.num b{display:block;font-size:13px}
+.ht.v3-rt td.num .v{display:block;font-size:11px;font-weight:500;margin-top:1px}
+.ht.v3-rt td.avg b{font-size:13.5px}
