@@ -2002,6 +2002,7 @@ body.noscroll #content{overflow:hidden}
 .ht.v3-r21 tbody th{padding-right:14px}
 .ht.v3-r21 td.v3-tot{font-family:var(--mono);font-size:12.5px;padding:0 10px;white-space:nowrap}
 .card-fill > .ht.v3-r21,.insight .ht.v3-r21{align-self:flex-start;width:auto}
+.tab .name{white-space:normal;line-height:1.2;padding:3px 0;overflow-wrap:anywhere} /* длинное название раздела («Против 3-бета / сквиза») — в две строки, без многоточия */
 
 /* Дополнения только для онлайн-превью: тёмная тема и узкие экраны */
 :root{color-scheme:dark}
@@ -5373,7 +5374,7 @@ function renderV3B(idx) {
   const UNIT = onlyC ? 'ваших коллов открытия' : withC ? 'раздач' : 'открытий';
   const page = el('div', 'page');
   const head = el('div', 'page-head');
-  const h1 = el('h1'); h1.append(document.createTextNode('Против 3-бета '), el('span', null, 'v3B'));
+  const h1 = el('h1'); h1.append(document.createTextNode('Против 3-бета / сквиза '), el('span', null, 'v3B'));
   head.append(h1, el('p', null, (onlyC ? 'Как вы отвечаете на сквиз, когда заколлировали чужое открытие' : withC ? 'Как вы отвечаете на сквиз — после своего открытия и после колла чужого открытия' : SQ ? 'Как вы отвечаете на сквиз поверх своего открытия' : 'Как вы отвечаете на 3-бет на своё открытие') + ': фолд, колл и 4-бет по позициям и результат вашей реакции. Отдельно — раздачи, где до вашего хода вступил кто-то ещё.'));
   page.append(head);
   if (!cb.v3) { page.append(el('p', 'muted small', 'В этой базе нет колонок против 3-бета (собрана до 0.7.33). Обновление базы досчитает их из записей реплеера при следующем запуске программы.')); return page; }
@@ -5736,7 +5737,7 @@ const GROUPS = [
     { id: 'rfi', code: 'RFI', label: 'Открытие', render: renderRFI },
     { id: 'cc', code: 'CC', label: 'Колд-колл', render: renderCC, plan: 'Колд-колл против открытия по позициям, сайзингам открытия и стеку.' },
     { id: '3bet', code: '3B', label: '3-бет', render: renderTB },
-    { id: 'vs3bet', code: 'v3B', label: 'Против 3-бета', render: renderV3B, plan: 'Фолд / колл / 4-бет против 3-бета по позициям и стеку.' },
+    { id: 'vs3bet', code: 'v3B', label: 'Против 3-бета / сквиза', render: renderV3B, plan: 'Фолд / колл / 4-бет против 3-бета по позициям и стеку.' },
     { id: 'sqz', code: 'SQZ', label: 'Сквиз', plan: 'Сквиз после открытия и колла, по позициям и числу коллеров.' },
     { id: '4bet', code: '4B', label: '4-бет', plan: '4-бет и 4-бет олл-ин, реакция на 5-бет.' },
     { id: 'vssteal', code: 'vST', label: 'Против стила', plan: 'Защита блайндов против стила с CO / BTN / SB: фолд, колл, 3-бет.' },

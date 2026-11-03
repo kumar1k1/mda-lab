@@ -8,7 +8,7 @@ const GROUPS = [
     { id: 'rfi', code: 'RFI', label: 'Открытие', render: renderRFI },
     { id: 'cc', code: 'CC', label: 'Колд-колл', render: renderCC, plan: 'Колд-колл против открытия по позициям, сайзингам открытия и стеку.' },
     { id: '3bet', code: '3B', label: '3-бет', render: renderTB },
-    { id: 'vs3bet', code: 'v3B', label: 'Против 3-бета', render: renderV3B, plan: 'Фолд / колл / 4-бет против 3-бета по позициям и стеку.' },
+    { id: 'vs3bet', code: 'v3B', label: 'Против 3-бета / сквиза', render: renderV3B, plan: 'Фолд / колл / 4-бет против 3-бета по позициям и стеку.' },
     { id: 'sqz', code: 'SQZ', label: 'Сквиз', plan: 'Сквиз после открытия и колла, по позициям и числу коллеров.' },
     { id: '4bet', code: '4B', label: '4-бет', plan: '4-бет и 4-бет олл-ин, реакция на 5-бет.' },
     { id: 'vssteal', code: 'vST', label: 'Против стила', plan: 'Защита блайндов против стила с CO / BTN / SB: фолд, колл, 3-бет.' },

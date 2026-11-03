@@ -1998,3 +1998,4 @@ body.noscroll #content{overflow:hidden}
 .ht.v3-r21 tbody th{padding-right:14px}
 .ht.v3-r21 td.v3-tot{font-family:var(--mono);font-size:12.5px;padding:0 10px;white-space:nowrap}
 .card-fill > .ht.v3-r21,.insight .ht.v3-r21{align-self:flex-start;width:auto}
+.tab .name{white-space:normal;line-height:1.2;padding:3px 0;overflow-wrap:anywhere} /* длинное название раздела («Против 3-бета / сквиза») — в две строки, без многоточия */
