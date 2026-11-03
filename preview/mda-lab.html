@@ -3541,7 +3541,7 @@ const CARD_FILTERS = {
   rfi: { '#1': 'ST', '#2': 'ST', '#3': '', '#4': 'ST', '#5': 'ST', '#6': 'S', '#7': 'ST', '#8': 'S', '#9': '', '#10': 'S', '#11': 'S' },
   cc: { '#1': 'S', '#2': 'S', '#3': 'S', '#9': 'S', '#4': 'S', '#8': '', '#5': 'S', '#6': 'S', '#7': 'S' },
   '3bet': { '#1': 'SP', '#2': 'STP', '#3': '', '#4': 'SP', '#5': 'STP', '#10': 'STP', '#6': 'STP', '#8': 'SP', '#9': 'SP', '#7': 'STP', '#11': 'SP' }, // P — наша позиция (IP / OOP)
-  '4bet': { '#1': 'SP', '#2': 'STP', '#3': 'SP', '#4': 'STP', '#5': 'STP', '#6': 'STP', '#7': 'SP', '#8': 'SP', '#9': 'P', '#10': 'SP', '#11': 'SP' }, // «4-бет» (0.7.60): тип — в результатах и долях 4-бетов; 9 — строки по стеку, 10 — строки по размеру
+  '4bet': { '#1': 'SP', '#2': 'STP', '#3': 'SP', '#4': 'SP', '#5': 'STP', '#6': 'SP', '#7': 'SP', '#8': 'P', '#9': 'SP', '#10': 'STP', '#11': 'STP' }, // «4-бет»: 3 — руки, 8 — строки по стеку, 9 — строки по размеру, 11 — холодный 4-бет
   sqz: { '#1': 'SP', '#2': 'STP', '#3': 'SP', '#4': 'SP', '#5': 'STP', '#6': 'SP', '#7': 'SP', '#8': 'P', '#9': 'SP', '#10': 'STP', '#11': 'STP' }, // «Сквиз»: P — наша позиция (IP / OOP) на все; 6, 7, 9 — тип сквиза и есть колонки/строки, 8 — строки по стеку
   vs3bet: { '#1': 'STBP', '#2': '', '#3': 'STBP', '#4': 'STBP', '#5': 'STB', '#6': 'STB', '#7': 'SBP', '#8': 'STBP', '#9': 'STBP', '#10': 'STBP', '#11': 'ST', '#12': 'STBP', '#13': 'STBP' } // порядок карточек 03.11.2026; «наше действие» сейчас не действует ни на одну
 };
@@ -6259,7 +6259,7 @@ function render4B(idx) {
   const posRows = F4_POS.filter(p => PA[p] && PA[p].n >= SMALL).map(p => { const z = PA[p]; return [p, (z.r4 + z.ai) / z.n, p + ': ' + (z.r4 + z.ai) + ' из ' + z.n]; });
   const c1 = card(1, '4-бетите', TA.n ? '<em>' + fmtPct((TA.r4 + TA.ai) / TA.n) + '%</em>' : '<span class="muted">—</span>', 'из ' + cnt(TA.n, 'раз', 'gen') + ', когда на ваше открытие пришёл 3-бет',
     fillBox(posStrip('По позициям', posRows), respTiles([TA.fld, TA.call, TA.r4 + TA.ai], 'Ваш ответ на 3-бет', [['фолд', 'var(--good)'], ['колл', 'var(--ice)'], ['4-бет', 'var(--bad)']])));
-  c1.append(infoNote('4-бет — ваш рейз поверх 3-бета после вашего открытия (открытие не олл-ин; сквизы, где открытие заколлировали, и 3-беты олл-ином — против них 4-бета не бывает — не входят). Процент — доля 4-бетов (обычных и олл-ином) от всех раз, когда вас 3-бетили. Холодный 4-бет — в карточке 4.'));
+  c1.append(infoNote('4-бет — ваш рейз поверх 3-бета после вашего открытия (открытие не олл-ин; сквизы, где открытие заколлировали, и 3-беты олл-ином — против них 4-бета не бывает — не входят). Процент — доля 4-бетов (обычных и олл-ином) от всех раз, когда вас 3-бетили. Холодный 4-бет — в карточке 11.'));
   // #2 — результат 4-бета по позициям
   const items = F4_POS.filter(p => PA[p] && PA[p].x >= 5).map(p => { const z = PA[p]; return { p, key: 'f42' + p + ty + f.P + (sr || []).join('-'), anyPos: true, pre: true, o: { n: z.x, sum: z.sum, es: z.es }, mx: z.mx, ids: z.ids, title: 'Ваш 4-бет' + tyLab + ' с ' + p, vlab: ' BB за 4-бет', nlab: ' 4-бетов', sz: szOf(z), szTitle: 'Ответ на 3-бет · ' + p }; });
   const avg = TA.x ? TA.sum / 10 / TA.x : null, avgE = TA.x ? TA.es / 10 / TA.x : null;
@@ -6267,7 +6267,7 @@ function render4B(idx) {
   const c2 = card(2, 'Результат 4-бета', wrHtml(avg, avgE, 2) + ' <small>BB за 4-бет</small>', null, box2); c2.classList.add('wide');
   const pair = el('div', 'sum-pair'); pair.append(c1, c2); zone.append(pair);
 
-  // #3 — 4-бет по позициям (как верхняя таблица Hand2Note)
+  // #4 — 4-бет по позициям (как верхняя таблица Hand2Note)
   {
     const cols = ['TOT'].concat(F4_POS.filter(p => PA[p] && PA[p].n));
     const G = { TOT: TA }; cols.slice(1).forEach(p => { G[p] = PA[p]; });
@@ -6292,11 +6292,11 @@ function render4B(idx) {
       const zz = row === 'rg' ? only(z, v => v >= 2, '4-бет', 'только ваши 4-беты') : row === 'nai' ? only(z, v => v === 2, '4-бет не олл-ин', 'только 4-беты не олл-ином') : row === 'ai' ? only(z, v => v === 3, '4-бет олл-ин', 'только 4-беты олл-ином')
         : row === 'f5' ? sel(z, i => RVa(i) >= 2 && c.v3f && c.v3f[i] === 0, 'фолд на 5-бет', 'только раздачи, где вы сбросили на 5-бет') : Object.assign(only(z, v => v >= 2, '4-бет', 'только ваши 4-беты'), { rmx: z.R, labels: ['4-бет', 'олл-ин', 'колл', 'фолд'] }); // «4-бет»: «Диапазон» — весь ответ на 3-бет, раздачи — только 4-беты
       hoverRange(td, (row === 'rg' ? 'Диапазон 4-бета' : row === 'nai' ? '4-бет не олл-ин' : row === 'ai' ? '4-бет олл-ин' : row === 'f5' ? 'Фолд на 5-бет' : 'Ответ на 3-бет') + pl, zz); td.classList.remove('has-mx'); });
-    const d = el('div', 'insight cc-table'); d.append(numTag(3), el('span', 'k', '4-бет по позициям'), el('span', 's', 'колонки — ваша позиция; «4-бет» — % от раз, когда на ваше открытие пришёл 3-бет'), w,
+    const d = el('div', 'insight cc-table'); d.append(numTag(4), el('span', 'k', '4-бет по позициям'), el('span', 's', 'колонки — ваша позиция; «4-бет» — % от раз, когда на ваше открытие пришёл 3-бет'), w,
       infoNote('Как таблица 4-бета в Hand2Note. «Диапазон 4-бета» — какую часть всех рук (1326 комбинаций) составляет ваш 4-бет: для каждой руки — как часто вы ею 4-бетите против 3-бета, с весом числа её комбинаций (как 4bet [Range] в Hand2Note). «Не олл-ин» и «олл-ин» — как делятся 4-беты. «Фолд на 5-бет» — как часто вы сбросили, когда на ваш 4-бет поставили 5-бет. Наведите на ячейку: в строке «4-бет» — как вы ответили на 3-бет каждой рукой; в «Диапазоне 4-бета» — только руки, которыми вы 4-бетили, с частотой; в «не олл-ин» и «олл-ин» — только 4-беты этого вида. Клик закрепит окно. Бледные ячейки — меньше ' + cnt(SMALL, 'раздач', 'gen') + '.'));
     zone.append(d);
   }
-  // #4 — холодный 4-бет (нижняя таблица Hand2Note)
+  // #11 — холодный 4-бет (нижняя таблица Hand2Note)
   {
     const cols = ['TOT'].concat(F4_FP.filter(p => PB[p] && PB[p].n));
     const G = { TOT: TB }; cols.slice(1).forEach(p => { G[p] = PB[p]; });
@@ -6314,7 +6314,7 @@ function render4B(idx) {
       const zz = S4 ? sel(z, S4[0], S4[1], S4[2], row === 'ai') : szOf(z); if (S4 && (row === 'cc' || row === 'c4')) { zz.rmx = z.R; zz.labels = ['4-бет', 'олл-ин', 'колл', 'фолд']; }
       hoverRange(td, (S4 ? S4[3] : 'Открытие и 3-бет перед вами') + pl, zz); td.classList.remove('has-mx'); });
     const v = TB.x ? valPick(TB.sum / 10 / TB.x, TB.es / 10 / TB.x) : null;
-    const d = el('div', 'insight cc-table'); d.append(numTag(4), el('span', 'k', 'Холодный 4-бет'), el('span', 's', 'перед вами открытие и 3-бет: колл, 4-бет и фолд на 5-бет; колонки — ваша позиция' + (v == null ? '' : ' · итог холодного 4-бета' + tyLab + ' ' + signed(v, 2) + ' BB')), B.length ? w : el('p', 'muted small', 'Нет таких раздач в выборке.'),
+    const d = el('div', 'insight cc-table'); d.append(numTag(11), el('span', 'k', 'Холодный 4-бет'), el('span', 's', 'перед вами открытие и 3-бет: колл, 4-бет и фолд на 5-бет; колонки — ваша позиция' + (v == null ? '' : ' · итог холодного 4-бета' + tyLab + ' ' + signed(v, 2) + ' BB')), B.length ? w : el('p', 'muted small', 'Нет таких раздач в выборке.'),
       infoNote('Как нижняя таблица Hand2Note: CC 3bet — колл 3-бета, когда вы ещё не вкладывались; Open 4bet — ваш 4-бет поверх открытия и 3-бета. «Фолд на 5-бет» — после холодного 4-бета. Наведите на ячейку — как вы ответили каждой рукой.'));
     zone.append(d);
   }
@@ -6341,7 +6341,7 @@ function render4B(idx) {
   const groupBy = (ids, key, Bk) => Bk.map(([lab], k) => { const z = Z(); ids.forEach(i => { if (key(i) === k) add(z, i, RVa(i)); }); return [lab, z]; });
   const sec4 = (n, title, sub, ...body) => { const d = el('div', 'insight cc-table'); d.append(numTag(n), el('b', 'pm-title', title), el('span', 'sm-s', sub), ...body); return d; };
 
-  // #5 — чем вы 4-бетите: группы рук (как таблица справа в Hand2Note) — доля в 4-бетах и итог
+  // #10 — чем вы 4-бетите: группы рук (как таблица справа в Hand2Note) — доля в 4-бетах и итог
   {
     const all4 = A.filter(i => RVa(i) >= 2 && typed(RVa(i) === 3) && c.hc[i] >= 0), g = F4_GROUPS.map(() => ({ n: 0, sum: 0, es: 0, ids: [], mx: Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })), f5: { x: 0, n: 0 } }));
     all4.forEach(i => { const z = g[f4Group(c.hc[i])]; z.n++; z.sum += c.net[i]; z.es += EV[i]; z.ids.push(i); const m = z.mx[c.hc[i]]; m.n++; m.sum += c.net[i]; m.es += EV[i]; if (c.v3f && c.v3f[i] >= 0) { z.f5.n++; if (c.v3f[i] === 0) z.f5.x++; } });
@@ -6353,10 +6353,10 @@ function render4B(idx) {
       tr.append(el('th', null, F4_GROUPS[k][0]), tdF, el('td', 'n', z.n.toLocaleString('ru-RU')), td5, tdA);
       hoverHands(tr, { p: F4_GROUPS[k][0], anyPos: true, pre: true, key: 'f45' + k + ty, title: '4-бет' + tyLab + ' · ' + F4_GROUPS[k][0], o: { n: z.n, sum: z.sum, es: z.es }, mx: z.mx, ids: z.ids, vlab: ' BB за 4-бет', nlab: ' 4-бетов' }, z.sum / 10 / z.n); tb.append(tr); });
     t.append(tb); const box = el('div', 'v3-rt-box'); const sg = valSeg(); sg.classList.add('v3-rt-seg'); box.append(sg, t);
-    zone.append(sec4(5, 'Чем вы 4-бетите', 'из каких рук состоят ваши 4-беты' + tyLab + ' и что каждая группа приносит', all4.length ? box : el('p', 'muted small', 'Нет 4-бетов в выборке.'),
+    zone.append(sec4(10, 'Чем вы 4-бетите', 'из каких рук состоят ваши 4-беты' + tyLab + ' и что каждая группа приносит', all4.length ? box : el('p', 'muted small', 'Нет 4-бетов в выборке.'),
       infoNote('Как таблица групп рук в Hand2Note: доля группы среди всех ваших 4-бетов после открытия (в сумме 100%). «Фолд на 5-бет» — как часто вы сбросили этой группой на 5-бет. «Итог 4-бета» — средний результат раздачи (EV или факт — переключатель). Наведите на строку — руки группы и итог; клик закрепит окно.')));
   }
-  // #6 — позиция против позиции 3-бетящего: доля 4-бета
+  // #5 — позиция против позиции 3-бетящего: доля 4-бета
   {
     const g = {}; for (const i of A) { const p = posOf(i), q = c.v3q[i], op = q >= 0 ? F4_FP[q] : null; if (!p || !op) continue; const row = g[op] || (g[op] = {}); if (!row[p]) row[p] = Z(); add(row[p], i, RVa(i)); }
     const OPS = ['MP', 'HJ', 'CO', 'BTN', 'SB', 'BB'], cols = F4_POS.filter(p => OPS.some(op => g[op] && g[op][p])), rows0 = OPS.filter(op => g[op] && cols.some(p => g[op][p] && g[op][p].n >= SMALL)), rows = rows0.length ? rows0 : OPS.filter(op => g[op]); // мало раздач (короткий стек и т. п.) — показываем что есть, бледным, а не пустую карточку
@@ -6364,22 +6364,22 @@ function render4B(idx) {
     if (rows.length) { const tbl = heatTable({ cols, noTot: true, rows: rows.map(op => ({ key: op, label: op, data: Object.fromEntries(cols.map(p => [p, g[op][p] ? { x: g[op][p].x, n: g[op][p].n } : null])) })) });
       tbl.querySelectorAll('td.c').forEach(td => { const z = g[td.dataset.row] && g[td.dataset.row][td.dataset.col]; if (z && z.n) { hoverRange(td, 'Вы ' + td.dataset.col + ' против 3-бета с ' + td.dataset.row, szOf(z)); td.classList.remove('has-mx'); } }); body.append(tbl); }
     else body.append(el('p', 'muted small', 'Мало данных.'));
-    zone.append(sec4(6, '4-бет: ваша позиция против позиции 3-бетящего', 'строки — кто 3-бетит, колонки — ваша позиция; в ячейке — доля 4-бетов' + tyLab, body,
+    zone.append(sec4(5, '4-бет: ваша позиция против позиции 3-бетящего', 'строки — кто 3-бетит, колонки — ваша позиция; в ячейке — доля 4-бетов' + tyLab, body,
       infoNote('Как часто вы 4-бетите против 3-бета с каждой позиции: против 3-бета с блайндов в позиции обычно 4-бетят шире. Наведите на ячейку — как вы ответили каждой рукой.')));
   }
-  // #7 — против размера 3-бета
-  zone.append(sec4(7, 'Против размера 3-бета', 'как вы отвечаете на маленький и большой 3-бет',
+  // #6 — против размера 3-бета
+  zone.append(sec4(6, 'Против размера 3-бета', 'как вы отвечаете на маленький и большой 3-бет',
     respTable(groupBy(A.filter(i => c.v3z[i] > 0 && c.size[i] > 0), i => (F4_3X.findIndex(q => c.v3z[i] / c.size[i] >= q[1] && c.v3z[i] / c.size[i] < q[2])), F4_3X), 'Размер 3-бета'),
     infoNote('Размер — 3-бет соперника, делённый на ваше открытие; 3-беты олл-ином во вкладку не входят (против них 4-бета не бывает). Под каждым процентом — средний итог раздачи после этой реакции.')));
-  // #8 — против стека 3-бетящего
-  zone.append(sec4(8, 'Против стека 3-бетящего', 'против короткого 3-бетящего 4-бет — почти всегда олл-ин, против глубокого — вопрос размера',
+  // #7 — против стека 3-бетящего
+  zone.append(sec4(7, 'Против стека 3-бетящего', 'против короткого 3-бетящего 4-бет — почти всегда олл-ин, против глубокого — вопрос размера',
     respTable(groupBy(A.filter(i => c.v3s[i] > 0), i => F4_STK.findIndex(q => c.v3s[i] / 10 >= q[1] && c.v3s[i] / 10 < q[2]), F4_STK), 'Его стек'),
     infoNote('Стек 3-бетящего в начале раздачи. Наведите на строку — как вы ответили каждой рукой; клик закрепит окно.')));
-  // #9 — по вашему стеку (фильтр стека раздела не действует — он и есть строки)
-  zone.append(sec4(9, '4-бет по вашему стеку', 'фолд, колл и 4-бет против 3-бета при разной глубине',
+  // #8 — по вашему стеку (фильтр стека раздела не действует — он и есть строки)
+  zone.append(sec4(8, '4-бет по вашему стеку', 'фолд, колл и 4-бет против 3-бета при разной глубине',
     respTable(groupBy(A0, i => F4_STK.findIndex(q => c.bb[i] / 10 >= q[1] && c.bb[i] / 10 < q[2]), F4_STK), 'Ваш стек'),
     infoNote('Ваш стек в начале раздачи; фильтр стека раздела здесь не действует (он и есть строки).')));
-  // #10 — размер вашего 4-бета: в разах от 3-бета, фолд на 5-бет и итог
+  // #9 — размер вашего 4-бета: в разах от 3-бета, фолд на 5-бет и итог
   {
     const L = F4_4X.map(() => ({ n: 0, sum: 0, es: 0, ids: [], mx: Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })), f5: [0, 0, 0], f5n: 0, hx: new Uint16Array(169) })), AIz = { n: 0, sum: 0, es: 0, ids: [], mx: Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })), f5: [0, 0, 0], f5n: 0, hx: new Uint16Array(169) };
     for (const i of A) { const v = RVa(i); if (v < 2 || !c.v3y || c.v3y[i] <= 0 || c.v3z[i] <= 0) continue; const z = v === 3 ? AIz : L[F4_4X.findIndex(q => c.v3y[i] / c.v3z[i] >= q[1] && c.v3y[i] / c.v3z[i] < q[2])]; if (!z) continue; z.n++; z.sum += c.net[i]; z.es += EV[i]; z.ids.push(i); if (c.hc[i] >= 0) { const m = z.mx[c.hc[i]]; m.n++; m.sum += c.net[i]; m.es += EV[i]; z.hx[c.hc[i]]++; } if (c.v3f && c.v3f[i] >= 0) { z.f5n++; z.f5[c.v3f[i]]++; } }
@@ -6392,12 +6392,12 @@ function render4B(idx) {
       const zz = { n: rangeN(TA.R), rmx: TA.R.map((m, q) => ({ n: m.n, x: z.hx[q], ai: lab === 'олл-ин' ? z.hx[q] : 0, lp: m.lp, sum: m.sum, es: m.es })), vmx: z.mx, rids: z.ids, labels: ['4-бет ' + lab, lab === 'олл-ин' ? 'олл-ин' : '', 'колл', 'фолд или другой размер'], capAll: 'только 4-беты ' + lab, foldPaint: true };
       hoverRange(tr, '4-бет ' + lab, zz); tr.classList.remove('has-mx'); tb.append(tr); });
     t.append(tb); const box = el('div', 'v3-rt-box'); const sg = valSeg(); sg.classList.add('v3-rt-seg'); box.append(sg, t);
-    zone.append(sec4(10, 'Размер вашего 4-бета', 'во сколько раз больше 3-бета вы 4-бетите и как играете против 5-бета', rows.length ? box : el('p', 'muted small', 'Нет 4-бетов в выборке.'),
+    zone.append(sec4(9, 'Размер вашего 4-бета', 'во сколько раз больше 3-бета вы 4-бетите и как играете против 5-бета', rows.length ? box : el('p', 'muted small', 'Нет 4-бетов в выборке.'),
       infoNote('Размер — ваш 4-бет, делённый на 3-бет соперника; олл-ин — отдельной строкой. «Против 5-бета» — ваш ход, когда на 4-бет ответили 5-бетом. Наведите на строку — диапазон: все ваши ответы на 3-бет, 4-беты этим размером выделены; клик закрепит окно. Тип 4-бета из шапки здесь не применяется — он и есть строки.')));
   }
-  // #11 — какие руки вы 4-бетите: матрица по позиции
+  // #3 — какие руки вы 4-бетите: матрица по позиции
   {
-    const b = el('section', 'block'); b.append(numTag(11));
+    const b = el('section', 'block'); b.append(numTag(3));
     const hh = el('div', 'block-head'); hh.append(el('h2', null, 'Какие руки вы 4-бетите'), el('p', null, 'как вы отвечаете на 3-бет каждой рукой: 4-бет, олл-ин, колл, фолд'));
     const av = F4_POS.filter(p => PA[p] && PA[p].n), mxp = av.includes(F4_MXPOS) || !av.length ? F4_MXPOS : av[av.length - 1];
     const seg = el('div', 'seg'); av.forEach(p => { const bt = el('button', mxp === p ? 'on' : '', p); bt.type = 'button'; bt.onclick = () => { F4_MXPOS = p; renderNext(); }; seg.append(bt); });
