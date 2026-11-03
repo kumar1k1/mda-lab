@@ -5775,13 +5775,14 @@ function v3ExtraCards(x) {
   }
   // #7 — как часто вас 3-бетят: от ваших открытий не олл-ином, по позиции и по размеру открытия (только стек раздела)
   {
-    const opens = x.idx.filter(i => c.sit[i] === 0 && c.act[i] === 2 && c.pos[i] !== 6 && PREDS(x, i)), byP = {}, byS = {};
-    for (const i of opens) { const got = c.v3[i] >= 0 ? 1 : 0, p = posOf(i), sz = bucket(V3_SZ, c.size[i]); if (p) { const z = byP[p] || (byP[p] = { x: 0, n: 0 }); z.n++; z.x += got; } if (sz) { const z = byS[sz] || (byS[sz] = { x: 0, n: 0 }); z.n++; z.x += got; } }
-    const tot = { x: opens.filter(i => c.v3[i] >= 0).length, n: opens.length };
+    // только чистые 3-беты: открытия, которые заколлировали и потом сквизанули (v3o = 1), не считаются ни в числителе, ни в знаменателе
+    const opens = x.idx.filter(i => c.sit[i] === 0 && c.act[i] === 2 && c.pos[i] !== 6 && c.v3o[i] !== 1 && PREDS(x, i)), byP = {}, byS = {};
+    for (const i of opens) { const got = c.v3o[i] === 0 ? 1 : 0, p = posOf(i), sz = bucket(V3_SZ, c.size[i]); if (p) { const z = byP[p] || (byP[p] = { x: 0, n: 0 }); z.n++; z.x += got; } if (sz) { const z = byS[sz] || (byS[sz] = { x: 0, n: 0 }); z.n++; z.x += got; } }
+    const tot = { x: opens.filter(i => c.v3o[i] === 0).length, n: opens.length };
     const t1 = heatTable({ cols: ['TOT'].concat(V3_POS.filter(p => byP[p])), rows: [{ key: 'p', label: 'Вас 3-бетят', data: Object.assign({ TOT: tot }, byP) }] });
     const t2 = heatTable({ cols: V3_SZ.map(z => z[0]).filter(k => byS[k]), noTot: true, rows: [{ key: 's', label: 'по размеру открытия', data: byS }] });
-    out.push(sec(7, 'Как часто вас 3-бетят', 'доля ваших открытий не олл-ином, на которые пришёл 3-бет (или сквиз)', t1, el('span', 'resp-t', 'По размеру вашего открытия'), t2,
-      infoNote('Считаются все ваши открытия не олл-ином (кроме BB). Если какой-то размер открытия 3-бетят заметно чаще — соперники видят в нём слабость или удобный момент. Из фильтров раздела действует только ваш стек: тип 3-бета, банк и позиция описывают уже случившийся 3-бет.')));
+    out.push(sec(7, 'Как часто вас 3-бетят', 'доля ваших открытий не олл-ином, на которые пришёл 3-бет — без сквизов', t1, el('span', 'resp-t', 'По размеру вашего открытия'), t2,
+      infoNote('Считаются ваши открытия не олл-ином (кроме BB) и только 3-беты сразу после них: если ваше открытие сначала заколлировали, а потом подняли (сквиз), такая раздача не входит ни в число 3-бетов, ни в число открытий. Если какой-то размер открытия 3-бетят заметно чаще — соперники видят в нём слабость или удобный момент. Из фильтров раздела действует только ваш стек: тип 3-бета, банк и позиция описывают уже случившийся 3-бет.')));
   }
   // #8 — по вашему стеку
   out.push(sec(8, 'Ответ на ' + NR + ' по вашему стеку', 'фолд, колл и 4-бет при разной глубине и что это приносит', v3RespTable(Object.entries(v3Group(A, i => bucket(V3_STK, c.bb[i] / 10), RV)).sort((a, b) => V3_STK.findIndex(z => z[0] === a[0]) - V3_STK.findIndex(z => z[0] === b[0])), 'Ваш стек', NR, 'v38'),
