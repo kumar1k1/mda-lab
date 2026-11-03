@@ -121,3 +121,18 @@ function pinSzMx(title, z, row, e) {
 function unpinSzMx() { SZMX_PIN = null; SZMX_SEL = null; if (SZMX_LIST) { SZMX_LIST.stop(); SZMX_LIST = null; } if (szMx) { szMx.hidden = true; szMx.classList.remove('with-list'); } syncScrollLock(); }
 function hideSzMx() { if (szMx && !SZMX_PIN) szMx.hidden = true; }
 
+
+// Окно первого типа на любом элементе: наведение — «Диапазон», клик — закрепить (вкладки «Диапазон / Факт, BB / EV, BB», список раздач).
+// zz: { n, rmx (по рукам: n, x — рейз, ai — из них олл-ин, lp — колл/лимп, sum, es), vmx (необязательно: итог только нужного действия), rids, labels, capAll, foldPaint }
+function hoverRange(node, title, zz) {
+  node.classList.add('click', 'has-mx'); node.tabIndex = 0; node.setAttribute('role', 'button');
+  node.addEventListener('mouseenter', (e) => showSzMx(title, zz, node, e));
+  node.addEventListener('mousemove', (e) => { if (!SZMX_PIN && szMx && !szMx.hidden) placeSzMx(node, e); });
+  node.addEventListener('mouseleave', hideSzMx);
+  node.addEventListener('click', (e) => pinSzMx(title, zz, node, e));
+  node.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pinSzMx(title, zz, node); } });
+}
+const rangeMx = () => Array.from({ length: 169 }, () => ({ n: 0, x: 0, ai: 0, lp: 0, sum: 0, es: 0 }));
+// a — ваш ход: 0 фолд, 1 колл / лимп, 2+ рейз; ai — рейз олл-ином
+function rangeAdd(R, i, a, ai, EV) { const c = DB.cols, k = c.hc[i]; if (k < 0) return; const m = R[k]; m.n++; m.sum += c.net[i]; m.es += EV[i]; if (a === 1) m.lp++; else if (a >= 2) { m.x++; if (ai) m.ai++; } }
+const rangeN = (R) => R.reduce((a, m) => a + m.n, 0);

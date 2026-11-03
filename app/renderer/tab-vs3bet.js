@@ -258,6 +258,8 @@ const f3note = (x) => { const f = secF('vs3bet'); return f.B === 'hu' ? 'в «3b
 const V3_STK = [['< 15 BB', 0, 15], ['15–25 BB', 15, 25], ['25–40 BB', 25, 40], ['40+ BB', 40, 1e9]];
 const V3_SZ = [['до 2 BB', 0, 205], ['2,1–2,3 BB', 205, 235], ['2,4–2,6 BB', 235, 265], ['2,7–3,4 BB', 265, 345], ['3,5+ BB', 345, 1e9]];
 const V3_POS = ['EP', 'MP', 'HJ', 'CO', 'BTN', 'SB'], V3_FP = ['EP', 'MP', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
+// окно первого типа по ячейке v3Cell: «Диапазон» — фолд / колл / 4-бет / олл-ин каждой рукой, «Факт / EV» и список — эти же раздачи
+const v3Zz = (z) => ({ n: z.n, rmx: z.mx, rids: z.ids, labels: ['4-бет', 'олл-ин', 'колл', 'фолд'], capAll: 'все ваши ответы', foldPaint: true });
 function v3ExtraCards(x) {
   const c = DB.cols, { pick, RV, RA, RP, NR, NRg } = x, out = [];
   const posOf = (i) => (c.fp[i] >= 0 ? V3_FP[c.fp[i]] : null), bucket = (B, v) => { const k = B.findIndex(q => v >= q[1] && v < q[2]); return k < 0 ? null : B[k][0]; };
@@ -311,12 +313,12 @@ function v3ExtraCards(x) {
     h2.append(el('th', null, 'Размер 3-бета'), el('th', null, 'Фолд'), el('th', null, '4-бет'), el('th', 'gap'), el('th', null, 'Фолд'), el('th', null, '4-бет'));
     const th = el('thead'); th.append(h1, h2); t.append(th); const tb = el('tbody');
     const cell = (z, kind, side, lab) => { const td = el('td', 'c'); if (!z.n) { td.textContent = '—'; td.classList.add('na'); return td; } const v = kind === 'f' ? z.fld / z.n : (z.r4 + z.ai) / z.n; td.append(el('b', null, fmtPct(v)), el('span', 'n', z.n)); heat(td, v, 1, kind === 'f' ? 'amber' : 'ice'); if (z.n < 20) td.classList.add('low');
-      if (z.ids.length) hoverHands(td, { p: side, anyPos: true, pre: true, key: 'v316' + side + lab, title: 'Против 3-бета ' + lab + ' · ' + (side === 'IP' ? 'в позиции' : 'без позиции'), o: { n: z.ids.length, sum: z.sum, es: z.es }, mx: z.mx, ids: z.ids, vlab: ' BB за раздачу', nlab: ' раздач' }, z.sum / 10 / z.n); return td; };
+      if (z.ids.length) hoverRange(td, 'Против 3-бета ' + lab + ' · ' + (side === 'IP' ? 'в позиции' : 'без позиции'), v3Zz(z)); return td; };
     SZ.forEach((lab, k) => { if (!G.OOP[k].n && !G.IP[k].n) return; const tr = el('tr'); tr.append(el('th', null, lab), cell(G.OOP[k], 'f', 'OOP', lab), cell(G.OOP[k], '4', 'OOP', lab), el('td', 'gap'), cell(G.IP[k], 'f', 'IP', lab), cell(G.IP[k], '4', 'IP', lab)); tb.append(tr); });
     { const tr = el('tr', 'v3-f5'); const f5 = (z) => { const td = el('td', 'c'); td.colSpan = 2; if (!z.n) { td.textContent = '—'; return td; } td.append(el('b', null, fmtPct(z.x / z.n) + '%'), el('span', 'n', z.n)); heat(td, z.x / z.n, 1, 'amber'); if (z.n < 20) td.classList.add('low'); return td; }; tr.append(el('th', null, 'Фолд на 5-бет'), f5(F5.OOP), el('td', 'gap'), f5(F5.IP)); tb.append(tr); }
     t.append(tb);
     const d = el('div', 'insight cc-table'); d.append(numTag(16), el('b', 'pm-title', 'Против размера 3-бета'), el('span', 'sm-s', 'как часто вы сбрасываете и 4-бетите против 3-бета разного размера — без позиции и в позиции'), t,
-      infoNote('Размер — 3-бет соперника, делённый на ваше открытие, округлённый до 0,5 (×3 — в три раза больше открытия); олл-ин — отдельной строкой. Фолд и 4-бет — доля ваших ответов, %; справа в ячейке мелко — число раздач. «Фолд на 5-бет» — как часто вы сбросили, когда после вашего 4-бета соперник поставил 5-бет. В позиции / без позиции — относительно 3-бетящего после флопа (поэтому фильтр «наша позиция» здесь не действует — он и есть колонки). Наведите на ячейку — руки этих раздач и итог. Бледные ячейки — меньше 20 раздач. Только ваши открытия (в сквиз-поте, где вы коллер, нет вашего размера открытия).'));
+      infoNote('Размер — 3-бет соперника, делённый на ваше открытие, округлённый до 0,5 (×3 — в три раза больше открытия); олл-ин — отдельной строкой. Фолд и 4-бет — доля ваших ответов, %; справа в ячейке мелко — число раздач. «Фолд на 5-бет» — как часто вы сбросили, когда после вашего 4-бета соперник поставил 5-бет. В позиции / без позиции — относительно 3-бетящего после флопа (поэтому фильтр «наша позиция» здесь не действует — он и есть колонки). Наведите на ячейку — диапазон: как вы ответили каждой рукой против такого размера (фолд, колл, 4-бет, олл-ин); клик закрепит окно с вкладками «Диапазон / Факт / EV», клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше 20 раздач. Только ваши открытия (в сквиз-поте, где вы коллер, нет вашего размера открытия).'));
     out.push(d);
   }
 
@@ -338,11 +340,12 @@ function v3ExtraCards(x) {
   // #6 — фолд на 3-бет: ваша позиция × позиция 3-бетящего
   {
     const g = {}; for (const i of A) { const p = posOf(i), q = x.isC(i) ? c.c3q[i] : c.v3q[i], op = q >= 0 ? V3_FP[q] : null; if (!p || !op) continue; const row = g[p] || (g[p] = {}), z = row[op] || (row[op] = v3Cell()); v3Add(z, i, RV(i), c, EVcol()); }
-    const rows = V3_POS.filter(p => g[p]), cols = ['MP', 'HJ', 'CO', 'BTN', 'SB', 'BB'].filter(op => rows.some(p => g[p][op] && g[p][op].n >= SMALL));
+    // развёрнуто по диагонали: строки снизу вверх от EP (сверху SB), колонки справа налево от MP (слева BB)
+    const rows = V3_POS.filter(p => g[p]).reverse(), cols = ['BB', 'SB', 'BTN', 'CO', 'HJ', 'MP'].filter(op => rows.some(p => g[p][op] && g[p][op].n >= SMALL));
     const tbl = heatTable({ cols, noTot: true, rows: rows.map(p => ({ key: p, label: p, data: Object.fromEntries(cols.map(op => [op, g[p][op] ? { x: g[p][op].fld, n: g[p][op].n } : null])) })) });
-    tbl.querySelectorAll('td.c').forEach(td => { const z = g[td.dataset.row] && g[td.dataset.row][td.dataset.col]; if (!z || !z.ids.length) return; hoverHands(td, { p: td.dataset.row, anyPos: true, pre: true, key: 'v36' + td.dataset.row + td.dataset.col, title: 'Вы ' + td.dataset.row + ' против ' + NRg + ' с ' + td.dataset.col, o: { n: z.ids.length, sum: z.sum, es: z.es }, mx: z.mx, ids: z.ids, vlab: ' BB за раздачу', nlab: ' раздач' }, z.sum / 10 / z.n); });
+    tbl.querySelectorAll('td.c').forEach(td => { const z = g[td.dataset.row] && g[td.dataset.row][td.dataset.col]; if (!z || !z.ids.length) return; hoverRange(td, 'Вы ' + td.dataset.row + ' против ' + NRg + ' с ' + td.dataset.col, v3Zz(z)); });
     out.push(sec(6, 'Фолд на ' + NR + ': ваша позиция против позиции ' + (NR === 'сквиз' ? 'сквизера' : '3-бетящего'), 'строки — где вы, колонки — кто ' + (NR === 'сквиз' ? 'сквизит' : '3-бетит') + '; в ячейке — как часто вы сбросили', tbl,
-      infoNote('Показывает, от кого вы сдаётесь чаще всего: например, против 3-бета с блайндов многие фолдят больше, чем против 3-бета с BTN. Наведите на ячейку — руки этих раздач и итог; клик закрепит окно, клик по руке откроет раздачи. Бледные ячейки — меньше ' + cnt(SMALL, 'раздач', 'gen') + '.')));
+      infoNote('Показывает, от кого вы сдаётесь чаще всего: например, против 3-бета с блайндов многие фолдят больше, чем против 3-бета с BTN. Наведите на ячейку — диапазон: как вы ответили каждой рукой (фолд, колл, 4-бет, олл-ин); клик закрепит окно с вкладками «Диапазон / Факт / EV», клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше ' + cnt(SMALL, 'раздач', 'gen') + '.')));
   }
   // #7 — как часто вас 3-бетят: от ваших открытий не олл-ином, по позиции и по размеру открытия (только стек раздела)
   {
@@ -366,47 +369,44 @@ function v3ExtraCards(x) {
   // #11 — против олл-ина и не олл-ина (фильтр типа не действует — он и есть строки)
   out.push(sec(11, 'Против олл-ина и обычного ' + NRg, 'колл пуша — вопрос шансов банка, ответ на обычный ' + NR + ' — вопрос стратегии', v3RespTable([['Не олл-ин', 0], ['Олл-ин', 1]].map(([lab, k]) => [lab, v3Group(pick('S', 'B', 'P'), i => RA(i) === k ? 'x' : null, RV).x]), 'Тип ' + NRg, NR, 'v311'),
     infoNote('«Олл-ин» — эффективный: пуш, ставка на весь стек соперника или ставка, покрывающая ваш стек. В строке «Олл-ин» колонка «Колл» — как часто вы коллируете пуш; результат колла пуша лучше смотреть по EV, он не зависит от раздачи карт на борде.')));
-  // #12 — результат по группам рук и реакции
+  // #12 — по группам рук и реакции, в стиле «Результата стила» (#3.4 «Открытия»): строки — группы, колонки — фолд / колл / 4-бет
   {
+    const COLS = [['Фолд', 'var(--good)', 'сбрасывали'], ['Колл', 'var(--ice)', 'не коллировали'], ['4-бет', 'var(--bad)', 'не 4-бетили']];
     const g = {}; for (const i of A) { if (c.hc[i] < 0) continue; const k = handGroup(c.hc[i]), v = RV(i), col = v === 0 ? 'Фолд' : v === 1 ? 'Колл' : '4-бет'; const row = g[k] || (g[k] = {}); v3Add(row[col] || (row[col] = v3Cell()), i, v, c, EVcol()); }
-    const cols = ['Фолд', 'Колл', '4-бет'], t = el('table', 'ht v3-grp'), hr = el('tr'); hr.append(el('th', null, 'Группа рук')); cols.forEach(k => hr.append(el('th', null, k))); const th = el('thead'); th.append(hr); t.append(th);
-    const tb = el('tbody');
-    HAND_GROUPS.forEach((G, k) => { const row = g[k]; if (!row) return; const tr = el('tr'); tr.append(el('th', null, G[0])); cols.forEach(col => { const z = row[col], td = el('td', 'c'); if (z && z.n) { const sh = el('b', null, fmtPct(z.n / cols.reduce((a, q) => a + (row[q] ? row[q].n : 0), 0)) + '%'), vv = valPick(z.sum / 10 / z.n, z.es / 10 / z.n); td.append(sh, el('span', 'v ' + (vv >= 0 ? 'up' : 'down'), signed(vv, 2)), el('span', 'n', z.n)); td.title = signed(z.sum / 10 / z.n, 2) + ' BB факт, ' + signed(z.es / 10 / z.n, 2) + ' BB EV · ' + cnt(z.n, 'раз'); if (z.n < 30) td.classList.add('low'); hoverHands(td, { p: G[0], anyPos: true, pre: true, key: 'v312' + k + col, title: G[0] + ' · ' + col.toLowerCase() + ' на ' + NR, o: { n: z.ids.length, sum: z.sum, es: z.es }, mx: z.mx, ids: z.ids, vlab: ' BB за раздачу', nlab: ' раздач' }, z.sum / 10 / z.n); } else td.append('—'); tr.append(td); }); tb.append(tr); });
-    t.append(tb);
-    const box12 = el('div', 'v3-rt-box fit'); const sg12 = valSeg(); sg12.classList.add('v3-rt-seg'); box12.append(sg12, t);
-    out.push(sec(12, 'Реакция по группам рук', 'как часто каждой группой вы сбрасываете, коллируете и 4-бетите и что это приносит', box12,
-      infoNote('В ячейке: сверху — доля этой реакции внутри группы рук, ниже — средний итог в BB (EV или факт — переключатель над таблицей; оба числа — при наведении), справа мелко — число раздач. Так видно, например, сбрасываете ли вы средние пары на 3-бет и окупаются ли коллы с A2s–A9s. Наведите на ячейку — руки и итог.')));
+    const body = el('div');
+    const draw = () => {
+      const vals = []; Object.values(g).forEach(row => COLS.forEach(([col]) => { const z = row[col]; if (z && z.n >= 5) vals.push(Math.abs(valPick(z.sum, z.es) / 10 / z.n)); }));
+      const max = Math.max(0.5, ...vals);
+      const box = el('div', 'hg hg3');
+      const hd = el('div', 'hg-row hg-head'); hd.append(el('span', null, 'Группа рук')); COLS.forEach(([lab]) => hd.append(el('span', null, lab))); box.append(hd);
+      HAND_GROUPS.forEach(([lab], k) => { const row = g[k]; if (!row) return;
+        const tot = COLS.reduce((a, [q]) => a + (row[q] ? row[q].n : 0), 0), r = el('div', 'hg-row'); r.append(el('span', 'hg-l', lab));
+        COLS.forEach(([col, color, verb]) => {
+          const z = row[col] || v3Cell(), cell = el('div', 'hg-c hg-c34'), nm = col.toLowerCase() + ' на ' + NR;
+          if (!z.n) { cell.append(el('span', 'hg-na', '—')); r.append(cell); return; }
+          const f = z.sum / 10 / z.n, e = z.es / 10 / z.n, v = valPick(f, e);
+          cell.classList.add('click'); cell.tabIndex = 0; cell.setAttribute('role', 'button'); cell.setAttribute('aria-label', lab + ', ' + nm + ': показать руки и раздачи');
+          const it = { p: lab, anyPos: true, pre: true, key: 'v312' + k + col, title: lab + ' · ' + nm, o: { n: z.ids.length, sum: z.sum, es: z.es }, mx: z.mx, ids: z.ids, only: (q) => handGroup(q) === k, vlab: ' BB за раздачу', nlab: ' раздач' };
+          const pin = (ev) => { hideGroupTip(); pinHandPop(it, f, ev, cell); };
+          cell.addEventListener('click', pin); cell.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); pin(null); } });
+          cell.addEventListener('mouseenter', (ev) => showGroupTip(col, lab, k, z, z.mx, ev, verb, 'в клетке — итог раздачи с этой рукой в BB, когда ваш ответ — ' + col.toLowerCase())); cell.addEventListener('mousemove', moveGroupTip); cell.addEventListener('mouseleave', hideGroupTip);
+          const tr = el('div', 'hg-track'), fl = el('div', 'hg-fill'), w = Math.min(50, Math.abs(v) / max * 50);
+          fl.style.width = w + '%'; fl.style.left = v >= 0 ? '50%' : (50 - w) + '%'; fl.style.background = color; if (v < 0) fl.style.opacity = '.7';
+          tr.append(el('i', 'hg-zero'), fl);
+          const sh = el('span', 'hg-n', fmtPct(z.n / tot) + '%'); sh.title = cnt(z.n, 'раз') + ' из ' + tot;
+          const vv = el('span', 'hg-v ' + (v >= 0 ? 'up' : 'down'), signed(v, 2)); vv.title = signed(f, 2) + ' BB факт, ' + signed(e, 2) + ' BB EV · ' + cnt(z.n, 'раз');
+          cell.append(sh, tr, vv); if (z.n < 30) cell.classList.add('low');
+          r.append(cell);
+        });
+        box.append(r);
+      });
+      body.replaceChildren(Object.keys(g).length ? box : el('p', 'muted small', 'Нет раздач в выборке.'));
+    };
+    draw();
+    const sg12 = valSeg(draw); sg12.classList.add('v3-rt-seg');
+    out.push(sec(12, 'Реакция по группам рук', 'как часто каждой группой вы сбрасываете, коллируете и 4-бетите и что это приносит', sg12, body,
+      infoNote('В ячейке: слева — доля этой реакции внутри группы рук, полоса и число справа — средний итог в BB за раздачу (EV или факт — переключатель над таблицей; оба числа — при наведении на число). Так видно, например, сбрасываете ли вы средние пары на ' + NR + ' и окупаются ли коллы с A2s–A9s. Наведите на ячейку — какие руки входят в группу и итог каждой; клик закрепит окно, клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше 30 раздач.')));
   }
-  // #13 — сильные руки в фолд и слабые в продолжение
-  {
-    const H = Array.from({ length: 169 }, () => ({ n: 0, fld: 0, go: 0, sum: 0, es: 0, idsF: [], idsG: [] })), EV = EVcol();
-    for (const i of A) { const k = c.hc[i]; if (k < 0) continue; const h = H[k], v = RV(i); h.n++; if (v === 0) { h.fld++; h.idsF.push(i); } else { h.go++; h.idsG.push(i); h.sum += c.net[i]; h.es += EV[i]; } }
-    const list = (items, lab, kind) => { const box = el('div', 'v3-leak'); box.append(el('span', 'resp-t', lab)); if (!items.length) box.append(el('p', 'muted small', 'Таких рук нет.'));
-      items.forEach(([k, h]) => { const b = el('button', 'v3-leak-r'); b.type = 'button'; const ids = kind === 'f' ? h.idsF : h.idsG; b.append(el('b', null, handName(k)), el('span', null, kind === 'f' ? fmtPct(h.fld / h.n) + '% фолд · ' + cnt(h.fld, 'раз') + ' из ' + h.n : fmtPct(h.go / h.n) + '% колл / 4-бет · ' + cnt(h.go, 'раз')));
-        if (kind === 'g') b.append(wrNode('wr', h.sum / 10 / h.go, h.es / 10 / h.go, 2));
-        b.onclick = () => openIdsList(handName(k) + (kind === 'f' ? ' · фолд на ' : ' · продолжили против ') + NRg, ids); box.append(b); }); return box; };
-    const strong = H.map((h, k) => [k, h]).filter(([k, h]) => chenOf(k) >= 10 && h.fld > 0).sort((a, b) => b[1].fld - a[1].fld || b[1].fld / b[1].n - a[1].fld / a[1].n).slice(0, 8);
-    const weak = H.map((h, k) => [k, h]).filter(([k, h]) => chenOf(k) <= 5 && h.go > 0).sort((a, b) => b[1].go - a[1].go).slice(0, 8);
-    const grid = el('div', 'v3-leaks'); grid.append(list(strong, 'Сильные руки, которые вы сбросили', 'f'), list(weak, 'Слабые руки, которыми вы продолжили', 'g'));
-    out.push(sec(13, 'Возможные утечки', 'сильные руки, которые уходят в фолд, и слабые, с которыми вы продолжаете', grid,
-      infoNote('Сила руки — по формуле Чена (стандартная оценка стартовых рук): «сильные» — 10 очков и больше (например, 99+, AK, AQ, AJs, KQs), «слабые» — 5 и меньше. Показаны по 8 рук с наибольшим числом таких раздач; для слабых — итог продолжения (факт / EV). Клик по руке откроет эти раздачи и реплеер.')));
-  }
-  // #14 — по месяцам: частоты (без «нашего действия») и результат (с ним)
-  {
-    const byM = v3Group(A, i => c.month[i], RV), byMR = v3Group(pick('S', 'T', 'B', 'P', 'A'), i => c.month[i], RV), ms = Object.keys(byM).map(Number).sort((a, b) => a - b).filter(m => byM[m].n >= 10);
-    let body;
-    if (ms.length < 2) body = el('p', 'muted small', 'Для динамики нужно хотя бы два месяца по 10+ раздач.');
-    else {
-      body = el('div'); const lab = ms.map(m => { const t = monthLabel(m).split(' '); return t[0] + ' ' + t[1].slice(2); });
-      const step = Math.ceil(lab.length / 7), labX = lab.map((t, q) => (q % step === 0 ? t : '')); const ch = el('div', 'v3-chart'); body.append(ch); ch.append(linesChart(labX, [{ values: ms.map(m => byM[m].fld / byM[m].n), color: 'var(--good)' }, { values: ms.map(m => byM[m].call / byM[m].n), color: 'var(--ice)' }, { values: ms.map(m => (byM[m].r4 + byM[m].ai) / byM[m].n), color: 'var(--bad)' }], 'Фолд, колл и 4-бет по месяцам')); body.append(
-        legend([{ label: 'фолд', color: 'var(--good)' }, { label: 'колл', color: 'var(--ice)' }, { label: '4-бет', color: 'var(--bad)' }]));
-      const t = el('div', 'v3-months'); ms.forEach((m, q) => { const z = byMR[m]; const d = el('div'); d.append(el('span', null, lab[q]), z && z.n ? wrNode('wr', z.sum / 10 / z.n, z.es / 10 / z.n, 1) : el('span', 'muted', '—'), el('small', null, z ? cnt(z.n, 'раздач') : '')); t.append(d); }); body.append(t);
-    }
-    out.push(sec(14, 'По месяцам', 'меняется ли ваша игра против ' + NRg + ' со временем', body, infoNote('Линии — доля фолда, колла и 4-бета в каждом месяце (по всем реакциям). Под графиком — результат за месяц в BB за раздачу, факт / EV; он учитывает фильтр «Наше действие». Месяцы меньше чем с 10 раздачами не показаны.')));
-  }
-  // #15 — по румам
-  out.push(sec(15, 'По румам', 'где вы отвечаете на ' + NR + ' иначе и где это работает лучше', v3RespTable(Object.entries(v3Group(A, i => DB.rooms[c.room[i]] || null, RV)).sort((a, b) => b[1].n - a[1].n), 'Рум', NR, 'v315'),
-    infoNote('В разных румах разные соперники и структуры: сравните, где вы сбрасываете чаще и где колл приносит больше. Результат — по всем реакциям выбранной выборки. Бледные строки — меньше 30 раздач.')));
   return out;
 }
 // #7: из фильтров раздела — только ваш стек (как у карточки 7 в таблице CARD_FILTERS)

@@ -162,7 +162,7 @@ function handGroup(k) {
 }
 // всплывающее окно над ячейкой 3.4: какие руки входят в группу и их результат с позиции
 let groupTip = null;
-function showGroupTip(pos, label, k, z, hands, e, verb) {
+function showGroupTip(pos, label, k, z, hands, e, verb, foot) {
   if (hoverMuted(e) || SZMX_PIN || document.querySelector('.hand-pop.pinned')) return; // закреплённое окно открыто — подсказки не наслаиваются
   if (!groupTip) { groupTip = el('div', 'gt'); groupTip.setAttribute('role', 'tooltip'); document.body.append(groupTip); }
   groupTip.replaceChildren();
@@ -188,7 +188,7 @@ function showGroupTip(pos, label, k, z, hands, e, verb) {
     }
     grid.append(cell);
   }
-  groupTip.append(grid, el('div', 'gt-f', 'Выделены руки группы; в клетке — результат руки с ' + pos + ' в BB. Серые — руки группы, которыми ' + (verb || 'не открывались') + '. Клик — закрепить окно и открыть раздачи.'));
+  groupTip.append(grid, el('div', 'gt-f', 'Выделены руки группы; ' + (foot || 'в клетке — результат руки с ' + pos + ' в BB') + '. Серые — руки группы, которыми ' + (verb || 'не открывались') + '. Клик — закрепить окно и открыть раздачи.'));
   groupTip.hidden = false; moveGroupTip(e);
 }
 function moveGroupTip(e) {
@@ -600,17 +600,21 @@ function renderShovePanel(idx, stackBars) {
 
 // ---------- #5 / #5+ — изоляция лимперов ----------
 const ISO_POS = ['MP', 'HJ', 'CO', 'BTN', 'SB', 'BB']; // индекс = позиция − 1; HJ не показывается
-function isoData(idx, ot) {
+// opt.noBvb (#5+) — BB без раздач, где лимпил только SB (изолейт BB против свободных позиций)
+function isoData(idx, ot, opt) {
+  opt = opt || {};
   const c = DB.cols, EV = EVcol(), cell = () => ({ o: 0, x: 0, sum: 0, es: 0, n: 0, f: 0, fn: 0, rmx: null, rids: null, vmx: null, ids: null });
-  const M = [ISO_POS.map(cell), ISO_POS.map(cell)], tot = [cell(), cell()], resp = [0, 0, 0], respL = [[0, 0, 0], [0, 0, 0]], szx = [{}, {}];
+  const M = [ISO_POS.map(cell), ISO_POS.map(cell)], tot = [cell(), cell()], resp = [0, 0, 0], respL = [[0, 0, 0], [0, 0, 0]], szx = [{}, {}], rng = [rangeMx(), rangeMx()];
   for (const i of idx) {
     const p = c.pos[i]; if (c.sit[i] !== 1 || p < 1) continue;
+    if (opt.noBvb && p === 6 && c.bvb && c.bvb[i] === 1) continue; // #5+: в BB — только против лимпа не с SB
     const r = c.lim[i] === 1 ? 0 : 1, z = M[r][p - 1], t = tot[r];
     const bvb = c.bvb ? c.bvb[i] === 1 : false, raised = ot === 'nai' ? c.act[i] === 2 : ot === 'ai' ? c.act[i] === 3 : c.act[i] >= 2;
     t.o++; if (raised) t.x++;
     z.o++; if (raised) z.x++; // как в Hand2Note: в BB считается и лимп SB
     // окно «Диапазон» (как #7): все ответы по рукам — изолейт (олл-ин отдельно), колл, фолд; vmx/ids — только изолейты («Факт/EV» и раздачи)
     const hc = c.hc ? c.hc[i] : -1;
+    if (hc >= 0) { const m = rng[r][hc]; m.n++; m.sum += c.net[i]; m.es += EV[i]; if (c.act[i] === 1) m.lp++; } // окно первого типа у сайзинга: все ответы в лимп-банке по рукам
     if (hc >= 0) { if (!z.rmx) { z.rmx = Array.from({ length: 169 }, () => ({ n: 0, x: 0, ai: 0, lp: 0, sum: 0, es: 0 })); z.rids = []; } const m = z.rmx[hc]; m.n++; if (c.net) { m.sum += c.net[i]; m.es += EV[i]; } z.rids.push(i); if (raised) { m.x++; if (c.act[i] === 3) m.ai++; } else if (c.act[i] === 1) m.lp++; }
     if (!raised) continue;
     (z.ids || (z.ids = [])).push(i);
@@ -618,13 +622,13 @@ function isoData(idx, ot) {
     if (c.orsp && c.orsp[i] >= 0) { resp[c.orsp[i]]++; respL[r][c.orsp[i]]++; }
     if (c.act[i] === 2 && c.bb[i] / 10 - c.size[i] / 100 >= 0.5) { // сайзинг изолейта с точностью до 0.5 BB, без олл-инов
       const key = String(Math.round(c.size[i] / 50) / 2);
-      const q = szx[r][key] || (szx[r][key] = { n: 0, r: [0, 0, 0], rn: 0, sum: 0, es: 0, sn: 0 });
-      q.n++; if (c.orsp && c.orsp[i] >= 0) { q.r[c.orsp[i]]++; q.rn++; } if (c.net) { q.sum += c.net[i]; q.es += EV[i]; q.sn++; }
+      const q = szx[r][key] || (szx[r][key] = { n: 0, r: [0, 0, 0], rn: 0, sum: 0, es: 0, sn: 0, hx: new Uint16Array(169), vmx: Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })), ids: [] });
+      q.n++; if (hc >= 0) { q.hx[hc]++; const vv = q.vmx[hc]; vv.n++; vv.sum += c.net[i]; vv.es += EV[i]; q.ids.push(i); } if (c.orsp && c.orsp[i] >= 0) { q.r[c.orsp[i]]++; q.rn++; } if (c.net) { q.sum += c.net[i]; q.es += EV[i]; q.sn++; }
     }
     if (c.fvr && c.fvr[i] >= 0) { z.fn++; if (c.fvr[i] === 1) z.f++; }
     if (c.net) { z.sum += c.net[i]; z.es += EV[i]; z.n++; }
   }
-  return { M, tot, resp, respL, szx };
+  return { M, tot, resp, respL, szx, rng };
 }
 
 function isoCard(d) {
@@ -662,14 +666,15 @@ function isoSizing(d) {
   box.append(head, body);
   function draw() {
     const src = ISO_SZ === 'all' ? [d.szx[0], d.szx[1]] : [d.szx[+ISO_SZ]], map = {};
-    src.forEach(m => Object.entries(m).forEach(([k, z]) => { const t = map[k] || (map[k] = { n: 0, r: [0, 0, 0], rn: 0, sum: 0, es: 0, sn: 0 }); t.n += z.n; t.rn += z.rn; t.sum += z.sum; t.es += z.es; t.sn += z.sn; z.r.forEach((v, j) => { t.r[j] += v; }); }));
+    src.forEach(m => Object.entries(m).forEach(([k, z]) => { const t = map[k] || (map[k] = { n: 0, r: [0, 0, 0], rn: 0, sum: 0, es: 0, sn: 0, hx: new Uint16Array(169), vmx: Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })), ids: [] }); t.n += z.n; for (let q = 0; q < 169; q++) { t.hx[q] += z.hx[q]; t.vmx[q].n += z.vmx[q].n; t.vmx[q].sum += z.vmx[q].sum; t.vmx[q].es += z.vmx[q].es; } t.ids.push(...z.ids); t.rn += z.rn; t.sum += z.sum; t.es += z.es; t.sn += z.sn; z.r.forEach((v, j) => { t.r[j] += v; }); }));
     const tot = Object.values(map).reduce((a, z) => a + z.n, 0);
     body.replaceChildren();
     if (!tot) { body.append(el('p', 'muted small', 'Нет изолейтов в выборке.')); return; }
-    const rows = [], other = { n: 0, r: [0, 0, 0], rn: 0, sum: 0, es: 0, sn: 0 };
+    const rows = [], other = { n: 0, r: [0, 0, 0], rn: 0, sum: 0, es: 0, sn: 0, hx: new Uint16Array(169), vmx: Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })), ids: [] };
+    const RN = rangeMx(); (ISO_SZ === 'all' ? [d.rng[0], d.rng[1]] : [d.rng[+ISO_SZ]]).forEach(R => R.forEach((m, q) => { const t = RN[q]; t.n += m.n; t.lp += m.lp; t.sum += m.sum; t.es += m.es; })); // все лимп-банки выбранной группы — по рукам
     Object.entries(map).sort((a, b) => b[1].n - a[1].n).forEach(([k, z], j) => {
       if (j < 5 && z.n / tot >= 0.03) rows.push([k.replace('.', ',') + ' BB', z]);
-      else { other.n += z.n; other.rn += z.rn; other.sum += z.sum; other.es += z.es; other.sn += z.sn; z.r.forEach((v, q) => { other.r[q] += v; }); }
+      else { other.n += z.n; other.rn += z.rn; other.sum += z.sum; other.es += z.es; other.sn += z.sn; z.r.forEach((v, q) => { other.r[q] += v; }); for (let q = 0; q < 169; q++) { other.hx[q] += z.hx[q]; other.vmx[q].n += z.vmx[q].n; other.vmx[q].sum += z.vmx[q].sum; other.vmx[q].es += z.vmx[q].es; } other.ids.push(...z.ids); }
     });
     rows.sort((a, b) => parseFloat(a[0].replace(',', '.')) - parseFloat(b[0].replace(',', '.')));
     if (other.n) rows.push(['другие', other]);
@@ -685,6 +690,8 @@ function isoSizing(d) {
         wrNode('sz5-v', bb, z.sn ? z.es / 10 / z.sn : null, 2),
         el('small', null, cnt(z.n, 'раз')), tk);
       if (z.n < 30) r.classList.add('low');
+      // окно первого типа: «Диапазон» — все ваши ответы в лимп-банке, подсвечен изолейт этим размером; «Факт / EV» и список — только эти изолейты
+      hoverRange(r, 'Изолейт ' + lab + (ISO_SZ === 'all' ? '' : ISO_SZ === '0' ? ' · vs 1 лимпер' : ' · vs 2+'), { n: rangeN(RN), rmx: RN.map((m, q) => ({ n: m.n, x: z.hx[q], ai: 0, lp: m.lp, sum: m.sum, es: m.es })), vmx: z.vmx, rids: z.ids, labels: ['изолейт ' + lab, '', 'лимп / чек', 'фолд или другой размер'], capAll: 'только изолейты ' + lab, foldPaint: true });
       t.append(r);
     });
     body.append(t);
@@ -812,7 +819,7 @@ function renderRFISummary(idx, r) {
   // раскладка по строкам: карточка слева, её инфографика справа
   const byTag = {}; [...cards.children].forEach(n => { byTag[n.querySelector('.num-tag').textContent] = n; });
   byTag['#3+'] = renderStealPanel(idxF, ot); byTag['#4+'] = shovePanel;
-  byTag['#5'] = isoCard(isoData(idxF)); byTag['#5+'] = isoPanel(isoData(idxF)); // 5 и 5+ — только стек (изолейт — не открытие, тип открытия к нему не относится)
+  byTag['#5'] = isoCard(isoData(idxF)); byTag['#5+'] = isoPanel(isoData(idxF, undefined, { noBvb: true })); // 5 и 5+ — только стек (изолейт — не открытие, тип открытия к нему не относится)
   const row = (l, r) => { const d = el('div', 'sum-pair'); d.append(byTag[l], byTag[r]); return d; };
   // строка #3: карточка #3 и окна 3.4–3.8 одного размера в общей сетке
   const stealRow = el('div', 'steal-row'); stealRow.append(byTag['#3']);

@@ -51,6 +51,8 @@ function tbTable(r) {
     el('span', 's tb-sub', 'После вашего 3-бета — колонки тоже ваша позиция, открыть мог любой игрок перед вами'), w2);
   return card;
 }
+// окно первого типа для 3-бета: R — весь ответ на открытие по рукам, h — сами 3-беты (итог и список, под тип из шапки)
+const tbSz = (R, h, ty) => ({ n: rangeN(R), rmx: R, vmx: h.mx, rids: h.ids, labels: ['3-бет', 'олл-ин', 'колл', 'фолд'], capAll: 'только 3-беты' + (ty === 'ai' ? ' олл-ином' : ty === 'nai' ? ' не олл-ином' : ''), foldPaint: true });
 // #5 — позиция против позиции: все 3-беты / без олл-инов / олл-ин
 function tbVsBlock(r, ty) {
   const card = el('div', 'insight cc-table');
@@ -58,7 +60,7 @@ function tbVsBlock(r, ty) {
   const opCols = ['EP', 'MP', 'HJ', 'CO', 'BTN', 'SB'].filter(op => heroPos.some(p => r.vs[p] && r.vs[p][op] && r.vs[p][op].n >= SMALL));
   const body = el('div');
   card.append(numTag(5), el('span', 'k', '3-бет: позиция против позиции'), el('span', 's', 'строки — ваша позиция, колонки — позиция открывающего; тип 3-бета — фильтром раздела'), body,
-    infoNote('В ячейке — доля 3-бетов от раздач, где перед вами было одно открытие (тип 3-бета — фильтром раздела). Пустые ячейки (--) — ситуация невозможна: открывающий ходит раньше вас. Наведите на ячейку — покажется матрица рук, которыми вы 3-бетили, и их итог; клик закрепит окно, клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше ' + cnt(SMALL, 'раздач', 'gen') + '.'));
+    infoNote('В ячейке — доля 3-бетов от раздач, где перед вами было одно открытие (тип 3-бета — фильтром раздела). Пустые ячейки (--) — ситуация невозможна: открывающий ходит раньше вас. Наведите на ячейку — диапазон: как вы ответили каждой рукой на открытие с этой позиции (3-бет, олл-ин, колл, фолд); клик закрепит окно с вкладками «Диапазон / Факт / EV» — итог 3-бетов по рукам, клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше ' + cnt(SMALL, 'раздач', 'gen') + '.'));
   function draw() {
     const rows = heroPos.map(p => { const d = {}; opCols.forEach(op => { const z = r.vs[p] && r.vs[p][op]; if (z) d[op] = z; }); return { key: p, label: p, data: d }; });
     const tbl = heatTable({ cols: opCols, rows, noTot: true });
@@ -69,7 +71,8 @@ function tbVsBlock(r, ty) {
       const h = z && z[hp];
       if (!h || !h.n) return;
       const it = { p, anyPos: true, key: 'tbvs' + p + op + (ty || 'all'), title: 'Ваш 3-бет с ' + p + ' против ' + op, o: { n: h.n, sum: h.sum, es: h.es }, mx: h.mx, ids: h.ids, sit: 2, vlab: ' BB за 3-бет', nlab: ' 3-бетов' };
-      hoverHands(td, it, h.sum / 10 / h.n);
+      const R = r.rxVs && r.rxVs[p] && r.rxVs[p][op];
+      if (R) hoverRange(td, it.title, tbSz(R, h, ty)); else hoverHands(td, it, h.sum / 10 / h.n);
     });
     body.replaceChildren(tbl);
   }
@@ -278,7 +281,7 @@ function renderTB(idx) {
   const resp = (p, z) => { if (!flt) { const a = r.t3r[p]; return [a[0], a[1], a[2] + a[3]]; } const a = [0, 0, 0]; z.ids.forEach(i => { const v = cc.t3r ? cc.t3r[i] : -1; if (v >= 0) a[Math.min(2, v & 3)]++; }); return a; };
   const H2 = {}; ['TOT'].concat(TB_POS).forEach(p => { H2[p] = sub2(r.hands[p]); });
   const pos = TB_POS.filter(p => H2[p].n >= (flt ? 1 : SMALL));
-  const items = pos.map(p => { const z = H2[p], it = tbItem(r, p); Object.assign(it, { o: { n: z.n, sum: z.sum, es: z.es }, mx: z.mx, ids: z.ids, key: 'tb ' + p + (rng ? ' ' + rng.join('-') : '') + ty2 }); it.r = resp(p, z); return it; });
+  const items = pos.map(p => { const z = H2[p], it = tbItem(r, p); Object.assign(it, { o: { n: z.n, sum: z.sum, es: z.es }, mx: z.mx, ids: z.ids, key: 'tb ' + p + (rng ? ' ' + rng.join('-') : '') + ty2 }); it.r = resp(p, z); if (r.rx && r.rx[p]) { it.sz = tbSz(r.rx[p], z, flt ? ty2 : null); it.szTitle = 'Ответ на открытие с ' + p; } return it; });
   LAST_NET_ITEMS = items;
   const t = H2.TOT, avg = t.n ? t.sum / 10 / t.n : null, avgE = t.n ? t.es / 10 / t.n : null;
   const chartBox = el('div'); chartBox.append(secLabel('3bet', t.n, '3-бетов'), netChart(items, avg, 'EV 3-бета'));
