@@ -39,7 +39,7 @@ function fineOf(rec, k) {
 }
 
 function tbetOf(rec, s) {
-  const out = { fp: fineOf(rec, s), fop: -1, t3r: -1, t4: -1, v3: -1, v3a: -1, v3o: -1, v3c: -1, v3e: -1, v3p: -1, c3: -1, c3a: -1, c3e: -1, c3p: -1, v3q: -1, c3q: -1, v3s: -1 };
+  const out = { fp: fineOf(rec, s), fop: -1, t3r: -1, t4: -1, v3: -1, v3a: -1, v3o: -1, v3c: -1, v3e: -1, v3p: -1, c3: -1, c3a: -1, c3e: -1, c3p: -1, v3q: -1, c3q: -1, v3s: -1, v3k: -1, v3x: -1, v3z: -1, v3f: -1 };
   const p = rec.ev.filter(e => e[0] === 0 && ACT.has(e[2]));
   const hi = p.findIndex(e => e[1] === s); if (hi < 0) return out;
   const before = p.slice(0, hi), rz = before.filter(e => e[2] === 'r' || e[2] === 'b');
@@ -93,6 +93,10 @@ function tbetOf(rec, s) {
       }
       out.v3c = seg.some(e => e[1] !== s && e[2] !== 'f') ? 1 : 0;
       out.v3e = entry;
+      // v3k (0.7.55) — сколько разных соперников вступили (кол или рейз) между 3-бетом и ходом игрока; v3x — первый рейз поверх 3-бета
+      // был олл-ином (пуш или ставка на весь стек вступившего): 1 / 0, -1 — рейза поверх не было
+      out.v3k = new Set(seg.filter(e => e[1] !== s && e[2] !== 'f').map(e => e[1])).size;
+      { const ov = seg.find(e => e[1] !== s && (e[2] === 'r' || e[2] === 'b') && e[3] > three[3] + 0.001); if (ov) { const st = rec.pl[ov[1]] ? rec.pl[ov[1]][1] : 0; out.v3x = ov[4] || (st > 0 && ov[3] >= st - 0.001) ? 1 : 0; } }
       // v3p: позиция игрока относительно 3-бетящего постфлоп (позже по ходу — в позиции): порядок от блайндов к баттону.
       // В хедз-апе метки BTN в записи нет — баттоном является SB (он и действует последним постфлоп)
       const N = rec.pl.length;
@@ -103,6 +107,10 @@ function tbetOf(rec, s) {
         out.v3p = o(s) > o(three[1]) ? 1 : 0;
       }
       if (nx) out.v3 = nx[2] === 'f' ? 0 : nx[2] === 'c' ? 1 : nx[4] ? 3 : 2;
+      // v3z (0.7.55) — размер 3-бета «до», BB×100 (в разах от открытия — v3z / size); v3f — ваш ход против 5-бета после вашего 4-бета:
+      // 0 фолд, 1 колл, 2 рейз; -1 — 5-бета не было (или вы не 4-бетили)
+      out.v3z = Math.round(three[3] * 100);
+      if (nx && (nx[2] === 'r' || nx[2] === 'b')) { const a5 = afterR3.slice(afterR3.indexOf(nx) + 1), r5 = a5.find(e => e[1] !== s && (e[2] === 'r' || e[2] === 'b') && e[3] > nx[3] + 0.001); if (r5) { const h5 = a5.slice(a5.indexOf(r5) + 1).find(e => e[1] === s); if (h5) out.v3f = h5[2] === 'f' ? 0 : h5[2] === 'c' ? 1 : 2; } }
       out.v3q = fineOf(rec, three[1]); // fine-позиция 3-бетящего (первого агрессора)
       out.v3s = rec.pl[three[1]] ? Math.round(rec.pl[three[1]][1] * 10) : -1; // стек 3-бетящего, BB×10
     }

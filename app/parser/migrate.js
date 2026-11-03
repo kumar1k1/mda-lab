@@ -79,6 +79,12 @@ const MIGRATIONS = [
   // 0.7.54: починка v3c/v3a — базы, мигрировавшие одной пачкой с 0.7.33 до 0.7.50+: v3c2/v3a2 пересчитывали строки
   // по значениям, снятым до работы v3c/v3a того же запуска, и затирали колонки в -1 (фильтр «олл-ин» пуст, чистых спотов 0).
   // Досчёт: где значения нет — пересчитать из записей реплеера; у здоровых баз ничего не меняет
+  // 0.7.55: v3k — сколько соперников вступили между 3-бетом и вашим ходом, v3x — рейз поверх 3-бета олл-ином (карточка 3 «Против 3-бета»)
+  { id: 'v3k', col: ['v3k', 'i8'], uses: ['sit', 'act'], need: (C, i) => C.sit[i] === 0 && C.act[i] >= 2 && C.v3k[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).v3k },
+  { id: 'v3x', col: ['v3x', 'i8'], uses: ['sit', 'act'], need: (C, i) => C.sit[i] === 0 && C.act[i] >= 2 && C.v3x[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).v3x },
+  // 0.7.55: v3z — размер 3-бета (BB×100), v3f — ваш ответ на 5-бет после вашего 4-бета (карточка «Против размера 3-бета»)
+  { id: 'v3z', col: ['v3z', 'i32'], uses: ['sit', 'act'], need: (C, i) => C.sit[i] === 0 && C.act[i] >= 2 && C.v3z[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).v3z },
+  { id: 'v3f', col: ['v3f', 'i8'], uses: ['sit', 'act'], need: (C, i) => C.sit[i] === 0 && C.act[i] >= 2 && C.v3f[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).v3f },
   { id: 'v3c3', col: ['v3c', 'i8'], uses: ['sit', 'act'], need: (C, i) => C.sit[i] === 0 && C.act[i] >= 2 && C.v3c[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).v3c },
   { id: 'v3a3', col: ['v3a', 'i8'], uses: ['sit', 'act'], need: (C, i) => C.sit[i] === 0 && C.act[i] >= 2 && C.v3a[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).v3a }
 ];
@@ -100,7 +106,7 @@ function readCol(dir, name, type, n) {
   if (a.length === n) return a; const b = new TY[type](n); b.set(a.subarray(0, Math.min(n, a.length))); return b;
 }
 function writeCol(dir, name, a) { require('./table.js').writeCol(dir, name, a); }
-const TYPES_OF = { rz: 'i8', act: 'i8', pos: 'i8', fcb: 'i8', ant: 'i16', cbs: 'i16', fp: 'i8', fop: 'i8', t3r: 'i8', t4: 'i8', sit: 'i8', v3: 'i8', v3a: 'i8', v3o: 'i8', v3c: 'i8', v3e: 'i8', v3p: 'i8', c3: 'i8', c3a: 'i8', c3e: 'i8', c3p: 'i8', v3q: 'i8', c3q: 'i8', v3s: 'i32' };
+const TYPES_OF = { rz: 'i8', act: 'i8', pos: 'i8', fcb: 'i8', ant: 'i16', cbs: 'i16', fp: 'i8', fop: 'i8', t3r: 'i8', t4: 'i8', sit: 'i8', v3: 'i8', v3a: 'i8', v3o: 'i8', v3c: 'i8', v3e: 'i8', v3p: 'i8', c3: 'i8', c3a: 'i8', c3e: 'i8', c3p: 'i8', v3q: 'i8', c3q: 'i8', v3s: 'i32', v3k: 'i8', v3x: 'i8', v3z: 'i32', v3f: 'i8' };
 
 async function doMigrate(dir, post) {
   const r1 = doRowMigrations(dir, post);

@@ -322,7 +322,7 @@ function playerRec(c, heroName, opp) {
   const dealt = opp ? null : lines.find(l => l.startsWith('Dealt to ' + heroName + ' ['));
   rec.hc = dealt ? handClass(dealt.slice(dealt.indexOf('['))) : opp ? shownOf(c, heroName) : -1;
   rec.net = Math.round(netOf(c, heroName) / bb * 1000) / 100; // ×10 BB, без округления до 0.1 BB (округление давало сдвиг около +1 bb/100)
-  rec.hpa = 0; rec.sto = -1; rec.f3b = -1; rec.orsp = -1; rec.rz = 0; rec.cl = 0; rec.lr = 0; rec.rai = 0; rec.opos = -1; rec.ostk = -1; rec.osz = -1; rec.v3 = -1; rec.v3a = -1; rec.v3o = -1; rec.v3c = -1; rec.v3e = -1; rec.v3p = -1; rec.c3 = -1; rec.c3a = -1; rec.c3e = -1; rec.c3p = -1; rec.v3q = -1; rec.c3q = -1; rec.v3s = -1;
+  rec.hpa = 0; rec.sto = -1; rec.f3b = -1; rec.orsp = -1; rec.rz = 0; rec.cl = 0; rec.lr = 0; rec.rai = 0; rec.opos = -1; rec.ostk = -1; rec.osz = -1; rec.v3 = -1; rec.v3a = -1; rec.v3o = -1; rec.v3c = -1; rec.v3e = -1; rec.v3p = -1; rec.v3k = -1; rec.v3x = -1; rec.v3z = -1; rec.v3f = -1; rec.c3 = -1; rec.c3a = -1; rec.c3e = -1; rec.c3p = -1; rec.v3q = -1; rec.c3q = -1; rec.v3s = -1;
   // самый короткий стек среди блайндов (кроме героя), BB×10 — для стила против коротких/глубоких блайндов
   const bl = [sbSeat, bbSeat].filter(sn => sn != null && sn !== heroSeat && seats[sn]).map(sn => seats[sn].stack);
   rec.bmin = bl.length ? Math.round(Math.min(...bl) / bb * 10) : -1;
@@ -339,7 +339,7 @@ function playerRec(c, heroName, opp) {
   // 3-бет (с 0.7.23): позиции «как в Hand2Note», ответ на 3-бет и на 4-бет — общий расчёт с обновлением базы (tbet.js)
   { if (!c.mini) { const ix = {}; c.seatNums.forEach((sn, k) => { ix[seats[sn].name] = k; }); const A = { folds: 'f', checks: 'x', calls: 'c', bets: 'b', raises: 'r' };
       c.mini = { ix, pl: c.seatNums.map(sn => [pos[sn] || '?', seats[sn].stack / bb]), ev: acts.filter(x => x.name in ix).map(x => [0, ix[x.name], A[x.a], x.amt / bb, x.allin ? 1 : 0]) }; }
-    const t = TB.tbetOf(c.mini, c.mini.ix[heroName]); rec.fp = t.fp; rec.fop = t.fop; rec.t3r = t.t3r; rec.t4 = t.t4; rec.v3 = t.v3; rec.v3a = t.v3a; rec.v3o = t.v3o; rec.v3c = t.v3c; rec.v3e = t.v3e; rec.v3p = t.v3p; rec.c3 = t.c3; rec.c3a = t.c3a; rec.c3e = t.c3e; rec.c3p = t.c3p; rec.v3q = t.v3q; rec.c3q = t.c3q; rec.v3s = t.v3s; }
+    const t = TB.tbetOf(c.mini, c.mini.ix[heroName]); rec.fp = t.fp; rec.fop = t.fop; rec.t3r = t.t3r; rec.t4 = t.t4; rec.v3 = t.v3; rec.v3a = t.v3a; rec.v3o = t.v3o; rec.v3c = t.v3c; rec.v3e = t.v3e; rec.v3p = t.v3p; rec.c3 = t.c3; rec.c3a = t.c3a; rec.c3e = t.c3e; rec.c3p = t.c3p; rec.v3q = t.v3q; rec.c3q = t.c3q; rec.v3s = t.v3s; rec.v3k = t.v3k; rec.v3x = t.v3x; rec.v3z = t.v3z; rec.v3f = t.v3f; }
   rec.hpa = acts.filter(x => x.name === heroName).length; // сколько раз герой ходил префлоп («C» в Hand2Note — ровно один ход-колл)
   if (hi < 0) return rec; // герой не действовал префлоп (все сбросили до BB)
   const before = acts.slice(0, hi);

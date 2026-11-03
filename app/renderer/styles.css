@@ -1947,3 +1947,37 @@ body.noscroll #content{overflow:hidden}
 
 .sec-f .sq-sub{padding:0 8px;font-size:11px;font-weight:700;letter-spacing:.02em;border:1px solid var(--line2);border-radius:6px;color:var(--muted);margin-left:4px}
 .sec-f .sq-sub.on{border-color:var(--accent,var(--ice));color:var(--ice)}
+
+/* «Против 3-бета» #12–#14 (0.7.55) */
+.ht.v3-grp td.c{vertical-align:top;padding:6px 8px;text-align:left;position:relative}
+.ht.v3-grp td.c b{display:block;font-family:var(--mono);font-size:13px}
+.ht.v3-grp td.c .wr{font-family:var(--mono);font-size:11px}
+.ht.v3-grp td.c .n{position:absolute;top:6px;right:8px;font-size:10px;color:var(--faint);font-family:var(--mono)}
+.ht.v3-grp th{text-align:left;font-weight:600;white-space:nowrap}
+.v3-leaks{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-top:6px}
+.v3-leak{display:flex;flex-direction:column;gap:4px}
+.v3-leak-r{display:grid;grid-template-columns:52px 1fr auto;align-items:center;gap:8px;text-align:left;padding:6px 10px;border-radius:8px;background:var(--bg);border:1px solid var(--line);color:var(--text);font:inherit;cursor:pointer}
+.v3-leak-r:hover{border-color:var(--amber)}
+.v3-leak-r b{font-family:var(--mono);font-size:13px}
+.v3-leak-r span{font-size:12px;color:var(--soft)}
+.v3-leak-r .wr{font-family:var(--mono);font-size:12px}
+.v3-months{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.v3-months > div{display:flex;flex-direction:column;align-items:center;gap:1px;min-width:62px;padding:5px 6px;border-radius:8px;background:var(--bg);border:1px solid var(--line);font-family:var(--mono);font-size:11px}
+.v3-months small{font-size:10px;color:var(--faint)}
+
+/* «Против 3-бета» #3 и #16 */
+.v3-peract{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:baseline;margin-top:6px;font-size:12px}
+.v3-peract .wr{font-family:var(--mono)}
+.v3-peract small{color:var(--faint)}
+.ht.v3-sz th.grp{text-align:center;font-weight:700;letter-spacing:.02em}
+.ht.v3-sz td.c{position:relative;min-width:58px;text-align:center}
+.ht.v3-sz td.c b{font-family:var(--mono);font-size:13px}
+.ht.v3-sz td.c .n{position:absolute;right:5px;bottom:3px;font-size:9.5px;color:rgba(21,18,12,.6);font-family:var(--mono)}
+.ht.v3-sz tr.v3-f5 th{color:var(--amber)}
+.ht.v3-sz{width:auto;margin-top:6px}
+.ht.v3-sz tbody th,.ht.v3-sz thead tr:last-child th:first-child{text-align:left;padding-right:18px;white-space:nowrap}
+.v3-chart{max-width:560px}
+.v3-chart svg{width:100%;height:auto}
+.ht.v3-grp{width:auto}
+.insight .ht.v3-sz,.insight .ht.v3-grp{width:auto}
+.insight > .ht.v3-sz,.insight > .ht.v3-grp{align-self:flex-start}

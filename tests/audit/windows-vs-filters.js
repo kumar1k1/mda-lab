@@ -51,20 +51,22 @@ const V3 = [{ name: 'v3B: сквиз, только коллер', v: { B: 'sq', 
       const bad = {}; let nW = 0, nH = 0; const cards = new Set();
       for (const w of window.__cap) {
         nW++; cards.add(w.card);
-        const stkOn = sr && (STK[tab] ? STK[tab].includes(w.card) : !(NOSTK[tab] || []).includes(w.card));
-        const tyOn = ty !== 'all' && TYC[tab] && TYC[tab].includes(w.card);
+        // какие фильтры раздела действуют на карточку — из единой таблицы программы (CARD_FILTERS в sec-filters.js)
+        const L = (CARD_FILTERS[tab] || {})[w.card] || '';
+        const stkOn = sr && L.includes('S');
+        const tyOn = ty !== 'all' && L.includes('T');
         for (const i of w.ids) {
           nH++; const why = [];
           if (!idx.has(i)) why.push('шапка');
           if (stkOn && !(c.bb[i] >= sr[0] * 10 && c.bb[i] < sr[1] * 10)) why.push('стек раздела');
           if (!sit(i, w.card)) why.push('ситуация вкладки');
-          if (tyOn && c.act[i] >= 2) { const ai = tab === '3bet' ? aI3(i) : c.act[i] === 3; if ((ty === 'ai') !== ai) why.push('тип'); }
-          if (tab === 'vs3bet' && w.card !== '#4') {
-            if (ty !== 'all' && RA(i) !== (ty === 'ai' ? 1 : 0)) why.push('тип 3-бета соперника');
-            if (f.P !== 'all' && RP(i) !== (f.P === 'ip' ? 1 : 0)) why.push('наша позиция');
-            if (f.A && f.A.length && w.card !== '#1' && !f.A.some(a => RV(i) === AV[a])) why.push('наше действие');
-            if (f.B === 'hu' && !(!isC(i) && c.v3o[i] === 0 && c.v3e[i] === 0)) why.push('банк 1vs1');
-            if ((f.B === 'all' || !f.B) && isC(i)) why.push('банк «все» с asC');
+          if (tyOn && tab !== 'vs3bet' && c.act[i] >= 2) { const ai = tab === '3bet' ? aI3(i) : c.act[i] === 3; if ((ty === 'ai') !== ai) why.push('тип'); }
+          if (tab === 'vs3bet') {
+            if (L.includes('T') && ty !== 'all' && RA(i) !== (ty === 'ai' ? 1 : 0)) why.push('тип 3-бета соперника');
+            if (L.includes('P') && f.P !== 'all' && RP(i) !== (f.P === 'ip' ? 1 : 0)) why.push('наша позиция');
+            if (L.includes('A') && f.A && f.A.length && !f.A.some(a => RV(i) === AV[a])) why.push('наше действие');
+            if (L.includes('B') && f.B === 'hu' && !(!isC(i) && c.v3o[i] === 0 && c.v3e[i] === 0)) why.push('банк 1vs1');
+            if (L.includes('B') && (f.B === 'all' || !f.B) && isC(i)) why.push('банк «все» с asC');
           }
           for (const y of why) { const k = w.card + ' «' + String(w.title).slice(0, 60) + '» — ' + y; bad[k] = (bad[k] || 0) + 1; }
         }
