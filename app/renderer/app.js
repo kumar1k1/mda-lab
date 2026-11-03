@@ -2295,8 +2295,9 @@ function renderTB(idx) {
   if (T57.flt) {
     const pick = T57.ty === 'ai' ? 'ai' : 'nai';
     r57.vs = Object.fromEntries(Object.entries(r.vs).map(([p, row]) => [p, Object.fromEntries(Object.entries(row).map(([op, z]) => [op, Object.assign({}, z, { x: z[pick] })]))]));
+    // колонка «Олл-ин» — только при типе «Олл-ин»; у #7 колонки 3-бет и олл-ин не пересекаются (при «Олл-ин» 3-бет не олл-ином — 0, раньше дублировал олл-ин)
     // sub — вычитать ли олл-ины из числителя: у #7.1 x считает оба типа (вычитаем), у #7 rz — уже только не олл-ины (лишний вычет занижал долю вплоть до 0)
-    const typed = (z, num, sub) => !z ? z : Object.assign({}, z, { [num]: pick === 'ai' ? z.ai : (sub ? z[num] - z.ai : z[num]), sum: pick === 'ai' ? z.sI : z.sN, es: pick === 'ai' ? z.eI : z.eN, sn: pick === 'ai' ? z.nI : z.nN, ids: (pick === 'ai' ? z.iI : z.iN) || [], vmx: pick === 'ai' ? z.vmxI : z.vmxN });
+    const typed = (z, num, sub) => !z ? z : Object.assign({}, z, { [num]: sub ? (pick === 'ai' ? z.ai : z[num] - z.ai) : (pick === 'ai' ? 0 : z[num]), ai: pick === 'ai' ? z.ai : 0, sum: pick === 'ai' ? z.sI : z.sN, es: pick === 'ai' ? z.eI : z.eN, sn: pick === 'ai' ? z.nI : z.nN, ids: (pick === 'ai' ? z.iI : z.iN) || [], vmx: pick === 'ai' ? z.vmxI : z.vmxN });
     r57.sz = Object.fromEntries(Object.entries(r.sz).map(([p, arr]) => [p, arr.map(z => typed(z, 'rz', false))]));
     r57.ostk = Object.fromEntries(Object.entries(r.ostk).map(([p, arr]) => [p, arr.map(z => typed(z, 'x', true))]));
   }

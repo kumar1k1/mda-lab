@@ -318,7 +318,7 @@
           if (r3 && c.hc[i] >= 0) { const vs = aI ? (q.vmxI || (q.vmxI = Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })))) : (q.vmxN || (q.vmxN = Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })))); const v2 = vs[c.hc[i]]; v2.n++; v2.sum += v0; v2.es += e0; if (!q.vmx) q.vmx = Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })); const v1 = q.vmx[c.hc[i]]; v1.n++; v1.sum += v0; v1.es += e0; }
         }
         // #9.1 окно «Диапазон» (как #7): возможности и ответы по группам позиций — по рукам (все ответы, включая фолды и коллы); в бакет размера — сами 3-беты
-        if (c.hc[i] >= 0) {
+        if (k === 'TOT' && c.hc[i] >= 0) { // один раз на раздачу (цикл идёт по TOT и позиции — иначе раздача попадала в окно дважды)
           const gs2 = ['TOT'].concat(p === 'CO' || p === 'BTN' ? ['IP'] : p === 'SB' ? ['SB'] : p === 'BB' && !bvb ? ['BB'] : []);
           const xr2 = aI ? 8 : c.osz[i] > 0 ? xIdx(c.size[i] / c.osz[i]) : -1;
           gs2.forEach(g2 => { const R = out.xgR[g2], m = R.rmx[c.hc[i]]; m.n++; m.sum += v0; m.es += e0; R.rids.push(i); if (a === 1) m.lp++; else if (r3 && xr2 >= 0) { m.x++; if (aI) m.ai++; const B = out.xg[g2][xr2]; if (!B.rmx) B.rmx = Array.from({ length: 169 }, () => ({ n: 0, x: 0, ai: 0, sum: 0, es: 0 })); const b2 = B.rmx[c.hc[i]]; b2.n++; b2.x++; if (aI) b2.ai++; b2.sum += v0; b2.es += e0; } });

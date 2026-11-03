@@ -2628,7 +2628,7 @@ body{padding-left:max(0px, env(safe-area-inset-left, 0px));padding-right:max(0px
           if (r3 && c.hc[i] >= 0) { const vs = aI ? (q.vmxI || (q.vmxI = Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })))) : (q.vmxN || (q.vmxN = Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })))); const v2 = vs[c.hc[i]]; v2.n++; v2.sum += v0; v2.es += e0; if (!q.vmx) q.vmx = Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })); const v1 = q.vmx[c.hc[i]]; v1.n++; v1.sum += v0; v1.es += e0; }
         }
         // #9.1 окно «Диапазон» (как #7): возможности и ответы по группам позиций — по рукам (все ответы, включая фолды и коллы); в бакет размера — сами 3-беты
-        if (c.hc[i] >= 0) {
+        if (k === 'TOT' && c.hc[i] >= 0) { // один раз на раздачу (цикл идёт по TOT и позиции — иначе раздача попадала в окно дважды)
           const gs2 = ['TOT'].concat(p === 'CO' || p === 'BTN' ? ['IP'] : p === 'SB' ? ['SB'] : p === 'BB' && !bvb ? ['BB'] : []);
           const xr2 = aI ? 8 : c.osz[i] > 0 ? xIdx(c.size[i] / c.osz[i]) : -1;
           gs2.forEach(g2 => { const R = out.xgR[g2], m = R.rmx[c.hc[i]]; m.n++; m.sum += v0; m.es += e0; R.rids.push(i); if (a === 1) m.lp++; else if (r3 && xr2 >= 0) { m.x++; if (aI) m.ai++; const B = out.xg[g2][xr2]; if (!B.rmx) B.rmx = Array.from({ length: 169 }, () => ({ n: 0, x: 0, ai: 0, sum: 0, es: 0 })); const b2 = B.rmx[c.hc[i]]; b2.n++; b2.x++; if (aI) b2.ai++; b2.sum += v0; b2.es += e0; } });
@@ -2673,7 +2673,7 @@ body{padding-left:max(0px, env(safe-area-inset-left, 0px));padding-right:max(0px
   // «Против 3-бета» (v3B), два семейства: asR — своё открытие (sit 0) и 3-бет соперника (v3*, как в Hand2Note RF,RC,RR+);
   // asC (0.7.47) — заколлировали чужое открытие, за спиной сквиз (c3*). Значения унифицированы: resp — ваш ход против рейза
   // (v3/c3), entry — вступили за спиной до вашего хода (v3e/c3e). d — все строки idx (карточки 1–2),
-  // e1/e2 — «за спиной вступили» (карточка 3), cl — «чистые» asR-споты (будущая карточка).
+  // e1/e2 — «за спиной вступили» (карточка 3), cl — «чистые» asR-споты 1vs1 (карточка 5).
   // «наше действие», тип, банк и позиция из фильтров раздела отбирают раздачи до расчёта (в app.js)
   function v3b(db, idx, opt) {
     opt = opt || {};
@@ -2696,7 +2696,9 @@ body{padding-left:max(0px, env(safe-area-inset-left, 0px));padding-right:max(0px
       const keys = R.V3B_POS.includes(p) ? ['TOT', p] : ['TOT'];
       const v = isC ? c.c3[i] : c.v3[i], v0 = c.net ? c.net[i] : 0, e0 = c.net ? EV[i] : 0;
       const entry = isC ? c.c3e[i] : c.v3e[i];
-      const isClean = !isC && clean ? c.v3c[i] === 0 && c.v3o[i] === 0 : false; // asR «3b пот 1vs1»
+      // «чистый» asR-спот «3b пот 1vs1»: открытие без коллов (v3o=0) и до вашего хода никто не вступал —
+      // как фильтр банка 'hu' в app.js: v3e, а в старых базах v3c (миграция 0.7.42 делала их равными)
+      const isClean = !isC && clean ? c.v3o[i] === 0 && (fine6 ? c.v3e[i] === 0 : c.v3c[i] === 0) : false;
       // карточка #3: за спиной вступили до вашего хода: e1 — только колы, e2 — был рейз поверх
       const e1 = entry === 1 && (isC || c.v3o[i] === 0);
       const e2 = entry === 2 && (isC || c.v3o[i] === 0);
@@ -5114,8 +5116,9 @@ function renderTB(idx) {
   if (T57.flt) {
     const pick = T57.ty === 'ai' ? 'ai' : 'nai';
     r57.vs = Object.fromEntries(Object.entries(r.vs).map(([p, row]) => [p, Object.fromEntries(Object.entries(row).map(([op, z]) => [op, Object.assign({}, z, { x: z[pick] })]))]));
+    // колонка «Олл-ин» — только при типе «Олл-ин»; у #7 колонки 3-бет и олл-ин не пересекаются (при «Олл-ин» 3-бет не олл-ином — 0, раньше дублировал олл-ин)
     // sub — вычитать ли олл-ины из числителя: у #7.1 x считает оба типа (вычитаем), у #7 rz — уже только не олл-ины (лишний вычет занижал долю вплоть до 0)
-    const typed = (z, num, sub) => !z ? z : Object.assign({}, z, { [num]: pick === 'ai' ? z.ai : (sub ? z[num] - z.ai : z[num]), sum: pick === 'ai' ? z.sI : z.sN, es: pick === 'ai' ? z.eI : z.eN, sn: pick === 'ai' ? z.nI : z.nN, ids: (pick === 'ai' ? z.iI : z.iN) || [], vmx: pick === 'ai' ? z.vmxI : z.vmxN });
+    const typed = (z, num, sub) => !z ? z : Object.assign({}, z, { [num]: sub ? (pick === 'ai' ? z.ai : z[num] - z.ai) : (pick === 'ai' ? 0 : z[num]), ai: pick === 'ai' ? z.ai : 0, sum: pick === 'ai' ? z.sI : z.sN, es: pick === 'ai' ? z.eI : z.eN, sn: pick === 'ai' ? z.nI : z.nN, ids: (pick === 'ai' ? z.iI : z.iN) || [], vmx: pick === 'ai' ? z.vmxI : z.vmxN });
     r57.sz = Object.fromEntries(Object.entries(r.sz).map(([p, arr]) => [p, arr.map(z => typed(z, 'rz', false))]));
     r57.ostk = Object.fromEntries(Object.entries(r.ostk).map(([p, arr]) => [p, arr.map(z => typed(z, 'x', true))]));
   }
@@ -5154,7 +5157,8 @@ function renderTB(idx) {
 // ---------- Против 3-бета: своё открытие и 3-бет соперника ----------
 // Фильтры раздела: тип 3-бета соперника, наше действие на него и ваш стек — все отбирают раздачи целиком.
 // Карточки 1–2 — все споты, как в Hand2Note (RF,RC,RR+): чужие коллы открытия и 3-бета не важны;
-// карточка 3 — раздачи, где 3-бет кто-то заколлил за спиной («чистые» споты без чужих коллов — отдельная карточка потом).
+// карточка 3 — раздачи, где 3-бет кто-то заколлил за спиной; карточка 5 — те же частоты и результат
+// только на «чистых» спотах 1vs1 (открытие без коллов, до вашего хода никто не вступал).
 function renderV3B(idx) {
   const sr = secRange('vs3bet'), f = secF('vs3bet'), cb = DB.cols;
   let idxS = sr ? idx.filter(i => cb.bb[i] >= sr[0] * 10 && cb.bb[i] < sr[1] * 10) : idx;
@@ -5279,7 +5283,19 @@ function renderV3B(idx) {
     body.append(side);
     c4.append(h, body);
   }
-  const zone = el('div', 'summary'); const pair = el('div', 'sum-pair'); pair.append(c1, c2); zone.append(pair, c4, c3);
+  // #5 — «чистые» споты 1vs1: открытие никто не коллировал (v3o=0) и до вашего хода после 3-бета никто не вступал
+  // (v3c=0) — те же числа, что карточки 1–2 под фильтром «3b пот 1vs1», всегда рядом с ними, фильтр переключать не нужно.
+  // Фильтры раздела — как у карточек 1–2: частоты без «нашего действия» (rA), результат — с ним (r)
+  const cla = rA.cl.TOT, cl = r.cl.TOT;
+  const c5body = cla.n ? fillBox(
+    posStrip('Фолд по позициям', rA.V3B_POS.filter(p => rA.cl[p].n >= SMALL).map(p => { const z = rA.cl[p]; return [p, z.fld / z.n, p + ': ' + z.fld + ' из ' + z.n]; })),
+    respTiles([cla.fld, cla.call, cla.r4], 'Ваш ответ на 3-бет', [['фолд', 'var(--good)'], ['колл', 'var(--ice)'], ['4-бет', 'var(--bad)']]),
+    el('div', 'v3e-res', wrHtml(cl.sn ? cl.sum / 10 / cl.sn : null, cl.sn ? cl.es / 10 / cl.sn : null, 2) + ' <small>BB за раздачу</small>'))
+    : el('p', 'muted small', 'В этой выборке нет чистых спотов 1vs1 — фильтр «тип трибет банка» отобрал другие банки.');
+  const c5 = card(5, 'Чистые споты: фолд на 3-бет', cla.n ? '<em>' + fmtPct(cla.fld / cla.n) + '%</em>' : '<span class="muted">—</span>',
+    cla.n ? 'из ' + cla.n.toLocaleString('ru-RU') + ' чистых спотов 1vs1' : 'нет чистых спотов', c5body);
+  c5.append(infoNote('Чистый спот: вы открылись, никто не коллировал открытие, получил 3-бет — и до вашего хода больше никто не вступал. Ровно вы и 3-бетящий. Карточки 1–2 считают такие споты вместе с остальными (как в Hand2Note), эта — только чистые, чтобы сравнить. Частоты — по всем ответам; строка результата — с фильтром «Наше действие», как в карточке 2. Фильтры раздела действуют; те же числа с окнами рук, списками раздач и реплеером даст фильтр «тип трибет банка → 3b пот 1vs1» на карточках 1–2.'));
+  const zone = el('div', 'summary'); const pair = el('div', 'sum-pair'); pair.append(c1, c2); zone.append(pair, c5, c4, c3);
   page.append(zone);
   return page;
 }
@@ -7007,6 +7023,7 @@ function resEl(net) {
     bg.addEventListener('click', (e) => { if (e.target === bg) closeReplayer(); });
 
     // ---------- эквити в олл-ине: с момента, когда торговля закончилась, и карты всех дошедших известны ----------
+    const FOLDED_END = fr.length ? fr[fr.length - 1].folded.slice() : []; // кто сбросил по ходу раздачи
     // карта считается известной только когда их две: игрок мог показать одну — для эквити это «неизвестно»
     const cardsOf = (j) => { const s = j === H0 ? rp.hc : rp.sh && rp.sh[j]; return s && String(s).trim().split(/\s+/).length === 2 ? s : null; };
     let aiFrom = -1;
@@ -7089,12 +7106,15 @@ function resEl(net) {
           else { if (j === H0) s.posT.append(heroLabel() + ' · '); posSpan(s.posT); s.stT.textContent = stk; }
         }
         const known = rp.sh && rp.sh[j];
-        const show = j === H0 ? rp.hc : known && (f.show || eq || !PREF.hide) ? known : null;
-        const key = f.folded[j] && j !== H0 ? 'x' : show || 'back';
+        // карты, которые игрок показал после своего фолда (в GG так можно показать и одну карту), — только в конце раздачи;
+        // до фолда он играет «рубашкой», после фолда карт нет, в итоге — показанные карты
+        const quit = FOLDED_END[j] && j !== H0;
+        const show = j === H0 ? rp.hc : known && !quit && (f.show || eq || !PREF.hide) ? known : null;
+        const key = f.folded[j] && j !== H0 ? (quit && known && final ? 'f:' + known : 'x') : show || 'back';
         if (key !== s.cardsKey) {
           s.cardsKey = key; s.cardsG.replaceChildren();
           // всегда два места: игрок мог показать только одну карту — вторая остаётся рубашкой вверх
-          if (key !== 'x') { const cs = show ? show.trim().split(/\s+/) : [], w = 44; for (let q = 0; q < 2; q++) card(s.cardsG, s.sx - (2 * (w + 4) - 4) / 2 + q * (w + 4), s.cardY, cs[q] || null, w); }
+          if (key !== 'x') { const src = key.startsWith('f:') ? known : show, cs = src ? String(src).trim().split(/\s+/) : [], w = 44; for (let q = 0; q < 2; q++) card(s.cardsG, s.sx - (2 * (w + 4) - 4) / 2 + q * (w + 4), s.cardY, cs[q] || null, w); }
         }
         // фишки перед игроком: ставка на этой улице, в конце — выигрыш
         const v = final ? f.won[j] : f.bets[j];
