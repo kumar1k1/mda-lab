@@ -80,11 +80,18 @@ function render4B(idx) {
       { key: 'f4', label: '4-бет', data: D(k => ({ x: G[k].r4 + G[k].ai, n: G[k].n })) },
       { key: 'rg', label: 'Диапазон 4-бета', tone: 'ice', own: true, data: D(k => ({ x: rangeW(G[k].R) * G[k].n, n: G[k].n })) },
       { key: 'nai', label: 'не олл-ин', sub: true, data: D(k => ({ x: G[k].r4, n: G[k].n })) },
-      { key: 'bl', label: 'из них блеф', sub: true, tone: 'ice', own: true, data: D(k => ext[k].bl) },
+      { key: 'ai', label: 'олл-ин', sub: true, data: D(k => ({ x: G[k].ai, n: G[k].n })) },
       { key: 'f5', label: 'Фолд на 5-бет', tone: 'ice', own: true, data: D(k => ext[k].f5) }] });
-    w.querySelectorAll('td.c').forEach(td => { const z = G[td.dataset.col]; if (z && z.n) { hoverRange(td, 'Ответ на 3-бет' + (td.dataset.col === 'TOT' ? '' : ' · ' + td.dataset.col), szOf(z)); td.classList.remove('has-mx'); } });
+    // окно первого типа по строке: «4-бет» и «Фолд на 5-бет» — весь ответ на 3-бет; «Диапазон 4-бета» — только руки, которыми вы 4-бетили (с частотой);
+    // «не олл-ин» и «олл-ин» — только 4-беты этого вида; «Факт / EV» и список раздач — те же 4-беты
+    const only = (z, pick, lab, cap) => { const vm = Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })), ids = z.all.filter(i => pick(RVa(i))); ids.forEach(i => { if (c.hc[i] < 0) return; const m = vm[c.hc[i]]; m.n++; m.sum += c.net[i]; m.es += EV[i]; });
+      const rm = z.R.map(m => { const x = pick(3) && pick(2) ? m.x : pick(3) ? m.ai : m.x - m.ai; return { n: m.n, x, ai: pick(3) ? (pick(2) ? m.ai : x) : 0, lp: 0, sum: m.sum, es: m.es }; });
+      return { n: rangeN(z.R), rmx: rm, vmx: vm, rids: ids, labels: [lab, pick(3) && pick(2) ? 'олл-ин' : '', '', 'без 4-бета'], capAll: cap, foldPaint: true }; };
+    w.querySelectorAll('td.c').forEach(td => { const z = G[td.dataset.col]; if (!z || !z.n) return; const pl = td.dataset.col === 'TOT' ? '' : ' · ' + td.dataset.col, row = td.dataset.row;
+      const zz = row === 'rg' ? only(z, v => v >= 2, '4-бет', 'только ваши 4-беты') : row === 'nai' ? only(z, v => v === 2, '4-бет не олл-ин', 'только 4-беты не олл-ином') : row === 'ai' ? only(z, v => v === 3, '4-бет олл-ин', 'только 4-беты олл-ином') : szOf(z);
+      hoverRange(td, (row === 'rg' ? 'Диапазон 4-бета' : row === 'nai' ? '4-бет не олл-ин' : row === 'ai' ? '4-бет олл-ин' : 'Ответ на 3-бет') + pl, zz); td.classList.remove('has-mx'); });
     const d = el('div', 'insight cc-table'); d.append(numTag(3), el('span', 'k', '4-бет по позициям'), el('span', 's', 'колонки — ваша позиция; «4-бет» — % от раз, когда на ваше открытие пришёл 3-бет'), w,
-      infoNote('Как таблица 4-бета в Hand2Note. «Диапазон 4-бета» — какую часть всех рук (1326 комбинаций) составляет ваш 4-бет: для каждой руки — как часто вы ею 4-бетите против 3-бета, с весом числа её комбинаций (как 4bet [Range] в Hand2Note). «Не олл-ин» — 4-беты обычным размером; «из них блеф» — доля рук слабее QQ+ и AK среди них. «Фолд на 5-бет» — как часто вы сбросили, когда на ваш 4-бет поставили 5-бет. Наведите на ячейку — как вы ответили на 3-бет каждой рукой; клик закрепит окно. Бледные ячейки — меньше ' + cnt(SMALL, 'раздач', 'gen') + '.'));
+      infoNote('Как таблица 4-бета в Hand2Note. «Диапазон 4-бета» — какую часть всех рук (1326 комбинаций) составляет ваш 4-бет: для каждой руки — как часто вы ею 4-бетите против 3-бета, с весом числа её комбинаций (как 4bet [Range] в Hand2Note). «Не олл-ин» и «олл-ин» — как делятся 4-беты. «Фолд на 5-бет» — как часто вы сбросили, когда на ваш 4-бет поставили 5-бет. Наведите на ячейку: в строке «4-бет» — как вы ответили на 3-бет каждой рукой; в «Диапазоне 4-бета» — только руки, которыми вы 4-бетили, с частотой; в «не олл-ин» и «олл-ин» — только 4-беты этого вида. Клик закрепит окно. Бледные ячейки — меньше ' + cnt(SMALL, 'раздач', 'gen') + '.'));
     zone.append(d);
   }
   // #4 — холодный 4-бет (нижняя таблица Hand2Note)
