@@ -10,7 +10,7 @@ const { chromium } = require('playwright');
   let bad = [], checks = 0;
   for (const cb of combos) {
     const r = await pg.evaluate((cb) => {
-      for (const k in SECF) delete SECF[k]; Object.assign(secF('vs3bet'), cb); V3_C3POS = 'all'; __go('vs3bet', 'TOT');
+      for (const k in SECF) delete SECF[k]; Object.assign(secF('vs3bet'), cb); V3_C3POS = 'all'; V3_C1MODE = 'all'; __go('vs3bet', 'TOT');
       const c = DB.cols, FP = ['EP', 'MP', 'HJ', 'CO', 'BTN', 'SB', 'BB'], idx = currentIdx(), f = secF('vs3bet'), sr = secRange('vs3bet');
       // отбор «по смыслу» — асR (ваше открытие); фильтры S, T, B, P (без «нашего действия» — у этих карточек его нет)
       const ok = (i) => c.v3[i] >= 0 && (!sr || (c.bb[i] >= sr[0] * 10 && c.bb[i] < sr[1] * 10)) && (!cb.T || c.v3a[i] === (cb.T === 'ai' ? 1 : 0)) && (!cb.P || c.v3p[i] === (cb.P === 'ip' ? 1 : 0)) && (cb.B !== 'sq' || c.v3o[i] === 1);
@@ -29,11 +29,14 @@ const { chromium } = require('playwright');
       // #16: сумма чисел раздач в ячейках «Фолд» OOP и IP (P не применяется)
       { const el = card('#16'), B16 = idx.filter(i => okNoP(i) && c.v3z[i] > 0 && c.size[i] > 0 && c.v3p[i] >= 0); let s = 0; el.querySelectorAll('tbody tr:not(.v3-f5)').forEach(tr => { const tds = tr.querySelectorAll('td.c'); [tds[0], tds[2]].forEach(td => { const n = td && td.querySelector('.n'); if (n) s += +n.textContent; }); }); out.push(['#16 раздач в таблице', s, B16.length]);
         const f5 = B16.filter(i => c.v3f[i] >= 0 && c.v3p[i] === 0), cell = el.querySelector('tr.v3-f5 td.c'); out.push(['#16 фолд на 5-бет OOP', cell && cell.firstChild ? cell.firstChild.textContent.trim().replace('%', '') : '—', f5.length ? fmtPct(f5.filter(i => c.v3f[i] === 0).length / f5.length) : '—']); }
-      // #5: чистые 1vs1 — S, T, P; «тип банка» и «наше действие» не действуют
-      { const el = card('#5'), cl = idx.filter(i => c.v3[i] >= 0 && c.v3o[i] === 0 && c.v3e[i] === 0 && (!sr || (c.bb[i] >= sr[0] * 10 && c.bb[i] < sr[1] * 10)) && (!cb.T || c.v3a[i] === (cb.T === 'ai' ? 1 : 0)) && (!cb.P || c.v3p[i] === (cb.P === 'ip' ? 1 : 0)));
-        const v = el.querySelector('.v em'), sub = el.querySelector('.s'); out.push(['#5 фолд', v ? v.textContent.replace('%', '') : '—', cl.length ? fmtPct(cl.filter(i => c.v3[i] === 0).length / cl.length) : '—'], ['#5 чистых спотов', sub ? parseInt((sub.textContent.match(/из ([\d\s ]+)/) || [, '0'])[1].replace(/\D/g, ''), 10) : 0, cl.length]); }
+      // #1 «Все споты»: те же раздачи, что #18; «Только чистые 1vs1»: S, T, P, «тип банка» и «наше действие» не действуют
+      { const el = card('#1'), v = el.querySelector('.v em'); out.push(['#1 все споты, фолд', v ? v.textContent.replace('%', '') : '—', A18.length ? fmtPct(A18.filter(i => RV(i) === 0).length / A18.length) : '—']); }
+      V3_C1MODE = 'clean'; __go('vs3bet', 'TOT');
+      { const el = card('#1'), cl = idx.filter(i => c.v3[i] >= 0 && c.v3o[i] === 0 && c.v3e[i] === 0 && (!sr || (c.bb[i] >= sr[0] * 10 && c.bb[i] < sr[1] * 10)) && (!cb.T || c.v3a[i] === (cb.T === 'ai' ? 1 : 0)) && (!cb.P || c.v3p[i] === (cb.P === 'ip' ? 1 : 0)));
+        const v = el.querySelector('.v em'), sub = el.querySelector('.s'); out.push(['#1 чистые, фолд', v ? v.textContent.replace('%', '') : '—', cl.length ? fmtPct(cl.filter(i => c.v3[i] === 0).length / cl.length) : '—'], ['#1 чистых спотов', sub ? parseInt((sub.textContent.match(/из ([\d\s ]+)/) || [, '0'])[1].replace(/\D/g, ''), 10) : 0, cl.length]); }
       // #17: строка 2–2,1 BB, TOT — фолд
       { const el = card('#17'), td = [...el.querySelectorAll('td.c')].find(t => t.dataset.row === '0' && t.dataset.col === 'TOT'); const z = A.filter(i => c.size[i] > 0 && c.size[i] < 215); out.push(['#17 2–2,1 BB фолд TOT', td ? td.firstChild.textContent.trim() : '—', z.length ? fmtPct(z.filter(i => c.v3[i] === 0).length / z.length) : '—']); }
+      V3_C1MODE = 'all';
       return out;
     }, cb);
     for (const [name, got, want] of r) { checks++; if (String(got) !== String(want)) bad.push(JSON.stringify(cb) + ' ' + name + ': на странице ' + got + ', пересчёт ' + want); }
