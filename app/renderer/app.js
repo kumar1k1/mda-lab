@@ -2236,21 +2236,16 @@ function tbIsoBlock(r) {
   return card;
 }
 function renderTB(idx) {
-  // Фильтры раздела — по карточкам: 5 и 7 — стек и тип 3-бета; 6 — свои диапазоны, без них; остальные — стек (тип у 2 и 4 — ниже, по sub2/rG)
+  // Фильтры раздела — по карточкам: 5, 7 и 7.1 — стек и тип 3-бета (r57); 6 — свои диапазоны, без них; остальные — стек (тип у 2 и 4 — ниже, по sub2/rG)
   const sr = secRange('3bet'), cb0 = DB.cols;
   const idxS = sr ? idx.filter(i => cb0.bb[i] >= sr[0] * 10 && cb0.bb[i] < sr[1] * 10) : idx;
   const tbOpt = { oPos: uiState.tbOPos, oStk: uiState.tbOStkR, oMy: uiState.tbOMyR, oOpen: uiState.tbOOpen };
   const r = Stats.tb(DB, idxS, tbOpt);
   const r6 = sr ? Stats.tb(DB, idx, tbOpt) : r; // #6 — без стека раздела (у неё свои диапазоны стеков)
-  // #5 и #7 — тип 3-бета из шапки: числитель 3-бетов — не олл-ины или только олл-ины (тот же расчёт, что у переключателя самой #5); стек уже в r
+  // #5, #7 и #7.1 — тип 3-бета из шапки; стек уже в idxS
   const T57 = secType('3bet');
-  const r57 = T57.flt ? Object.assign({}, r) : r; // клон: правка типа не задевает остальные карточки
-  if (T57.flt) {
-    const pick = T57.ty === 'ai' ? 'ai' : 'nai';
-    r57.vs = Object.fromEntries(Object.entries(r.vs).map(([p, row]) => [p, Object.fromEntries(Object.entries(row).map(([op, z]) => [op, Object.assign({}, z, { x: z[pick] })]))]));
-    r57.sz = Object.fromEntries(Object.entries(r.sz).map(([p, arr]) => [p, arr.map(z => z ? Object.assign({}, z, { rz: pick === 'ai' ? z.ai : z.rz - z.ai }) : z)]));
-    r57.ostk = Object.fromEntries(Object.entries(r.ostk).map(([p, arr]) => [p, arr.map(z => Object.assign({}, z, { x: pick === 'ai' ? z.ai : z.x - z.ai }))]));
-  }
+  // тип 3-бета считается в Stats.tb (opt.ty): числитель и результат — только 3-беты этого типа, знаменатель — все возможности
+  const r57 = T57.flt ? Stats.tb(DB, idxS, Object.assign({ ty: T57.ty }, tbOpt)) : r;
   const page = el('div', 'page');
   const head = el('div', 'page-head');
   const h1 = el('h1'); h1.append(document.createTextNode('3-бет '), el('span', null, '3B'));
