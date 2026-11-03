@@ -6249,6 +6249,10 @@ function render4B(idx) {
   const PA = by(A, posOf, RVa), TA = Z(); A.forEach(i => add(TA, i, RVa(i)));
   const PB = by(B, posOf, (i) => (c.act[i] >= 2 ? (AIb(i) ? 3 : 2) : c.act[i])), TB = Z(); B.forEach(i => add(TB, i, c.act[i] >= 2 ? (AIb(i) ? 3 : 2) : c.act[i]));
   const szOf = (z) => ({ n: rangeN(z.R), rmx: z.R, vmx: z.mx, rids: z.ids, labels: ['4-бет', 'олл-ин', 'колл', 'фолд'], capAll: 'только 4-беты' + tyLab, foldPaint: true });
+  // окно первого типа «только эти раздачи»: «Диапазон» — выделены руки, где было это событие (с частотой), остальное тёмным; «Факт / EV» и список раздач — только эти раздачи
+  const sel = (z, pred, lab, cap, aiMark) => { const vm = Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })), hx = new Uint16Array(169), ids = z.all.filter(pred);
+    ids.forEach(i => { if (c.hc[i] < 0) return; const m = vm[c.hc[i]]; m.n++; m.sum += c.net[i]; m.es += EV[i]; hx[c.hc[i]]++; });
+    return { n: rangeN(z.R), rmx: z.R.map((m, q) => ({ n: m.n, x: hx[q], ai: aiMark ? hx[q] : 0, lp: 0, sum: m.sum, es: m.es })), vmx: vm, rids: ids, labels: [lab, '', '', 'остальные ответы'], capAll: cap, foldPaint: true }; };
   const zone = el('div', 'summary');
 
   // #1 — 4-бетите (как «3-бетите»): частота 4-бета против 3-бета, по позициям, ваш ответ
@@ -6285,8 +6289,9 @@ function render4B(idx) {
       const rm = z.R.map(m => { const x = pick(3) && pick(2) ? m.x : pick(3) ? m.ai : m.x - m.ai; return { n: m.n, x, ai: pick(3) ? (pick(2) ? m.ai : x) : 0, lp: 0, sum: m.sum, es: m.es }; });
       return { n: rangeN(z.R), rmx: rm, vmx: vm, rids: ids, labels: [lab, pick(3) && pick(2) ? 'олл-ин' : '', '', 'без 4-бета'], capAll: cap, foldPaint: true }; };
     w.querySelectorAll('td.c').forEach(td => { const z = G[td.dataset.col]; if (!z || !z.n) return; const pl = td.dataset.col === 'TOT' ? '' : ' · ' + td.dataset.col, row = td.dataset.row;
-      const zz = row === 'rg' ? only(z, v => v >= 2, '4-бет', 'только ваши 4-беты') : row === 'nai' ? only(z, v => v === 2, '4-бет не олл-ин', 'только 4-беты не олл-ином') : row === 'ai' ? only(z, v => v === 3, '4-бет олл-ин', 'только 4-беты олл-ином') : szOf(z);
-      hoverRange(td, (row === 'rg' ? 'Диапазон 4-бета' : row === 'nai' ? '4-бет не олл-ин' : row === 'ai' ? '4-бет олл-ин' : 'Ответ на 3-бет') + pl, zz); td.classList.remove('has-mx'); });
+      const zz = row === 'rg' ? only(z, v => v >= 2, '4-бет', 'только ваши 4-беты') : row === 'nai' ? only(z, v => v === 2, '4-бет не олл-ин', 'только 4-беты не олл-ином') : row === 'ai' ? only(z, v => v === 3, '4-бет олл-ин', 'только 4-беты олл-ином')
+        : row === 'f5' ? sel(z, i => RVa(i) >= 2 && c.v3f && c.v3f[i] === 0, 'фолд на 5-бет', 'только раздачи, где вы сбросили на 5-бет') : Object.assign(only(z, v => v >= 2, '4-бет', 'только ваши 4-беты'), { rmx: z.R, labels: ['4-бет', 'олл-ин', 'колл', 'фолд'] }); // «4-бет»: «Диапазон» — весь ответ на 3-бет, раздачи — только 4-беты
+      hoverRange(td, (row === 'rg' ? 'Диапазон 4-бета' : row === 'nai' ? '4-бет не олл-ин' : row === 'ai' ? '4-бет олл-ин' : row === 'f5' ? 'Фолд на 5-бет' : 'Ответ на 3-бет') + pl, zz); td.classList.remove('has-mx'); });
     const d = el('div', 'insight cc-table'); d.append(numTag(3), el('span', 'k', '4-бет по позициям'), el('span', 's', 'колонки — ваша позиция; «4-бет» — % от раз, когда на ваше открытие пришёл 3-бет'), w,
       infoNote('Как таблица 4-бета в Hand2Note. «Диапазон 4-бета» — какую часть всех рук (1326 комбинаций) составляет ваш 4-бет: для каждой руки — как часто вы ею 4-бетите против 3-бета, с весом числа её комбинаций (как 4bet [Range] в Hand2Note). «Не олл-ин» и «олл-ин» — как делятся 4-беты. «Фолд на 5-бет» — как часто вы сбросили, когда на ваш 4-бет поставили 5-бет. Наведите на ячейку: в строке «4-бет» — как вы ответили на 3-бет каждой рукой; в «Диапазоне 4-бета» — только руки, которыми вы 4-бетили, с частотой; в «не олл-ин» и «олл-ин» — только 4-беты этого вида. Клик закрепит окно. Бледные ячейки — меньше ' + cnt(SMALL, 'раздач', 'gen') + '.'));
     zone.append(d);
@@ -6303,7 +6308,11 @@ function render4B(idx) {
       { key: 'c4', label: 'Холодный 4-бет', data: D(k => ({ x: G[k].r4 + G[k].ai, n: G[k].n })) },
       { key: 'ai', label: 'из них олл-ин', sub: true, data: D(k => ({ x: G[k].ai, n: G[k].n })) },
       { key: 'f5', label: 'Фолд на 5-бет', tone: 'ice', own: true, data: D(k => f5[k]) }] });
-    w.querySelectorAll('td.c').forEach(td => { const z = G[td.dataset.col]; if (z && z.n) { hoverRange(td, 'Открытие и 3-бет перед вами' + (td.dataset.col === 'TOT' ? '' : ' · ' + td.dataset.col), szOf(z)); td.classList.remove('has-mx'); } });
+    // окно по строке: «Диапазон» — весь ваш ответ на открытие и 3-бет; «Факт / EV» и раздачи — только события строки
+    w.querySelectorAll('td.c').forEach(td => { const z = G[td.dataset.col]; if (!z || !z.n) return; const pl = td.dataset.col === 'TOT' ? '' : ' · ' + td.dataset.col, row = td.dataset.row;
+      const S4 = { cc: [i => c.act[i] === 1, 'колл 3-бета', 'только коллы 3-бета в холодную', 'Колл 3-бета в холодную'], c4: [i => c.act[i] >= 2, 'холодный 4-бет', 'только холодные 4-беты', 'Холодный 4-бет'], ai: [i => c.act[i] >= 2 && AIb(i), 'олл-ин', 'только холодные 4-беты олл-ином', 'Холодный 4-бет олл-ин'], f5: [i => c.act[i] >= 2 && c.c4f && c.c4f[i] === 0, 'фолд на 5-бет', 'только сбросы на 5-бет после холодного 4-бета', 'Фолд на 5-бет'] }[row];
+      const zz = S4 ? sel(z, S4[0], S4[1], S4[2], row === 'ai') : szOf(z); if (S4 && (row === 'cc' || row === 'c4')) { zz.rmx = z.R; zz.labels = ['4-бет', 'олл-ин', 'колл', 'фолд']; }
+      hoverRange(td, (S4 ? S4[3] : 'Открытие и 3-бет перед вами') + pl, zz); td.classList.remove('has-mx'); });
     const v = TB.x ? valPick(TB.sum / 10 / TB.x, TB.es / 10 / TB.x) : null;
     const d = el('div', 'insight cc-table'); d.append(numTag(4), el('span', 'k', 'Холодный 4-бет'), el('span', 's', 'перед вами открытие и 3-бет: колл, 4-бет и фолд на 5-бет; колонки — ваша позиция' + (v == null ? '' : ' · итог холодного 4-бета' + tyLab + ' ' + signed(v, 2) + ' BB')), B.length ? w : el('p', 'muted small', 'Нет таких раздач в выборке.'),
       infoNote('Как нижняя таблица Hand2Note: CC 3bet — колл 3-бета, когда вы ещё не вкладывались; Open 4bet — ваш 4-бет поверх открытия и 3-бета. «Фолд на 5-бет» — после холодного 4-бета. Наведите на ячейку — как вы ответили каждой рукой.'));
