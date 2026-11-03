@@ -10,7 +10,7 @@ const FL = { S: { S: 's15' }, T: { T: 'ai' }, A: { A: ['call'] }, B: { B: 'sq', 
   await pg.goto('http://127.0.0.1:8783/MDA-Lab-preview.html');
   await pg.waitForFunction(() => typeof DB !== 'undefined' && DB && DB.cols && DB.cols.v3, null, { timeout: 180000 });
   let bad = 0, checks = 0;
-  const snap = (tab, f) => pg.evaluate(([tab, f]) => { for (const k in SECF) delete SECF[k]; Object.assign(secF(tab), f); __go(tab, 'TOT'); const o = {}; document.querySelectorAll('#content .num-tag').forEach(t => { const c = t.closest('.sm, .r34-m, .insight, .block'); if (!c) return; const cl = c.cloneNode(true); cl.querySelectorAll('.sec-exempt').forEach(x => x.remove()); o[t.textContent.trim()] = { txt: cl.innerText.replace(/\s+/g, ' '), mark: !!(t.closest('.insight, .block') || c).querySelector(':scope > .sec-exempt') }; }); return { o, table: CARD_FILTERS[tab] }; }, [tab, f]);
+  const snap = (tab, f) => pg.evaluate(([tab, f]) => { for (const k in SECF) delete SECF[k]; Object.assign(secF(tab), f); __go(tab, 'TOT'); const o = {}; document.querySelectorAll('#content .num-tag').forEach(t => { const c = t.closest('.sm, .r34-m, .insight, .block'); if (!c) return; const cl = c.cloneNode(true); cl.querySelectorAll('.sec-exempt, .sec-on').forEach(x => x.remove()); o[t.textContent.trim()] = { txt: cl.innerText.replace(/\s+/g, ' '), mark: !!(t.closest('.insight, .block') || c).querySelector(':scope > .sec-exempt') }; }); return { o, table: CARD_FILTERS[tab] }; }, [tab, f]);
   for (const tab of ['rfi', 'cc', '3bet', 'vs3bet']) {
     const base = await snap(tab, {}), T = base.table;
     const cards = Object.keys(base.o);

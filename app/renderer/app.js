@@ -127,6 +127,7 @@ function render() {
   }
   cont.replaceChildren(tab.render ? tab.render(idx) : renderSoon(tab));
   markExempt(cont, tab.id);
+  markFilters(cont, tab.id);
   // Размер карточек как в «стандартном» виде раздела (при входе в раздел, фильтры по умолчанию): при фильтрах карточка
   // не становится ниже — пустое место остаётся внутри неё, соседние карточки не прыгают. Больше стандарта — растёт.
   {

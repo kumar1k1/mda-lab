@@ -1986,6 +1986,14 @@ body.noscroll #content{overflow:hidden}
 .insight .ht.v3-sz,.insight .ht.v3-grp{width:auto}
 .insight > .ht.v3-sz,.insight > .ht.v3-grp{align-self:flex-start}
 
+/* метка выбранных фильтров раздела на карточке (markFilters) */
+.sec-on{position:absolute;top:8px;right:52px;max-width:48%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;font-weight:600;color:var(--amber);background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:1px 8px;cursor:help}
+.sec-on.sec-on-in{position:static;max-width:none;margin-left:8px;display:inline-block;vertical-align:middle}
+.resp-tile .rt-wr{font-family:var(--mono);font-size:11.5px;line-height:1.2;margin-top:2px}
+.resp-tile .rt-wr .evs{font-size:10px}
+.resp-tile span.rt-wr.up,.resp-tile .rt-wr span.up{color:var(--good)}
+.resp-tile span.rt-wr.down,.resp-tile .rt-wr span.down{color:var(--bad)}
+
 /* Дополнения только для онлайн-превью: тёмная тема и узкие экраны */
 :root{color-scheme:dark}
 html,body{background:var(--bg);color:var(--text)}
@@ -3333,9 +3341,10 @@ function secType(tab) {
   const aiOf = tab === '3bet' ? (i) => c.act[i] === 3 || (c.act[i] === 2 && c.ostk[i] > 0 && c.size[i] >= c.ostk[i] * 10 - 1) : (i) => c.act[i] === 3;
   return { ty, flt: ty !== 'all', pass: (i) => ty === 'all' || (ty === 'ai' ? aiOf(i) : c.act[i] === 2 && !aiOf(i)) };
 }
+// подпись числа под графиком результата (RFI 8, CC 8, 3-бет 2): «1 232 открытия»; выбранные фильтры раздела — на метке карточки (markFilters)
 function secLabel(tab, n, what) {
-  const t = secType(tab), rng = secRange(tab), tl = t.flt ? (SEC_TYPES[tab].find(x => x[0] === t.ty) || [])[1] : '';
-  return el('span', 'muted small tb-res-n', [tl, rng ? (tl ? 'ваш' : 'Ваш') + ' стек ' + rangeTxt(rng) : ''].filter(Boolean).join(', ') + (tl || rng ? ': ' : '') + (WORDS[what.split(' ')[0]] ? cnt(n, what.split(' ')[0]) + what.slice(what.split(' ')[0].length) : n.toLocaleString('ru-RU') + ' ' + what));
+  const w = what.split(' ')[0];
+  return el('span', 'muted small tb-res-n', WORDS[w] ? cnt(n, w) + what.slice(w.length) : n.toLocaleString('ru-RU') + ' ' + what);
 }
 function drawSecFilters(tab) {
   const box = $('secFilters'); if (!box) return; box.replaceChildren();
@@ -3425,6 +3434,31 @@ function markExempt(root, tab) {
     const host = t.closest('.insight, .block'); if (!host || host.querySelector(':scope > .sec-exempt')) return;
     const m = el('span', 'sec-exempt', 'без фильтров раздела'); m.title = 'Фильтры раздела (ваш стек, тип и другие) на эту карточку не действуют — у неё свои настройки или она считается по всей выборке. Фильтры шапки (рум, период, бай-ин, столы) действуют.';
     host.append(m);
+  });
+}
+
+// Метка выбранных фильтров раздела на карточке (справа вверху, рядом с номером): только те фильтры, что на неё действуют
+// (буквы CARD_FILTERS) и выбраны не «по умолчанию». Коротко: «стек 15–25 BB · олл-ин · IP». Метка в углу — высота карточки
+// не меняется. У подкарточек (RFI 3.4, 3.5, 3.7) — в строке заголовка.
+function secChips(tab, letters) {
+  const f = SECF[tab]; if (!f) return [];
+  const out = [], sr = secRange(tab);
+  if (letters.includes('S') && sr) { const pre = RES_STK.find(x => x[0] === f.S && x[2]); out.push('стек ' + (pre ? pre[1] + ' BB' : rangeTxt(sr))); } // «< 15 BB», свой — «12–18 BB»
+  if (letters.includes('T') && f.T && f.T !== 'all') out.push(tab === 'vs3bet' ? (f.T === 'ai' ? '3-бет олл-ин' : '3-бет не олл-ин') : f.T === 'ai' ? 'олл-ин' : 'не олл-ин');
+  if (letters.includes('B') && f.B && f.B !== 'all') { const sq = f.SQ || ['r', 'c']; out.push(f.B === 'hu' ? '1vs1' : 'сквиз' + (sq.length === 1 ? (sq[0] === 'r' ? ' (вы рейзер)' : ' (вы коллер)') : '')); }
+  if (letters.includes('P') && f.P && f.P !== 'all') out.push(f.P === 'ip' ? 'IP' : 'OOP');
+  if (letters.includes('A') && f.A && f.A.length) out.push(f.A.map(a => ({ fold: 'фолд', call: 'колл', r4: '4-бет', ai: '4-бет олл-ин' })[a]).join(' + '));
+  return out;
+}
+function markFilters(root, tab) {
+  const T = CARD_FILTERS[tab]; if (!T || !secActive(tab)) return;
+  root.querySelectorAll('.num-tag').forEach(t => {
+    const k = t.textContent.trim(), L = T[k]; if (!L) return;
+    const chips = secChips(tab, L); if (!chips.length) return;
+    const txt = chips.join(' · ');
+    if (t.classList.contains('sm-tag')) { const hh = t.parentElement; if (hh && !hh.querySelector('.sec-on')) { const m = el('span', 'sec-on sec-on-in', txt); m.title = 'Фильтры раздела на этой карточке: ' + txt; hh.append(m); } return; }
+    const host = t.closest('.insight, .block'); if (!host || host.querySelector(':scope > .sec-on')) return;
+    const m = el('span', 'sec-on', txt); m.title = 'Фильтры раздела на этой карточке: ' + txt; host.append(m);
   });
 }
 
@@ -5470,6 +5504,20 @@ function chenOf(k) {
   return Math.ceil(s);
 }
 let V3_C3POS = 'all', V3_OSZM = 'f';
+// плитки ответа (фолд / колл / 4-бет): доля и прямо под ней средний итог этой реакции в BB за раздачу, факт / EV
+function v3Tiles(ids, RV, title) {
+  const c = DB.cols, EV = EVcol(), z = [0, 1, 2].map(() => ({ n: 0, sum: 0, es: 0 })), n = ids.length;
+  for (const i of ids) { const v = RV(i), k = v === 0 ? 0 : v === 1 ? 1 : 2; z[k].n++; z[k].sum += c.net[i]; z[k].es += EV[i]; }
+  const rs = el('div', 'resp'), rl = el('div', 'resp-tiles');
+  [['фолд', 'var(--good)'], ['колл', 'var(--ice)'], ['4-бет', 'var(--bad)']].forEach(([lab, col], k) => {
+    const q = z[k], it = el('span', 'resp-tile'), b = el('b', null, n ? fmtPct(q.n / n) + '%' : '—'); b.style.color = col;
+    it.append(b, el('span', null, lab), q.n ? wrNode('rt-wr', q.sum / 10 / q.n, q.es / 10 / q.n, 2) : el('span', 'rt-wr muted', '—'));
+    it.title = cnt(q.n, 'раз') + ' из ' + n.toLocaleString('ru-RU') + (q.n ? ' · в среднем ' + signed(q.sum / 10 / q.n, 2) + ' BB факт, ' + signed(q.es / 10 / q.n, 2) + ' BB EV за раздачу' : '');
+    rl.append(it);
+  });
+  if (title) rs.append(el('span', 'resp-t', title));
+  rs.append(rl); return rs;
+}
 // «Итог по реакциям»: средний результат каждой вашей реакции (фолд / колл / рейз), факт / EV, и число раздач
 function v3PerAct(ids, labs, RV) {
   const c = DB.cols, EV = EVcol(), z = [0, 1, 2].map(() => ({ n: 0, sum: 0, es: 0 }));
@@ -5493,11 +5541,10 @@ function v3Card1(x) {
   const body = el('div', 'card-fill'); body.append(seg);
   if (t && t.n) {
     const rows = [['Все позиции', t]].concat(V3_POS.filter(p => g[p]).map(p => [p, g[p]]));
-    body.append(respTiles([t.fld, t.call, t.r4 + t.ai], 'Ваш ответ на ' + NR, [['фолд', 'var(--good)'], ['колл', 'var(--ice)'], ['4-бет', 'var(--bad)']]),
-      v3RespTable(rows, 'Ваша позиция', NR, 'v31' + V3_C1MODE), v3PerAct(ids, ['фолд', 'колл', '4-бет'], x.RV));
+    body.append(v3Tiles(ids, x.RV, 'Ваш ответ на ' + NR), v3RespTable(rows, 'Ваша позиция', NR, 'v31' + V3_C1MODE));
   }
   const c1 = card(1, 'Фолдите на ' + NR, t && t.n ? '<em>' + fmtPct(t.fld / t.n) + '%</em>' : '<span class="muted">—</span>', sub, body);
-  c1.append(infoNote('«Все споты» — как в Hand2Note: все раздачи, где вы открылись и получили ' + x.NR + ', в том числе сквиз-поты и раздачи, где до вашего хода кто-то ещё вступил. «Только чистые 1vs1» — вы открылись, открытие никто не коллировал, пришёл 3-бет и до вашего хода больше никто не вступал: ровно вы и 3-бетящий. Таблица — по вашей позиции: фолд, колл, 4-бет, 4-бет олл-ином и средний итог раздачи (факт / EV); наведите на строку — руки и итог, клик по руке откроет раздачи и реплеер. «Итог по реакциям» — сколько в среднем приносит каждая ваша реакция. Фильтры раздела: ваш стек, тип 3-бета соперника, ваша позиция относительно 3-бетящего; «тип трибет банка» — только в режиме «Все споты» (чистые споты сами и есть банк 1vs1); «наше действие» не применяется — ваши реакции и есть содержимое карточки.'));
+  c1.append(infoNote('«Все споты» — как в Hand2Note: все раздачи, где вы открылись и получили ' + x.NR + ', в том числе сквиз-поты и раздачи, где до вашего хода кто-то ещё вступил. «Только чистые 1vs1» — вы открылись, открытие никто не коллировал, пришёл 3-бет и до вашего хода больше никто не вступал: ровно вы и 3-бетящий. Таблица — по вашей позиции: фолд, колл, 4-бет, 4-бет олл-ином и средний итог раздачи (факт / EV); наведите на строку — руки и итог, клик по руке откроет раздачи и реплеер. В плитках ответа под долей — средний итог этой реакции в BB за раздачу, факт / EV. Фильтры раздела: ваш стек, тип 3-бета соперника, ваша позиция относительно 3-бетящего; «тип трибет банка» — только в режиме «Все споты» (чистые споты сами и есть банк 1vs1); «наше действие» не применяется — ваши реакции и есть содержимое карточки.'));
   return c1;
 }
 // подпись карточки 3, если выборка по смыслу пуста
@@ -5790,6 +5837,7 @@ function render() {
   }
   cont.replaceChildren(tab.render ? tab.render(idx) : renderSoon(tab));
   markExempt(cont, tab.id);
+  markFilters(cont, tab.id);
   // Размер карточек как в «стандартном» виде раздела (при входе в раздел, фильтры по умолчанию): при фильтрах карточка
   // не становится ниже — пустое место остаётся внутри неё, соседние карточки не прыгают. Больше стандарта — растёт.
   {

@@ -35,9 +35,10 @@ function secType(tab) {
   const aiOf = tab === '3bet' ? (i) => c.act[i] === 3 || (c.act[i] === 2 && c.ostk[i] > 0 && c.size[i] >= c.ostk[i] * 10 - 1) : (i) => c.act[i] === 3;
   return { ty, flt: ty !== 'all', pass: (i) => ty === 'all' || (ty === 'ai' ? aiOf(i) : c.act[i] === 2 && !aiOf(i)) };
 }
+// подпись числа под графиком результата (RFI 8, CC 8, 3-бет 2): «1 232 открытия»; выбранные фильтры раздела — на метке карточки (markFilters)
 function secLabel(tab, n, what) {
-  const t = secType(tab), rng = secRange(tab), tl = t.flt ? (SEC_TYPES[tab].find(x => x[0] === t.ty) || [])[1] : '';
-  return el('span', 'muted small tb-res-n', [tl, rng ? (tl ? 'ваш' : 'Ваш') + ' стек ' + rangeTxt(rng) : ''].filter(Boolean).join(', ') + (tl || rng ? ': ' : '') + (WORDS[what.split(' ')[0]] ? cnt(n, what.split(' ')[0]) + what.slice(what.split(' ')[0].length) : n.toLocaleString('ru-RU') + ' ' + what));
+  const w = what.split(' ')[0];
+  return el('span', 'muted small tb-res-n', WORDS[w] ? cnt(n, w) + what.slice(w.length) : n.toLocaleString('ru-RU') + ' ' + what);
 }
 function drawSecFilters(tab) {
   const box = $('secFilters'); if (!box) return; box.replaceChildren();
@@ -127,5 +128,30 @@ function markExempt(root, tab) {
     const host = t.closest('.insight, .block'); if (!host || host.querySelector(':scope > .sec-exempt')) return;
     const m = el('span', 'sec-exempt', 'без фильтров раздела'); m.title = 'Фильтры раздела (ваш стек, тип и другие) на эту карточку не действуют — у неё свои настройки или она считается по всей выборке. Фильтры шапки (рум, период, бай-ин, столы) действуют.';
     host.append(m);
+  });
+}
+
+// Метка выбранных фильтров раздела на карточке (справа вверху, рядом с номером): только те фильтры, что на неё действуют
+// (буквы CARD_FILTERS) и выбраны не «по умолчанию». Коротко: «стек 15–25 BB · олл-ин · IP». Метка в углу — высота карточки
+// не меняется. У подкарточек (RFI 3.4, 3.5, 3.7) — в строке заголовка.
+function secChips(tab, letters) {
+  const f = SECF[tab]; if (!f) return [];
+  const out = [], sr = secRange(tab);
+  if (letters.includes('S') && sr) { const pre = RES_STK.find(x => x[0] === f.S && x[2]); out.push('стек ' + (pre ? pre[1] + ' BB' : rangeTxt(sr))); } // «< 15 BB», свой — «12–18 BB»
+  if (letters.includes('T') && f.T && f.T !== 'all') out.push(tab === 'vs3bet' ? (f.T === 'ai' ? '3-бет олл-ин' : '3-бет не олл-ин') : f.T === 'ai' ? 'олл-ин' : 'не олл-ин');
+  if (letters.includes('B') && f.B && f.B !== 'all') { const sq = f.SQ || ['r', 'c']; out.push(f.B === 'hu' ? '1vs1' : 'сквиз' + (sq.length === 1 ? (sq[0] === 'r' ? ' (вы рейзер)' : ' (вы коллер)') : '')); }
+  if (letters.includes('P') && f.P && f.P !== 'all') out.push(f.P === 'ip' ? 'IP' : 'OOP');
+  if (letters.includes('A') && f.A && f.A.length) out.push(f.A.map(a => ({ fold: 'фолд', call: 'колл', r4: '4-бет', ai: '4-бет олл-ин' })[a]).join(' + '));
+  return out;
+}
+function markFilters(root, tab) {
+  const T = CARD_FILTERS[tab]; if (!T || !secActive(tab)) return;
+  root.querySelectorAll('.num-tag').forEach(t => {
+    const k = t.textContent.trim(), L = T[k]; if (!L) return;
+    const chips = secChips(tab, L); if (!chips.length) return;
+    const txt = chips.join(' · ');
+    if (t.classList.contains('sm-tag')) { const hh = t.parentElement; if (hh && !hh.querySelector('.sec-on')) { const m = el('span', 'sec-on sec-on-in', txt); m.title = 'Фильтры раздела на этой карточке: ' + txt; hh.append(m); } return; }
+    const host = t.closest('.insight, .block'); if (!host || host.querySelector(':scope > .sec-on')) return;
+    const m = el('span', 'sec-on', txt); m.title = 'Фильтры раздела на этой карточке: ' + txt; host.append(m);
   });
 }
