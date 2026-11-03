@@ -2059,7 +2059,8 @@ body.noscroll #content{overflow:hidden}
 .filters{column-gap:18px;flex-wrap:nowrap}
 .filters #fRoom{max-width:160px}
 .filters > .flt{flex-shrink:0}.flt-tbl .seg{flex-wrap:nowrap;white-space:nowrap}
-@media (min-width: 1300px){.filters{padding-left:calc(228px + 22px)}}
+/* по центру шапки (просьба 03.11.2026) */
+.filters{justify-content:center}
 @media (max-width: 1060px){.filters{flex-wrap:wrap}}
 
 /* «Столы» (все / 6-max / 7–9 max) — в строке основных фильтров, высотой как выпадающие списки */
