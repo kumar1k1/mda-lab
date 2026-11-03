@@ -1926,4 +1926,23 @@ body.rendering{cursor:progress}
 .sec-f .mx-range .btn{height:40px;box-sizing:border-box;padding:0 14px;font-size:12.5px}
 .sec-f .mx-err{position:absolute;left:0;top:calc(100% + 2px);font-size:11px;white-space:nowrap}
 .sec-f .mx-err:empty{display:none}
+.sec-f.sec-f-grid{display:grid;grid-template-columns:max-content max-content;column-gap:44px;row-gap:10px;align-items:start}
+.sec-f .flt-q{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border:1px dashed var(--line2);border-radius:50%;color:var(--faint);font-size:10.5px;font-weight:700;cursor:help;user-select:none}
 .sec-f .sf-note{margin-left:auto;align-self:flex-end;padding-bottom:4px;font-size:11.5px;color:var(--faint);max-width:260px;line-height:1.35}
+
+/* пока открыто закреплённое окно (матрица, список раздач) — страница под ним не прокручивается колесом */
+body.noscroll{overflow:hidden}
+body.noscroll #content{overflow:hidden}
+
+.szmx.pinned .szmx-h{cursor:grab}
+.szmx.dragging .szmx-h, .il.dragging .il-head{cursor:grabbing}
+.il .il-head{cursor:grab}
+
+.v3e-row{display:flex;flex-direction:column;gap:4px;padding:8px 10px;border:1px solid var(--line);border-radius:8px}
+.v3e-row + .v3e-row{margin-top:8px}
+.v3e-hd{display:flex;align-items:baseline;gap:10px}
+.v3e-hd span{color:var(--muted);font-size:12px}
+.v3e-res{font-size:13px}
+
+.sec-f .sq-sub{padding:0 8px;font-size:11px;font-weight:700;letter-spacing:.02em;border:1px solid var(--line2);border-radius:6px;color:var(--muted);margin-left:4px}
+.sec-f .sq-sub.on{border-color:var(--accent,var(--ice));color:var(--ice)}

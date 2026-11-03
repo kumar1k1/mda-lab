@@ -110,7 +110,7 @@ function placeNear(pop, ev, anchor) {
 }
 
 function showHandPop(it, v, ev, anchor) {
-  if (pinned || (window.hoverMuted && window.hoverMuted(ev))) return; // закреплённое окно не подменяем наведением
+  if (pinned || SZMX_PIN || (window.hoverMuted && window.hoverMuted(ev))) return; // закреплённое окно не подменяем наведением; окно «Диапазона» тоже открыто — не наслаиваем
   const pop = popEl();
   if (pop._src !== it || pop.classList.contains('pinned')) buildPop(it, v, false);
   pop.hidden = false;
@@ -118,16 +118,16 @@ function showHandPop(it, v, ev, anchor) {
 }
 
 function pinHandPop(it, v, ev, anchor) {
-  const was = pinned && handPop ? { left: handPop.style.left, top: handPop.style.top } : null;
   pinned = { pos: it.key || it.p };
   popEl()._selK = null; POP_MODE = 'net'; // каждое новое закрепление — сначала фактический результат
   const pop = buildPop(it, v, true);
   pop.hidden = false;
-  if (was) { pop.style.left = was.left; pop.style.top = was.top; } else placeNear(pop, ev, anchor);
+  placeNear(pop, ev, anchor); // тот же якорь, что при наведении: окно центрировано на курсоре и не смещается
   clampPop(pop);
+  syncScrollLock();
 }
 
-function unpin() { pinned = null; if (handPop) { handPop.hidden = true; handPop.classList.remove('pinned'); handPop._src = null; } }
+function unpin() { pinned = null; if (handPop) { handPop.hidden = true; handPop.classList.remove('pinned'); handPop._src = null; } syncScrollLock(); }
 
 // после смены фильтров закреплённое окно остаётся на месте и пересчитывается
 function refreshPinned(items) {
@@ -150,7 +150,8 @@ function enableDrag(pop, handle) {
     if (e.target.closest('button')) return;
     e.preventDefault();
     const r = pop.getBoundingClientRect(); const dx = e.clientX - r.left, dy = e.clientY - r.top;
-    handle.setPointerCapture(e.pointerId); pop.classList.add('dragging');
+    try { handle.setPointerCapture(e.pointerId); } catch (err) { /* захват недоступен — перенос работает и без него */ }
+    pop.classList.add('dragging');
     const move = (m) => { pop.style.left = Math.max(8 - r.width + 80, Math.min(window.innerWidth - 80, m.clientX - dx)) + 'px'; pop.style.top = Math.max(8, Math.min(window.innerHeight - 40, m.clientY - dy)) + 'px'; };
     const up = () => { handle.removeEventListener('pointermove', move); handle.removeEventListener('pointerup', up); pop.classList.remove('dragging'); };
     handle.addEventListener('pointermove', move); handle.addEventListener('pointerup', up);
@@ -162,7 +163,8 @@ async function showHandList(it, k, cellBtn) {
   const pop = handPop; const list = pop.querySelector('.hp-list'); pop._selK = k;
   pop.querySelectorAll('.hp-c.sel').forEach(c => c.classList.remove('sel')); cellBtn.classList.add('sel');
   const p = it.anyPos ? -1 : POS_NAMES.indexOf(it.p), c = DB.cols; // anyPos — раздачи уже отобраны по позиции (позиции «как в Hand2Note» во вкладке 3-бет)
-  const all = (it.ids || CURRENT_IDX).filter(i => c.sit[i] === (it.sit || 0) && (it.act != null ? c.act[i] === it.act : c.act[i] >= 2) && (p < 0 || c.pos[i] === p) && c.hc[i] === k);
+  // pre — раздачи уже отобраны фильтрами раздела (например, «Против 3-бета» смешивает открывателей и коллеров) — sit/act не проверяем
+  const all = (it.ids || CURRENT_IDX).filter(i => (it.pre || (c.sit[i] === (it.sit || 0) && (it.act != null ? c.act[i] === it.act : c.act[i] >= 2))) && (p < 0 || c.pos[i] === p) && c.hc[i] === k);
   list.hidden = false; pop.classList.add('with-list');
   const rp = {}; let lazy = null; // записи реплеера — подгружаются по мере показа строк
   const reach = (i) => { const r = rp[i]; if (!r) return 0; if (r.sh && Object.keys(r.sh).length) return 4; return r.bd.length === 5 ? 3 : r.bd.length === 4 ? 2 : r.bd.length === 3 ? 1 : 0; };
@@ -208,7 +210,7 @@ async function showHandList(it, k, cellBtn) {
     lazy = lazyRows(box, rows, rp, { cards: false, ev: evm });
   }
   draw();
-  centerPop(pop);
+  clampPop(pop); // окно не перецентрируем — остаётся на месте, лишь не вылезает за экран
 }
 
 // Список раздач без ожидания: строки сразу из колонок базы (дата, рум, стек, итог), карты и турнир дописываются
@@ -325,6 +327,19 @@ async function openIdsList(title, ids, opt) {
   sel('Порядок', 'sort', [['new', 'сначала новые'], ['old', 'сначала старые'], ['worst', 'сначала худшие'], ['best', 'сначала лучшие']]);
   const list = el('div', 'hp-rows il-rows'); list.append(window.mdaLoad ? window.mdaLoad('Загружаю раздачи…') : el('p', 'muted small', 'Загружаю раздачи…'));
   box.append(head, bar, list); bg.append(box); document.body.append(bg);
+  syncScrollLock(); // пока список раздач открыт — страница под ним не прокручивается
+  // окно можно передвигать за шапку
+  head.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('button, select, input')) return;
+    e.preventDefault();
+    const r = box.getBoundingClientRect(), dx = e.clientX - r.left, dy = e.clientY - r.top;
+    box.style.position = 'absolute'; box.style.margin = '0'; box.style.left = r.left + 'px'; box.style.top = r.top + 'px';
+    try { head.setPointerCapture(e.pointerId); } catch (err) { /* захват недоступен — перенос работает и без него */ }
+    box.classList.add('dragging');
+    const move = (m) => { box.style.left = Math.max(8 - r.width + 80, Math.min(window.innerWidth - 80, m.clientX - dx)) + 'px'; box.style.top = Math.max(8, Math.min(window.innerHeight - 40, m.clientY - dy)) + 'px'; };
+    const up = () => { head.removeEventListener('pointermove', move); head.removeEventListener('pointerup', up); box.classList.remove('dragging'); };
+    head.addEventListener('pointermove', move); head.addEventListener('pointerup', up);
+  });
   bg.addEventListener('click', (e) => { if (e.target === bg) closeIdsList(); });
   const keys = (e) => { if (e.key === 'Escape' && !RP) closeIdsList(); };
   document.addEventListener('keydown', keys);
@@ -345,7 +360,7 @@ async function openIdsList(title, ids, opt) {
   }
   draw();
 }
-function closeIdsList() { if (!IDS_LIST) return; document.removeEventListener('keydown', IDS_LIST.keys); IDS_LIST.bg.remove(); IDS_LIST = null; }
+function closeIdsList() { if (!IDS_LIST) return; document.removeEventListener('keydown', IDS_LIST.keys); IDS_LIST.bg.remove(); IDS_LIST = null; syncScrollLock(); }
 
 // хуки для автопроверки сборки
 window.__testPin = async (i, hand) => { window.__pinNet(i); await new Promise(r => setTimeout(r, 200)); const b = [...document.querySelectorAll('.hand-pop button.hp-c')].find(x => x.querySelector('.h').textContent === hand); if (b) b.click(); await new Promise(r => setTimeout(r, 1200)); return document.querySelectorAll('.hp-row').length; };

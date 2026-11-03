@@ -296,7 +296,8 @@
 
     // ---------- эквити в олл-ине: с момента, когда торговля закончилась, и карты всех дошедших известны ----------
     const FOLDED_END = fr.length ? fr[fr.length - 1].folded.slice() : []; // кто сбросил по ходу раздачи
-    const cardsOf = (j) => (j === H0 ? rp.hc : rp.sh && rp.sh[j]) || null;
+    // карта считается известной только когда их две: игрок мог показать одну — для эквити это «неизвестно»
+    const cardsOf = (j) => { const s = j === H0 ? rp.hc : rp.sh && rp.sh[j]; return s && String(s).trim().split(/\s+/).length === 2 ? s : null; };
     let aiFrom = -1;
     for (let k = 1; k < fr.length; k++) {
       const f = fr[k], live = []; for (let j = 0; j < n; j++) if (!f.folded[j]) live.push(j);
@@ -384,11 +385,8 @@
         const key = f.folded[j] && j !== H0 ? (quit && known && final ? 'f:' + known : 'x') : show || 'back';
         if (key !== s.cardsKey) {
           s.cardsKey = key; s.cardsG.replaceChildren();
-          if (key !== 'x') {
-            const src = key.startsWith('f:') ? known : show, cs = src ? src.split(' ') : [null, null], w = 44;
-            if (cs.length === 1) cs.push(null); // показана одна карта — вторая рубашкой
-            cs.forEach((cd, q) => card(s.cardsG, s.sx - (cs.length * (w + 4) - 4) / 2 + q * (w + 4), s.cardY, cd, w));
-          }
+          // всегда два места: игрок мог показать только одну карту — вторая остаётся рубашкой вверх
+          if (key !== 'x') { const src = key.startsWith('f:') ? known : show, cs = src ? String(src).trim().split(/\s+/) : [], w = 44; for (let q = 0; q < 2; q++) card(s.cardsG, s.sx - (2 * (w + 4) - 4) / 2 + q * (w + 4), s.cardY, cs[q] || null, w); }
         }
         // фишки перед игроком: ставка на этой улице, в конце — выигрыш
         const v = final ? f.won[j] : f.bets[j];

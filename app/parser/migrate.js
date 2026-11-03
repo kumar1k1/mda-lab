@@ -47,7 +47,40 @@ const MIGRATIONS = [
   // 0.7.23: у ответа на 4-бет отметка «холодный 4-бет» (+8) — пересчёт строк, где 4-бет был
   // 0.7.23: у ответа на 3-бет отметка «открывающий сбросил» (+4) — пересчёт
   { id: 't3o', col: ['t3r', 'i8'], uses: ['rz', 'act'], need: (C, i) => C.rz[i] === 1 && C.act[i] >= 2 && C.t3r[i] >= 0 && C.t3r[i] < 4, calc: (rec, s) => TB.tbetOf(rec, s).t3r },
-  { id: 't4c', col: ['t4', 'i8'], uses: ['rz', 'act'], need: (C, i) => C.rz[i] === 1 && C.act[i] >= 2 && C.t4[i] >= 0 && C.t4[i] < 8, calc: (rec, s) => TB.tbetOf(rec, s).t4 }
+  { id: 't4c', col: ['t4', 'i8'], uses: ['rz', 'act'], need: (C, i) => C.rz[i] === 1 && C.act[i] >= 2 && C.t4[i] >= 0 && C.t4[i] < 8, calc: (rec, s) => TB.tbetOf(rec, s).t4 },
+  // 0.7.24: у части баз t3r/t4 помечены сделанными, но пустые (баг старого расчёта в 0.7.22) — пересчёт пустых строк
+  { id: 't3n', col: ['t3r', 'i8'], uses: ['rz', 'act'], need: (C, i) => C.rz[i] === 1 && C.act[i] >= 2 && C.t3r[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).t3r },
+  { id: 't4n', col: ['t4', 'i8'], uses: ['rz', 'act'], need: (C, i) => C.rz[i] === 1 && C.act[i] >= 2 && C.t4[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).t4 },
+  // против 3-бета (0.7.33): ход на 3-бет своего открытия и был ли 3-бет соперника олл-ином — у раздач-открытий;
+  // 0.7.34: коллировали ли чужие игроки открытие до 3-бета (v3o) и сам 3-бет после него (v3c)
+  { id: 'v3', col: ['v3', 'i8'], uses: ['sit', 'act'], need: (C, i) => C.sit[i] === 0 && C.act[i] >= 2 && C.v3[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).v3 },
+  { id: 'v3a', col: ['v3a', 'i8'], uses: ['sit', 'act'], need: (C, i) => C.sit[i] === 0 && C.act[i] >= 2 && C.v3a[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).v3a },
+  { id: 'v3o', col: ['v3o', 'i8'], uses: ['sit', 'act'], need: (C, i) => C.sit[i] === 0 && C.act[i] >= 2 && C.v3o[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).v3o },
+  { id: 'v3c', col: ['v3c', 'i8'], uses: ['sit', 'act'], need: (C, i) => C.sit[i] === 0 && C.act[i] >= 2 && C.v3c[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).v3c },
+  // 0.7.42: v3c — «3b пот 3+» = другие игроки вступили (не фолд) МЕЖДУ 3-бетом и ходом игрока; действия после его хода не считаются — пересчёт
+  { id: 'v3c2', col: ['v3c', 'i8'], uses: ['sit', 'act'], need: (C, i) => C.sit[i] === 0 && C.act[i] >= 2 && C.v3c[i] >= 0, calc: (rec, s) => TB.tbetOf(rec, s).v3c },
+  // 0.7.43: v3a — «олл-ин» эффективно: явный пуш, весь стек 3-бетящего или ставка, покрывающая стек открывающего и коллеров открытия — пересчёт
+  { id: 'v3a2', col: ['v3a', 'i8'], uses: ['sit', 'act'], need: (C, i) => C.sit[i] === 0 && C.act[i] >= 2 && C.v3a[i] >= 0, calc: (rec, s) => TB.tbetOf(rec, s).v3a },
+  // 0.7.44: v3e — чем вступили за спиной до хода игрока (0/1/2), v3p — позиция игрока относительно 3-бетящего постфлоп (1 IP / 0 OOP)
+  { id: 'v3e', col: ['v3e', 'i8'], uses: ['sit', 'act'], need: (C, i) => C.sit[i] === 0 && C.act[i] >= 2 && C.v3e[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).v3e },
+  { id: 'v3p', col: ['v3p', 'i8'], uses: ['sit', 'act'], need: (C, i) => C.sit[i] === 0 && C.act[i] >= 2 && C.v3p[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).v3p },
+  // 0.7.46: хедз-ап — метки BTN в записи нет, кнопкой является SB; позиция для таких раздач пересчитывается
+  { id: 'v3p2', col: ['v3p', 'i8'], uses: ['sit', 'act'], need: (C, i) => C.sit[i] === 0 && C.act[i] >= 2 && C.v3p[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).v3p },
+  // 0.7.47: asC — «сквиз пот» вы колером: заколлировали чужое открытие, за спиной сквиз (ход, тип, вступившие, позиция)
+  { id: 'c3', col: ['c3', 'i8'], uses: ['rz', 'act'], need: (C, i) => C.rz[i] === 1 && C.act[i] === 1 && C.c3[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).c3 },
+  { id: 'c3a', col: ['c3a', 'i8'], uses: ['rz', 'act'], need: (C, i) => C.rz[i] === 1 && C.act[i] === 1 && C.c3a[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).c3a },
+  { id: 'c3e', col: ['c3e', 'i8'], uses: ['rz', 'act'], need: (C, i) => C.rz[i] === 1 && C.act[i] === 1 && C.c3e[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).c3e },
+  { id: 'c3p', col: ['c3p', 'i8'], uses: ['rz', 'act'], need: (C, i) => C.rz[i] === 1 && C.act[i] === 1 && C.c3p[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).c3p },
+  // 0.7.49: позиция 3-бетящего/сквизера (fine-позиция) — для карточки «Ваш ответ против трибета агрессора»
+  { id: 'v3q', col: ['v3q', 'i8'], uses: ['sit', 'act'], need: (C, i) => C.sit[i] === 0 && C.act[i] >= 2 && C.v3q[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).v3q },
+  { id: 'c3q', col: ['c3q', 'i8'], uses: ['rz', 'act'], need: (C, i) => C.rz[i] === 1 && C.act[i] === 1 && C.c3q[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).c3q },
+  // 0.7.50: стек 3-бетящего для карточки «Ваш ответ против трибета агрессора»
+  { id: 'v3s', col: ['v3s', 'i32'], uses: ['sit', 'act'], need: (C, i) => C.sit[i] === 0 && C.act[i] >= 2 && C.v3s[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).v3s },
+  // 0.7.54: починка v3c/v3a — базы, мигрировавшие одной пачкой с 0.7.33 до 0.7.50+: v3c2/v3a2 пересчитывали строки
+  // по значениям, снятым до работы v3c/v3a того же запуска, и затирали колонки в -1 (фильтр «олл-ин» пуст, чистых спотов 0).
+  // Досчёт: где значения нет — пересчитать из записей реплеера; у здоровых баз ничего не меняет
+  { id: 'v3c3', col: ['v3c', 'i8'], uses: ['sit', 'act'], need: (C, i) => C.sit[i] === 0 && C.act[i] >= 2 && C.v3c[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).v3c },
+  { id: 'v3a3', col: ['v3a', 'i8'], uses: ['sit', 'act'], need: (C, i) => C.sit[i] === 0 && C.act[i] >= 2 && C.v3a[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).v3a }
 ];
 // обновления формата (после досчёта колонок): двоичный реплеер и сжатые колонки (0.7)
 const FORMAT_IDS = ['rpbin', 'colz', 'names', 'dedup']; // names (0.7.2) — ники за столом; dedup (0.7.8) — копии раздач из разных выгрузок убираются
@@ -67,7 +100,7 @@ function readCol(dir, name, type, n) {
   if (a.length === n) return a; const b = new TY[type](n); b.set(a.subarray(0, Math.min(n, a.length))); return b;
 }
 function writeCol(dir, name, a) { require('./table.js').writeCol(dir, name, a); }
-const TYPES_OF = { rz: 'i8', act: 'i8', pos: 'i8', fcb: 'i8', ant: 'i16', cbs: 'i16', fp: 'i8', fop: 'i8', t3r: 'i8', t4: 'i8' };
+const TYPES_OF = { rz: 'i8', act: 'i8', pos: 'i8', fcb: 'i8', ant: 'i16', cbs: 'i16', fp: 'i8', fop: 'i8', t3r: 'i8', t4: 'i8', sit: 'i8', v3: 'i8', v3a: 'i8', v3o: 'i8', v3c: 'i8', v3e: 'i8', v3p: 'i8', c3: 'i8', c3a: 'i8', c3e: 'i8', c3p: 'i8', v3q: 'i8', c3q: 'i8', v3s: 'i32' };
 
 async function doMigrate(dir, post) {
   const r1 = doRowMigrations(dir, post);
@@ -263,9 +296,13 @@ function doRowMigrations(dir, post) {
     for (const m of todo) {
       for (const job of plan.filter(x => x.m === m)) {
         const { t, C } = job;
-        // перечитать строки: fcb мог только что обновиться предыдущей миграцией
-        const rows = m.id === 'cbs' ? (() => { const r = []; C.fcb = readCol(t.d, 'fcb', 'i8', t.n); for (let i = 0; i < t.n; i++) if (t.rpp[i] >= 0 && m.need(C, i)) r.push(i); return r; })() : job.rows;
-        if (m.id === 'cbs') { total += rows.length - job.rows.length; }
+        // перечитать колонки и строки: предыдущая миграция этого же запуска могла только что обновить их
+        // (v3c2/v3a2 берут строки по значениям v3c/v3a — при съёмке «до» они теряли всё, что посчитал v3c/v3a, и затирали колонку обратно в -1)
+        for (const u of m.uses.concat([m.col[0]])) { const a = readCol(t.d, u, TYPES_OF[u], t.n); if (a) C[u] = a; }
+        if (!C[m.col[0]]) C[m.col[0]] = new TY[m.col[1]](t.n).fill(-1);
+        const rows = [];
+        for (let i = 0; i < t.n; i++) if (t.rpp[i] >= 0 && m.need(C, i)) rows.push(i);
+        total += rows.length - job.rows.length;
         rows.sort((a, b) => t.rpp[a] - t.rpp[b] || t.rpo[a] - t.rpo[b]); // чтение по порядку файла
         const out = C[m.col[0]];
         for (const i of rows) {

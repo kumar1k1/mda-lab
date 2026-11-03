@@ -44,7 +44,9 @@ function rowVals(h, roomIdx) {
     hc: h.hc, net: h.net, sto: h.sto, f3b: h.f3b, orsp: h.orsp, bmin: h.bmin, sbs: h.sbs, bbs: h.bbs, bh: h.bh, bsh: h.bsh, bmd: h.bmd,
     bdp: h.bdp, cov: h.cov, bi: h.bi, rz: h.rz, cl: h.cl, rai: h.rai, opos: h.opos, ostk: h.ostk, osz: h.osz, nev: h.net,
     hpa: h.hpa || 0, tmx: h.tblMax || 0, np: h.n || 0, lr: h.lr || 0, ant: h.ant == null ? -1 : h.ant, fcb: h.fcb == null ? -1 : h.fcb, cbs: h.cbs == null ? -1 : h.cbs,
-    fp: h.fp == null ? -1 : h.fp, fop: h.fop == null ? -1 : h.fop, t3r: h.t3r == null ? -1 : h.t3r, t4: h.t4 == null ? -1 : h.t4
+    fp: h.fp == null ? -1 : h.fp, fop: h.fop == null ? -1 : h.fop, t3r: h.t3r == null ? -1 : h.t3r, t4: h.t4 == null ? -1 : h.t4,
+    v3: h.v3 == null ? -1 : h.v3, v3a: h.v3a == null ? -1 : h.v3a, v3o: h.v3o == null ? -1 : h.v3o, v3c: h.v3c == null ? -1 : h.v3c, v3e: h.v3e == null ? -1 : h.v3e, v3p: h.v3p == null ? -1 : h.v3p,
+    c3: h.c3 == null ? -1 : h.c3, c3a: h.c3a == null ? -1 : h.c3a, c3e: h.c3e == null ? -1 : h.c3e, c3p: h.c3p == null ? -1 : h.c3p, v3q: h.v3q == null ? -1 : h.v3q, c3q: h.c3q == null ? -1 : h.c3q, v3s: h.v3s == null ? -1 : h.v3s
   };
 }
 const monthOfDay = (day) => { const d = new Date(day * 864e5); return d.getUTCFullYear() * 12 + d.getUTCMonth(); };

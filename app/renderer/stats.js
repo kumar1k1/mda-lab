@@ -255,6 +255,7 @@
   const FP = ['EP', 'MP', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
   const TB_COLS = ['TOT', 'MP', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
   const TB_STK = [['< 15 BB', 0, 15], ['15–25 BB', 15, 25], ['25–40 BB', 25, 40], ['40+ BB', 40, 1e9]];
+  const TB_OSTK = [['до 20 BB', 0, 20], ['20–40 BB', 20, 40], ['40+ BB', 40, 1e9]]; // корзины стека открывающего (#7.1)
   // размер 3-бета в разах от открытия — как «Split» в Hand2Note: до ближайших 0,5 (×2 … ×5, дальше ×5+); олл-ин — отдельно
   const TB_X = [['×2'], ['×2,5'], ['×3'], ['×3,5'], ['×4'], ['×4,5'], ['×5'], ['×5+'], ['олл-ин']];
   const xIdx = (ratio) => Math.min(7, Math.max(0, Math.round(ratio * 2) - 4));
@@ -264,15 +265,15 @@
     const has = (k) => c[k] != null && c[k].length === db.count;
     const tbc = () => ({ n: 0, x: 0, nai: 0, ai: 0 });
     const hset = () => ({ n: 0, sum: 0, es: 0, ids: [], mx: Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })) });
-    const szCell = () => ({ n: 0, call: 0, rz: 0, ai: 0, fold: 0, sum: 0, es: 0, sn: 0, ids: [], rids: [], rmx: null });
-    out.opF = {}; out.tb = {}; out.hands = {}; out.handsN = {}; out.handsA = {}; out.f4mx = {}; out.f5mx = {}; out.f4cmx = {}; out.f5cmx = {}; out.f4c = {}; out.t3mx = {}; out.iso = {}; out.isoF = {}; out.f4 = {}; out.t3r = {}; out.sz = {}; out.stk = {}; out.x = {};
+    const szCell = () => ({ n: 0, call: 0, rz: 0, ai: 0, fold: 0, sum: 0, es: 0, sn: 0, ids: [], rids: [], rmx: null, sI: 0, eI: 0, nI: 0, iI: [], sN: 0, eN: 0, nN: 0, iN: [], vmxI: null, vmxN: null }); // sI/eI/nI/iI и vmxI — олл-ин, sN/… — не олл-ин: результат и окна карточек 7/7.1 под тип из шапки раздела
+    out.opF = {}; out.tb = {}; out.hands = {}; out.handsN = {}; out.handsA = {}; out.f4mx = {}; out.f5mx = {}; out.f4cmx = {}; out.f5cmx = {}; out.f4c = {}; out.t3mx = {}; out.iso = {}; out.isoF = {}; out.f4 = {}; out.t3r = {}; out.sz = {}; out.stk = {}; out.ostk = {}; out.x = {};
     const rset = (sub) => { const z = { n: 0, rids: [], rmx: Array.from({ length: 169 }, () => ({ n: 0, x: 0, ai: 0, lp: 0, sum: 0, es: 0 })) }; if (sub) z.parts = { rz: rset(), call: rset(), fold: rset() }; return z; }; // parts — раздачи по вашему ответу (для вкладок окна)
-    TB_COLS.forEach(k => { out.tb[k] = tbc(); out.hands[k] = hset(); out.handsN[k] = hset(); out.handsA[k] = hset(); out.f4mx[k] = rset(true); out.f5mx[k] = rset(true); out.f4cmx[k] = rset(true); out.f5cmx[k] = rset(true); out.f4c[k] = { n: 0, fold: 0, call: 0, rz: 0, n5: 0, x5: 0 }; out.t3mx[k] = rset(); out.iso[k] = { n: 0, x: 0 }; out.isoF[k] = { n: 0, x: 0 }; out.f4[k] = { n: 0, fold: 0, call: 0, rz: 0, n5: 0, x5: 0 }; out.t3r[k] = [0, 0, 0, 0]; out.opF[k] = { n: 0, x: 0 }; out.sz[k] = CC_SZ.map(szCell); out.stk[k] = TB_STK.map(tbc); out.x[k] = TB_X.map(() => ({ n: 0, r: [0, 0, 0, 0], rn: 0, sum: 0, es: 0, ids: [] })); });
+    TB_COLS.forEach(k => { out.tb[k] = tbc(); out.hands[k] = hset(); out.handsN[k] = hset(); out.handsA[k] = hset(); out.f4mx[k] = rset(true); out.f5mx[k] = rset(true); out.f4cmx[k] = rset(true); out.f5cmx[k] = rset(true); out.f4c[k] = { n: 0, fold: 0, call: 0, rz: 0, n5: 0, x5: 0 }; out.t3mx[k] = rset(); out.iso[k] = { n: 0, x: 0 }; out.isoF[k] = { n: 0, x: 0 }; out.f4[k] = { n: 0, fold: 0, call: 0, rz: 0, n5: 0, x5: 0 }; out.t3r[k] = [0, 0, 0, 0]; out.opF[k] = { n: 0, x: 0 }; out.sz[k] = CC_SZ.map(szCell); out.stk[k] = TB_STK.map(tbc); out.ostk[k] = TB_OSTK.map(() => ({ n: 0, x: 0, ai: 0, sum: 0, es: 0, sn: 0, sI: 0, eI: 0, nI: 0, sN: 0, eN: 0, nN: 0 })); out.x[k] = TB_X.map(() => ({ n: 0, r: [0, 0, 0, 0], rn: 0, sum: 0, es: 0, ids: [] })); });
     out.vs = {}; out.vs4 = {}; out.resp = [0, 0, 0];
     // размер 3-бета по группам: в позиции (MP–BTN), SB, BB; со сбросом на 4-бет
-    out.xg = {}; out.split = {}; ['TOT', 'IP', 'SB', 'BB'].forEach(g => { out.xg[g] = TB_X.map(() => ({ n: 0, r: [0, 0, 0, 0], rn: 0, sum: 0, es: 0, ids: [], f4n: 0, f4f: 0 })); out.split[g] = { n: 0, x: 0, fn: 0, ff: 0, b: Array.from({ length: 8 }, () => ({ x: 0, fn: 0, ff: 0 })) }; }); out.fineOk = 0; out.fineAll = 0;
+    out.xg = {}; out.split = {}; out.xgR = {}; ['TOT', 'IP', 'SB', 'BB'].forEach(g => { out.xg[g] = TB_X.map(() => ({ n: 0, r: [0, 0, 0, 0], rn: 0, sum: 0, es: 0, ids: [], f4n: 0, f4f: 0, rmx: null })); out.split[g] = { n: 0, x: 0, fn: 0, ff: 0, b: Array.from({ length: 8 }, () => ({ x: 0, fn: 0, ff: 0 })) }; out.xgR[g] = { rmx: Array.from({ length: 169 }, () => ({ n: 0, x: 0, ai: 0, lp: 0, sum: 0, es: 0 })), rids: [] }; }); out.fineOk = 0; out.fineAll = 0;
     out.mxO = Array.from({ length: 169 }, () => ({ n: 0, x: 0, ai: 0, lp: 0 }));
-    const R = { TB_COLS, TB_STK: TB_STK.map(z => z[0]), TB_X: TB_X.map(z => z[0]), CC_SZ };
+    const R = { TB_COLS, TB_STK: TB_STK.map(z => z[0]), TB_OSTK: TB_OSTK.map(z => z[0]), TB_X: TB_X.map(z => z[0]), CC_SZ };
     if (!c.rz) return Object.assign(out, R);
     const fine = has('fp'), POSF = (p) => (p === 0 ? 'EP' : p === 1 || p === 2 ? 'MP' : POS[p]); // без колонок fp — грубые позиции базы
     for (const i of idx) {
@@ -284,28 +285,46 @@
       const op = fine && c.fop[i] >= 0 ? FP[c.fop[i]] : c.opos[i] >= 0 ? POSF(c.opos[i]) : null;
       // BB против открытия SB (блайнд против блайнда) — в колонке BB не считается, как в Hand2Note (у него это вкладка BvB); в TOT и в «позиция против позиции» — есть
       const a = c.act[i], r3 = a >= 2, bvb = p === 'BB' && op === 'SB', keys = p === 'EP' || bvb ? ['TOT'] : ['TOT', p];
+      // «олл-ин» вашего 3-бета — эффективно: фактический пуш (act 3) или рейз, покрывающий стек открывающего
+      // (size — BB×100, ostk — BB×10), даже если у вас остались фишки; в этом споте коллеров открытия нет (cl = 0)
+      const aI = a === 3 || (a === 2 && c.ostk[i] > 0 && c.size[i] >= c.ostk[i] * 10 - 1);
       // ответ на 4-бет: t4 — 4-бет от открывающего (основные строки), t4c — холодный 4-бет игрока за спиной (отдельная строка)
       const t4r = has('t4') ? c.t4[i] : -1, t4 = t4r >= 0 && !(t4r & 8) ? t4r : -1, t4c = t4r >= 8 ? t4r & 7 : -1, t3r0 = has('t3r') ? c.t3r[i] : -1, t3 = t3r0 >= 0 ? t3r0 & 3 : -1, opF = t3r0 >= 0 ? (t3r0 & 4 ? 1 : 0) : -1; // t3 — первый ответ соперников, opF — сбросил ли открывающий
       if (c.lr && c.lr[i] > 0) { // 3-бет против изолейта
-        keys.forEach(k => { const z = out.iso[k]; z.n++; if (r3) z.x++; if (r3 && t4 >= 0) { const f = out.isoF[k]; f.n++; if ((t4 & 3) === 0) f.x++; } });
+        keys.forEach(k => { const z = out.iso[k]; z.n++; if (r3) z.x++; if (r3 && t4 >= 0) { const f = out.isoF[k]; f.n++; if ((t4 & 3) === 0) f.x++; }
+          if (r3 && c.hc[i] >= 0) { const nv = c.net ? c.net[i] : 0, ne = c.net ? EV[i] : 0, h = z.h || (z.h = hset()), m = h.mx[c.hc[i]]; h.n++; h.sum += nv; h.es += ne; h.ids.push(i); m.n++; m.sum += nv; m.es += ne; } }); // матрица для наведения (#11)
         continue;
       }
       const v0 = c.net ? c.net[i] : 0, e0 = c.net ? EV[i] : 0;
       keys.forEach(k => {
-        const z = out.tb[k]; z.n++; if (r3) { z.x++; if (a === 3) z.ai++; else z.nai++; }
+        const z = out.tb[k]; z.n++; if (r3) { z.x++; if (aI) z.ai++; else z.nai++; }
         const sk = TB_STK.findIndex(q => c.bb[i] / 10 >= q[1] && c.bb[i] / 10 < q[2]);
-        if (sk >= 0) { const s = out.stk[k][sk]; s.n++; if (r3) { s.x++; if (a === 3) s.ai++; else s.nai++; } }
+        if (sk >= 0) { const s = out.stk[k][sk]; s.n++; if (r3) { s.x++; if (aI) s.ai++; else s.nai++; } }
         if (c.osz[i] >= 0) {
           const zk = CC_SZ.findIndex(q => c.osz[i] >= q[1] && c.osz[i] < q[2]);
           if (zk >= 0) {
             const q = out.sz[k][zk]; q.n++;
-            if (a === 1) q.call++; else if (a === 2) q.rz++; else if (a === 3) q.ai++; else q.fold++;
-            if (r3) { q.sum += v0; q.es += e0; q.sn++; q.ids.push(i); }
-            if (c.hc[i] >= 0) { if (!q.rmx) q.rmx = Array.from({ length: 169 }, () => ({ n: 0, x: 0, ai: 0, lp: 0, sum: 0, es: 0 })); const m = q.rmx[c.hc[i]]; m.n++; m.sum += v0; m.es += e0; q.rids.push(i); if (a === 1) m.lp++; else if (r3) { m.x++; if (a === 3) m.ai++; } }
+            if (a === 1) q.call++; else if (aI) q.ai++; else if (a === 2) q.rz++; else q.fold++;
+            if (r3) { q.sum += v0; q.es += e0; q.sn++; q.ids.push(i); if (aI) { q.sI += v0; q.eI += e0; q.nI++; q.iI.push(i); } else { q.sN += v0; q.eN += e0; q.nN++; q.iN.push(i); } }
+            if (c.hc[i] >= 0) { if (!q.rmx) q.rmx = Array.from({ length: 169 }, () => ({ n: 0, x: 0, ai: 0, lp: 0, sum: 0, es: 0 })); const m = q.rmx[c.hc[i]]; m.n++; m.sum += v0; m.es += e0; q.rids.push(i); if (a === 1) m.lp++; else if (r3) { m.x++; if (aI) m.ai++; } }
+            if (r3 && c.hc[i] >= 0) { const vs = aI ? (q.vmxI || (q.vmxI = Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })))) : (q.vmxN || (q.vmxN = Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })))); const v2 = vs[c.hc[i]]; v2.n++; v2.sum += v0; v2.es += e0; if (!q.vmx) q.vmx = Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })); const v1 = q.vmx[c.hc[i]]; v1.n++; v1.sum += v0; v1.es += e0; } // «Факт/EV» в окне — только 3-беты; отдельные матрицы олл-ин / не олл-ин — под тип из шапки раздела
           }
         }
+        // #7.1 — корзины стека открывающего: возможности, 3-беты (все/олл-ином) и их результат; rmx — окно «Диапазон», vmx/ids — «Факт/EV» и списки только по 3-бетам
+        if (c.ostk[i] >= 0) {
+          const ok = c.ostk[i] / 10 < 20 ? 0 : c.ostk[i] / 10 < 40 ? 1 : 2, q = out.ostk[k][ok];
+          q.n++; if (r3) { q.x++; if (aI) { q.ai++; q.sI += v0; q.eI += e0; q.nI++; (q.iI || (q.iI = [])).push(i); } else { q.sN += v0; q.eN += e0; q.nN++; (q.iN || (q.iN = [])).push(i); } q.sum += v0; q.es += e0; q.sn++; (q.ids || (q.ids = [])).push(i); }
+          if (c.hc[i] >= 0) { if (!q.rmx) { q.rmx = Array.from({ length: 169 }, () => ({ n: 0, x: 0, ai: 0, lp: 0, sum: 0, es: 0 })); q.rids = []; } const m = q.rmx[c.hc[i]]; m.n++; m.sum += v0; m.es += e0; q.rids.push(i); if (a === 1) m.lp++; else if (r3) { m.x++; if (aI) m.ai++; } }
+          if (r3 && c.hc[i] >= 0) { const vs = aI ? (q.vmxI || (q.vmxI = Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })))) : (q.vmxN || (q.vmxN = Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })))); const v2 = vs[c.hc[i]]; v2.n++; v2.sum += v0; v2.es += e0; if (!q.vmx) q.vmx = Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })); const v1 = q.vmx[c.hc[i]]; v1.n++; v1.sum += v0; v1.es += e0; }
+        }
+        // #9.1 окно «Диапазон» (как #7): возможности и ответы по группам позиций — по рукам (все ответы, включая фолды и коллы); в бакет размера — сами 3-беты
+        if (k === 'TOT' && c.hc[i] >= 0) { // один раз на раздачу (цикл идёт по TOT и позиции — иначе раздача попадала в окно дважды)
+          const gs2 = ['TOT'].concat(p === 'CO' || p === 'BTN' ? ['IP'] : p === 'SB' ? ['SB'] : p === 'BB' && !bvb ? ['BB'] : []);
+          const xr2 = aI ? 8 : c.osz[i] > 0 ? xIdx(c.size[i] / c.osz[i]) : -1;
+          gs2.forEach(g2 => { const R = out.xgR[g2], m = R.rmx[c.hc[i]]; m.n++; m.sum += v0; m.es += e0; R.rids.push(i); if (a === 1) m.lp++; else if (r3 && xr2 >= 0) { m.x++; if (aI) m.ai++; const B = out.xg[g2][xr2]; if (!B.rmx) B.rmx = Array.from({ length: 169 }, () => ({ n: 0, x: 0, ai: 0, sum: 0, es: 0 })); const b2 = B.rmx[c.hc[i]]; b2.n++; b2.x++; if (aI) b2.ai++; b2.sum += v0; b2.es += e0; } });
+        }
         if (r3) {
-          if (c.hc[i] >= 0) for (const h of [out.hands[k], a === 3 ? out.handsA[k] : out.handsN[k]]) { const m = h.mx[c.hc[i]]; h.n++; h.sum += v0; h.es += e0; h.ids.push(i); m.n++; m.sum += v0; m.es += e0; }
+          if (c.hc[i] >= 0) for (const h of [out.hands[k], aI ? out.handsA[k] : out.handsN[k]]) { const m = h.mx[c.hc[i]]; h.n++; h.sum += v0; h.es += e0; h.ids.push(i); m.n++; m.sum += v0; m.es += e0; }
           // матрицы для наведения: ответ соперников на 3-бет (x — сбросили или 4-бет, из них ai — 4-бет, lp — колл) и ваш ход против 4-бета (x — рейз, lp — колл)
           if (c.hc[i] >= 0) {
             const put = (z, f) => { const m = z.rmx[c.hc[i]]; z.n++; z.rids.push(i); m.n++; m.sum += v0; m.es += e0; f(m); };
@@ -317,9 +336,9 @@
           if (opF >= 0) { const z = out.opF[k]; z.n++; z.x += opF; }
           if (t4c >= 0) { const f = out.f4c[k], b = t4c & 3; f.n++; if (b === 0) f.fold++; else if (b === 1) f.call++; else f.rz++; if ((t4c & 4) === 0) { f.n5++; if (b === 2) f.x5++; } }
           if (t4 >= 0) { const f = out.f4[k], b = t4 & 3; f.n++; if (b === 0) f.fold++; else if (b === 1) f.call++; else f.rz++; if ((t4 & 4) === 0) { f.n5++; if (b === 2) f.x5++; } }
-          // размер 3-бета в разах от открытия; олл-ин — отдельно
-          const xr = a === 3 ? 8 : c.osz[i] > 0 ? xIdx(c.size[i] / c.osz[i]) : -1;
-          if (xr >= 0) { const q = out.x[k][xr]; q.n++; q.ids.push(i); q.sum += v0; q.es += e0; if (t3 >= 0) { q.r[t3]++; q.rn++; } }
+          // размер 3-бета в разах от открытия; олл-ин (эффективно — покрывающий стек открывающего) — отдельно
+          const xr = aI ? 8 : c.osz[i] > 0 ? xIdx(c.size[i] / c.osz[i]) : -1;
+          if (xr >= 0) { const q = out.x[k][xr]; q.n++; q.ids.push(i); q.sum += v0; q.es += e0; if (t3 >= 0) { q.r[t3]++; q.rn++; } if (c.hc[i] >= 0) { const h = q.h || (q.h = hset()), m = h.mx[c.hc[i]]; h.n++; h.sum += v0; h.es += e0; h.ids.push(i); m.n++; m.sum += v0; m.es += e0; } }
           if (xr >= 0 && (k === 'TOT' || k === 'SB' || k === 'BB' || (k === p && (p === 'CO' || p === 'BTN')))) { const gs = k === 'TOT' ? ['TOT'] : k === 'SB' || k === 'BB' ? [k] : ['IP'];
             gs.forEach(gk => { const q = out.xg[gk][xr]; q.n++; q.ids.push(i); q.sum += v0; q.es += e0; if (t3 >= 0) { q.r[t3]++; q.rn++; } if (t4 >= 0) { q.f4n++; if ((t4 & 3) === 0) q.f4f++; } }); }
         }
@@ -327,17 +346,91 @@
       out.resp[a === 0 ? 0 : a === 1 ? 1 : 2]++;
       // «Split» как в Hand2Note: в позиции — CO и BTN; SB; BB без блайнда против блайнда. Частота 3-бета не олл-ином каждого размера и фолд на 4-бет после него
       { const gk = p === 'CO' || p === 'BTN' ? 'IP' : p === 'SB' ? 'SB' : p === 'BB' && !bvb ? 'BB' : null;
-        for (const g of gk ? ['TOT', gk] : ['TOT']) { const sp = out.split[g]; sp.n++; if (a === 2 && c.osz[i] > 0) { const b = sp.b[xIdx(c.size[i] / c.osz[i])]; sp.x++; b.x++; if (t4 >= 0) { sp.fn++; b.fn++; if ((t4 & 3) === 0) { sp.ff++; b.ff++; } } } } }
-      if (op) { const row = out.vs[p] || (out.vs[p] = {}), z = row[op] || (row[op] = tbc()); z.n++; if (r3) { z.x++; if (a === 3) z.ai++; else z.nai++; } }
+        for (const g of gk ? ['TOT', gk] : ['TOT']) { const sp = out.split[g]; sp.n++; if (a === 2 && !aI && c.osz[i] > 0) { const b = sp.b[xIdx(c.size[i] / c.osz[i])]; sp.x++; b.x++; if (t4 >= 0) { sp.fn++; b.fn++; if ((t4 & 3) === 0) { sp.ff++; b.ff++; } }
+          if (c.hc[i] >= 0) for (const h of [sp.h || (sp.h = hset()), b.h || (b.h = hset())]) { const m = h.mx[c.hc[i]]; h.n++; h.sum += v0; h.es += e0; h.ids.push(i); m.n++; m.sum += v0; m.es += e0; } } } } // h — матрицы для наведения (#9)
+      if (op) { const row = out.vs[p] || (out.vs[p] = {}), z = row[op] || (row[op] = tbc()); z.n++; if (r3) { z.x++; if (aI) z.ai++; else z.nai++;
+        if (c.hc[i] >= 0) for (const h of [z.hA || (z.hA = hset()), (aI ? z.hI || (z.hI = hset()) : z.hN || (z.hN = hset()))]) { const m = h.mx[c.hc[i]]; h.n++; h.sum += v0; h.es += e0; h.ids.push(i); m.n++; m.sum += v0; m.es += e0; } } } // hA/hN/hI — матрицы для наведения (#5): все 3-беты / не олл-ин / олл-ин
       if (op && r3 && t4 >= 0) { const row = out.vs4[p] || (out.vs4[p] = {}), f = row[op] || (row[op] = { n: 0, fold: 0, call: 0, rz: 0, n5: 0, x5: 0 }), b = t4 & 3; f.n++; if (b === 0) f.fold++; else if (b === 1) f.call++; else f.rz++; if ((t4 & 4) === 0) { f.n5++; if (b === 2) f.x5++; } }
       // #5: ответ каждой рукой против стека открывающего (позиция, позиции открывающего, стеки — из настроек блока)
       if (c.hc[i] >= 0 && p === opt.oPos && (!opt.oStk || (c.ostk[i] >= opt.oStk[0] * 10 && c.ostk[i] < opt.oStk[1] * 10)) && (!opt.oMy || (c.bb[i] >= opt.oMy[0] * 10 && c.bb[i] < opt.oMy[1] * 10)) && (!opt.oOpen || !opt.oOpen.length || opt.oOpen.includes(op))) {
         const m = out.mxO[c.hc[i]]; m.n++;
-        if (a === 1) m.lp++; else if (r3) { m.x++; if (a === 3) m.ai++; }
+        if (a === 1) m.lp++; else if (r3) { m.x++; if (aI) m.ai++; }
       }
     }
     return Object.assign(out, R);
   }
 
-  window.Stats = { POS, selectHands, rfi, rfiExtra, stealExtra, cc, tb };
+  // «Против 3-бета» (v3B), два семейства: asR — своё открытие (sit 0) и 3-бет соперника (v3*, как в Hand2Note RF,RC,RR+);
+  // asC (0.7.47) — заколлировали чужое открытие, за спиной сквиз (c3*). Значения унифицированы: resp — ваш ход против рейза
+  // (v3/c3), entry — вступили за спиной до вашего хода (v3e/c3e). d — все строки idx (карточки 1–2),
+  // e1/e2 — «за спиной вступили» (карточка 3), cl — «чистые» asR-споты 1vs1 (карточка 5).
+  // «наше действие», тип, банк и позиция из фильтров раздела отбирают раздачи до расчёта (в app.js)
+  function v3b(db, idx, opt) {
+    opt = opt || {};
+    const c = db.cols, EV = c.nev || c.net, out = {};
+    const has = (k) => c[k] != null && c[k].length === db.count;
+    const R = { V3B_POS: ['EP', 'MP', 'HJ', 'CO', 'BTN', 'SB'] };
+    if (!has('v3')) return Object.assign(out, R); // база до 0.7.33 — колонки нет, раздел пуст
+    const clean = has('v3o') && has('v3c'), fine6 = has('v3e'), hasC = has('c3');
+    const fine = has('fp'), POSF = (p) => (p === 0 ? 'EP' : p === 1 || p === 2 ? 'MP' : POS[p]);
+    const cell = () => ({ n: 0, fld: 0, call: 0, r4: 0, sum: 0, es: 0, sn: 0, ids: [], mx: Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })) });
+    out.d = {}; out.e1 = {}; out.e2 = {}; out.cl = {}; ['TOT'].concat(R.V3B_POS).forEach(k => { out.d[k] = cell(); out.e1[k] = cell(); out.e2[k] = cell(); out.cl[k] = cell(); });
+    // карточка «Ваш ответ против трибета агрессора»: матрица рук (4-бет / олл-ин / колл / фолд) при заданных
+    // позиции 3-бетящего (v3oOpen — можно несколько), его стеке (v3oStk) и вашем стеке (v3oMy); позиция ваша — v3oPos
+    if (opt.v3oPos) out.mxV = Array.from({ length: 169 }, () => ({ n: 0, x: 0, ai: 0, lp: 0 }));
+    const hasQ = has('v3q') && has('c3q');
+    for (const i of idx) {
+      const isC = hasC && c.c3[i] >= 0; // asC: кол открытия + сквиз за спиной
+      if (!isC && c.v3[i] < 0) continue; // спота нет или хода не случилось
+      const p = fine && c.fp[i] >= 0 ? FP[c.fp[i]] : POSF(c.pos[i]);
+      const keys = R.V3B_POS.includes(p) ? ['TOT', p] : ['TOT'];
+      const v = isC ? c.c3[i] : c.v3[i], v0 = c.net ? c.net[i] : 0, e0 = c.net ? EV[i] : 0;
+      const entry = isC ? c.c3e[i] : c.v3e[i];
+      // «чистый» asR-спот «3b пот 1vs1»: открытие без коллов (v3o=0) и до вашего хода никто не вступал —
+      // как фильтр банка 'hu' в app.js: v3e, а в старых базах v3c (миграция 0.7.42 делала их равными)
+      const isClean = !isC && clean ? c.v3o[i] === 0 && (fine6 ? c.v3e[i] === 0 : c.v3c[i] === 0) : false;
+      // карточка #3: за спиной вступили до вашего хода: e1 — только колы, e2 — был рейз поверх
+      const e1 = entry === 1 && (isC || c.v3o[i] === 0);
+      const e2 = entry === 2 && (isC || c.v3o[i] === 0);
+      keys.forEach(k => {
+        for (const z of [out.d[k], e1 ? out.e1[k] : null, e2 ? out.e2[k] : null, isClean ? out.cl[k] : null]) {
+          if (!z) continue;
+          z.n++;
+          if (v === 0) z.fld++;
+          else if (v === 1) z.call++;
+          else z.r4++;
+          z.sum += v0; z.es += e0; z.sn++; z.ids.push(i);
+          if (c.hc[i] >= 0) { const m = z.mx[c.hc[i]]; m.n++; m.sum += v0; m.es += e0; }
+        }
+      });
+      // карточка 4 «Ваш ответ против трибета агрессора» — только 1vs1 (asR, v3o=0, v3e=0, не asC):
+      // позиция 3-бетящего по v3q, его стек по v3s; HJ объединена с MP (за 6-max единственное среднее место — HJ)
+      if (opt.v3oPos) {
+        const heroP = p === 'HJ' ? 'MP' : p; // HJ→MP: за 6-max среднее место = HJ
+        if (c.hc[i] >= 0 && heroP === opt.v3oPos && hasQ && !isC && c.v3o[i] === 0 && c.v3e[i] === 0) {
+          const q = c.v3q[i];
+          const rawP = q >= 0 ? FP[q] : null;
+          const opP = rawP === 'HJ' ? 'MP' : rawP; // HJ 3-бетящего → MP
+          const v3s = has('v3s') ? c.v3s[i] : -1;
+          const okStk = !opt.v3oStk || (v3s >= opt.v3oStk[0] * 10 && v3s < opt.v3oStk[1] * 10);
+          const okMy = !opt.v3oMy || (c.bb[i] >= opt.v3oMy[0] * 10 && c.bb[i] < opt.v3oMy[1] * 10);
+          const okOpen = !opt.v3oOpen || !opt.v3oOpen.length || opt.v3oOpen.includes(opP);
+          if (okStk && okMy && okOpen) {
+            const m = out.mxV[c.hc[i]];
+            m.n++;
+            if (v === 0) m.fo = (m.fo || 0) + 1;
+            else if (v === 1) m.lp++;
+            else { m.x++; if (v === 3) m.ai++; }
+          }
+        }
+      }
+    }
+    out.all = out.d.TOT.n; // все споты выборки (знаменатель карточки 3)
+    out.resp = [out.d.TOT.fld, out.d.TOT.call, out.d.TOT.r4];
+    out.respE1 = [out.e1.TOT.fld, out.e1.TOT.call, out.e1.TOT.r4];
+    out.respE2 = [out.e2.TOT.fld, out.e2.TOT.call, out.e2.TOT.r4];
+    return Object.assign(out, R);
+  }
+
+  window.Stats = { POS, selectHands, rfi, rfiExtra, stealExtra, cc, tb, v3b };
 })();
