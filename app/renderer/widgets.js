@@ -159,10 +159,15 @@ function wrNode(cls, f, e, d) {
   return s;
 }
 // ячейки 4+ / 5+: факт сверху, EV мелко под ним — всегда внутри ячейки
+// Что показывать в ячейках таблиц одним числом: EV (с поправкой на эквити в олл-инах) или факт. Общий выбор для всего проекта
+// (переключатель valSeg в карточках); оба числа — в подсказке при наведении.
+let VAL_MODE = 'ev';
+const valPick = (f, e) => (VAL_MODE === 'ev' && e != null ? e : f);
+function valSeg() { const s = segBtns([['ev', 'EV, BB'], ['net', 'Факт, BB']], VAL_MODE, (k) => { VAL_MODE = k; renderNext(); }); s.classList.add('val-seg'); s.title = 'Что показывать в ячейках: EV (с поправкой на эквити в олл-инах) или фактический результат. Оба числа — в подсказке при наведении.'; return s; }
 function pmxWr(f, e) {
-  const s = el('span', 'pmx-w');
-  s.append(el('span', 'pmx-wf ' + (f == null ? '' : f >= 0 ? 'up' : 'down'), f == null ? '—' : signed(f, 2)));
-  if (f != null && e != null) s.append(el('span', 'pmx-we ' + (e >= 0 ? 'up' : 'down'), 'EV ' + signed(e, 2)));
+  const s = el('span', 'pmx-w'), v = valPick(f, e);
+  s.append(el('span', 'pmx-wf ' + (v == null ? '' : v >= 0 ? 'up' : 'down'), v == null ? '—' : signed(v, 2) + (VAL_MODE === 'ev' && e != null ? ' EV' : '')));
+  if (f != null) s.title = signed(f, 2) + ' BB факт' + (e != null ? ', ' + signed(e, 2) + ' BB EV' : '');
   return s;
 }
 const wrHtml = (f, e, d) => f == null ? '<span class="muted">—</span>' : '<span class="' + (f >= 0 ? 'up' : 'down') + '">' + signed(f, d) + '</span>' + (f == null || e == null ? '' : '<span class="evs-big ' + (e >= 0 ? 'up' : 'down') + '"> / ' + signed(e, d) + ' <i>EV</i></span>');

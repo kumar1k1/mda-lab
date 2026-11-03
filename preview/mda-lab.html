@@ -2031,6 +2031,13 @@ body.noscroll #content{overflow:hidden}
 .ht.v3-rt td.num .v{display:block;font-size:11px;font-weight:500;margin-top:1px}
 .ht.v3-rt td.avg b{font-size:13.5px}
 
+/* одно число в ячейке (VAL_MODE) */
+.val-seg{align-self:flex-end}
+.ht.v3-grp td.c .v{display:block;font-family:var(--mono);font-size:11.5px;margin-top:1px}
+.pmx-w{cursor:help}
+.v3-rt-box.fit{align-self:flex-start}
+.v3-rt-box.fit > .ht.v3-grp td.c{min-width:92px}
+
 /* Дополнения только для онлайн-превью: тёмная тема и узкие экраны */
 :root{color-scheme:dark}
 html,body{background:var(--bg);color:var(--text)}
@@ -3120,10 +3127,15 @@ function wrNode(cls, f, e, d) {
   return s;
 }
 // ячейки 4+ / 5+: факт сверху, EV мелко под ним — всегда внутри ячейки
+// Что показывать в ячейках таблиц одним числом: EV (с поправкой на эквити в олл-инах) или факт. Общий выбор для всего проекта
+// (переключатель valSeg в карточках); оба числа — в подсказке при наведении.
+let VAL_MODE = 'ev';
+const valPick = (f, e) => (VAL_MODE === 'ev' && e != null ? e : f);
+function valSeg() { const s = segBtns([['ev', 'EV, BB'], ['net', 'Факт, BB']], VAL_MODE, (k) => { VAL_MODE = k; renderNext(); }); s.classList.add('val-seg'); s.title = 'Что показывать в ячейках: EV (с поправкой на эквити в олл-инах) или фактический результат. Оба числа — в подсказке при наведении.'; return s; }
 function pmxWr(f, e) {
-  const s = el('span', 'pmx-w');
-  s.append(el('span', 'pmx-wf ' + (f == null ? '' : f >= 0 ? 'up' : 'down'), f == null ? '—' : signed(f, 2)));
-  if (f != null && e != null) s.append(el('span', 'pmx-we ' + (e >= 0 ? 'up' : 'down'), 'EV ' + signed(e, 2)));
+  const s = el('span', 'pmx-w'), v = valPick(f, e);
+  s.append(el('span', 'pmx-wf ' + (v == null ? '' : v >= 0 ? 'up' : 'down'), v == null ? '—' : signed(v, 2) + (VAL_MODE === 'ev' && e != null ? ' EV' : '')));
+  if (f != null) s.title = signed(f, 2) + ' BB факт' + (e != null ? ', ' + signed(e, 2) + ' BB EV' : '');
   return s;
 }
 const wrHtml = (f, e, d) => f == null ? '<span class="muted">—</span>' : '<span class="' + (f >= 0 ? 'up' : 'down') + '">' + signed(f, d) + '</span>' + (f == null || e == null ? '' : '<span class="evs-big ' + (e >= 0 ? 'up' : 'down') + '"> / ' + signed(e, d) + ' <i>EV</i></span>');
@@ -4222,7 +4234,8 @@ function renderShovePanel(idx, stackBars) {
     tb.append(el('span', 'pmx-rh', z0[0]));
     P.forEach((nm, p) => { if (nm !== 'HJ') tb.append(put(M[k][p], nm + ', ' + z0[0] + ' BB')); });
   });
-  m.append(tb, infoNote('В клетке: сверху — частота пуша (как часто вы идёте олл-ин от всех возможностей открыться), снизу — винрейт за пуш в BB. Чем ярче клетка, тем чаще пуш. Бледные клетки — меньше 10 пушей. Наведите на клетку — покажутся руки, которыми вы пушили, и их итог; клик закрепит окно, а клик по руке откроет раздачи и реплеер.'));
+  { const sg = valSeg(); m.append(sg); }
+  m.append(tb, infoNote('В клетке: сверху — частота пуша (как часто вы идёте олл-ин от всех возможностей открыться), снизу — винрейт за пуш в BB (EV или факт — переключатель над таблицей; оба числа — при наведении). Чем ярче клетка, тем чаще пуш. Бледные клетки — меньше 10 пушей. Наведите на клетку — покажутся руки, которыми вы пушили, и их итог; клик закрепит окно, а клик по руке откроет раздачи и реплеер.'));
   return card;
 }
 
@@ -4357,7 +4370,8 @@ function isoPanel(d) {
       tb.append(c);
     });
   });
-  card.append(tb, infoNote('В клетке: частота изолейта (как часто вы рейзите, когда перед вами лимпили), и винрейт за изолейт в BB. Чем ярче клетка, тем чаще изолейт; бледные — меньше 20 возможностей. Наведите на клетку — матрица ответов; клик закрепит окно: «Диапазон» — все ответы (нажимаются только руки с изолейтом), «Факт, BB» и «EV, BB» — итоги изолейтов, клик по руке — только раздачи с изолейтом.'), isoSizing(d));
+  { const sg = valSeg(); card.append(sg); }
+  card.append(tb, infoNote('В клетке: частота изолейта (как часто вы рейзите, когда перед вами лимпили), и винрейт за изолейт в BB (EV или факт — переключатель над таблицей; оба числа — при наведении). Чем ярче клетка, тем чаще изолейт; бледные — меньше 20 возможностей. Наведите на клетку — матрица ответов; клик закрепит окно: «Диапазон» — все ответы (нажимаются только руки с изолейтом), «Факт, BB» и «EV, BB» — итоги изолейтов, клик по руке — только раздачи с изолейтом.'), isoSizing(d));
   return card;
 }
 
@@ -4769,8 +4783,9 @@ function ccGroupBlock(r, o) {
   const top = el('div', 'ccg-top');
   pos.forEach(p => { const z = r.hands[p]; const b = el('div', 'ccg-big'); const big = el('b'); big.innerHTML = wrHtml(z.sum / 10 / z.n, z.es / 10 / z.n, 2); b.append(el('span', 'nm', p), big, el('span', 'cnt', z.n.toLocaleString('ru-RU'))); top.append(b); });
   card.append(top);
+  { const sg = valSeg(); sg.classList.add('v3-rt-seg'); card.append(sg); }
   // таблица: группа рук × позиция
-  const vals = []; pos.forEach(p => agg[p].g.forEach(z => { if (z.n >= 5) vals.push(Math.abs(z.sum / 10 / z.n)); }));
+  const vals = []; pos.forEach(p => agg[p].g.forEach(z => { if (z.n >= 5) vals.push(Math.abs(valPick(z.sum, z.es) / 10 / z.n)); }));
   vals.sort((a, b) => a - b); const scale = Math.max(0.5, vals[Math.floor(vals.length * 0.9)] || 0.5);
   const tbl = el('div', 'ccg-t'); tbl.style.setProperty('--ncol', pos.length);
   const hd = el('div', 'ccg-r ccg-head'); hd.append(el('span', null, 'Группа рук')); pos.forEach(p => hd.append(el('span', null, p))); tbl.append(hd);
@@ -4780,10 +4795,10 @@ function ccGroupBlock(r, o) {
       const z = agg[p].g[k], hands = agg[p].h, cell = el('div', 'ccg-c');
       cell.addEventListener('mouseenter', (e) => showGroupTip(p, lab, k, z, hands, e, o.verb)); cell.addEventListener('mousemove', moveGroupTip); cell.addEventListener('mouseleave', hideGroupTip);
       if (!z.n) { cell.append(el('span', 'hg-na', '—')); row.append(cell); return; }
-      const v = z.sum / 10 / z.n, t = Math.min(1, Math.abs(v) / scale);
+      const v = valPick(z.sum, z.es) / 10 / z.n, t = Math.min(1, Math.abs(v) / scale); // цвет и число — по выбранному «EV / факт»
       cell.style.background = 'rgba(' + (v >= 0 ? 'var(--good-rgb)' : 'var(--bad-rgb)') + ',' + (0.08 + 0.32 * t).toFixed(2) + ')';
-      const f = el('b', v >= 0 ? 'up' : 'down', signed(v, 2)), ev = z.es / 10 / z.n;
-      cell.append(f, el('span', 'ccg-ev ' + (ev >= 0 ? 'up' : 'down'), signed(ev, 2) + ' EV'), el('span', 'ccg-n', String(z.n)));
+      const f = el('b', v >= 0 ? 'up' : 'down', signed(v, 2) + (VAL_MODE === 'ev' ? ' EV' : ''));
+      cell.append(f, el('span', 'ccg-n', String(z.n))); cell.title = signed(z.sum / 10 / z.n, 2) + ' BB факт, ' + signed(z.es / 10 / z.n, 2) + ' BB EV · ' + z.n;
       if (z.n < 30) cell.classList.add('low');
       cell.classList.add('click'); cell.tabIndex = 0; cell.setAttribute('role', 'button'); cell.setAttribute('aria-label', p + ', ' + lab + ': ' + signed(v, 2) + ' BB, ' + z.n + nlabOf(z.n, o.nlab) + ' — показать руки и раздачи');
       const pin = (e) => { hideGroupTip(); pinHandPop({ p: o.p ? p : null, key: o.key + p + k, title: (o.nameOf ? o.nameOf(p) : o.name + ' · ' + p) + ' · ' + lab, o: z, mx: hands, ids: r.hands[p].ids, only: (q) => handGroup(q) === k, sit: 2, act: o.act, vlab: o.vlab, nlab: o.nlab }, v, e, cell); };
@@ -4793,7 +4808,7 @@ function ccGroupBlock(r, o) {
     tbl.append(row);
   });
   const wrap = el('div', 'ccg-wrap'); wrap.append(tbl); card.append(wrap);
-  card.append(infoNote(o.note || 'В ячейке — результат колд-колла группой рук с этой позиции в BB: сверху факт, под ним EV, справа мелко — число колд-коллов. Цвет — плюс или минус. Наведите — матрица рук группы и их итог; клик закрепит окно, клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше 30 раздач.'));
+  card.append(infoNote(o.note || 'В ячейке — результат колд-колла группой рук с этой позиции в BB (EV или факт — переключатель над таблицей; оба числа — при наведении), справа мелко — число колд-коллов. Цвет — плюс или минус. Наведите — матрица рук группы и их итог; клик закрепит окно, клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше 30 раздач.'));
   return card;
 }
 
@@ -5297,7 +5312,7 @@ function renderTB(idx) {
   const zone = el('div', 'summary'); const pair = el('div', 'sum-pair'); pair.append(c1, c2); zone.append(pair);
   const rG = flt ? Object.assign({}, r, { hands: H2 }) : r; // #4 — тоже по типу 3-бета из шапки
   zone.append(tbOppBlock(r6), tbTable(r), tbVsBlock(r57, T57.ty), ccGroupBlock(rG, { cols: TB_POS, tag: 4, title: 'Результат 3-бета по группам рук', sub: 'BB за 3-бет: всего и по группам рук, факт / EV', name: '3-бет', nameOf: (p) => 'Ваш 3-бет с ' + p, verb: 'не 3-бетили', act: undefined, vlab: ' BB за 3-бет', nlab: ' 3-бетов', none: 'Нет 3-бетов в выборке.', key: 'tbg', p: false,
-      note: 'В ячейке — результат 3-бета группой рук с этой позиции в BB (' + (flt ? (ty2 === 'ai' ? 'только 3-беты олл-ином' : 'только 3-беты не олл-ином') + ' — фильтр раздела' : 'вместе с олл-инами') + '): сверху факт, под ним EV, справа мелко — число 3-бетов. Цвет — плюс или минус. Наведите — матрица рук группы и их итог; клик закрепит окно, клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше 30 раздач.' }),
+      note: 'В ячейке — результат 3-бета группой рук с этой позиции в BB (' + (flt ? (ty2 === 'ai' ? 'только 3-беты олл-ином' : 'только 3-беты не олл-ином') + ' — фильтр раздела' : 'вместе с олл-инами') + '): EV или факт — переключатель над таблицей (оба числа — при наведении), справа мелко — число 3-бетов. Цвет — плюс или минус. Наведите — матрица рук группы и их итог; клик закрепит окно, клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше 30 раздач.' }),
     tbSizeBlock(r57, T57.ty), tbSplitBlock(r), tbXBlock(r), tbOstkBlock(r57, T57.ty), tbIsoBlock(r)); // порядок: 6 после ряда 1–2, 5 за 3, 7.1 после 9.1; 5, 7 и 7.1 — стек + тип раздела, 6 — без них; #8 удалена (0.7.25), #10 — (0.7.27)
   page.append(zone);
   return page;
@@ -5493,12 +5508,12 @@ function renderV3B(idx) {
 // ---------- #6–#15: карточки-предложения «Против 3-бета» ----------
 // Общий счётчик ответа: n — раздач, fld / call / r4 (4-бет не олл-ином) / ai (4-бет олл-ином), sum / es — итог в BB×10 (факт / EV),
 // ids и mx — для окна рук при наведении (как у карточки 2).
-function v3Cell() { return { n: 0, fld: 0, call: 0, r4: 0, ai: 0, sum: 0, es: 0, act: [0, 1, 2, 3].map(() => ({ sum: 0, es: 0 })), ids: [], mx: Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })) }; }
+function v3Cell() { return { n: 0, fld: 0, call: 0, r4: 0, ai: 0, sum: 0, es: 0, act: [0, 1, 2, 3].map(() => ({ sum: 0, es: 0 })), ids: [], mx: Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0, x: 0, ai: 0, lp: 0 })) }; } // mx: x — рейз (из них ai — олл-ин), lp — колл; остальное — фолд (для окна «Диапазон»)
 function v3Add(z, i, v, c, EV) {
   z.n++; if (v === 0) z.fld++; else if (v === 1) z.call++; else if (v === 3) z.ai++; else z.r4++;
   const nv = c.net ? c.net[i] : 0, ne = c.net ? EV[i] : 0; z.sum += nv; z.es += ne;
   { const q = z.act[v === 0 ? 0 : v === 1 ? 1 : v === 3 ? 3 : 2]; q.sum += nv; q.es += ne; } // итог каждой реакции отдельно: фолд / колл / рейз / рейз олл-ином
-  if (c.hc[i] >= 0) { z.ids.push(i); const m = z.mx[c.hc[i]]; m.n++; m.sum += nv; m.es += ne; }
+  if (c.hc[i] >= 0) { z.ids.push(i); const m = z.mx[c.hc[i]]; m.n++; m.sum += nv; m.es += ne; if (v === 1) m.lp++; else if (v >= 2) { m.x++; if (v === 3) m.ai++; } }
 }
 function v3Group(ids, keyOf, RV) {
   const c = DB.cols, EV = EVcol(), out = {};
@@ -5509,15 +5524,14 @@ function v3Group(ids, keyOf, RV) {
 // Таблица «строка — ваша реакция»: раз и доля раздач; по каждой реакции — доля и ОДНО число — средний итог этой реакции
 // (EV или факт — переключатель над таблицей, общий для раздела); последняя колонка — в среднем за раздачу.
 // Наведение на строку — руки этих раздач и итог; клик по руке — раздачи и реплеер.
-let V3_VAL = 'ev';
 function v3RespTable(rows, title, NR, keyPre, heads) {
   const isTot = (lab) => /^Вс[её]/.test(lab), totRow = rows.find(r => isTot(r[0]) && r[1]);
   const tot = totRow ? totRow[1].n : rows.reduce((a, r) => a + (r[1] ? r[1].n : 0), 0);
   if (!tot) return el('p', 'muted small', 'Нет раздач в выборке.');
-  const ev = V3_VAL === 'ev', val = (q, n) => (n ? (ev ? q.es : q.sum) / 10 / n : null);
+  const ev = VAL_MODE === 'ev', val = (q, n) => (n ? (ev ? q.es : q.sum) / 10 / n : null);
   const H = heads || ['Фолд', 'Колл', '4-бет', 'Олл-ин'], COL = ['var(--good)', 'var(--ice)', 'var(--bad)', 'var(--amber)'];
   const box = el('div', 'v3-rt-box');
-  const seg = segBtns([['ev', 'EV, BB'], ['net', 'Факт, BB']], V3_VAL, (k) => { V3_VAL = k; renderNext(); }); seg.classList.add('v3-rt-seg'); seg.title = 'Что показывать под долей реакции: EV (с поправкой на эквити в олл-инах) или фактический результат';
+  const seg = valSeg(); seg.classList.add('v3-rt-seg');
   const t = el('table', 'ht v3-rt'), hr = el('tr');
   [title, 'Раз'].concat(H).concat(['В среднем']).forEach((h, k) => { const th = el('th', k >= 2 ? 'num' : null, h); if (h === 'В среднем') th.title = 'Средний итог одной раздачи по всем вашим реакциям, ' + (ev ? 'EV' : 'факт') + ', BB'; hr.append(th); });
   const th = el('thead'); th.append(hr); t.append(th); const tb = el('tbody');
@@ -5532,7 +5546,13 @@ function v3RespTable(rows, title, NR, keyPre, heads) {
       tr.append(td);
     });
     const a = val(z, z.n), tdA = el('td', 'num avg'), ax = el('b', a >= 0 ? 'up' : 'down', signed(a, 2)); tdA.append(ax); tdA.title = 'В среднем за раздачу: ' + signed(z.sum / 10 / z.n, 2) + ' BB факт, ' + signed(z.es / 10 / z.n, 2) + ' BB EV; всего ' + signed(z.sum / 10, 0) + ' / ' + signed(z.es / 10, 0) + ' EV'; tr.append(tdA);
-    if (z.ids.length) { tr.classList.add('click'); tr.tabIndex = 0; hoverHands(tr, { p: lab, anyPos: true, pre: true, key: keyPre + lab, title: 'Ваша реакция на ' + NR + ' · ' + lab, o: { n: z.ids.length, sum: z.ids.reduce((s0, i) => s0 + DB.cols.net[i], 0), es: z.ids.reduce((s0, i) => s0 + EVcol()[i], 0) }, mx: z.mx, ids: z.ids, vlab: ' BB за раздачу', nlab: ' раздач' }, z.sum / 10 / z.n); }
+    // наведение — окно «Диапазон» (какими руками фолд / колл / рейз); клик — закрепить, в окне переключатель «Диапазон / Факт, BB / EV, BB», клик по руке — раздачи и реплеер
+    if (z.ids.length) {
+      tr.classList.add('click'); tr.tabIndex = 0;
+      const rl = (H[2] || '4-бет').toLowerCase(), zz = { n: z.n, rmx: z.mx, rids: z.ids, labels: [rl, 'олл-ин', 'колл', 'фолд'], capAll: 'все ваши ответы', foldPaint: true }, wt = 'Ваша реакция на ' + NR + ' · ' + lab;
+      tr.addEventListener('mouseenter', (e) => showSzMx(wt, zz, tr, e)); tr.addEventListener('mousemove', (e) => { if (!SZMX_PIN && szMx && !szMx.hidden) placeSzMx(tr, e); }); tr.addEventListener('mouseleave', hideSzMx);
+      tr.addEventListener('click', (e) => pinSzMx(wt, zz, tr, e)); tr.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pinSzMx(wt, zz, tr); } });
+    }
     tb.append(tr);
   });
   t.append(tb); box.append(seg, t);
@@ -5726,10 +5746,11 @@ function v3ExtraCards(x) {
     const g = {}; for (const i of A) { if (c.hc[i] < 0) continue; const k = handGroup(c.hc[i]), v = RV(i), col = v === 0 ? 'Фолд' : v === 1 ? 'Колл' : '4-бет'; const row = g[k] || (g[k] = {}); v3Add(row[col] || (row[col] = v3Cell()), i, v, c, EVcol()); }
     const cols = ['Фолд', 'Колл', '4-бет'], t = el('table', 'ht v3-grp'), hr = el('tr'); hr.append(el('th', null, 'Группа рук')); cols.forEach(k => hr.append(el('th', null, k))); const th = el('thead'); th.append(hr); t.append(th);
     const tb = el('tbody');
-    HAND_GROUPS.forEach((G, k) => { const row = g[k]; if (!row) return; const tr = el('tr'); tr.append(el('th', null, G[0])); cols.forEach(col => { const z = row[col], td = el('td', 'c'); if (z && z.n) { const sh = el('b', null, fmtPct(z.n / cols.reduce((a, q) => a + (row[q] ? row[q].n : 0), 0)) + '%'); const wr = wrNode('wr', z.sum / 10 / z.n, z.es / 10 / z.n, 2); td.append(sh, wr, el('span', 'n', z.n)); if (z.n < 30) td.classList.add('low'); hoverHands(td, { p: G[0], anyPos: true, pre: true, key: 'v312' + k + col, title: G[0] + ' · ' + col.toLowerCase() + ' на ' + NR, o: { n: z.ids.length, sum: z.sum, es: z.es }, mx: z.mx, ids: z.ids, vlab: ' BB за раздачу', nlab: ' раздач' }, z.sum / 10 / z.n); } else td.append('—'); tr.append(td); }); tb.append(tr); });
+    HAND_GROUPS.forEach((G, k) => { const row = g[k]; if (!row) return; const tr = el('tr'); tr.append(el('th', null, G[0])); cols.forEach(col => { const z = row[col], td = el('td', 'c'); if (z && z.n) { const sh = el('b', null, fmtPct(z.n / cols.reduce((a, q) => a + (row[q] ? row[q].n : 0), 0)) + '%'), vv = valPick(z.sum / 10 / z.n, z.es / 10 / z.n); td.append(sh, el('span', 'v ' + (vv >= 0 ? 'up' : 'down'), signed(vv, 2)), el('span', 'n', z.n)); td.title = signed(z.sum / 10 / z.n, 2) + ' BB факт, ' + signed(z.es / 10 / z.n, 2) + ' BB EV · ' + cnt(z.n, 'раз'); if (z.n < 30) td.classList.add('low'); hoverHands(td, { p: G[0], anyPos: true, pre: true, key: 'v312' + k + col, title: G[0] + ' · ' + col.toLowerCase() + ' на ' + NR, o: { n: z.ids.length, sum: z.sum, es: z.es }, mx: z.mx, ids: z.ids, vlab: ' BB за раздачу', nlab: ' раздач' }, z.sum / 10 / z.n); } else td.append('—'); tr.append(td); }); tb.append(tr); });
     t.append(tb);
-    out.push(sec(12, 'Реакция по группам рук', 'как часто каждой группой вы сбрасываете, коллируете и 4-бетите и что это приносит', t,
-      infoNote('В ячейке: сверху — доля этой реакции внутри группы рук, ниже — средний итог в BB (факт / EV), справа мелко — число раздач. Так видно, например, сбрасываете ли вы средние пары на 3-бет и окупаются ли коллы с A2s–A9s. Наведите на ячейку — руки и итог.')));
+    const box12 = el('div', 'v3-rt-box fit'); const sg12 = valSeg(); sg12.classList.add('v3-rt-seg'); box12.append(sg12, t);
+    out.push(sec(12, 'Реакция по группам рук', 'как часто каждой группой вы сбрасываете, коллируете и 4-бетите и что это приносит', box12,
+      infoNote('В ячейке: сверху — доля этой реакции внутри группы рук, ниже — средний итог в BB (EV или факт — переключатель над таблицей; оба числа — при наведении), справа мелко — число раздач. Так видно, например, сбрасываете ли вы средние пары на 3-бет и окупаются ли коллы с A2s–A9s. Наведите на ячейку — руки и итог.')));
   }
   // #13 — сильные руки в фолд и слабые в продолжение
   {

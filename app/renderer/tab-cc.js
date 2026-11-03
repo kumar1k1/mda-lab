@@ -258,8 +258,9 @@ function ccGroupBlock(r, o) {
   const top = el('div', 'ccg-top');
   pos.forEach(p => { const z = r.hands[p]; const b = el('div', 'ccg-big'); const big = el('b'); big.innerHTML = wrHtml(z.sum / 10 / z.n, z.es / 10 / z.n, 2); b.append(el('span', 'nm', p), big, el('span', 'cnt', z.n.toLocaleString('ru-RU'))); top.append(b); });
   card.append(top);
+  { const sg = valSeg(); sg.classList.add('v3-rt-seg'); card.append(sg); }
   // таблица: группа рук × позиция
-  const vals = []; pos.forEach(p => agg[p].g.forEach(z => { if (z.n >= 5) vals.push(Math.abs(z.sum / 10 / z.n)); }));
+  const vals = []; pos.forEach(p => agg[p].g.forEach(z => { if (z.n >= 5) vals.push(Math.abs(valPick(z.sum, z.es) / 10 / z.n)); }));
   vals.sort((a, b) => a - b); const scale = Math.max(0.5, vals[Math.floor(vals.length * 0.9)] || 0.5);
   const tbl = el('div', 'ccg-t'); tbl.style.setProperty('--ncol', pos.length);
   const hd = el('div', 'ccg-r ccg-head'); hd.append(el('span', null, 'Группа рук')); pos.forEach(p => hd.append(el('span', null, p))); tbl.append(hd);
@@ -269,10 +270,10 @@ function ccGroupBlock(r, o) {
       const z = agg[p].g[k], hands = agg[p].h, cell = el('div', 'ccg-c');
       cell.addEventListener('mouseenter', (e) => showGroupTip(p, lab, k, z, hands, e, o.verb)); cell.addEventListener('mousemove', moveGroupTip); cell.addEventListener('mouseleave', hideGroupTip);
       if (!z.n) { cell.append(el('span', 'hg-na', '—')); row.append(cell); return; }
-      const v = z.sum / 10 / z.n, t = Math.min(1, Math.abs(v) / scale);
+      const v = valPick(z.sum, z.es) / 10 / z.n, t = Math.min(1, Math.abs(v) / scale); // цвет и число — по выбранному «EV / факт»
       cell.style.background = 'rgba(' + (v >= 0 ? 'var(--good-rgb)' : 'var(--bad-rgb)') + ',' + (0.08 + 0.32 * t).toFixed(2) + ')';
-      const f = el('b', v >= 0 ? 'up' : 'down', signed(v, 2)), ev = z.es / 10 / z.n;
-      cell.append(f, el('span', 'ccg-ev ' + (ev >= 0 ? 'up' : 'down'), signed(ev, 2) + ' EV'), el('span', 'ccg-n', String(z.n)));
+      const f = el('b', v >= 0 ? 'up' : 'down', signed(v, 2) + (VAL_MODE === 'ev' ? ' EV' : ''));
+      cell.append(f, el('span', 'ccg-n', String(z.n))); cell.title = signed(z.sum / 10 / z.n, 2) + ' BB факт, ' + signed(z.es / 10 / z.n, 2) + ' BB EV · ' + z.n;
       if (z.n < 30) cell.classList.add('low');
       cell.classList.add('click'); cell.tabIndex = 0; cell.setAttribute('role', 'button'); cell.setAttribute('aria-label', p + ', ' + lab + ': ' + signed(v, 2) + ' BB, ' + z.n + nlabOf(z.n, o.nlab) + ' — показать руки и раздачи');
       const pin = (e) => { hideGroupTip(); pinHandPop({ p: o.p ? p : null, key: o.key + p + k, title: (o.nameOf ? o.nameOf(p) : o.name + ' · ' + p) + ' · ' + lab, o: z, mx: hands, ids: r.hands[p].ids, only: (q) => handGroup(q) === k, sit: 2, act: o.act, vlab: o.vlab, nlab: o.nlab }, v, e, cell); };
@@ -282,7 +283,7 @@ function ccGroupBlock(r, o) {
     tbl.append(row);
   });
   const wrap = el('div', 'ccg-wrap'); wrap.append(tbl); card.append(wrap);
-  card.append(infoNote(o.note || 'В ячейке — результат колд-колла группой рук с этой позиции в BB: сверху факт, под ним EV, справа мелко — число колд-коллов. Цвет — плюс или минус. Наведите — матрица рук группы и их итог; клик закрепит окно, клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше 30 раздач.'));
+  card.append(infoNote(o.note || 'В ячейке — результат колд-колла группой рук с этой позиции в BB (EV или факт — переключатель над таблицей; оба числа — при наведении), справа мелко — число колд-коллов. Цвет — плюс или минус. Наведите — матрица рук группы и их итог; клик закрепит окно, клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше 30 раздач.'));
   return card;
 }
 

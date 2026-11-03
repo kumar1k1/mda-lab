@@ -2026,3 +2026,10 @@ body.noscroll #content{overflow:hidden}
 .ht.v3-rt td.num b{display:block;font-size:13px}
 .ht.v3-rt td.num .v{display:block;font-size:11px;font-weight:500;margin-top:1px}
 .ht.v3-rt td.avg b{font-size:13.5px}
+
+/* одно число в ячейке (VAL_MODE) */
+.val-seg{align-self:flex-end}
+.ht.v3-grp td.c .v{display:block;font-family:var(--mono);font-size:11.5px;margin-top:1px}
+.pmx-w{cursor:help}
+.v3-rt-box.fit{align-self:flex-start}
+.v3-rt-box.fit > .ht.v3-grp td.c{min-width:92px}
