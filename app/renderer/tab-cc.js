@@ -23,7 +23,7 @@ function ccSizeBlock(r) {
       const share = z.n / tot, tk = el('span', 'sz5-tk'); const tr = el('i'); tr.style.width = Math.max(1, share * 100) + '%'; tk.append(tr);
       const v = (txt, col) => { const e = el('span', 'sz5-v', txt); e.style.color = col; return e; };
       row.append(el('b', null, r.CC_SZ[k][0]), el('span', 'sz5-sh', fmtPct(share) + '%'), v(pc(z.call), 'var(--ice)'), v(pc(z.rz), 'var(--bad)'), v(pc(z.fold), 'var(--good)'),
-        wrNode('sz5-v', wr, we, 2), el('small', null, z.n.toLocaleString('ru-RU') + ' раз'), tk);
+        wrNode('sz5-v', wr, we, 2), el('small', null, cnt(z.n, 'раз')), tk);
       // наведение на строку — матрица рук: колл / 3-бет / олл-ин / фолд против этого размера; «Факт/EV» и раздачи — только коллы
       if (z.rmx) {
         const title = (CC_SZPOS === 'TOT' ? 'Вы на всех позициях без BB' : 'Вы на ' + CC_SZPOS) + ' · перед вами открытие ' + r.CC_SZ[k][0];
@@ -61,7 +61,7 @@ function bbDefendBlock(r) {
     const g = svgEl('g', { class: z.n < 30 ? 'low' : '' });
     g.append(svgEl('rect', { x: cx - bw / 2, y: y(call), width: bw, height: y(0) - y(call), rx: 3 }, 'fill:var(--ice)'));
     g.append(svgEl('rect', { x: cx - bw / 2, y: y(def), width: bw, height: Math.max(0, y(call) - y(def)), rx: 3 }, 'fill:var(--bad)'));
-    const t = svgEl('title'); t.textContent = x.lab + ': защита ' + fmtPct(def) + '% (колл ' + fmtPct(call) + '%, 3-бет ' + fmtPct(rz) + '%), нужно по шансам банка ' + fmtPct(mdf) + '%, ' + z.n + ' раз'; g.append(t);
+    const t = svgEl('title'); t.textContent = x.lab + ': защита ' + fmtPct(def) + '% (колл ' + fmtPct(call) + '%, 3-бет ' + fmtPct(rz) + '%), нужно по шансам банка ' + fmtPct(mdf) + '%, ' + cnt(z.n, 'раз'); g.append(t);
     s.append(g);
     s.append(svgText(cx, y(def) - 6, fmtPct(def) + '%', 'middle', 'font-size:11px;font-weight:700;fill:' + (def < mdf ? 'var(--bad)' : 'var(--good)')));
     s.append(svgText(cx, H - P.b + 16, x.lab, 'middle', 'font-size:10px;fill:var(--soft)'));
@@ -197,7 +197,7 @@ function ccOppBlock(r) {
     uiState.ccOStkR = o; uiState.ccOMyR = m; render();
   };
   side.append(leg, el('span', 'mx-cap', 'Ваша позиция'), seg, el('span', 'mx-cap', 'Позиция открывающего — можно несколько'), segO, form,
-    el('span', 'muted small', 'Открывающий: ' + (sel.length ? sel.join(' + ') : 'любая позиция') + ', ' + rangeTxt(uiState.ccOStkR) + ' · вы: ' + rangeTxt(uiState.ccOMyR) + ' · ' + n.toLocaleString('ru-RU') + ' раз перед вами был один рейз'));
+    el('span', 'muted small', 'Открывающий: ' + (sel.length ? sel.join(' + ') : 'любая позиция') + ', ' + rangeTxt(uiState.ccOStkR) + ' · вы: ' + rangeTxt(uiState.ccOMyR) + ' · ' + cnt(n, 'раз') + ' перед вами был один рейз'));
   side.append(infoNote('Задайте стек открывающего и свой стек в BB: «от» и «до» можно заполнить оба или одно (пустое «до» — без верхней границы). Нажмите «Показать» — матрица покажет ваши ответы ровно в таких раздачах. «Сброс» возвращает «любой». Клетка закрашена слева направо на долю ответов этой рукой: янтарная часть — 3-бет, синяя — олл-ин, зелёная — колл, тёмная — фолд. Бледная заливка — меньше 5 раздач.'));
   body.append(side);
   b.append(h, body);
@@ -231,7 +231,7 @@ function ccRangeBlock(r, o) {
   const n = o.mx.reduce((a, m) => a + m.n, 0);
   const leg = el('div', 'resp-legend row'); [['3-бет', 'var(--mx-raise)'], ['олл-ин', 'var(--mx-push)'], ['колл', 'var(--mx-limp)'], ['фолд', 'var(--mx-empty)']].forEach(([l, col]) => { const it = el('span'); const i = el('i'); i.style.background = col; if (col === 'var(--mx-empty)') i.style.border = '1px solid var(--line2)'; it.append(i, document.createTextNode(l)); leg.append(it); });
   side.append(leg, el('span', 'mx-cap', 'Ваша позиция'), seg, el('span', 'mx-cap', o.stkCap), segS, el('span', 'mx-cap', 'Свой диапазон'), cr,
-    el('span', 'muted small', (cur ? 'Стек ' + cur[0] + '–' + (cur[1] < 1e8 ? cur[1] : '∞') + ' BB: ' : '') + n.toLocaleString('ru-RU') + ' раз перед вами был один рейз'));
+    el('span', 'muted small', (cur ? 'Стек ' + cur[0] + '–' + (cur[1] < 1e8 ? cur[1] : '∞') + ' BB: ' : '') + cnt(n, 'раз') + ' перед вами был один рейз'));
   side.append(infoNote('Клетка закрашена слева направо на долю ответов этой рукой: янтарная часть — 3-бет, синяя — олл-ин, зелёная — колл, тёмная — фолд. Наведите на клетку, чтобы увидеть проценты. Сверху от диагонали — одномастные, снизу — разномастные. Бледная заливка — меньше 5 раздач.'));
   body.append(side);
   b.append(h, body);
@@ -317,7 +317,7 @@ function ccQuadBlock(r, idx) {
     const meLow = me.cc == null || me.fcb == null || me.fcbN < MIN_ME;
     const SD = data.stride || 4; // 5 — с итогами колд-колл раздач (0.7.2)
     const pts = data.rows.map(x => { const t = x[5], o = t[qi * SD], cx = t[qi * SD + 1], cb = t[qf * SD + 2], f = t[qf * SD + 3]; return { pid: x[0], name: x[1], room: x[2], count: x[3], shown: x[4], cc: o ? cx / o : 0, ccN: o, ccH: cx, res: SD >= 5 ? t[qi * SD + 4] : null, fcb: cb ? f / cb : 0, fcbN: cb }; }).filter(p => p.ccN >= MIN_CC && p.fcbN >= MIN_CB);
-    if (pts.length < 5) { body.append(el('p', 'muted small', 'Мало игроков с достаточной выборкой' + (P0 === 'TOT' ? '' : ' на ' + P0) + ' (нужно ≥ ' + MIN_CC + ' возможностей колд-колла и ≥ ' + MIN_CB + ' контбетов после него).')); return; }
+    if (pts.length < 5) { body.append(el('p', 'muted small', 'Мало игроков с достаточной выборкой' + (P0 === 'TOT' ? '' : ' на ' + P0) + ' (нужно ≥ ' + cnt(MIN_CC, 'возможностей') + ' колд-колла и ≥ ' + MIN_CB + ' контбетов после него).')); return; }
     const ccs = pts.map(p => p.cc).sort((a, b) => a - b), xGrid = Math.min(1, Math.max(0.1, Math.ceil((ccs[Math.floor(ccs.length * 0.99)] || 0.3) * 20) / 20, meLow ? 0 : me.cc || 0));
     const bb = (v) => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(2).replace('.', ',');
     // ваш итог колд-колл раздач на выбранной позиции — для сравнения
@@ -387,7 +387,7 @@ function ccQuadBlock(r, idx) {
       const lab = 'макс. винрейт ' + bb(best.v) + ' ± ' + best.se.toFixed(2).replace('.', ',') + ' BB', right = bx < (P.l + W - P.r) / 2;
       g.append(svgText(bx + (right ? 13 : -13), by + 4, lab, right ? 'start' : 'end', 'font-family:var(--sans);font-size:12px;font-weight:800;fill:#FF6B5E' + HALO));
       const line = 'колд-колл около ' + Math.round(best.x * 100) + '% · фолд на контбет около ' + Math.round(best.y * 100) + '% · ' + bb(best.v) + ' BB в среднем за колд-колл';
-      g.addEventListener('mouseenter', (e) => tip(e, 'Максимальный винрейт', line, 'по ' + Math.round(best.wh).toLocaleString('ru-RU') + ' колд-коллам ' + best.np + ' игроков рядом с этой точкой (ваши раздачи тоже учтены)'));
+      g.addEventListener('mouseenter', (e) => tip(e, 'Максимальный винрейт', line, 'по ' + Math.round(best.wh).toLocaleString('ru-RU') + ' колд-коллам ' + cnt(best.np, 'игроков') + ' рядом с этой точкой (ваши раздачи тоже учтены)'));
       g.addEventListener('mousemove', (e) => tip(e, 'Максимальный винрейт', line)); g.addEventListener('mouseleave', hide);
       s.append(g);
     }
@@ -402,7 +402,7 @@ function ccQuadBlock(r, idx) {
     const at = P0 === 'TOT' ? '' : ' на ' + P0;
     const meTxt = meLow ? 'Мало данных' + at + ' для точки «' + me.name + '»: ' + (me.fcbN || 0) + ' контбет' + (me.fcbN === 1 ? '' : me.fcbN >= 2 && me.fcbN <= 4 ? 'а' : 'ов') + ' после колд-колла (нужно ≥ ' + MIN_ME + ').'
       : 'Колд-колл' + at + ' ' + fmtPct(me.cc) + '% (' + me.ccN + '), фолд на контбет ' + fmtPct(me.fcb) + '% (' + me.fcbN + ')' + (me.eq != null ? ' · равновесие ' + (me.eq * 100).toFixed(1).replace('.', ',') + '%' + (me.cbMed != null ? ' (контбет против вас обычно ' + me.cbMed + '% банка)' : '') + ' — ' + (Math.abs(me.fcb - me.eq) < 0.03 ? 'в норме' : me.fcb > me.eq ? 'перефолд на ' + fmtPct(me.fcb - me.eq) + ' п.п.' : 'недофолд на ' + fmtPct(me.eq - me.fcb) + ' п.п.') : '') + (myRes ? ' · ваш итог ' + bb(myRes.v) + ' BB за колд-колл' : '') + '.';
-    const bestTxt = best ? 'Максимальный винрейт по базе' + at + ': колд-колл около ' + Math.round(best.x * 100) + '%, фолд на контбет около ' + Math.round(best.y * 100) + '% — ' + bb(best.v) + ' ± ' + best.se.toFixed(2).replace('.', ',') + ' BB за колд-колл (рядом ' + best.np.toLocaleString('ru-RU') + ' игроков и ' + Math.round(best.wh).toLocaleString('ru-RU') + ' колд-коллов; всего в расчёте ' + pool.length.toLocaleString('ru-RU') + ' игроков и ' + poolH.toLocaleString('ru-RU') + ' колд-коллов).' + (best.se > 0.3 ? ' Погрешность большая — точку уточнит база побольше (датамайнинг).' : '')
+    const bestTxt = best ? 'Максимальный винрейт по базе' + at + ': колд-колл около ' + Math.round(best.x * 100) + '%, фолд на контбет около ' + Math.round(best.y * 100) + '% — ' + bb(best.v) + ' ± ' + best.se.toFixed(2).replace('.', ',') + ' BB за колд-колл (рядом ' + cnt(best.np, 'игроков') + ' и ' + cnt(Math.round(best.wh), 'колд-коллов') + '; всего в расчёте ' + cnt(pool.length, 'игроков') + ' и ' + cnt(poolH, 'колд-коллов') + ').' + (best.se > 0.3 ? ' Погрешность большая — точку уточнит база побольше (датамайнинг).' : '')
       : SD < 5 ? 'Точка максимального винрейта появится после повторной загрузки базы: старая база не хранит итоги колд-колл раздач соперников.' : 'Для точки максимального винрейта мало данных' + at + ': нужно больше игроков с колд-коллами в базе (лучше всего — датамайнинг).';
     const key = el('div', 'qd-key');
     [['qd-k-me', me.name], ['qd-k-eq', 'равновесие по MDF'], ['qd-k-best', 'максимальный винрейт (база + ваши раздачи)']].forEach(([c2, t]) => { const k = el('span', c2); k.append(el('i'), document.createTextNode(t)); key.append(k); });
@@ -434,7 +434,7 @@ function ccVsTable(r) {
   });
   const card = el('div', 'insight cc-table');
   card.append(numTag(3), el('span', 'k', 'Колд-колл: позиция против позиции'), el('span', 's', 'строки — ваша позиция, колонки — позиция открывающего; в ячейке — доля коллов'), w,
-    infoNote('Пустые ячейки (--) — ситуация невозможна: открывающий ходит раньше вас. Наведите на ячейку — матрица рук, которыми вы коллировали против этой позиции, и их итог; клик закрепит окно, клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше ' + SMALL + ' раздач.'));
+    infoNote('Пустые ячейки (--) — ситуация невозможна: открывающий ходит раньше вас. Наведите на ячейку — матрица рук, которыми вы коллировали против этой позиции, и их итог; клик закрепит окно, клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше ' + cnt(SMALL, 'раздач') + '.'));
   return card;
 }
 
@@ -470,11 +470,11 @@ function renderCC(idx) {
   page.append(head);
   // #1 — общий колд-колл, по позициям и ваш ответ на открытие; #2 — таблица по позициям (в стиле вкладки RFI)
   const posRows = ['UTG', 'MP', 'CO', 'BTN', 'SB'].filter(p => r.cc[p].n >= SMALL).map(p => { const z = r.cc[p]; return [p, z.n ? z.x / z.n : null, p + ': ' + z.x + ' из ' + z.n]; });
-  const c1 = card(1, 'Колд-коллите', '<em>' + pctTxt(r.cc.TOT) + '</em>', 'из ' + r.cc.TOT.n.toLocaleString('ru-RU') + ' открытий перед вами, без BB',
+  const c1 = card(1, 'Колд-коллите', '<em>' + pctTxt(r.cc.TOT) + '</em>', 'из ' + cnt(r.cc.TOT.n, 'открытий', 'gen') + ' перед вами, без BB',
     fillBox(posStrip('По позициям', posRows), respTiles(r.resp, 'Ваш ответ на открытие', [['фолд', 'var(--good)'], ['колл', 'var(--ice)'], ['3-бет', 'var(--bad)']])));
   const c2 = el('div', 'insight');
   c2.append(numTag(2), el('span', 'k', 'Колд-колл по позициям'), ccTable(r));
-  const note = infoNote('TOT — все позиции без BB (колл из BB — защита большого блайнда, показан отдельной колонкой). В SB колл открытия считается колд-коллом. Наведите на ячейку — покажется матрица рук, которыми вы коллировали, и их итог; клик закрепит окно, клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше ' + SMALL + ' раздач.');
+  const note = infoNote('TOT — все позиции без BB (колл из BB — защита большого блайнда, показан отдельной колонкой). В SB колл открытия считается колд-коллом. Наведите на ячейку — покажется матрица рук, которыми вы коллировали, и их итог; клик закрепит окно, клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше ' + cnt(SMALL, 'раздач') + '.');
   c2.append(note);
   // #8 — винрейт колд-колла по позициям, как в RFI: наведение — руки, клик — закрепить, раздачи и реплеер
   const ccPos = r.CC_COLS.slice(1).filter(k => r.cc[k].n >= SMALL);

@@ -65,14 +65,14 @@ function buildPop(it, v, isPinned) {
     const m = it.mx[k];
     if (!inSet(k)) { const c = el('div', 'hp-c out'); c.append(el('span', 'h', handName(k))); grid.append(c); continue; }
     const c = el(isPinned && m.n ? 'button' : 'div', 'hp-c');
-    if (isPinned && m.n) { c.type = 'button'; c.onclick = () => showHandList(it, k, c); c.title = handName(k) + ': ' + m.n + ' раздач — показать список'; }
+    if (isPinned && m.n) { c.type = 'button'; c.onclick = () => showHandList(it, k, c); c.title = handName(k) + ': ' + cnt(m.n, 'раздач') + ' — показать список'; }
     c.append(el('span', 'h', handName(k)));
     if (m.n) {
       const avg = sumOf(m) / 10 / m.n, t = Math.min(1, Math.abs(avg) / scale);
       c.style.background = 'rgba(' + (avg >= 0 ? 'var(--good-rgb)' : 'var(--bad-rgb)') + ',' + (0.18 + 0.72 * t).toFixed(2) + ')';
       if (t > 0.65) c.style.color = '#0B1410';
       c.append(el('span', 'v', (avg >= 0 ? '+' : '−') + Math.abs(avg).toFixed(1)));
-      c.title = (c.title ? c.title + '\n' : '') + handName(k) + ': ' + signed(m.sum / 10 / m.n, 2) + ' BB факт' + (m.es != null ? ' · ' + signed(m.es / 10 / m.n, 2) + ' BB EV' : '') + ', ' + m.n + ' раз, всего ' + signed(m.sum / 10, 1) + ' BB';
+      c.title = (c.title ? c.title + '\n' : '') + handName(k) + ': ' + signed(m.sum / 10 / m.n, 2) + ' BB факт' + (m.es != null ? ' · ' + signed(m.es / 10 / m.n, 2) + ' BB EV' : '') + ', ' + cnt(m.n, 'раз') + ', всего ' + signed(m.sum / 10, 1) + ' BB';
       if (m.n < 5) c.classList.add('low');
     } else c.classList.add('na');
     grid.append(c);

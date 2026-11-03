@@ -109,7 +109,7 @@ function render() {
   const idx = currentIdx();
   const tool = tab.id === 'aliases'; // вкладка-инструмент: без столов и счётчика выборки
   subs.hidden = tool;
-  $('selCount').textContent = tool ? '' : idx.length.toLocaleString('ru-RU') + ' рук в выборке';
+  $('selCount').textContent = tool ? '' : cnt(idx.length, 'рук') + ' в выборке';
   CURRENT_IDX = idx;
   LAST_NET_ITEMS = [];
   // Пересчёт под тем же разделом (фильтры, переключатели): карточки выше по странице могут поменять высоту, и экран
@@ -288,7 +288,7 @@ function updatePlayer() {
   $('roomBadge').classList.toggle('opp', !!opp);
   $('playerBtn').classList.toggle('is-opp', !!opp);
   $('nick').textContent = nick;
-  $('handsCount').textContent = count.toLocaleString('ru-RU') + ' раздач' + (opp ? ' · соперник · ' + roomName : nv ? ' · ' + roomName + (A && A.k === state.nickA && A.off.has(nv) ? ' · вне алиаса' : '') : alias && A ? ' · ' + nicksLabel(nickCount(A)) + (aliasRooms(A).length > 1 ? ' · все румы' : '') : alias ? '' : ' · ' + roomName);
+  $('handsCount').textContent = cnt(count, 'раздач') + (opp ? ' · соперник · ' + roomName : nv ? ' · ' + roomName + (A && A.k === state.nickA && A.off.has(nv) ? ' · вне алиаса' : '') : alias && A ? ' · ' + nicksLabel(nickCount(A)) + (aliasRooms(A).length > 1 ? ' · все румы' : '') : alias ? '' : ' · ' + roomName);
   $('demoTag').hidden = !DB.demo;
   const inc = A ? Object.keys(A.nicks).filter(n => !A.off.has(n)).map(n => n + ' (' + A.nicks[n] + ')').concat(A.mine.map(m => m.n + ' (' + ALIASES[m.a].nicks[m.n] + ')'), A.opp.map(o => o.n + ' (' + o.r + ')')) : [];
   $('playerBtn').title = 'Выбрать игрока' + (alias && A ? '. Alias «' + A.name + '» объединяет: ' + inc.join(', ') : '');
@@ -873,7 +873,7 @@ async function setupImportMode() {
   if (!DBINFO.canAppend) { box.querySelector('input[value=replace]').checked = true; $('impModeAppendSub').textContent = 'текущая база старого формата — чтобы дописывать в неё и видеть соперников, её нужно один раз собрать заново'; }
   else { // каждый раз по умолчанию — дописать: замена стирает базу, её выбирают сознательно
     ap.checked = true;
-    $('impModeAppendSub').textContent = 'сейчас в базе ' + DBINFO.count.toLocaleString('ru-RU') + ' раздач — новые допишутся, повторы пропустятся';
+    $('impModeAppendSub').textContent = 'сейчас в базе ' + cnt(DBINFO.count, 'раздач') + ' — новые допишутся, повторы пропустятся';
   }
   box.querySelectorAll('input').forEach(i => { i.onchange = () => { syncModeUi(); }; });
   syncModeUi();
@@ -961,8 +961,8 @@ async function runImport() {
   $('progText').textContent = mined
     ? 'Загружено раздач без героя: ' + (res.mined || 0).toLocaleString('ru-RU') + (res.dup ? ', уже были в базе: ' + res.dup.toLocaleString('ru-RU') : '') + '. Игроков в базе: ' + (res.players || 0).toLocaleString('ru-RU') + '.'
     : mode === 'append'
-    ? (res.added ? 'Добавлено ' + res.added.toLocaleString('ru-RU') + ' раздач' : 'Новых раздач нет') + (res.dup ? ', повторов пропущено: ' + res.dup.toLocaleString('ru-RU') : '') + (res.refilled ? '; у ' + res.refilled.toLocaleString('ru-RU') + ' уже загруженных раздач дописаны время, турнир и реплеер' : '') + (res.bounty ? '; у ' + res.bounty.toLocaleString('ru-RU') + ' уже загруженных раздач дописаны баунти' : '') + '. Всего в базе: ' + res.hands.toLocaleString('ru-RU') + ' раздач, соперников: ' + (res.players || 0).toLocaleString('ru-RU') + '.'
-    : 'Готово: ' + res.hands.toLocaleString('ru-RU') + ' раздач' + (res.players ? ', соперников: ' + res.players.toLocaleString('ru-RU') : '') + (res.dup ? ', повторов пропущено: ' + res.dup.toLocaleString('ru-RU') : '') + (res.refilled ? '; у ' + res.refilled.toLocaleString('ru-RU') + ' уже загруженных раздач дописаны время, турнир и реплеер' : '') + (res.bounty ? '; у ' + res.bounty.toLocaleString('ru-RU') + ' уже загруженных раздач дописаны баунти' : '') + '.';
+    ? (res.added ? 'Добавлено ' + cnt(res.added, 'раздач') : 'Новых раздач нет') + (res.dup ? ', повторов пропущено: ' + res.dup.toLocaleString('ru-RU') : '') + (res.refilled ? '; у ' + res.refilled.toLocaleString('ru-RU') + ' уже загруженных раздач дописаны время, турнир и реплеер' : '') + (res.bounty ? '; у ' + res.bounty.toLocaleString('ru-RU') + ' уже загруженных раздач дописаны баунти' : '') + '. Всего в базе: ' + cnt(res.hands, 'раздач') + ', соперников: ' + (res.players || 0).toLocaleString('ru-RU') + '.'
+    : 'Готово: ' + cnt(res.hands, 'раздач') + (res.players ? ', соперников: ' + res.players.toLocaleString('ru-RU') : '') + (res.dup ? ', повторов пропущено: ' + res.dup.toLocaleString('ru-RU') : '') + (res.refilled ? '; у ' + res.refilled.toLocaleString('ru-RU') + ' уже загруженных раздач дописаны время, турнир и реплеер' : '') + (res.bounty ? '; у ' + res.bounty.toLocaleString('ru-RU') + ' уже загруженных раздач дописаны баунти' : '') + '.';
   const ndb = await loadDb();
   if (ndb) { // открыть алиас, в который только что загрузили
     const list = ndb.aliases || [];
