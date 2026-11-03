@@ -1927,7 +1927,8 @@ body.rendering{cursor:progress}
 .sec-f .mx-range .btn{height:40px;box-sizing:border-box;padding:0 14px;font-size:12.5px}
 .sec-f .mx-err{position:absolute;left:0;top:calc(100% + 2px);font-size:11px;white-space:nowrap}
 .sec-f .mx-err:empty{display:none}
-.sec-f.sec-f-grid{display:grid;grid-template-columns:max-content;row-gap:10px;justify-items:start;align-items:start}
+/* «Против 3-бета»: две колонки по левому краю — слева «3-бет соперника» над «типом трибет банка», справа «наша позиция» над «вашим стеком» */
+.sec-f.sec-f-grid{display:grid;grid-template-columns:max-content max-content;grid-template-rows:auto auto;grid-auto-flow:column;column-gap:44px;row-gap:10px;justify-items:start;align-items:start}
 .sec-f .flt-q{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border:1px dashed var(--line2);border-radius:50%;color:var(--faint);font-size:10.5px;font-weight:700;cursor:help;user-select:none}
 .sec-f .sf-note{margin-left:auto;align-self:flex-end;padding-bottom:4px;font-size:11.5px;color:var(--faint);max-width:260px;line-height:1.35}
 

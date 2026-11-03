@@ -1931,7 +1931,8 @@ body.rendering{cursor:progress}
 .sec-f .mx-range .btn{height:40px;box-sizing:border-box;padding:0 14px;font-size:12.5px}
 .sec-f .mx-err{position:absolute;left:0;top:calc(100% + 2px);font-size:11px;white-space:nowrap}
 .sec-f .mx-err:empty{display:none}
-.sec-f.sec-f-grid{display:grid;grid-template-columns:max-content;row-gap:10px;justify-items:start;align-items:start}
+/* «Против 3-бета»: две колонки по левому краю — слева «3-бет соперника» над «типом трибет банка», справа «наша позиция» над «вашим стеком» */
+.sec-f.sec-f-grid{display:grid;grid-template-columns:max-content max-content;grid-template-rows:auto auto;grid-auto-flow:column;column-gap:44px;row-gap:10px;justify-items:start;align-items:start}
 .sec-f .flt-q{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border:1px dashed var(--line2);border-radius:50%;color:var(--faint);font-size:10.5px;font-weight:700;cursor:help;user-select:none}
 .sec-f .sf-note{margin-left:auto;align-self:flex-end;padding-bottom:4px;font-size:11.5px;color:var(--faint);max-width:260px;line-height:1.35}
 
@@ -3422,7 +3423,7 @@ function drawSecFilters(tab) {
   const box = $('secFilters'); if (!box) return; box.replaceChildren();
   if (!(tab in SEC_TYPES) || !DB) { box.hidden = true; return; }
   box.hidden = false; const f = secF(tab), types = SEC_TYPES[tab];
-  box.classList.toggle('sec-f-grid', tab === 'vs3bet'); // «Против 3-бета»: фильтры столбиком, по одному в строке, по левому краю
+  box.classList.toggle('sec-f-grid', tab === 'vs3bet'); // «Против 3-бета»: сетка 2×2 — слева «3-бет соперника» и «тип трибет банка», справа «наша позиция» и «ваш стек»
   // группы, как фильтры над ними: подпись сверху, кнопки под ней
   const grp = (lab, ...nodes) => { const g = el('div', 'sf-g'); g.append(el('span', 'flt-k', lab)); const row = el('div', 'sf-row'); row.append(...nodes); g.append(row); return g; };
   if (types) box.append(grp(tab === 'rfi' ? 'Открытие' : tab === 'vs3bet' ? '3-бет соперника' : '3-бет', segBtns(types, f.T, (k) => { f.T = k; renderNext(); })));
@@ -3450,7 +3451,7 @@ function drawSecFilters(tab) {
   const cust = f.S === 'custom' ? f.C : null;
   // свой диапазон — под кнопками стека, с тем же левым краем
   const fr = rangeForm('secRng', cust, (v) => { if (v) { f.C = v; f.S = 'custom'; } else { f.C = null; f.S = 'all'; } render(); });
-  // «Против 3-бета»: четыре фильтра столбиком по левому краю — 3-бет соперника, тип банка, наша позиция, ваш стек (поля «от / до» — под кнопками стека)
+  // «Против 3-бета»: порядок в сетке (по колонкам) — 3-бет соперника, тип банка | наша позиция, ваш стек (поля «от / до» — под кнопками стека)
   if (tab === 'vs3bet') {
     const pg = grp('Наша позиция', segBtns([['all', 'Все'], ['ip', 'IP'], ['oop', 'OOP']], f.P, (k) => { f.P = k; renderNext(); }));
     const pq = el('span', 'flt-q', '?');
