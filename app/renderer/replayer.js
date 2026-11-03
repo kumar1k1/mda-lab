@@ -295,6 +295,7 @@
     bg.addEventListener('click', (e) => { if (e.target === bg) closeReplayer(); });
 
     // ---------- эквити в олл-ине: с момента, когда торговля закончилась, и карты всех дошедших известны ----------
+    const FOLDED_END = fr.length ? fr[fr.length - 1].folded.slice() : []; // кто сбросил по ходу раздачи
     // карта считается известной только когда их две: игрок мог показать одну — для эквити это «неизвестно»
     const cardsOf = (j) => { const s = j === H0 ? rp.hc : rp.sh && rp.sh[j]; return s && String(s).trim().split(/\s+/).length === 2 ? s : null; };
     let aiFrom = -1;
@@ -377,12 +378,15 @@
           else { if (j === H0) s.posT.append(heroLabel() + ' · '); posSpan(s.posT); s.stT.textContent = stk; }
         }
         const known = rp.sh && rp.sh[j];
-        const show = j === H0 ? rp.hc : known && (f.show || eq || !PREF.hide) ? known : null;
-        const key = f.folded[j] && j !== H0 ? 'x' : show || 'back';
+        // карты, которые игрок показал после своего фолда (в GG так можно показать и одну карту), — только в конце раздачи;
+        // до фолда он играет «рубашкой», после фолда карт нет, в итоге — показанные карты
+        const quit = FOLDED_END[j] && j !== H0;
+        const show = j === H0 ? rp.hc : known && !quit && (f.show || eq || !PREF.hide) ? known : null;
+        const key = f.folded[j] && j !== H0 ? (quit && known && final ? 'f:' + known : 'x') : show || 'back';
         if (key !== s.cardsKey) {
           s.cardsKey = key; s.cardsG.replaceChildren();
           // всегда два места: игрок мог показать только одну карту — вторая остаётся рубашкой вверх
-          if (key !== 'x') { const cs = show ? show.trim().split(/\s+/) : [], w = 44; for (let q = 0; q < 2; q++) card(s.cardsG, s.sx - (2 * (w + 4) - 4) / 2 + q * (w + 4), s.cardY, cs[q] || null, w); }
+          if (key !== 'x') { const src = key.startsWith('f:') ? known : show, cs = src ? String(src).trim().split(/\s+/) : [], w = 44; for (let q = 0; q < 2; q++) card(s.cardsG, s.sx - (2 * (w + 4) - 4) / 2 + q * (w + 4), s.cardY, cs[q] || null, w); }
         }
         // фишки перед игроком: ставка на этой улице, в конце — выигрыш
         const v = final ? f.won[j] : f.bets[j];
