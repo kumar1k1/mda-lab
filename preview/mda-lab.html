@@ -3205,11 +3205,16 @@ function netChart(items, avg, evLab) {
     g.append(svgEl('rect', { x: P.l + i * bw, y: 0, width: bw, height: H - 2, rx: 6 }, 'fill:transparent'));
     g.setAttribute('tabindex', '0'); g.setAttribute('class', 'net-bar');
     g.setAttribute('aria-label', it.p + ': ' + signed(v, 2) + ' BB' + (e == null ? '' : ', EV ' + signed(e, 2) + ' BB') + ', ' + cnt(it.o.n, 'раз'));
+    if (it.sz) { // окно первого типа («Диапазон»): наведение — матрица ответов рукой, клик — закрепить с вкладками «Диапазон / Факт / EV»
+      g.addEventListener('mouseenter', (e) => showSzMx(it.szTitle || it.p, it.sz, g, e)); g.addEventListener('mousemove', (e) => { if (!SZMX_PIN && szMx && !szMx.hidden) placeSzMx(g, e); }); g.addEventListener('mouseleave', hideSzMx);
+      g.addEventListener('click', (e) => pinSzMx(it.szTitle || it.p, it.sz, g, e)); g.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pinSzMx(it.szTitle || it.p, it.sz, g); } });
+    } else {
     const show = (ev) => showHandPop(it, v, ev, g);
     g.addEventListener('mouseenter', show); g.addEventListener('mousemove', show); g.addEventListener('focus', show);
     g.addEventListener('mouseleave', hideHandPop); g.addEventListener('blur', hideHandPop);
     g.addEventListener('click', (ev) => pinHandPop(it, v, ev, g));
     g.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); pinHandPop(it, v, null, g); } });
+    }
     s.append(g);
   });
   if (hasR) s.append(svgText(P.l - 6, H - P.b + 44, '%', 'end', 'font-size:10px;fill:var(--faint)'));
@@ -4415,7 +4420,11 @@ function renderRFISummary(idx, r) {
   split.append(sp1, sp2);
   // #8 — результат открытий по позициям; переключатели: открытие рейзом / олл-ином, ваш стек, свой диапазон
   // #8 — по фильтрам раздела: x посчитан по вашему стеку и типу открытия
-  const it8 = ['UTG', 'MP', 'CO', 'BTN', 'SB'].map(p => ({ p, key: 'rfi8 ' + p + ot + (sr || []).join('-'), o: x.openNetPos[p], mx: x.netMx[p], ids: x.openNetPos[p].ids, r: x.respPos[p] })) /* ids — открытия под фильтрами раздела: без них список по руке брал все раздачи шапки (стек и тип раздела не действовали) */, avg8 = nb == null ? null : nb / 100, ev8 = perEv(x.openNet), n8 = x.openNet.n;
+  // окно первого типа для #8: «Диапазон» — все ваши ответы, когда до вас все сбросили (рейз / олл-ин / лимп / фолд), по рукам;
+  // вкладки «Факт / EV» и список раздач — только открытия (тип открытия и стек — по фильтрам раздела)
+  const RX8 = {}; { const cb = DB.cols, EVc = EVcol(); for (const i of idxF) { if (cb.sit[i] !== 0 || cb.pos[i] > 5 || cb.hc[i] < 0) continue; const p = Stats.POS[cb.pos[i]], R = RX8[p] || (RX8[p] = Array.from({ length: 169 }, () => ({ n: 0, x: 0, ai: 0, lp: 0, sum: 0, es: 0 }))), m = R[cb.hc[i]], a = cb.act[i]; m.n++; m.sum += cb.net[i]; m.es += EVc[i]; if (a === 1) m.lp++; else if (a >= 2) { m.x++; if (a === 3) m.ai++; } } }
+  const sz8 = (p) => RX8[p] ? { n: RX8[p].reduce((s0, m) => s0 + m.n, 0), rmx: RX8[p], vmx: x.netMx[p], rids: x.openNetPos[p].ids, labels: ['рейз', 'олл-ин', 'лимп', 'фолд'], capAll: 'только ваши открытия' + (ot === 'ai' ? ' олл-ином' : ot === 'nai' ? ' не олл-ином' : ''), foldPaint: true } : null;
+  const it8 = ['UTG', 'MP', 'CO', 'BTN', 'SB'].map(p => ({ p, key: 'rfi8 ' + p + ot + (sr || []).join('-'), o: x.openNetPos[p], mx: x.netMx[p], ids: x.openNetPos[p].ids, r: x.respPos[p], sz: sz8(p), szTitle: 'Открытие с ' + p })) /* ids — открытия под фильтрами раздела: без них список по руке брал все раздачи шапки (стек и тип раздела не действовали) */, avg8 = nb == null ? null : nb / 100, ev8 = perEv(x.openNet), n8 = x.openNet.n;
   LAST_NET_ITEMS = it8;
   const box8 = el('div'); box8.append(secLabel('rfi', n8, 'открытий'), netChart(it8, avg8, 'EV открытий'));
   const c8 = (card(8, 'Результат открытий', wrHtml(avg8, ev8, 2) + ' <small>BB за открытие</small>', null, box8));

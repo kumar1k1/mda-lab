@@ -237,11 +237,16 @@ function netChart(items, avg, evLab) {
     g.append(svgEl('rect', { x: P.l + i * bw, y: 0, width: bw, height: H - 2, rx: 6 }, 'fill:transparent'));
     g.setAttribute('tabindex', '0'); g.setAttribute('class', 'net-bar');
     g.setAttribute('aria-label', it.p + ': ' + signed(v, 2) + ' BB' + (e == null ? '' : ', EV ' + signed(e, 2) + ' BB') + ', ' + cnt(it.o.n, 'раз'));
+    if (it.sz) { // окно первого типа («Диапазон»): наведение — матрица ответов рукой, клик — закрепить с вкладками «Диапазон / Факт / EV»
+      g.addEventListener('mouseenter', (e) => showSzMx(it.szTitle || it.p, it.sz, g, e)); g.addEventListener('mousemove', (e) => { if (!SZMX_PIN && szMx && !szMx.hidden) placeSzMx(g, e); }); g.addEventListener('mouseleave', hideSzMx);
+      g.addEventListener('click', (e) => pinSzMx(it.szTitle || it.p, it.sz, g, e)); g.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pinSzMx(it.szTitle || it.p, it.sz, g); } });
+    } else {
     const show = (ev) => showHandPop(it, v, ev, g);
     g.addEventListener('mouseenter', show); g.addEventListener('mousemove', show); g.addEventListener('focus', show);
     g.addEventListener('mouseleave', hideHandPop); g.addEventListener('blur', hideHandPop);
     g.addEventListener('click', (ev) => pinHandPop(it, v, ev, g));
     g.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); pinHandPop(it, v, null, g); } });
+    }
     s.append(g);
   });
   if (hasR) s.append(svgText(P.l - 6, H - P.b + 44, '%', 'end', 'font-size:10px;fill:var(--faint)'));
