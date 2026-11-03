@@ -55,7 +55,7 @@ function buildPop(it, v, isPinned) {
     enableDrag(pop, head);
   } else head.append(el('span', 'hp-hint', 'клик — закрепить окно'));
   const sub = el('div', 'hp-sub');
-  sub.append(el('span', v >= 0 ? 'up' : 'down', signed(v, 2) + (ev ? ' EV' : '') + (it.vlab || ' BB за открытие')), el('span', 'muted', it.o.n.toLocaleString('ru-RU') + (it.nlab || ' открытий')));
+  sub.append(el('span', v >= 0 ? 'up' : 'down', signed(v, 2) + (ev ? ' EV' : '') + (it.vlab || ' BB за открытие')), el('span', 'muted', it.o.n.toLocaleString('ru-RU') + nlabOf(it.o.n, it.nlab || ' открытий')));
   head.append(sub);
   const inSet = (k) => it.only == null || it.only(k);
   const vals = it.mx.filter((m, k) => inSet(k) && m.n >= 3).map(m => Math.abs(sumOf(m) / 10 / m.n)).sort((a, b) => a - b);
@@ -204,7 +204,7 @@ async function showHandList(it, k, cellBtn) {
     const by = { new: (a, b) => c.day[b] - c.day[a] || b - a, old: (a, b) => c.day[a] - c.day[b] || a - b, best: (a, b) => V[b] - V[a], worst: (a, b) => V[a] - V[b], pot: (a, b) => potOf(b) - potOf(a) };
     rows.sort(by[f.sort]);
     const total = rows.reduce((s, i) => s + V[i], 0) / 10;
-    head.replaceChildren(el('b', null, handName(k) + (it.p ? ' с ' + it.p : '')), el('span', null, rows.length + (rows.length === all.length ? '' : ' из ' + all.length) + ' раздач'), el('span', total >= 0 ? 'up' : 'down', signed(total, 1) + tag + ' всего' + (rows.length ? ' · ' + signed(total / rows.length, 2) + tag + ' за раздачу' : '')));
+    head.replaceChildren(el('b', null, handName(k) + (it.p ? ' с ' + it.p : '')), el('span', null, (rows.length === all.length ? cnt(rows.length, 'раздач') : rows.length.toLocaleString('ru-RU') + ' из ' + cnt(all.length, 'раздач', 'gen'))), el('span', total >= 0 ? 'up' : 'down', signed(total, 1) + tag + ' всего' + (rows.length ? ' · ' + signed(total / rows.length, 2) + tag + ' за раздачу' : '')));
     box.replaceChildren(); if (lazy) lazy.stop();
     if (!rows.length) { box.append(el('p', 'muted small', 'Нет раздач под эти фильтры.')); return; }
     lazy = lazyRows(box, rows, rp, { cards: false, ev: evm });
@@ -276,7 +276,7 @@ function idsPanel(ids, opt) {
     const by = { new: (a, b) => c.day[b] - c.day[a] || b - a, old: (a, b) => c.day[a] - c.day[b] || a - b, worst: (a, b) => V[a] - V[b], best: (a, b) => V[b] - V[a] };
     rows.sort(by[f.sort]);
     const total = rows.reduce((s, i) => s + V[i], 0) / 10;
-    head.replaceChildren(el('b', null, opt.title || ''), el('span', null, rows.length + (rows.length === ids.length ? '' : ' из ' + ids.length) + ' раздач'), el('span', total >= 0 ? 'up' : 'down', signed(total, 1) + tag + ' всего' + (rows.length ? ' · ' + signed(total / rows.length, 2) + tag + ' за раздачу' : '')));
+    head.replaceChildren(el('b', null, opt.title || ''), el('span', null, (rows.length === ids.length ? cnt(rows.length, 'раздач') : rows.length.toLocaleString('ru-RU') + ' из ' + cnt(ids.length, 'раздач', 'gen'))), el('span', total >= 0 ? 'up' : 'down', signed(total, 1) + tag + ' всего' + (rows.length ? ' · ' + signed(total / rows.length, 2) + tag + ' за раздачу' : '')));
     box.replaceChildren(); if (lazy) lazy.stop();
     if (!rows.length) { box.append(el('p', 'muted small', 'Нет раздач под эти фильтры.')); return; }
     lazy = lazyRows(box, rows, rp, { cards: false, ev: !!opt.ev });

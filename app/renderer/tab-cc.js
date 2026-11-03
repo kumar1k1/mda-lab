@@ -274,7 +274,7 @@ function ccGroupBlock(r, o) {
       const f = el('b', v >= 0 ? 'up' : 'down', signed(v, 2)), ev = z.es / 10 / z.n;
       cell.append(f, el('span', 'ccg-ev ' + (ev >= 0 ? 'up' : 'down'), signed(ev, 2) + ' EV'), el('span', 'ccg-n', String(z.n)));
       if (z.n < 30) cell.classList.add('low');
-      cell.classList.add('click'); cell.tabIndex = 0; cell.setAttribute('role', 'button'); cell.setAttribute('aria-label', p + ', ' + lab + ': ' + signed(v, 2) + ' BB, ' + z.n + o.nlab + ' — показать руки и раздачи');
+      cell.classList.add('click'); cell.tabIndex = 0; cell.setAttribute('role', 'button'); cell.setAttribute('aria-label', p + ', ' + lab + ': ' + signed(v, 2) + ' BB, ' + z.n + nlabOf(z.n, o.nlab) + ' — показать руки и раздачи');
       const pin = (e) => { hideGroupTip(); pinHandPop({ p: o.p ? p : null, key: o.key + p + k, title: (o.nameOf ? o.nameOf(p) : o.name + ' · ' + p) + ' · ' + lab, o: z, mx: hands, ids: r.hands[p].ids, only: (q) => handGroup(q) === k, sit: 2, act: o.act, vlab: o.vlab, nlab: o.nlab }, v, e, cell); };
       cell.addEventListener('click', pin); cell.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pin(null); } });
       row.append(cell);
@@ -317,7 +317,7 @@ function ccQuadBlock(r, idx) {
     const meLow = me.cc == null || me.fcb == null || me.fcbN < MIN_ME;
     const SD = data.stride || 4; // 5 — с итогами колд-колл раздач (0.7.2)
     const pts = data.rows.map(x => { const t = x[5], o = t[qi * SD], cx = t[qi * SD + 1], cb = t[qf * SD + 2], f = t[qf * SD + 3]; return { pid: x[0], name: x[1], room: x[2], count: x[3], shown: x[4], cc: o ? cx / o : 0, ccN: o, ccH: cx, res: SD >= 5 ? t[qi * SD + 4] : null, fcb: cb ? f / cb : 0, fcbN: cb }; }).filter(p => p.ccN >= MIN_CC && p.fcbN >= MIN_CB);
-    if (pts.length < 5) { body.append(el('p', 'muted small', 'Мало игроков с достаточной выборкой' + (P0 === 'TOT' ? '' : ' на ' + P0) + ' (нужно ≥ ' + cnt(MIN_CC, 'возможностей') + ' колд-колла и ≥ ' + MIN_CB + ' контбетов после него).')); return; }
+    if (pts.length < 5) { body.append(el('p', 'muted small', 'Мало игроков с достаточной выборкой' + (P0 === 'TOT' ? '' : ' на ' + P0) + ' (нужно ≥ ' + cnt(MIN_CC, 'возможностей', 'gen') + ' колд-колла и ≥ ' + MIN_CB + ' контбетов после него).')); return; }
     const ccs = pts.map(p => p.cc).sort((a, b) => a - b), xGrid = Math.min(1, Math.max(0.1, Math.ceil((ccs[Math.floor(ccs.length * 0.99)] || 0.3) * 20) / 20, meLow ? 0 : me.cc || 0));
     const bb = (v) => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(2).replace('.', ',');
     // ваш итог колд-колл раздач на выбранной позиции — для сравнения
@@ -387,7 +387,7 @@ function ccQuadBlock(r, idx) {
       const lab = 'макс. винрейт ' + bb(best.v) + ' ± ' + best.se.toFixed(2).replace('.', ',') + ' BB', right = bx < (P.l + W - P.r) / 2;
       g.append(svgText(bx + (right ? 13 : -13), by + 4, lab, right ? 'start' : 'end', 'font-family:var(--sans);font-size:12px;font-weight:800;fill:#FF6B5E' + HALO));
       const line = 'колд-колл около ' + Math.round(best.x * 100) + '% · фолд на контбет около ' + Math.round(best.y * 100) + '% · ' + bb(best.v) + ' BB в среднем за колд-колл';
-      g.addEventListener('mouseenter', (e) => tip(e, 'Максимальный винрейт', line, 'по ' + Math.round(best.wh).toLocaleString('ru-RU') + ' колд-коллам ' + cnt(best.np, 'игроков') + ' рядом с этой точкой (ваши раздачи тоже учтены)'));
+      g.addEventListener('mouseenter', (e) => tip(e, 'Максимальный винрейт', line, 'по ' + cnt(Math.round(best.wh), 'колд-коллов', 'dat') + ' ' + cnt(best.np, 'игроков') + ' рядом с этой точкой (ваши раздачи тоже учтены)'));
       g.addEventListener('mousemove', (e) => tip(e, 'Максимальный винрейт', line)); g.addEventListener('mouseleave', hide);
       s.append(g);
     }
@@ -434,7 +434,7 @@ function ccVsTable(r) {
   });
   const card = el('div', 'insight cc-table');
   card.append(numTag(3), el('span', 'k', 'Колд-колл: позиция против позиции'), el('span', 's', 'строки — ваша позиция, колонки — позиция открывающего; в ячейке — доля коллов'), w,
-    infoNote('Пустые ячейки (--) — ситуация невозможна: открывающий ходит раньше вас. Наведите на ячейку — матрица рук, которыми вы коллировали против этой позиции, и их итог; клик закрепит окно, клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше ' + cnt(SMALL, 'раздач') + '.'));
+    infoNote('Пустые ячейки (--) — ситуация невозможна: открывающий ходит раньше вас. Наведите на ячейку — матрица рук, которыми вы коллировали против этой позиции, и их итог; клик закрепит окно, клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше ' + cnt(SMALL, 'раздач', 'gen') + '.'));
   return card;
 }
 
@@ -474,7 +474,7 @@ function renderCC(idx) {
     fillBox(posStrip('По позициям', posRows), respTiles(r.resp, 'Ваш ответ на открытие', [['фолд', 'var(--good)'], ['колл', 'var(--ice)'], ['3-бет', 'var(--bad)']])));
   const c2 = el('div', 'insight');
   c2.append(numTag(2), el('span', 'k', 'Колд-колл по позициям'), ccTable(r));
-  const note = infoNote('TOT — все позиции без BB (колл из BB — защита большого блайнда, показан отдельной колонкой). В SB колл открытия считается колд-коллом. Наведите на ячейку — покажется матрица рук, которыми вы коллировали, и их итог; клик закрепит окно, клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше ' + cnt(SMALL, 'раздач') + '.');
+  const note = infoNote('TOT — все позиции без BB (колл из BB — защита большого блайнда, показан отдельной колонкой). В SB колл открытия считается колд-коллом. Наведите на ячейку — покажется матрица рук, которыми вы коллировали, и их итог; клик закрепит окно, клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше ' + cnt(SMALL, 'раздач', 'gen') + '.');
   c2.append(note);
   // #8 — винрейт колд-колла по позициям, как в RFI: наведение — руки, клик — закрепить, раздачи и реплеер
   const ccPos = r.CC_COLS.slice(1).filter(k => r.cc[k].n >= SMALL);

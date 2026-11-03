@@ -37,7 +37,7 @@ function secType(tab) {
 }
 function secLabel(tab, n, what) {
   const t = secType(tab), rng = secRange(tab), tl = t.flt ? (SEC_TYPES[tab].find(x => x[0] === t.ty) || [])[1] : '';
-  return el('span', 'muted small tb-res-n', [tl, rng ? (tl ? 'ваш' : 'Ваш') + ' стек ' + rangeTxt(rng) : ''].filter(Boolean).join(', ') + (tl || rng ? ': ' : '') + n.toLocaleString('ru-RU') + ' ' + what);
+  return el('span', 'muted small tb-res-n', [tl, rng ? (tl ? 'ваш' : 'Ваш') + ' стек ' + rangeTxt(rng) : ''].filter(Boolean).join(', ') + (tl || rng ? ': ' : '') + (WORDS[what.split(' ')[0]] ? cnt(n, what.split(' ')[0]) + what.slice(what.split(' ')[0].length) : n.toLocaleString('ru-RU') + ' ' + what));
 }
 function drawSecFilters(tab) {
   const box = $('secFilters'); if (!box) return; box.replaceChildren();
