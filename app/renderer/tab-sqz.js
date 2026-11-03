@@ -162,10 +162,32 @@ function renderSQZ(idx) {
     for (const i of sq) { const t3 = c.t3r[i]; if (t3 >= 0) { const k = t3 & 3; R[k]++; RS[k].sum += c.net[i]; RS[k].es += EV[i]; RS[k].n++; } const t4 = c.t4[i]; if (t4 >= 0) { const k = Math.min(2, t4 & 3); F[k]++; FS[k].sum += c.net[i]; FS[k].es += EV[i]; FS[k].n++; } }
     const tiles = (cnts, sums, labs, title) => { const box = el('div', 'resp'); box.append(el('span', 'resp-t', title)); const rl = el('div', 'resp-tiles'); const tt = cnts.reduce((a, b) => a + b, 0);
       labs.forEach(([lab, col], k) => { const it = el('span', 'resp-tile'); const b = el('b', null, tt ? fmtPct(cnts[k] / tt) + '%' : '—'); b.style.color = col; it.append(b, el('span', null, lab)); const z = sums[k]; if (z.n) it.append(pmxWr(z.sum / 10 / z.n, z.es / 10 / z.n)); it.title = cnts[k] + ' из ' + tt; rl.append(it); }); box.append(rl); return box; };
-    const body = el('div', 'card-fill'); body.append(tiles(R, RS, [['все сбросили', 'var(--good)'], ['колл', 'var(--ice)'], ['4-бет', 'var(--bad)'], ['4-бет олл-ин', 'var(--mx-push)']], 'Ответ соперников на ваш сквиз' + sqTyLab(T)),
-      tiles(F, FS, [['фолд', 'var(--good)'], ['колл', 'var(--ice)'], ['5-бет', 'var(--bad)']], 'Ваш ход против 4-бета'));
-    zone.append(sqSec(10, 'Что происходит после сквиза', 'как отвечают соперники и как вы играете против 4-бета; под процентом — средний итог раздачи (EV или факт)', body,
-      infoNote('Верхний ряд — первый ответ соперников на ваш сквиз: все сбросили (банк ваш), кто-то заколлировал, поставили 4-бет (обычный или олл-ин). Нижний — ваш ход, когда на сквиз пришёл 4-бет. Число под процентом — средний итог таких раздач в BB.')));
+    const body = el('div', 'card-fill'); body.append(tiles(R, RS, [['все сбросили', 'var(--good)'], ['колл', 'var(--ice)'], ['4-бет', 'var(--bad)'], ['4-бет олл-ин', 'var(--mx-push)']], 'Ответ соперников на ваш сквиз' + sqTyLab(T)));
+    // подробно (колонка sqr): кто заколлировал — открывающий, другой игрок, несколько; 4-бет от открывающего или от коллера, обычный или олл-ином;
+    // в строках 4-бета — ваш ход против него (фолд / колл / 5-бет) и итог каждого
+    if (c.sqr) {
+      const RW = [['Все сбросили — банк ваш', v => (v & 3) === 0], ['Колл: только открывающий', v => (v & 3) === 1 && (v >> 4 & 3) === 1 && (v & 4)], ['Колл: только другой игрок (не открывающий)', v => (v & 3) === 1 && (v >> 4 & 3) === 1 && !(v & 4)],
+        ['Колл: двое и больше', v => (v & 3) === 1 && (v >> 4 & 3) >= 2], ['└ среди них открывающий', v => (v & 3) === 1 && (v >> 4 & 3) >= 2 && (v & 4)],
+        ['4-бет от открывающего, не олл-ин', v => (v & 3) === 2 && (v & 64)], ['4-бет от открывающего, олл-ин', v => (v & 3) === 3 && (v & 64)],
+        ['4-бет от другого игрока, не олл-ин', v => (v & 3) === 2 && !(v & 64)], ['4-бет от другого игрока, олл-ин', v => (v & 3) === 3 && !(v & 64)]];
+      const known = sq.filter(i => c.sqr[i] >= 0), ev = VAL_MODE === 'ev', val = (q, n) => (n ? (ev ? q.es : q.sum) / 10 / n : null);
+      const t = el('table', 'ht v3-rt'), hr = el('tr'); ['Ответ соперников', 'Раз', 'Ваш фолд', 'Колл', '5-бет', 'В среднем'].forEach((h, k) => hr.append(el('th', k >= 2 ? 'num' : null, h))); const th = el('thead'); th.append(hr); t.append(th); const tb = el('tbody');
+      RW.forEach(([lab, f]) => {
+        const ids = known.filter(i => f(c.sqr[i])); if (!ids.length) return;
+        const z = { n: ids.length, sum: 0, es: 0, a: [0, 1, 2].map(() => ({ n: 0, sum: 0, es: 0 })), mx: Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })) };
+        ids.forEach(i => { z.sum += c.net[i]; z.es += EV[i]; if (c.hc[i] >= 0) { const m = z.mx[c.hc[i]]; m.n++; m.sum += c.net[i]; m.es += EV[i]; } const t4 = c.t4[i]; if (t4 >= 0) { const q = z.a[Math.min(2, t4 & 3)]; q.n++; q.sum += c.net[i]; q.es += EV[i]; } });
+        const tr = el('tr', lab.startsWith('└') ? 'sub' : ''); if (z.n < 20) tr.classList.add('low');
+        const tdN = el('td', 'n'); tdN.append(el('b', null, z.n.toLocaleString('ru-RU')), el('small', null, fmtPct(z.n / known.length) + '%')); tr.append(el('th', null, lab), tdN);
+        const n4 = z.a[0].n + z.a[1].n + z.a[2].n, COL = ['var(--good)', 'var(--ice)', 'var(--bad)'];
+        z.a.forEach((q, k) => { const td = el('td', 'num'); if (!n4) { td.append(el('span', 'muted', '—')); tr.append(td); return; } const b = el('b', null, fmtPct(q.n / n4) + '%'); b.style.color = COL[k]; td.append(b); const v = val(q, q.n); if (v != null) td.append(el('span', 'v ' + (v >= 0 ? 'up' : 'down'), signed(v, 2))); td.title = cnt(q.n, 'раз'); tr.append(td); });
+        const a2 = val(z, z.n), tdA = el('td', 'num avg'); tdA.append(el('b', a2 >= 0 ? 'up' : 'down', signed(a2, 2))); tdA.title = signed(z.sum / 10 / z.n, 2) + ' BB факт, ' + signed(z.es / 10 / z.n, 2) + ' BB EV за раздачу'; tr.append(tdA);
+        hoverHands(tr, { p: lab, anyPos: true, pre: true, key: 'sq10' + lab + T.ty, title: 'Сквиз → ' + lab.replace('└ ', ''), o: { n: z.n, sum: z.sum, es: z.es }, mx: z.mx, ids, vlab: ' BB за раздачу', nlab: ' раздач' }, z.sum / 10 / z.n);
+        tb.append(tr);
+      });
+      t.append(tb); const box = el('div', 'v3-rt-box'); const sg = valSeg(); sg.classList.add('v3-rt-seg'); box.append(el('span', 'resp-t', 'Подробно: кто заколлировал и кто 4-бетил'), sg, t); body.append(box);
+    } else body.append(el('p', 'muted small', 'Подробная разбивка (кто заколлировал, кто 4-бетил) появится после обновления базы.'));
+    zone.append(sqSec(10, 'Что происходит после сквиза', 'как отвечают соперники и что это приносит; в строках 4-бета — ваш ход против него', body,
+      infoNote('Сверху — первый ответ соперников на ваш сквиз' + sqTyLab(T) + ', под процентом — средний итог таких раздач. Таблица ниже — подробно: заколлировал только открывающий, только другой игрок или несколько (отдельно — когда среди них открывающий); 4-бет от открывающего или от другого игрока, обычный или олл-ином. Считается ответ до первого рейза поверх сквиза: колл 4-бета в разбивку коллов не входит. В строках 4-бета — ваш ход против него: фолд, колл или 5-бет и средний итог каждого; «В среднем» — итог раздачи по строке (EV или факт — переключатель). Наведите на строку — руки и их итог; клик закрепит окно, клик по руке откроет раздачи и реплеер.')));
   }
 
   // #11 — результат по группам рук

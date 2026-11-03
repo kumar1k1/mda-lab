@@ -3,7 +3,7 @@ SetCompressor /SOLID lzma
 !include "MUI2.nsh"
 
 !define APPNAME "MDA Lab"
-!define APPVER "0.7.58"
+!define APPVER "0.7.59"
 !define EXENAME "MDA Lab.exe"
 !define UNINSTKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\MDALab"
 
@@ -14,7 +14,7 @@ InstallDirRegKey HKCU "Software\MDALab" "InstallDir"
 RequestExecutionLevel user
 BrandingText "${APPNAME} ${APPVER}"
 
-VIProductVersion "0.7.58.0"
+VIProductVersion "0.7.59.0"
 VIAddVersionKey /LANG=1049 "ProductName" "${APPNAME}"
 VIAddVersionKey /LANG=1049 "FileDescription" "Установка ${APPNAME}"
 VIAddVersionKey /LANG=1049 "FileVersion" "${APPVER}"
