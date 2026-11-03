@@ -84,12 +84,12 @@ function tbSizeBlock(r, ty) {
   const card = el('div', 'insight cc-table');
   card.append(numTag(6), el('b', 'pm-title', 'Против сайзинга открытия'), el('span', 'sm-s', 'как вы отвечаете на открытие разного размера и какой результат дают ваши 3-беты'));
   const posList = ['TOT'].concat(TB_POS.filter(p => r.tb[p].n >= SMALL));
-  if (!posList.includes(TB_SZPOS)) TB_SZPOS = 'TOT'; // позиция пропала из выборки (фильтр «Наша позиция» или стек) — показываем все, а не пустую таблицу
+  let curP = posList.includes(TB_SZPOS) ? TB_SZPOS : 'TOT'; // выбранной позиции нет в выборке (фильтр «Наша позиция» или стек) — показываем все; сам выбор не теряется
   const body = el('div');
-  card.append(segBtns(posList.map(p => [p, p === 'TOT' ? 'Все' : p]), TB_SZPOS, (k) => { TB_SZPOS = k; draw(); }), body,
+  card.append(segBtns(posList.map(p => [p, p === 'TOT' ? 'Все' : p]), curP, (k) => { TB_SZPOS = curP = k; draw(); }), body,
     infoNote('Размер — до скольких BB открыл соперник. Доля — какая часть открытий перед вами была такого размера. 3-бет / Олл-ин / Колл / Фолд — ваш ответ. Результат — средний итог раздачи после вашего 3-бета, факт / EV; при выбранном в фильтрах раздела типе 3-бета — только он (по умолчанию — все, вместе с олл-инами). Наведите на строку — матрица ответа рукой; клик закрепит окно. Бледные строки — меньше 30 раздач.'));
   function draw() {
-    const rows = r.sz[TB_SZPOS] || [], tot = rows.reduce((a, z) => a + z.n, 0);
+    const rows = r.sz[curP] || [], tot = rows.reduce((a, z) => a + z.n, 0);
     const t = el('div', 'sz5-t tb-sz');
     const hd = el('div', 'sz5-r sz5-h'); ['Размер', 'Доля', '3-бет', 'Олл-ин', 'Колл', 'Фолд', 'Результат 3-бета, BB / EV'].forEach(x => hd.append(el('span', null, x))); t.append(hd);
     rows.forEach((z, k) => {
@@ -101,7 +101,7 @@ function tbSizeBlock(r, ty) {
       row.append(el('b', null, r.CC_SZ[k][0]), el('span', 'sz5-sh', fmtPct(share) + '%'), v(pc(z.rz), 'var(--bad)'), v(pc(z.ai), 'var(--ice)'), v(pc(z.call), 'var(--soft)'), v(pc(z.fold), 'var(--good)'),
         wrNode('sz5-v', wr, we, 2), el('small', null, cnt(z.n, 'раз')), tk);
       if (z.rmx) {
-        const title = (TB_SZPOS === 'TOT' ? 'Вы на всех позициях' : 'Вы на ' + TB_SZPOS) + ' · перед вами открытие ' + r.CC_SZ[k][0];
+        const title = (curP === 'TOT' ? 'Вы на всех позициях' : 'Вы на ' + curP) + ' · перед вами открытие ' + r.CC_SZ[k][0];
         // «Факт/EV» в окне и списки раздач — только по 3-бетам (тип — из шапки раздела); «Диапазон» — все ответы
         const zz = Object.assign({}, z, { vmx: z.vmx || null, rids: z.ids || z.rids, capAll: 'только ваши 3-беты' + (ty === 'ai' ? ' олл-ином' : ty === 'nai' ? ' не олл-ином' : '') });
         row.classList.add('has-mx'); row.tabIndex = 0;
@@ -191,12 +191,12 @@ function tbXBlock(r) {
   const body = el('div');
   // группы без 3-бетов в выборке (например, «В позиции» при фильтре OOP) не показываем; выбранная пропала — берём первую с данными
   const XG = [['TOT', 'Все'], ['IP', 'В позиции (CO, BTN)'], ['SB', 'SB'], ['BB', 'BB']].filter(([k]) => (r.xg[k] || []).some(z => z.n));
-  if (XG.length && !XG.some(([k]) => k === TB_XPOS)) TB_XPOS = (XG.find(([k]) => k !== 'TOT') || XG[0])[0];
-  if (XG.length === 2 && XG[0][0] === 'TOT') { XG.shift(); TB_XPOS = XG[0][0]; } // одна группа — «Все» совпадает с ней, кнопка «Все» не нужна
-  card.append(XG.length > 1 ? segBtns(XG, TB_XPOS, (k) => { TB_XPOS = k; draw(); }) : el('span'), body,
+  let curX = XG.some(([k]) => k === TB_XPOS) ? TB_XPOS : (XG.find(([k]) => k !== 'TOT') || XG[0] || ['TOT'])[0]; // сам выбор (TB_XPOS) не теряется
+  if (XG.length === 2 && XG[0][0] === 'TOT') { XG.shift(); curX = XG[0][0]; } // одна группа — «Все» совпадает с ней, кнопка «Все» не нужна
+  card.append(XG.length > 1 ? segBtns(XG, curX, (k) => { TB_XPOS = curX = k; draw(); }) : el('span'), body,
     infoNote('Размер — ваш 3-бет, делённый на открытие (×3 — в три раза больше). Олл-ин — отдельной строкой. «В позиции» — 3-беты с CO и BTN (как в Hand2Note), BB — без раздач против открытия SB. Фолд / Колл — первый ответ соперников. 4-бет — только 4-бет открывающего, которого вы 3-бетили; холодные 4-беты игрока за спиной не учитываются (ни здесь, ни в «Фолде на 4-бет»). «Фолд на 4-бет» — как часто вы сбросили на 4-бет открывающего (в скобках — сколько раз он был). Результат — средний итог раздачи, факт / EV. Наведите на строку — матрица рук этого размера и итог; клик закрепит окно, в нём — переключатель «Факт, BB» / «EV, BB», клик по руке откроет раздачи и реплеер.'));
   function draw() {
-    const rows = r.xg[TB_XPOS] || [], tot = rows.reduce((a, z) => a + z.n, 0);
+    const rows = r.xg[curX] || [], tot = rows.reduce((a, z) => a + z.n, 0);
     const t = el('div', 'sz5-t tb-sz');
     const hd = el('div', 'sz5-r sz5-h'); ['Размер', 'Доля', 'Фолд', 'Колл', '4-бет', 'Фолд на 4-бет', 'Результат, BB / EV'].forEach(x => hd.append(el('span', null, x))); t.append(hd);
     rows.forEach((z, k) => {
@@ -209,10 +209,10 @@ function tbXBlock(r) {
       row.append(el('b', null, r.TB_X[k]), el('span', 'sz5-sh', fmtPct(share) + '%'), v(pc(z.r[0]), 'var(--good)'), v(pc(z.r[1]), 'var(--ice)'), v(pc(z.f4n), 'var(--bad)'), f4,
         wrNode('sz5-v', z.sum / 10 / z.n, z.es / 10 / z.n, 2), el('small', null, cnt(z.n, 'раз')), tk);
       row.tabIndex = 0; row.setAttribute('role', 'button');
-      const gl = { TOT: 'все позиции', IP: 'в позиции', SB: 'SB', BB: 'BB' }[TB_XPOS];
+      const gl = { TOT: 'все позиции', IP: 'в позиции', SB: 'SB', BB: 'BB' }[curX];
       // наведение — окно «Диапазон» (как #6): ответы по рукам группы, подсвечен этот размер; клик — закрепить (в окне «Факт, BB» / «EV, BB»), клик по руке — раздачи и реплеер
       {
-        const R = r.xgR && r.xgR[TB_XPOS];
+        const R = r.xgR && r.xgR[curX];
         if (R && R.rmx && z.n) {
           const mx = R.rmx.map((m2, q) => ({ n: m2.n, x: z.rmx ? z.rmx[q].x : 0, ai: z.rmx ? z.rmx[q].ai : 0, lp: m2.lp, sum: m2.sum, es: m2.es }));
           const zz = { n: R.rmx.reduce((a2, m2) => a2 + m2.n, 0), rmx: mx, vmx: z.rmx || null, rids: z.ids || R.rids, capAll: 'только ваши 3-беты этого размера' }; // «Факт/EV» и списки — только 3-беты этого размера

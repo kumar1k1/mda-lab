@@ -662,21 +662,22 @@ function isoSizing(d) {
   // группы без изолейтов не обычным размером (например, на стеке < 15 BB все изолейты — олл-ин) не показываем; если пусто всё — блока нет
   const has = (k) => Object.values(d.szx[k] || {}).some(z => z.n), G = [['all', 'Все'], ['0', 'vs 1 лимпер'], ['1', 'vs 2+']].filter(([k]) => k === 'all' ? has(0) || has(1) : has(+k));
   if (!G.length) return document.createDocumentFragment();
-  if (!G.some(([k]) => k === ISO_SZ)) ISO_SZ = 'all';
+  const keep = ISO_SZ; if (!G.some(([k]) => k === ISO_SZ)) ISO_SZ = 'all';
   if (G.length === 2) { G.shift(); ISO_SZ = G[0][0]; } // одна группа с данными — «Все» её повторяет
+  const cur0 = ISO_SZ; ISO_SZ = keep; let curS = cur0; // выбор пользователя (ISO_SZ) не теряется, на экране — группа с данными
   const box = el('div', 'iso-sz');
   const head = el('div', 'iso-sz-h'); head.append(el('b', null, 'Сайзинг изолейта'), el('span', 'sm-s', 'самые частые размеры рейза после лимпа оппонента, BB, и их результат (без олл-инов)'));
   const body = el('div');
-  if (G.length > 1) head.append(segBtns(G, ISO_SZ, (k) => { ISO_SZ = k; draw(); }));
+  if (G.length > 1) head.append(segBtns(G, curS, (k) => { ISO_SZ = curS = k; draw(); }));
   box.append(head, body);
   function draw() {
-    const src = ISO_SZ === 'all' ? [d.szx[0], d.szx[1]] : [d.szx[+ISO_SZ]], map = {};
+    const src = curS === 'all' ? [d.szx[0], d.szx[1]] : [d.szx[+curS]], map = {};
     src.forEach(m => Object.entries(m).forEach(([k, z]) => { const t = map[k] || (map[k] = { n: 0, r: [0, 0, 0], rn: 0, sum: 0, es: 0, sn: 0, hx: new Uint16Array(169), vmx: Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })), ids: [] }); t.n += z.n; for (let q = 0; q < 169; q++) { t.hx[q] += z.hx[q]; t.vmx[q].n += z.vmx[q].n; t.vmx[q].sum += z.vmx[q].sum; t.vmx[q].es += z.vmx[q].es; } t.ids.push(...z.ids); t.rn += z.rn; t.sum += z.sum; t.es += z.es; t.sn += z.sn; z.r.forEach((v, j) => { t.r[j] += v; }); }));
     const tot = Object.values(map).reduce((a, z) => a + z.n, 0);
     body.replaceChildren();
     if (!tot) { body.append(el('p', 'muted small', 'Нет изолейтов в выборке.')); return; }
     const rows = [], other = { n: 0, r: [0, 0, 0], rn: 0, sum: 0, es: 0, sn: 0, hx: new Uint16Array(169), vmx: Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })), ids: [] };
-    const RN = rangeMx(); (ISO_SZ === 'all' ? [d.rng[0], d.rng[1]] : [d.rng[+ISO_SZ]]).forEach(R => R.forEach((m, q) => { const t = RN[q]; t.n += m.n; t.lp += m.lp; t.sum += m.sum; t.es += m.es; })); // все лимп-банки выбранной группы — по рукам
+    const RN = rangeMx(); (curS === 'all' ? [d.rng[0], d.rng[1]] : [d.rng[+curS]]).forEach(R => R.forEach((m, q) => { const t = RN[q]; t.n += m.n; t.lp += m.lp; t.sum += m.sum; t.es += m.es; })); // все лимп-банки выбранной группы — по рукам
     Object.entries(map).sort((a, b) => b[1].n - a[1].n).forEach(([k, z], j) => {
       if (j < 5 && z.n / tot >= 0.03) rows.push([k.replace('.', ',') + ' BB', z]);
       else { other.n += z.n; other.rn += z.rn; other.sum += z.sum; other.es += z.es; other.sn += z.sn; z.r.forEach((v, q) => { other.r[q] += v; }); for (let q = 0; q < 169; q++) { other.hx[q] += z.hx[q]; other.vmx[q].n += z.vmx[q].n; other.vmx[q].sum += z.vmx[q].sum; other.vmx[q].es += z.vmx[q].es; } other.ids.push(...z.ids); }
@@ -696,7 +697,7 @@ function isoSizing(d) {
         el('small', null, cnt(z.n, 'раз')), tk);
       if (z.n < 30) r.classList.add('low');
       // окно первого типа: «Диапазон» — все ваши ответы в лимп-банке, подсвечен изолейт этим размером; «Факт / EV» и список — только эти изолейты
-      hoverRange(r, 'Изолейт ' + lab + (ISO_SZ === 'all' ? '' : ISO_SZ === '0' ? ' · vs 1 лимпер' : ' · vs 2+'), { n: rangeN(RN), rmx: RN.map((m, q) => ({ n: m.n, x: z.hx[q], ai: 0, lp: m.lp, sum: m.sum, es: m.es })), vmx: z.vmx, rids: z.ids, labels: ['изолейт ' + lab, '', 'лимп / чек', 'фолд или другой размер'], capAll: 'только изолейты ' + lab, foldPaint: true });
+      hoverRange(r, 'Изолейт ' + lab + (curS === 'all' ? '' : curS === '0' ? ' · vs 1 лимпер' : ' · vs 2+'), { n: rangeN(RN), rmx: RN.map((m, q) => ({ n: m.n, x: z.hx[q], ai: 0, lp: m.lp, sum: m.sum, es: m.es })), vmx: z.vmx, rids: z.ids, labels: ['изолейт ' + lab, '', 'лимп / чек', 'фолд или другой размер'], capAll: 'только изолейты ' + lab, foldPaint: true });
       t.append(r);
     });
     body.append(t);

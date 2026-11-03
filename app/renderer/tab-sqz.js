@@ -205,9 +205,9 @@ function renderSQZ(idx) {
   {
     const b = el('section', 'block'); b.append(numTag(3));
     const hh = el('div', 'block-head'); hh.append(el('h2', null, 'Какие руки вы сквизите'), el('p', null, 'как часто каждой рукой вы сквизите, овер-коллируете и сбрасываете'));
-    { const av = SQ_POS.filter(p => P0[p] && P0[p].n); if (av.length && !av.includes(SQ_MXPOS)) SQ_MXPOS = av[av.length - 1]; } // позиция пропала из выборки (фильтр позиции или стека) — ближайшая с данными
-    const seg = el('div', 'seg'); SQ_POS.filter(p => P0[p] && P0[p].n).forEach(p => { const bt = el('button', SQ_MXPOS === p ? 'on' : '', p); bt.type = 'button'; bt.onclick = () => { SQ_MXPOS = p; renderNext(); }; seg.append(bt); });
-    const z = P0[SQ_MXPOS] || tot0, mxBody = el('div', 'block-body');
+    const av = SQ_POS.filter(p => P0[p] && P0[p].n), mxp = av.includes(SQ_MXPOS) || !av.length ? SQ_MXPOS : av[av.length - 1]; // позиции нет в выборке (фильтр позиции или стека) — ближайшая с данными; сам выбор не теряется
+    const seg = el('div', 'seg'); SQ_POS.filter(p => P0[p] && P0[p].n).forEach(p => { const bt = el('button', mxp === p ? 'on' : '', p); bt.type = 'button'; bt.onclick = () => { SQ_MXPOS = p; renderNext(); }; seg.append(bt); });
+    const z = P0[mxp] || tot0, mxBody = el('div', 'block-body');
     mxBody.append(handMatrix(z.R.map(m => ({ n: m.n, x: m.x, ai: m.ai, lp: m.lp })), ['сквиз', 'олл-ин', 'овер-колл', 'фолд']));
     const side = el('div', 'mx-side'); side.append(el('span', 'mx-cap', 'Ваша позиция'), seg, el('p', 'muted small', cnt(z.n, 'спотов') + ' · сквиз ' + (z.n ? fmtPct((z.ai + z.nai) / z.n) : '—') + '%'));
     mxBody.append(side);
