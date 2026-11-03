@@ -126,6 +126,7 @@ function render() {
     if (vis) { const k = keyOf(vis); anchor = { key: k, nth: list.filter(e => keyOf(e) === k).indexOf(vis), dy: vis.getBoundingClientRect().top - top }; }
   }
   cont.replaceChildren(tab.render ? tab.render(idx) : renderSoon(tab));
+  markExempt(cont, tab.id);
   // Размер карточек как в «стандартном» виде раздела (при входе в раздел, фильтры по умолчанию): при фильтрах карточка
   // не становится ниже — пустое место остаётся внутри неё, соседние карточки не прыгают. Больше стандарта — растёт.
   {

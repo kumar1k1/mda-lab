@@ -99,3 +99,22 @@ function subHands(z, pass) {
   return o;
 }
 
+
+// Карточки, на которые фильтры раздела не действуют (у них свои поля стека или они по всей выборке — docs/filters.md).
+// Когда в разделе выбран хоть один фильтр раздела, у таких карточек справа вверху — метка, чтобы не казалось, что фильтр «не сработал».
+// Метка в углу (position: absolute) — высота карточки не меняется, соседние карточки не прыгают.
+const SEC_EXEMPT = { rfi: ['#4+', '#13'], cc: ['#5'], '3bet': ['#6'], vs3bet: ['#4'] };
+function secActive(tab) {
+  if (!(tab in SEC_TYPES) || !SECF[tab]) return false;
+  const f = SECF[tab];
+  return f.S !== 'all' || f.T !== 'all' || (f.A && f.A.length > 0) || (f.B && f.B !== 'all') || (f.P && f.P !== 'all');
+}
+function markExempt(root, tab) {
+  const list = SEC_EXEMPT[tab]; if (!list || !secActive(tab)) return;
+  root.querySelectorAll('.num-tag').forEach(t => {
+    if (!list.includes(t.textContent.trim())) return;
+    const host = t.closest('.insight, .block'); if (!host || host.querySelector(':scope > .sec-exempt')) return;
+    const m = el('span', 'sec-exempt', 'без фильтров раздела'); m.title = 'Фильтры раздела (ваш стек, тип и другие) на эту карточку не действуют — у неё свои настройки или она считается по всей выборке. Фильтры шапки (рум, период, бай-ин, столы) действуют.';
+    host.append(m);
+  });
+}

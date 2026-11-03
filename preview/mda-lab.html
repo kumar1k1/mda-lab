@@ -183,6 +183,7 @@ body{display:flex;flex-direction:column}
 /* ---------- сводка RFI ---------- */
 .summary{display:flex;flex-direction:column;gap:14px}
 .insight,.block{position:relative}
+.sec-exempt{position:absolute;top:8px;right:52px;font-size:10px;font-weight:600;color:var(--muted);background:var(--bg);border:1px dashed var(--line);border-radius:999px;padding:1px 7px;cursor:help;white-space:nowrap}
 .num-tag{position:absolute;top:8px;right:10px;font-family:var(--mono);font-size:10px;font-weight:700;color:var(--faint);background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:1px 6px}
 .insight .v small{font-size:13px;font-weight:700}
 .insight svg{display:block;width:100%;height:auto;margin-top:4px}
@@ -2702,6 +2703,7 @@ body{padding-left:max(0px, env(safe-area-inset-left, 0px));padding-right:max(0px
       // карточка #3: за спиной вступили до вашего хода: e1 — только колы, e2 — был рейз поверх
       const e1 = entry === 1 && (isC || c.v3o[i] === 0);
       const e2 = entry === 2 && (isC || c.v3o[i] === 0);
+      if (isC || c.v3o[i] === 0) out.allE = (out.allE || 0) + 1;
       keys.forEach(k => {
         for (const z of [out.d[k], e1 ? out.e1[k] : null, e2 ? out.e2[k] : null, isClean ? out.cl[k] : null]) {
           if (!z) continue;
@@ -2735,7 +2737,8 @@ body{padding-left:max(0px, env(safe-area-inset-left, 0px));padding-right:max(0px
         }
       }
     }
-    out.all = out.d.TOT.n; // все споты выборки (знаменатель карточки 3)
+    out.all = out.d.TOT.n; // все споты выборки
+    out.allE = out.allE || 0; // знаменатель карточки 3: споты, где она вообще считает вступивших (вы коллер или открытие без колла); раньше делили на все — доля занижалась
     out.resp = [out.d.TOT.fld, out.d.TOT.call, out.d.TOT.r4];
     out.respE1 = [out.e1.TOT.fld, out.e1.TOT.call, out.e1.TOT.r4];
     out.respE2 = [out.e2.TOT.fld, out.e2.TOT.call, out.e2.TOT.r4];
@@ -3328,6 +3331,25 @@ function subHands(z, pass) {
   return o;
 }
 
+
+// Карточки, на которые фильтры раздела не действуют (у них свои поля стека или они по всей выборке — docs/filters.md).
+// Когда в разделе выбран хоть один фильтр раздела, у таких карточек справа вверху — метка, чтобы не казалось, что фильтр «не сработал».
+// Метка в углу (position: absolute) — высота карточки не меняется, соседние карточки не прыгают.
+const SEC_EXEMPT = { rfi: ['#4+', '#13'], cc: ['#5'], '3bet': ['#6'], vs3bet: ['#4'] };
+function secActive(tab) {
+  if (!(tab in SEC_TYPES) || !SECF[tab]) return false;
+  const f = SECF[tab];
+  return f.S !== 'all' || f.T !== 'all' || (f.A && f.A.length > 0) || (f.B && f.B !== 'all') || (f.P && f.P !== 'all');
+}
+function markExempt(root, tab) {
+  const list = SEC_EXEMPT[tab]; if (!list || !secActive(tab)) return;
+  root.querySelectorAll('.num-tag').forEach(t => {
+    if (!list.includes(t.textContent.trim())) return;
+    const host = t.closest('.insight, .block'); if (!host || host.querySelector(':scope > .sec-exempt')) return;
+    const m = el('span', 'sec-exempt', 'без фильтров раздела'); m.title = 'Фильтры раздела (ваш стек, тип и другие) на эту карточку не действуют — у неё свои настройки или она считается по всей выборке. Фильтры шапки (рум, период, бай-ин, столы) действуют.';
+    host.append(m);
+  });
+}
 
 </script>
 <script>
@@ -4887,7 +4909,7 @@ function tbTable(r) {
   const w2 = heatTable({ cols, groupGapBefore: cols.indexOf('SB'), rows: [
     { key: 'opf', label: 'Открывающий сбросил', tone: 'ice', own: true, data: D(k => r.opF[k]) },
     { key: 't3', label: 'Все сбросили — банк ваш', tone: 'ice', own: true, data: D(t3) }] });
-  card.append(numTag(3), el('span', 'k', '3-бет по позициям'), el('span', 's', 'колонки — ваша позиция; в ячейке — % от раздач, где перед вами было одно открытие (не олл-ин) без коллеров и вы сделали 3-бет'), w,
+  card.append(numTag(3), el('span', 'k', '3-бет по позициям'), el('span', 's', 'колонки — ваша позиция. Строки 3-бета — % от раздач, где перед вами было одно открытие (не олл-ин) без лимперов и коллеров; «Фолд на 4-бет» — % от раз, когда на ваш 3-бет пришёл 4-бет; «5-бет» — % от раз, когда 5-бет был возможен (4-бет не на весь стек)'), w,
     el('span', 's tb-sub', 'После вашего 3-бета — колонки тоже ваша позиция, открыть мог любой игрок перед вами'), w2);
   return card;
 }
@@ -4897,8 +4919,8 @@ function tbVsBlock(r, ty) {
   const heroPos = TB_POS.filter(p => r.tb[p].n >= SMALL);
   const opCols = ['EP', 'MP', 'HJ', 'CO', 'BTN', 'SB'].filter(op => heroPos.some(p => r.vs[p] && r.vs[p][op] && r.vs[p][op].n >= SMALL));
   const body = el('div');
-  card.append(numTag(5), el('span', 'k', '3-бет: позиция против позиции'), el('span', 's', 'строки — ваша позиция, колонки — позиция открывающего; тип 3-бета — фильтром в шапке раздела'), body,
-    infoNote('В ячейке — доля 3-бетов от раздач, где перед вами было одно открытие (тип 3-бета — фильтром в шапке раздела). Пустые ячейки (--) — ситуация невозможна: открывающий ходит раньше вас. Наведите на ячейку — покажется матрица рук, которыми вы 3-бетили, и их итог; клик закрепит окно, клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше ' + SMALL + ' раздач.'));
+  card.append(numTag(5), el('span', 'k', '3-бет: позиция против позиции'), el('span', 's', 'строки — ваша позиция, колонки — позиция открывающего; тип 3-бета — фильтром раздела'), body,
+    infoNote('В ячейке — доля 3-бетов от раздач, где перед вами было одно открытие (тип 3-бета — фильтром раздела). Пустые ячейки (--) — ситуация невозможна: открывающий ходит раньше вас. Наведите на ячейку — покажется матрица рук, которыми вы 3-бетили, и их итог; клик закрепит окно, клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше ' + SMALL + ' раздач.'));
   function draw() {
     const rows = heroPos.map(p => { const d = {}; opCols.forEach(op => { const z = r.vs[p] && r.vs[p][op]; if (z) d[op] = z; }); return { key: p, label: p, data: d }; });
     const tbl = heatTable({ cols: opCols, rows, noTot: true });
@@ -4923,7 +4945,7 @@ function tbSizeBlock(r, ty) {
   const posList = ['TOT'].concat(TB_POS.filter(p => r.tb[p].n >= SMALL));
   const body = el('div');
   card.append(segBtns(posList.map(p => [p, p === 'TOT' ? 'Все' : p]), TB_SZPOS, (k) => { TB_SZPOS = k; draw(); }), body,
-    infoNote('Размер — до скольких BB открыл соперник. Доля — какая часть открытий перед вами была такого размера. 3-бет / Олл-ин / Колл / Фолд — ваш ответ. Результат — средний итог раздачи после вашего 3-бета, факт / EV; при выбранном в шапке раздела типе 3-бета — только он (по умолчанию — все, вместе с олл-инами). Наведите на строку — матрица ответа рукой; клик закрепит окно. Бледные строки — меньше 30 раздач.'));
+    infoNote('Размер — до скольких BB открыл соперник. Доля — какая часть открытий перед вами была такого размера. 3-бет / Олл-ин / Колл / Фолд — ваш ответ. Результат — средний итог раздачи после вашего 3-бета, факт / EV; при выбранном в фильтрах раздела типе 3-бета — только он (по умолчанию — все, вместе с олл-инами). Наведите на строку — матрица ответа рукой; клик закрепит окно. Бледные строки — меньше 30 раздач.'));
   function draw() {
     const rows = r.sz[TB_SZPOS] || [], tot = rows.reduce((a, z) => a + z.n, 0);
     const t = el('div', 'sz5-t tb-sz');
@@ -4962,7 +4984,7 @@ function tbOstkBlock(r, ty) {
   const posList = ['TOT'].concat(TB_POS.filter(p => r.tb[p].n >= SMALL));
   const body = el('div');
   card.append(segBtns(posList.map(p => [p, p === 'TOT' ? 'Все' : p]), TB_OSTKPOS, (k) => { TB_OSTKPOS = k; draw(); }), body,
-    infoNote('Стек — стек открывающего в начале раздачи, BB: короткий до 20, средний 20–40, глубокий 40+. «Случаев» — сколько раз перед вами было одно открытие (не олл-ином) без лимперов и коллеров. 3-бет и Олл-ин — ваш ответ от этих случаев. Результат — средний итог раздачи после 3-бета, факт / EV; при выбранном в шапке раздела типе 3-бета — только он (по умолчанию — все, вместе с олл-инами). Наведите на строку — матрица рук этих 3-бетов и итог; клик закрепит окно, в нём — переключатель «Факт, BB» / «EV, BB», клик по руке откроет раздачи и реплеер. Бледные строки — меньше 30 раздач.'));
+    infoNote('Стек — стек открывающего в начале раздачи, BB: короткий до 20, средний 20–40, глубокий 40+. «Случаев» — сколько раз перед вами было одно открытие (не олл-ином) без лимперов и коллеров. 3-бет и Олл-ин — ваш ответ от этих случаев. Результат — средний итог раздачи после 3-бета, факт / EV; при выбранном в фильтрах раздела типе 3-бета — только он (по умолчанию — все, вместе с олл-инами). Наведите на строку — матрица рук этих 3-бетов и итог; клик закрепит окно, в нём — переключатель «Факт, BB» / «EV, BB», клик по руке откроет раздачи и реплеер. Бледные строки — меньше 30 раздач.'));
   function draw() {
     const rows = r.ostk[TB_OSTKPOS] || [], tot = rows.reduce((a, z) => a + z.n, 0);
     const t = el('div', 'sz5-t tb-sz');
@@ -5127,7 +5149,7 @@ function renderTB(idx) {
   const zone = el('div', 'summary'); const pair = el('div', 'sum-pair'); pair.append(c1, c2); zone.append(pair);
   const rG = flt ? Object.assign({}, r, { hands: H2 }) : r; // #4 — тоже по типу 3-бета из шапки
   zone.append(tbOppBlock(r6), tbTable(r), tbVsBlock(r57, T57.ty), ccGroupBlock(rG, { cols: TB_POS, tag: 4, title: 'Результат 3-бета по группам рук', sub: 'BB за 3-бет: всего и по группам рук, факт / EV', name: '3-бет', nameOf: (p) => 'Ваш 3-бет с ' + p, verb: 'не 3-бетили', act: undefined, vlab: ' BB за 3-бет', nlab: ' 3-бетов', none: 'Нет 3-бетов в выборке.', key: 'tbg', p: false,
-      note: 'В ячейке — результат 3-бета группой рук с этой позиции в BB (вместе с олл-инами): сверху факт, под ним EV, справа мелко — число 3-бетов. Цвет — плюс или минус. Наведите — матрица рук группы и их итог; клик закрепит окно, клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше 30 раздач.' }),
+      note: 'В ячейке — результат 3-бета группой рук с этой позиции в BB (' + (flt ? (ty2 === 'ai' ? 'только 3-беты олл-ином' : 'только 3-беты не олл-ином') + ' — фильтр раздела' : 'вместе с олл-инами') + '): сверху факт, под ним EV, справа мелко — число 3-бетов. Цвет — плюс или минус. Наведите — матрица рук группы и их итог; клик закрепит окно, клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше 30 раздач.' }),
     tbSizeBlock(r57, T57.ty), tbSplitBlock(r), tbXBlock(r), tbOstkBlock(r57, T57.ty), tbIsoBlock(r)); // порядок: 6 после ряда 1–2, 5 за 3, 7.1 после 9.1; 5, 7 и 7.1 — стек + тип раздела, 6 — без них; #8 удалена (0.7.25), #10 — (0.7.27)
   page.append(zone);
   return page;
@@ -5191,6 +5213,8 @@ function tbOppBlock(r) {
 'use strict';
 /* global mda, Stats */
 // Вкладка «Против 3-бета» (v3B).
+// строка результата «факт / EV» — разметка (цвет плюса и минуса): el() кладёт текст как есть, и пользователь видел теги <span>
+const htmlDiv = (cls, html) => { const d = el('div', cls); d.innerHTML = html; return d; };
 // ---------- Против 3-бета: своё открытие и 3-бет соперника ----------
 // Фильтры раздела: тип 3-бета соперника, наше действие на него и ваш стек — все отбирают раздачи целиком.
 // Карточки 1–2 — все споты, как в Hand2Note (RF,RC,RR+): чужие коллы открытия и 3-бета не важны;
@@ -5247,23 +5271,23 @@ function renderV3B(idx) {
   const chartBox = el('div'); chartBox.append(netChart(items, avg, 'EV реакции на ' + NR));
   const c2 = card(2, 'Результат вашей реакции на ' + NR, wrHtml(avg, avgE, 2) + ' <small>BB за раздачу</small>', 'по ' + t.n.toLocaleString('ru-RU') + ' раздачам', chartBox);
   c2.classList.add('wide');
-  c2.append(infoNote('Факт — средний итог этих раздач в BB (банк минус ваши вложения): сколько приносит выбранная реакция на 3-бет. EV — тот же итог с поправкой на эквити в раздачах, закончившихся олл-ином до ривера: карта выправляет удачу. Реакции задаёт фильтр «Наше действие» в шапке раздела — по умолчанию все ответы (фолд, колл, 4-бет, 4-бет олл-ином), можно сочетать, например оба 4-бета или фолд с коллом; на столбик можно навести и закрепить окно с руками, клик по руке откроет раздачи и реплеер.'));
+  c2.append(infoNote('Факт — средний итог этих раздач в BB (банк минус ваши вложения): сколько приносит выбранная реакция на 3-бет. EV — тот же итог с поправкой на эквити в раздачах, закончившихся олл-ином до ривера: карта выправляет удачу. Реакции задаёт фильтр раздела «Наше действие» — по умолчанию все ответы (фолд, колл, 4-бет, 4-бет олл-ином), можно сочетать, например оба 4-бета или фолд с коллом; на столбик можно навести и закрепить окно с руками, клик по руке откроет раздачи и реплеер.'));
   // #3 — за спиной вступили в 3-бет до вашего хода (без колла открытия): два класса — заколлировали 3-бет / переставили дальше
   const box3 = el('div', 'card-fill');
   const blk3 = (z, lab, hint) => {
     const b = el('div', 'v3e-row');
     const hd = el('div', 'v3e-hd');
-    hd.append(el('b', null, lab), el('span', null, z.n.toLocaleString('ru-RU') + ' из ' + r.all.toLocaleString('ru-RU') + ' · ' + fmtPct(z.n / r.all) + '%'));
+    hd.append(el('b', null, lab), el('span', null, z.n.toLocaleString('ru-RU') + ' из ' + r.allE.toLocaleString('ru-RU') + ' · ' + fmtPct(z.n / r.allE) + '%'));
     hd.title = hint;
     const wr = z.sn ? z.sum / 10 / z.sn : null, we = z.sn ? z.es / 10 / z.sn : null;
-    b.append(hd, respTiles([z.fld, z.call, z.r4], null, [['фолд', 'var(--good)'], ['колл', 'var(--ice)'], ['4-бет', 'var(--bad)']]), el('div', 'v3e-res', wrHtml(wr, we, 2) + ' <small>BB за раздачу</small>'));
+    b.append(hd, respTiles([z.fld, z.call, z.r4], null, [['фолд', 'var(--good)'], ['колл', 'var(--ice)'], ['4-бет', 'var(--bad)']]), htmlDiv('v3e-res', wrHtml(wr, we, 2) + ' <small>BB за раздачу</small>'));
     return b;
   };
   box3.append(
     // вы коллер: между сквизом и вашим ходом ходит и открывающий (он перед вами) — «за спиной» было бы неправдой
     blk3(r.e1.TOT, 'Кол ' + NRg + (withC ? ' до вашего хода' : ' за спиной'), 'До вашего хода ' + NR + ' заколлировал один или несколько соперников' + (withC ? ' (когда вы коллер — в том числе открывающий: он ходит между сквизом и вами)' : '') + '; короткий олл-ин, не превышающий размер ' + NRg + ', — тоже кол.'),
     blk3(r.e2.TOT, '4-бет ' + NRg + (withC ? ' до вашего хода' : ' за спиной'), 'До вашего хода кто-то переставил ' + NR + ' дальше' + (withC ? ' (когда вы коллер — в том числе открывающий)' : ' (холодный 4-бет)') + ', любой размер больше ' + NRg + '.'));
-  const c3 = card(3, withC ? 'Вступили до вашего хода' : 'За спиной вступили', '<em>' + fmtPct((r.e1.TOT.n + r.e2.TOT.n) / r.all) + '%</em>', (r.e1.TOT.n + r.e2.TOT.n).toLocaleString('ru-RU') + ' из ' + r.all.toLocaleString('ru-RU') + ' ' + UNIT + ' ' + NRc, box3);
+  const c3 = card(3, withC ? 'Вступили до вашего хода' : 'За спиной вступили', '<em>' + fmtPct((r.e1.TOT.n + r.e2.TOT.n) / r.allE) + '%</em>', (r.e1.TOT.n + r.e2.TOT.n).toLocaleString('ru-RU') + ' из ' + r.allE.toLocaleString('ru-RU') + ' ' + UNIT + ' ' + NRc, box3);
   // #4 — «Ваш ответ против трибета агрессора»: матрица рук (4-бет / олл-ин / колл / фолд) при заданных
   // вашей позиции, позиции 3-бетящего, его стеке и вашем стеке; фильтры шапки раздела НЕ действуют —
   // только основные фильтры проекта (рум, период, бай-ин, столы)
@@ -5321,7 +5345,7 @@ function renderV3B(idx) {
     };
     side.append(leg, el('span', 'mx-cap', 'Ваша позиция'), seg, el('span', 'mx-cap', 'Позиция 3-бетящего — можно несколько'), segO, form,
       el('span', 'muted small', '3-бетящий: ' + (sel.length ? sel.join(' + ') : 'любая позиция') + ', ' + rangeTxt(uiState.v3OStkR) + ' · вы: ' + rangeTxt(uiState.v3OMyR) + ' · ' + n.toLocaleString('ru-RU') + ' раз вы получали 3-бет'));
-    side.append(infoNote('Задайте стек 3-бетящего и свой стек в BB: «от» и «до» можно заполнить оба или одно (пустое «до» — без верхней границы). Нажмите «Показать» — матрица покажет ваши ответы ровно в таких раздачах. «Сброс» возвращает «любой». Клетка закрашена слева направо на долю ответов этой рукой: янтарная часть — 4-бет, синяя — олл-ин, зелёная — колл, тёмная — фолд. Бледная заливка — меньше 5 раздач. Фильтры шапки раздела на эту карточку не действуют.'));
+    side.append(infoNote('Задайте стек 3-бетящего и свой стек в BB: «от» и «до» можно заполнить оба или одно (пустое «до» — без верхней границы). Нажмите «Показать» — матрица покажет ваши ответы ровно в таких раздачах. «Сброс» возвращает «любой». Клетка закрашена слева направо на долю ответов этой рукой: янтарная часть — 4-бет, синяя — олл-ин, зелёная — колл, тёмная — фолд. Бледная заливка — меньше 5 раздач. Фильтры раздела на эту карточку не действуют — только фильтры шапки (рум, тип турнира, период, бай-ин, столы).'));
     body.append(side);
     c4.append(h, body);
   }
@@ -5332,7 +5356,7 @@ function renderV3B(idx) {
   const c5body = cla.n ? fillBox(
     posStrip('Фолд по позициям', rA.V3B_POS.filter(p => rA.cl[p].n >= SMALL).map(p => { const z = rA.cl[p]; return [p, z.fld / z.n, p + ': ' + z.fld + ' из ' + z.n]; })),
     respTiles([cla.fld, cla.call, cla.r4], 'Ваш ответ на 3-бет', [['фолд', 'var(--good)'], ['колл', 'var(--ice)'], ['4-бет', 'var(--bad)']]),
-    el('div', 'v3e-res', wrHtml(cl.sn ? cl.sum / 10 / cl.sn : null, cl.sn ? cl.es / 10 / cl.sn : null, 2) + ' <small>BB за раздачу</small>'))
+    htmlDiv('v3e-res', wrHtml(cl.sn ? cl.sum / 10 / cl.sn : null, cl.sn ? cl.es / 10 / cl.sn : null, 2) + ' <small>BB за раздачу</small>'))
     : el('p', 'muted small', 'В этой выборке нет чистых спотов 1vs1 — фильтр «тип трибет банка» отобрал другие банки.');
   const c5 = card(5, 'Чистые споты: фолд на 3-бет', cla.n ? '<em>' + fmtPct(cla.fld / cla.n) + '%</em>' : '<span class="muted">—</span>',
     cla.n ? 'из ' + cla.n.toLocaleString('ru-RU') + ' чистых спотов 1vs1' : 'нет чистых спотов', c5body);
@@ -5473,6 +5497,7 @@ function render() {
     if (vis) { const k = keyOf(vis); anchor = { key: k, nth: list.filter(e => keyOf(e) === k).indexOf(vis), dy: vis.getBoundingClientRect().top - top }; }
   }
   cont.replaceChildren(tab.render ? tab.render(idx) : renderSoon(tab));
+  markExempt(cont, tab.id);
   // Размер карточек как в «стандартном» виде раздела (при входе в раздел, фильтры по умолчанию): при фильтрах карточка
   // не становится ниже — пустое место остаётся внутри неё, соседние карточки не прыгают. Больше стандарта — растёт.
   {

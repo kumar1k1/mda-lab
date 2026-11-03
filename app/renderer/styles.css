@@ -179,6 +179,7 @@ body{display:flex;flex-direction:column}
 /* ---------- сводка RFI ---------- */
 .summary{display:flex;flex-direction:column;gap:14px}
 .insight,.block{position:relative}
+.sec-exempt{position:absolute;top:8px;right:52px;font-size:10px;font-weight:600;color:var(--muted);background:var(--bg);border:1px dashed var(--line);border-radius:999px;padding:1px 7px;cursor:help;white-space:nowrap}
 .num-tag{position:absolute;top:8px;right:10px;font-family:var(--mono);font-size:10px;font-weight:700;color:var(--faint);background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:1px 6px}
 .insight .v small{font-size:13px;font-weight:700}
 .insight svg{display:block;width:100%;height:auto;margin-top:4px}

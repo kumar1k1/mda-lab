@@ -392,6 +392,7 @@
       // карточка #3: за спиной вступили до вашего хода: e1 — только колы, e2 — был рейз поверх
       const e1 = entry === 1 && (isC || c.v3o[i] === 0);
       const e2 = entry === 2 && (isC || c.v3o[i] === 0);
+      if (isC || c.v3o[i] === 0) out.allE = (out.allE || 0) + 1;
       keys.forEach(k => {
         for (const z of [out.d[k], e1 ? out.e1[k] : null, e2 ? out.e2[k] : null, isClean ? out.cl[k] : null]) {
           if (!z) continue;
@@ -425,7 +426,8 @@
         }
       }
     }
-    out.all = out.d.TOT.n; // все споты выборки (знаменатель карточки 3)
+    out.all = out.d.TOT.n; // все споты выборки
+    out.allE = out.allE || 0; // знаменатель карточки 3: споты, где она вообще считает вступивших (вы коллер или открытие без колла); раньше делили на все — доля занижалась
     out.resp = [out.d.TOT.fld, out.d.TOT.call, out.d.TOT.r4];
     out.respE1 = [out.e1.TOT.fld, out.e1.TOT.call, out.e1.TOT.r4];
     out.respE2 = [out.e2.TOT.fld, out.e2.TOT.call, out.e2.TOT.r4];
