@@ -248,13 +248,13 @@ function v3ExtraCards(x) {
   {
     const g = { TOT: v3Cell() }; for (const i of A) { const p = posOf(i); v3Add(g.TOT, i, RV(i), c, EVcol()); if (p && V3_POS.includes(p)) v3Add(g[p] || (g[p] = v3Cell()), i, RV(i), c, EVcol()); }
     const cols = ['TOT'].concat(V3_POS.filter(p => g[p] && g[p].n));
-    const R = [['fld', 'Фолд на ' + NR, 'amber', z => z.fld], ['call', 'Колл ' + NRg, 'ice', z => z.call], ['r4', '4-бет', 'ice', z => z.r4 + z.ai], ['ai', 'из них олл-ин', 'ice', z => z.ai]];
-    const tbl = heatTable({ cols, groupGapBefore: cols.indexOf('SB'), rows: R.map(([k, lab, tone, f], ri) => ({ key: k, label: lab, tone, own: true, sub: ri === 3, data: Object.fromEntries(cols.map(col => [col, g[col] ? { x: f(g[col]), n: g[col].n } : null])) })) });
-    tbl.querySelectorAll('td.c').forEach(td => { const z = g[td.dataset.col]; if (!z || !z.ids.length) return; const want = { fld: [0], call: [1], r4: [2, 3], ai: [3] }[td.dataset.row]; const ids = z.ids.filter(i => want.includes(RV(i))); if (!ids.length) return;
+    const R = [['fld', 'Фолд на ' + NR, 'amber', z => z.fld], ['call', 'Колл ' + NRg, 'ice', z => z.call], ['r4', '4-бет', 'ice', z => z.r4 + z.ai], ['nai', 'из них не олл-ин', 'ice', z => z.r4], ['ai', 'из них олл-ин', 'ice', z => z.ai]];
+    const tbl = heatTable({ cols, groupGapBefore: cols.indexOf('SB'), rows: R.map(([k, lab, tone, f], ri) => ({ key: k, label: lab, tone, own: true, sub: ri >= 3, data: Object.fromEntries(cols.map(col => [col, g[col] ? { x: f(g[col]), n: g[col].n } : null])) })) });
+    tbl.querySelectorAll('td.c').forEach(td => { const z = g[td.dataset.col]; if (!z || !z.ids.length) return; const want = { fld: [0], call: [1], r4: [2, 3], nai: [2], ai: [3] }[td.dataset.row]; const ids = z.ids.filter(i => want.includes(RV(i))); if (!ids.length) return;
       const mx = Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })), EV = EVcol(); let sum = 0, es = 0; for (const i of ids) { const m = mx[c.hc[i]]; m.n++; m.sum += c.net[i]; m.es += EV[i]; sum += c.net[i]; es += EV[i]; }
       hoverHands(td, { p: td.dataset.col, anyPos: true, pre: true, key: 'v318' + td.dataset.row + td.dataset.col, title: R.find(q => q[0] === td.dataset.row)[1] + (td.dataset.col === 'TOT' ? ' (все позиции)' : ' с ' + td.dataset.col), o: { n: ids.length, sum, es }, mx, ids, vlab: ' BB за раздачу', nlab: ' раздач' }, sum / 10 / ids.length); });
     const d = el('div', 'insight cc-table'); d.append(numTag(18), el('span', 'k', 'Ваш ответ на ' + NR + ' по позициям'), el('span', 's', 'колонки — ваша позиция; в ячейке — % от раздач выборки, где вы получили ' + NR + ' (те же раздачи, что в карточке 1)'), tbl,
-      infoNote('Фолд, колл и 4-бет (вместе с олл-ином) дают в сумме 100% по каждой колонке; «из них олл-ин» — часть 4-бетов. Наведите на ячейку — руки, которыми вы так ответили, и их итог; клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше ' + cnt(SMALL, 'раздач', 'gen') + '. «Наше действие» не применяется — ответы и есть строки таблицы.'));
+      infoNote('Фолд, колл и 4-бет (вместе с олл-ином) дают в сумме 100% по каждой колонке; «из них не олл-ин» и «из них олл-ин» — как делятся 4-беты (в сумме — строка «4-бет»). Наведите на ячейку — руки, которыми вы так ответили, и их итог; клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше ' + cnt(SMALL, 'раздач', 'gen') + '. «Наше действие» не применяется — ответы и есть строки таблицы.'));
     out.push(d);
   }
   // #3 — вступили до вашего хода: вы открылись, пришёл 3-бет, и до вашего хода кто-то после 3-бетящего
