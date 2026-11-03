@@ -659,10 +659,15 @@ function isoCard(d) {
 // сайзинги изолейта: доля, все сбросили, рейз в ответ, винрейт
 let ISO_SZ = 'all';
 function isoSizing(d) {
+  // группы без изолейтов не обычным размером (например, на стеке < 15 BB все изолейты — олл-ин) не показываем; если пусто всё — блока нет
+  const has = (k) => Object.values(d.szx[k] || {}).some(z => z.n), G = [['all', 'Все'], ['0', 'vs 1 лимпер'], ['1', 'vs 2+']].filter(([k]) => k === 'all' ? has(0) || has(1) : has(+k));
+  if (!G.length) return document.createDocumentFragment();
+  if (!G.some(([k]) => k === ISO_SZ)) ISO_SZ = 'all';
+  if (G.length === 2) { G.shift(); ISO_SZ = G[0][0]; } // одна группа с данными — «Все» её повторяет
   const box = el('div', 'iso-sz');
   const head = el('div', 'iso-sz-h'); head.append(el('b', null, 'Сайзинг изолейта'), el('span', 'sm-s', 'самые частые размеры рейза после лимпа оппонента, BB, и их результат (без олл-инов)'));
   const body = el('div');
-  head.append(segBtns([['all', 'Все'], ['0', 'vs 1 лимпер'], ['1', 'vs 2+']], ISO_SZ, (k) => { ISO_SZ = k; draw(); }));
+  if (G.length > 1) head.append(segBtns(G, ISO_SZ, (k) => { ISO_SZ = k; draw(); }));
   box.append(head, body);
   function draw() {
     const src = ISO_SZ === 'all' ? [d.szx[0], d.szx[1]] : [d.szx[+ISO_SZ]], map = {};

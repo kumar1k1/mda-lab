@@ -4439,10 +4439,15 @@ function isoCard(d) {
 // сайзинги изолейта: доля, все сбросили, рейз в ответ, винрейт
 let ISO_SZ = 'all';
 function isoSizing(d) {
+  // группы без изолейтов не обычным размером (например, на стеке < 15 BB все изолейты — олл-ин) не показываем; если пусто всё — блока нет
+  const has = (k) => Object.values(d.szx[k] || {}).some(z => z.n), G = [['all', 'Все'], ['0', 'vs 1 лимпер'], ['1', 'vs 2+']].filter(([k]) => k === 'all' ? has(0) || has(1) : has(+k));
+  if (!G.length) return document.createDocumentFragment();
+  if (!G.some(([k]) => k === ISO_SZ)) ISO_SZ = 'all';
+  if (G.length === 2) { G.shift(); ISO_SZ = G[0][0]; } // одна группа с данными — «Все» её повторяет
   const box = el('div', 'iso-sz');
   const head = el('div', 'iso-sz-h'); head.append(el('b', null, 'Сайзинг изолейта'), el('span', 'sm-s', 'самые частые размеры рейза после лимпа оппонента, BB, и их результат (без олл-инов)'));
   const body = el('div');
-  head.append(segBtns([['all', 'Все'], ['0', 'vs 1 лимпер'], ['1', 'vs 2+']], ISO_SZ, (k) => { ISO_SZ = k; draw(); }));
+  if (G.length > 1) head.append(segBtns(G, ISO_SZ, (k) => { ISO_SZ = k; draw(); }));
   box.append(head, body);
   function draw() {
     const src = ISO_SZ === 'all' ? [d.szx[0], d.szx[1]] : [d.szx[+ISO_SZ]], map = {};
@@ -5258,6 +5263,7 @@ function tbSizeBlock(r, ty) {
   const card = el('div', 'insight cc-table');
   card.append(numTag(6), el('b', 'pm-title', 'Против сайзинга открытия'), el('span', 'sm-s', 'как вы отвечаете на открытие разного размера и какой результат дают ваши 3-беты'));
   const posList = ['TOT'].concat(TB_POS.filter(p => r.tb[p].n >= SMALL));
+  if (!posList.includes(TB_SZPOS)) TB_SZPOS = 'TOT'; // позиция пропала из выборки (фильтр «Наша позиция» или стек) — показываем все, а не пустую таблицу
   const body = el('div');
   card.append(segBtns(posList.map(p => [p, p === 'TOT' ? 'Все' : p]), TB_SZPOS, (k) => { TB_SZPOS = k; draw(); }), body,
     infoNote('Размер — до скольких BB открыл соперник. Доля — какая часть открытий перед вами была такого размера. 3-бет / Олл-ин / Колл / Фолд — ваш ответ. Результат — средний итог раздачи после вашего 3-бета, факт / EV; при выбранном в фильтрах раздела типе 3-бета — только он (по умолчанию — все, вместе с олл-инами). Наведите на строку — матрица ответа рукой; клик закрепит окно. Бледные строки — меньше 30 раздач.'));
@@ -5362,7 +5368,11 @@ function tbXBlock(r) {
   const card = el('div', 'insight cc-table');
   card.append(numTag('9'), el('b', 'pm-title', 'Размер вашего 3-бета: ответ соперников и результат'), el('span', 'sm-s', 'во сколько раз больше открытия вы 3-бетите в позиции, с SB и с BB; как отвечают соперники, как часто вы сбрасываете на 4-бет открывающего и какой результат'));
   const body = el('div');
-  card.append(segBtns([['TOT', 'Все'], ['IP', 'В позиции (CO, BTN)'], ['SB', 'SB'], ['BB', 'BB']], TB_XPOS, (k) => { TB_XPOS = k; draw(); }), body,
+  // группы без 3-бетов в выборке (например, «В позиции» при фильтре OOP) не показываем; выбранная пропала — берём первую с данными
+  const XG = [['TOT', 'Все'], ['IP', 'В позиции (CO, BTN)'], ['SB', 'SB'], ['BB', 'BB']].filter(([k]) => (r.xg[k] || []).some(z => z.n));
+  if (XG.length && !XG.some(([k]) => k === TB_XPOS)) TB_XPOS = (XG.find(([k]) => k !== 'TOT') || XG[0])[0];
+  if (XG.length === 2 && XG[0][0] === 'TOT') { XG.shift(); TB_XPOS = XG[0][0]; } // одна группа — «Все» совпадает с ней, кнопка «Все» не нужна
+  card.append(XG.length > 1 ? segBtns(XG, TB_XPOS, (k) => { TB_XPOS = k; draw(); }) : el('span'), body,
     infoNote('Размер — ваш 3-бет, делённый на открытие (×3 — в три раза больше). Олл-ин — отдельной строкой. «В позиции» — 3-беты с CO и BTN (как в Hand2Note), BB — без раздач против открытия SB. Фолд / Колл — первый ответ соперников. 4-бет — только 4-бет открывающего, которого вы 3-бетили; холодные 4-беты игрока за спиной не учитываются (ни здесь, ни в «Фолде на 4-бет»). «Фолд на 4-бет» — как часто вы сбросили на 4-бет открывающего (в скобках — сколько раз он был). Результат — средний итог раздачи, факт / EV. Наведите на строку — матрица рук этого размера и итог; клик закрепит окно, в нём — переключатель «Факт, BB» / «EV, BB», клик по руке откроет раздачи и реплеер.'));
   function draw() {
     const rows = r.xg[TB_XPOS] || [], tot = rows.reduce((a, z) => a + z.n, 0);
@@ -6163,6 +6173,7 @@ function renderSQZ(idx) {
   {
     const b = el('section', 'block'); b.append(numTag(3));
     const hh = el('div', 'block-head'); hh.append(el('h2', null, 'Какие руки вы сквизите'), el('p', null, 'как часто каждой рукой вы сквизите, овер-коллируете и сбрасываете'));
+    { const av = SQ_POS.filter(p => P0[p] && P0[p].n); if (av.length && !av.includes(SQ_MXPOS)) SQ_MXPOS = av[av.length - 1]; } // позиция пропала из выборки (фильтр позиции или стека) — ближайшая с данными
     const seg = el('div', 'seg'); SQ_POS.filter(p => P0[p] && P0[p].n).forEach(p => { const bt = el('button', SQ_MXPOS === p ? 'on' : '', p); bt.type = 'button'; bt.onclick = () => { SQ_MXPOS = p; renderNext(); }; seg.append(bt); });
     const z = P0[SQ_MXPOS] || tot0, mxBody = el('div', 'block-body');
     mxBody.append(handMatrix(z.R.map(m => ({ n: m.n, x: m.x, ai: m.ai, lp: m.lp })), ['сквиз', 'олл-ин', 'овер-колл', 'фолд']));
