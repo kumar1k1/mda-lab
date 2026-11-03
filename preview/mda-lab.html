@@ -2003,6 +2003,8 @@ body.noscroll #content{overflow:hidden}
 .ht.v3-r21 td.v3-tot{font-family:var(--mono);font-size:12.5px;padding:0 10px;white-space:nowrap}
 .card-fill > .ht.v3-r21,.insight .ht.v3-r21{align-self:flex-start;width:auto}
 .tab .name{white-space:normal;line-height:1.2;padding:3px 0;overflow-wrap:anywhere} /* длинное название раздела («Против 3-бета / сквиза») — в две строки, без многоточия */
+.ht.v3-r21 th.help{cursor:help;text-decoration:underline dotted;text-underline-offset:3px}
+.ht.v3-r21 td.v3-tot{cursor:help}
 
 /* Дополнения только для онлайн-превью: тёмная тема и узкие экраны */
 :root{color-scheme:dark}
@@ -5542,13 +5544,13 @@ function v3PosTable(x, ids) {
   const cell = () => [0, 1, 2].map(() => ({ n: 0, sum: 0, es: 0, ids: [], mx: Array.from({ length: 169 }, () => ({ n: 0, sum: 0, es: 0 })) }));
   const G = { all: cell() }, N = { all: 0 }, T = {};
   for (const i of ids) { const v = x.RV(i), k = v === 0 ? 0 : v === 1 ? 1 : 2, p = posOf(i); for (const key of ['all'].concat(p && V3_POS.includes(p) ? [p] : [])) { const z = (G[key] || (G[key] = cell()))[k]; N[key] = (N[key] || 0) + 1; const tt = T[key] || (T[key] = { sum: 0, es: 0 }); tt.sum += c.net[i]; tt.es += EV[i]; z.n++; z.sum += c.net[i]; z.es += EV[i]; if (c.hc[i] >= 0) { z.ids.push(i); const m = z.mx[c.hc[i]]; m.n++; m.sum += c.net[i]; m.es += EV[i]; } } }
-  const t = el('table', 'ht v3-grp v3-r21'), hr = el('tr'); ['Ваша позиция', 'Раз', 'Фолд', 'Колл', '4-бет', 'Итог раздачи'].forEach(h => hr.append(el('th', null, h))); const th = el('thead'); th.append(hr); t.append(th);
+  const t = el('table', 'ht v3-grp v3-r21'), hr = el('tr'); ['Ваша позиция', 'Раз', 'Фолд', 'Колл', '4-бет', 'В среднем за раздачу'].forEach(h => { const th = el('th', null, h); if (h === 'В среднем за раздачу') { th.title = 'Средний итог одной раздачи по всем вашим решениям: итоги фолда, колла и 4-бета, взвешенные по их долям (факт / EV). Умножьте на «Раз» — получится общий итог.'; th.classList.add('help'); } hr.append(th); }); const th = el('thead'); th.append(hr); t.append(th);
   const tb = el('tbody'), LAB = ['фолд', 'колл', '4-бет'], COL = ['var(--good)', 'var(--ice)', 'var(--bad)'];
   ['all'].concat(V3_POS).forEach(key => { const row = G[key]; if (!row || !N[key]) return; const tr = el('tr'); tr.append(el('th', null, key === 'all' ? 'Все позиции' : key), el('td', 'v3-n', N[key].toLocaleString('ru-RU')));
     row.forEach((z, k) => { const td = el('td', 'c'); if (!z.n) { td.textContent = '—'; tr.append(td); return; } const b = el('b', null, fmtPct(z.n / N[key]) + '%'); b.style.color = COL[k]; td.append(b, wrNode('wr', z.sum / 10 / z.n, z.es / 10 / z.n, 2), el('span', 'n', z.n)); if (z.n < 20) td.classList.add('low');
       if (z.ids.length) hoverHands(td, { p: key, anyPos: true, pre: true, key: 'v321' + V3_C1MODE + key + k, title: LAB[k][0].toUpperCase() + LAB[k].slice(1) + ' на ' + NR + (key === 'all' ? ' (все позиции)' : ' с ' + key), o: { n: z.ids.length, sum: z.sum, es: z.es }, mx: z.mx, ids: z.ids, vlab: ' BB за раздачу', nlab: ' раздач' }, z.sum / 10 / z.n);
       tr.append(td); });
-    const tt = T[key], tdT = el('td', 'v3-tot'); tdT.append(wrNode('wr', tt.sum / 10 / N[key], tt.es / 10 / N[key], 2)); tr.append(tdT); tb.append(tr); });
+    const tt = T[key], tdT = el('td', 'v3-tot'); tdT.append(wrNode('wr', tt.sum / 10 / N[key], tt.es / 10 / N[key], 2)); tdT.title = 'В среднем за раздачу: ' + signed(tt.sum / 10 / N[key], 2) + ' BB факт, ' + signed(tt.es / 10 / N[key], 2) + ' BB EV — фолд, колл и 4-бет вместе, по их долям. Всего за ' + cnt(N[key], 'раздач') + ': ' + signed(tt.sum / 10, 0) + ' BB факт, ' + signed(tt.es / 10, 0) + ' BB EV.'; tr.append(tdT); tb.append(tr); });
   t.append(tb);
   return t;
 }
@@ -5563,7 +5565,7 @@ function v3Card1(x) {
     body.append(v3Tiles(ids, x.RV, 'Ваш ответ на ' + NR), el('span', 'resp-t', 'По вашей позиции: как часто и что приносит каждая реакция'), v3PosTable(x, ids));
   }
   const c1 = card(1, 'Фолдите на ' + NR, t && t.n ? '<em>' + fmtPct(t.fld / t.n) + '%</em>' : '<span class="muted">—</span>', sub, body);
-  c1.append(infoNote('«Все споты» — как в Hand2Note: все раздачи, где вы открылись и получили ' + x.NR + ', в том числе сквиз-поты и раздачи, где до вашего хода кто-то ещё вступил. «Только чистые 1vs1» — вы открылись, открытие никто не коллировал, пришёл 3-бет и до вашего хода больше никто не вступал: ровно вы и 3-бетящий. Таблица — по вашей позиции: в каждой ячейке доля реакции, ниже — средний итог раздачи после неё (факт / EV), справа мелко — число раздач; последняя колонка — итог всех раздач позиции. Фолд всегда стоит вложенное в открытие; колл и 4-бет показывают, окупается ли продолжение. Наведите на ячейку — руки и итог, клик по руке откроет раздачи и реплеер. В плитках ответа под долей — средний итог этой реакции в BB за раздачу, факт / EV. Фильтры раздела: ваш стек, тип 3-бета соперника, ваша позиция относительно 3-бетящего; «тип трибет банка» — только в режиме «Все споты» (чистые споты сами и есть банк 1vs1); «наше действие» не применяется — ваши реакции и есть содержимое карточки.'));
+  c1.append(infoNote('«Все споты» — как в Hand2Note: все раздачи, где вы открылись и получили ' + x.NR + ', в том числе сквиз-поты и раздачи, где до вашего хода кто-то ещё вступил. «Только чистые 1vs1» — вы открылись, открытие никто не коллировал, пришёл 3-бет и до вашего хода больше никто не вступал: ровно вы и 3-бетящий. Таблица — по вашей позиции: в каждой ячейке доля реакции, ниже — средний итог раздачи после неё (факт / EV), справа мелко — число раздач; «В среднем за раздачу» — итог одной раздачи по всем решениям вместе (фолд, колл и 4-бет по их долям); наведите на число — там же общий итог в BB. Фолд всегда стоит вложенное в открытие; колл и 4-бет показывают, окупается ли продолжение. Наведите на ячейку — руки и итог, клик по руке откроет раздачи и реплеер. В плитках ответа под долей — средний итог этой реакции в BB за раздачу, факт / EV. Фильтры раздела: ваш стек, тип 3-бета соперника, ваша позиция относительно 3-бетящего; «тип трибет банка» — только в режиме «Все споты» (чистые споты сами и есть банк 1vs1); «наше действие» не применяется — ваши реакции и есть содержимое карточки.'));
   return c1;
 }
 // подпись карточки 3, если выборка по смыслу пуста
