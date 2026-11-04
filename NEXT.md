@@ -7,7 +7,7 @@
 - Новые колонки базы (с миграциями в app/parser/migrate.js): sqc, sqr (сквиз), fp2, fp3 (досчёт позиции у открытий и при двух рейзах), v3y, c4f (4-бет). Схема: parser/tbet.js → parse.js → ingest.js (rowVals, NEW3B) → store.js (SCHEMA) → migrate.js (MIGRATIONS, TYPES_OF).
 - Таблица «какой фильтр раздела действует на какую карточку» — CARD_FILTERS в app/renderer/sec-filters.js; проверка tests/audit/filters-table.js. Описание — docs/filters.md.
 - Превью (одна html-страница): `MDALAB_BASE=<папка базы> node preview/build.js` → preview/MDA-Lab-preview.html (+ preview/base/*.b64.json). Нужна база формата mdalab-cols-v3 (у пользователя на компьютере; собирается из его историй рук через app/parser/ingest.js buildBase).
-- Установщик Windows: NSIS (`makensis build/installer.nsi`); перед сборкой скопировать app/ в build/stage/resources/app. Папка build/stage (Electron для Windows) и NSIS в git не хранятся — их надо получить заново (electron win32-x64 той же версии + NSIS 3).
+- Установщик Windows: NSIS (`makensis build/installer.nsi`); перед сборкой скопировать app/ в build/stage/resources/app. Папка build/stage (Electron для Windows) и NSIS в git не хранятся — их надо получить заново (Electron 33.4.11 win32-x64 + NSIS 3).
 - Открыто: пользователь смотрит «4-бет» и «Сквиз» — что лишнее, уберём; платная функция «рекомендации в каждой карточке» — ниже, напомнить; полный аудит и слияние в main.
 
 # Слова пользователя: «окно первого типа» — «Диапазон» (showSzMx), «окно второго типа» — итог по рукам (showHandPop); см. docs/terms.md.
