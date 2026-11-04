@@ -8,9 +8,9 @@ const GROUPS = [
     { id: 'rfi', code: 'RFI', label: 'Открытие', render: renderRFI },
     { id: 'cc', code: 'CC', label: 'Колд-колл', render: renderCC, plan: 'Колд-колл против открытия по позициям, сайзингам открытия и стеку.' },
     { id: '3bet', code: '3B', label: '3-бет', render: renderTB },
-    { id: 'vs3bet', code: 'v3B', label: 'Против 3-бета', render: renderV3B, plan: 'Фолд / колл / 4-бет против 3-бета по позициям и стеку.' },
-    { id: 'sqz', code: 'SQZ', label: 'Сквиз', plan: 'Сквиз после открытия и колла, по позициям и числу коллеров.' },
-    { id: '4bet', code: '4B', label: '4-бет', plan: '4-бет и 4-бет олл-ин, реакция на 5-бет.' },
+    { id: 'vs3bet', code: 'v3B', label: 'Против 3-бета / сквиза', render: renderV3B, plan: 'Фолд / колл / 4-бет против 3-бета по позициям и стеку.' },
+    { id: 'sqz', code: 'SQZ', label: 'Сквиз', render: renderSQZ, plan: 'Сквиз после открытия и колла, по позициям и числу коллеров.' },
+    { id: '4bet', code: '4B', label: '4-бет', render: render4B, plan: '4-бет и 4-бет олл-ин, реакция на 5-бет.' },
     { id: 'vssteal', code: 'vST', label: 'Против стила', plan: 'Защита блайндов против стила с CO / BTN / SB: фолд, колл, 3-бет.' },
     { id: 'mwr', code: 'MWR', label: 'Мультивей: рейзер', plan: 'Мультивей-банки, где вы префлоп-рейзер.' },
     { id: 'mwc', code: 'MWC', label: 'Мультивей: коллер', plan: 'Мультивей-банки, где вы коллер.' },
@@ -47,7 +47,7 @@ function renderSoon(tab) {
 // ---------- отрисовка ----------
 function currentIdx() {
   // ваш стек из фильтров раздела: в «Открытии», «Колд-колле», «3-бете» и «Против 3-бета» — по карточкам, в остальных разделах — для всех
-  const sr = state.tab === 'rfi' || state.tab === 'cc' || state.tab === '3bet' || state.tab === 'vs3bet' ? null : secRange(state.tab); // стек раздела — по карточкам (renderRFISummary / renderCC / renderTB / renderV3B)
+  const sr = state.tab === 'rfi' || state.tab === 'cc' || state.tab === '3bet' || state.tab === 'vs3bet' || state.tab === 'sqz' || state.tab === '4bet' ? null : secRange(state.tab); // стек раздела — по карточкам (renderRFISummary / renderCC / renderTB / renderV3B)
   const idx = Stats.selectHands(DB, { aid: DB === HERO_DB && !state.player ? state.alias : null, room: state.room, type: state.type, from: state.from, to: state.to, biFrom: state.biFrom, biTo: state.biTo, tbl: state.sub === 'TOT' ? null : state.sub, minBB: sr ? sr[0] : null, maxBB: sr && sr[1] < 1e8 ? sr[1] : null });
   return idx; // у соперника своя база (DB) — все его раздачи
 }
@@ -78,12 +78,17 @@ function renderNext() {
   document.body.classList.add('rendering'); window.mdaBusy(true, 'Считаю статистику…');
   RS_F = requestAnimationFrame(() => setTimeout(() => { RS_F = 0; try { render(); } finally { document.body.classList.remove('rendering'); window.mdaBusy(false); } }, 0));
 }
+let RAIL_CLOSED = new Set(); try { RAIL_CLOSED = new Set(JSON.parse(localStorage.getItem('mda.rail.closed') || '[]')); } catch (e) {}
 function render() {
   hideHandPop(); hideMxTip(); hideGroupTip(); hidePushTip(); unpinSzMx(); if (qdTip) qdTip.hidden = true;
   const rail = $('rail'); rail.replaceChildren();
   GROUPS.forEach(g => {
-    const box = el('div', 'rgroup');
-    box.append(el('div', 'rgroup-title', g.title));
+    // группы вкладок сворачиваются по клику на заголовок; группа с открытым разделом не сворачивается целиком — её вкладка видна всегда
+    const closed = RAIL_CLOSED.has(g.title), box = el('div', 'rgroup' + (closed ? ' closed' : ''));
+    const ht = el('button', 'rgroup-title'); ht.type = 'button'; ht.setAttribute('aria-expanded', String(!closed));
+    ht.append(el('span', null, g.title), el('i', 'rg-chev')); ht.title = closed ? 'Развернуть' : 'Свернуть';
+    ht.onclick = () => { if (RAIL_CLOSED.has(g.title)) RAIL_CLOSED.delete(g.title); else RAIL_CLOSED.add(g.title); try { localStorage.setItem('mda.rail.closed', JSON.stringify([...RAIL_CLOSED])); } catch (e) {} const c2 = RAIL_CLOSED.has(g.title); box.classList.toggle('closed', c2); ht.setAttribute('aria-expanded', String(!c2)); ht.title = c2 ? 'Развернуть' : 'Свернуть'; }; // без перерисовки статов
+    box.append(ht);
     g.tabs.forEach(t => {
       const b = el('button', 'tab' + (t.id === state.tab ? ' active' : '') + (t.render ? ' ready' : ''));
       b.append(el('span', 'code', t.code), el('span', 'name', t.label), el('span', 'dot'));
@@ -127,6 +132,7 @@ function render() {
   }
   cont.replaceChildren(tab.render ? tab.render(idx) : renderSoon(tab));
   markExempt(cont, tab.id);
+  markFilters(cont, tab.id);
   // Размер карточек как в «стандартном» виде раздела (при входе в раздел, фильтры по умолчанию): при фильтрах карточка
   // не становится ниже — пустое место остаётся внутри неё, соседние карточки не прыгают. Больше стандарта — растёт.
   {

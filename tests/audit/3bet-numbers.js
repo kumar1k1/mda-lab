@@ -52,7 +52,7 @@ const { chromium } = require('playwright');
       eq('#2 руки ' + k + '.n', r.hands[k].n, H[k].n); eq('#2 руки ' + k + '.sum', r.hands[k].sum, H[k].sum); eq('#2 руки ' + k + '.es', r.hands[k].es, H[k].es);
       eq('#2 hands = handsN+handsA ' + k, r.handsN[k].n + r.handsA[k].n, r.hands[k].n);
       SZ[k].forEach((q, j) => { const z = r.sz[k][j]; ['n', 'rz', 'ai', 'call', 'fold', 'sum', 'sn'].forEach(f => eq('#7 сайзинг ' + k + '[' + j + '].' + f, z[f], q[f])); eq('#7 сумма ответов ' + k + j, z.rz + z.ai + z.call + z.fold, z.n); });
-      OS[k].forEach((q, j) => { const z = r.ostk[k][j]; ['n', 'x', 'ai', 'sum', 'sn'].forEach(f => eq('#7.1 стек открывающего ' + k + '[' + j + '].' + f, z[f], q[f])); });
+      OS[k].forEach((q, j) => { const z = r.ostk[k][j]; ['n', 'x', 'ai', 'sum', 'sn'].forEach(f => eq('#10 стек открывающего ' + k + '[' + j + '].' + f, z[f], q[f])); });
       // #3 матрицы окна = строки таблицы
       eq('#3 окно фолд на 4-бет ' + k, r.f4mx[k].n, r.f4[k].n); eq('#3 окно холодного 4-бета ' + k, r.f4cmx[k].n, r.f4c[k].n);
     });
@@ -62,17 +62,17 @@ const { chromium } = require('playwright');
     const SP = { TOT: 0, IP: 0, SB: 0, BB: 0 };
     for (const o of opp) if (!o.iso) { const g = o.p === 'CO' || o.p === 'BTN' ? 'IP' : o.p === 'SB' ? 'SB' : o.p === 'BB' && !o.bvb ? 'BB' : null; SP.TOT++; if (g) SP[g]++; }
     Object.keys(SP).forEach(g => { eq('#9 split ' + g + '.n', r.split[g].n, SP[g]); const sb = r.split[g].b.reduce((a, z) => a + z.x, 0); eq('#9 сумма колонок ' + g, sb, r.split[g].x); });
-    // #9.1: xg — размеры 3-бетов группы; окно «Диапазон» (xgR) — по одной записи на раздачу с рукой
+    // #9: xg — размеры 3-бетов группы; окно «Диапазон» (xgR) — по одной записи на раздачу с рукой
     ['TOT', 'IP', 'SB', 'BB'].forEach(g => {
       const inG = (o) => g === 'TOT' || (g === 'IP' ? o.p === 'CO' || o.p === 'BTN' : g === 'SB' ? o.p === 'SB' : o.p === 'BB' && !o.bvb);
       const exp = opp.filter(o => !o.iso && inG(o) && c.hc[o.i] >= 0);
-      const n = r.xgR[g].rmx.reduce((a, m) => a + m.n, 0); eq('#9.1 окно «Диапазон» ' + g + ': раздач', n, exp.length);
-      const sum = r.xgR[g].rmx.reduce((a, m) => a + m.sum, 0); eq('#9.1 окно «Диапазон» ' + g + ': сумма', sum, exp.reduce((a, o) => a + c.net[o.i], 0));
+      const n = r.xgR[g].rmx.reduce((a, m) => a + m.n, 0); eq('#9 окно «Диапазон» ' + g + ': раздач', n, exp.length);
+      const sum = r.xgR[g].rmx.reduce((a, m) => a + m.sum, 0); eq('#9 окно «Диапазон» ' + g + ': сумма', sum, exp.reduce((a, o) => a + c.net[o.i], 0));
       const tb3 = opp.filter(o => !o.iso && inG(o) && o.a >= 2 && (o.a === 3 || c.osz[o.i] > 0));
-      eq('#9.1 3-бетов в таблице ' + g, r.xg[g].reduce((a, z) => a + z.n, 0), tb3.length);
-      const bx = r.xg[g].reduce((a, z) => a + (z.rmx ? z.rmx.reduce((s, m) => s + m.n, 0) : 0), 0); eq('#9.1 окно размеров (руки 3-бетов) ' + g, bx, tb3.filter(o => c.hc[o.i] >= 0).length);
+      eq('#9 3-бетов в таблице ' + g, r.xg[g].reduce((a, z) => a + z.n, 0), tb3.length);
+      const bx = r.xg[g].reduce((a, z) => a + (z.rmx ? z.rmx.reduce((s, m) => s + m.n, 0) : 0), 0); eq('#9 окно размеров (руки 3-бетов) ' + g, bx, tb3.filter(o => c.hc[o.i] >= 0).length);
     });
-    // тип 3-бета из шапки (#5, #7, #7.1): только 3-беты этого типа в числителе и результате; остальное без изменений
+    // тип 3-бета из шапки (#5, #7, #10): только 3-беты этого типа в числителе и результате; остальное без изменений
     for (const ty of ['nai', 'ai']) {
       const A = ty === 'ai' ? 3 : 2, pick = ty;
       // то же преобразование, что в renderTB (r57)
@@ -84,7 +84,7 @@ const { chromium } = require('playwright');
         for (const o of opp) { if (o.iso || !cols(o).includes(k)) continue; const i = o.i, hit = o.a >= 2 && (A === 3) === o.ai;
           if (c.ostk[i] >= 0) { const s = c.ostk[i] / 10, q = os[s < 20 ? 0 : s < 40 ? 1 : 2]; if (hit) { q.x++; if (A === 3) q.ai++; q.sum += c.net[i]; q.sn++; } }
           if (c.osz[i] >= 0) { const q = sz[SZB.findIndex(v => c.osz[i] < v)]; q.n++; if (hit) { q[A === 3 ? 'ai' : 'rz']++; q.sum += c.net[i]; q.sn++; } } }
-        os.forEach((q, j) => ['x', 'ai', 'sum', 'sn'].forEach(f => eq('тип ' + ty + ': #7.1 ' + k + '[' + j + '].' + f, rt.ostk[k][j][f], q[f])));
+        os.forEach((q, j) => ['x', 'ai', 'sum', 'sn'].forEach(f => eq('тип ' + ty + ': #10 ' + k + '[' + j + '].' + f, rt.ostk[k][j][f], q[f])));
         sz.forEach((q, j) => ['n', 'rz', 'ai', 'sum', 'sn'].forEach(f => eq('тип ' + ty + ': #7 ' + k + '[' + j + '].' + f, rt.sz[k][j][f], q[f])));
       });
       ['MP', 'HJ', 'CO', 'BTN', 'SB', 'BB'].forEach(p => { let x = 0, n = 0; Object.values(rt.vs[p] || {}).forEach(z => { x += z.x; n += z.n; }); const exp = opp.filter(o => !o.iso && o.p === p && o.op); eq('тип ' + ty + ': #5 ' + p + ' n', n, exp.length); eq('тип ' + ty + ': #5 ' + p + ' x', x, exp.filter(o => o.a >= 2 && (A === 3) === o.ai).length);

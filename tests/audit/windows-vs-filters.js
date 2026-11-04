@@ -7,7 +7,7 @@ const COMBOS = [
   { name: 'стек < 15 + тип олл-ин', set: { S: 's15', T: 'ai' } },
   { name: 'стек 25–40 + тип не олл-ин', set: { S: 's40', T: 'nai' } },
 ];
-const V3 = [{ name: 'v3B: сквиз, только коллер', v: { B: 'sq', SQ: ['c'] } }, { name: 'v3B: колл + IP', v: { A: ['call'], P: 'ip' } }, { name: 'v3B: 1vs1 + 4-бет', v: { B: 'hu', A: ['r4', 'ai'] } }, { name: 'v3B: сквиз пот', v: { B: 'sq', SQ: ['r', 'c'] } }];
+const V3 = [{ name: 'v3B: сквиз, только коллер', v: { B: 'sq', SQ: ['c'] } }, { name: 'v3B: IP', v: { P: 'ip' } }, { name: 'v3B: 1vs1 + OOP', v: { B: 'hu', P: 'oop' } }, { name: 'v3B: сквиз пот', v: { B: 'sq', SQ: ['r', 'c'] } }];
 (async () => {
   const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 1400, height: 1000 } });
   await ctx.addInitScript(() => { try { localStorage.setItem('mda.welcome.later', '1'); } catch (e) {} });
@@ -42,11 +42,11 @@ const V3 = [{ name: 'v3B: сквиз, только коллер', v: { B: 'sq', 
       }
       // проверка
       const c = DB.cols, idx = new Set(currentIdx()), sr = secRange(tab), ty = SEC_TYPES[tab] ? secF(tab).T : 'all', f = secF(tab);
-      const STK = { rfi: ['#1', '#3', '#3.4', '#3.5', '#3.7', '#4', '#5', '#5+', '#8'], cc: null, '3bet': null, vs3bet: null };
-      const NOSTK = { cc: ['#5'], '3bet': ['#6'], vs3bet: ['#4'] };
-      const TYC = { rfi: ['#1', '#3', '#3.4', '#3.7', '#8'], '3bet': ['#2', '#4', '#5', '#7', '#7.1'] };
+      const STK = { rfi: ['#1', '#4', '#5', '#6', '#7', '#8', '#10', '#11', '#2'], cc: null, '3bet': null, vs3bet: null };
+      const NOSTK = { cc: ['#8'], '3bet': ['#3'], vs3bet: ['#2'] };
+      const TYC = { rfi: ['#1', '#4', '#5', '#7', '#2'], '3bet': ['#2', '#10', '#5', '#6', '#7'] };
       const aI3 = (i) => c.act[i] === 3 || (c.act[i] === 2 && c.ostk[i] > 0 && c.size[i] >= c.ostk[i] * 10 - 1);
-      const sit = { rfi: (i, cd) => (cd === '#5' || cd === '#5+') ? c.sit[i] === 1 : c.sit[i] === 0, cc: (i) => c.rz[i] === 1 && c.sit[i] === 2, '3bet': (i) => c.rz[i] === 1 && c.cl[i] === 0, vs3bet: (i) => c.v3[i] >= 0 || (c.c3 && c.c3[i] >= 0) }[tab];
+      const sit = { rfi: (i, cd) => (cd === '#10' || cd === '#11') ? c.sit[i] === 1 : c.sit[i] === 0, cc: (i) => c.rz[i] === 1 && c.sit[i] === 2, '3bet': (i) => c.rz[i] === 1 && c.cl[i] === 0, vs3bet: (i) => c.v3[i] >= 0 || (c.c3 && c.c3[i] >= 0) }[tab];
       const isC = i => c.c3 && c.c3[i] >= 0, RA = i => isC(i) ? c.c3a[i] : c.v3a[i], RP = i => isC(i) ? c.c3p[i] : c.v3p[i], RV = i => isC(i) ? c.c3[i] : c.v3[i], AV = { fold: 0, call: 1, r4: 2, ai: 3 };
       const bad = {}; let nW = 0, nH = 0; const cards = new Set();
       for (const w of window.__cap) {

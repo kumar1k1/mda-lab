@@ -25,36 +25,33 @@ function resHead(card) {
 // ваш стек (кнопки и свой диапазон) — отбор раздач по стеку для всего раздела; тип действия (все / не олл-ин / олл-ин) —
 // для карточек результата этого действия (где тип имеет смысл). Свои для каждого раздела.
 const SECF = {};
-const SEC_TYPES = { rfi: [['all', 'Все открытия'], ['nai', 'Не олл-ин'], ['ai', 'Олл-ин']], cc: null, '3bet': [['all', 'Все 3-беты'], ['nai', 'Не олл-ин'], ['ai', 'Олл-ин']], vs3bet: [['all', 'Все 3-беты'], ['nai', 'Не олл-ин'], ['ai', 'Олл-ин']] };
+const SEC_TYPES = { '4bet': [['all', 'Все 4-беты'], ['nai', 'Не олл-ин'], ['ai', 'Олл-ин']], sqz: [['all', 'Все сквизы'], ['nai', 'Не олл-ин'], ['ai', 'Олл-ин']], rfi: [['all', 'Все открытия'], ['nai', 'Не олл-ин'], ['ai', 'Олл-ин']], cc: null, '3bet': [['all', 'Все 3-беты'], ['nai', 'Не олл-ин'], ['ai', 'Олл-ин']], vs3bet: [['all', 'Все 3-беты'], ['nai', 'Не олл-ин'], ['ai', 'Олл-ин']] };
 const secF = (tab) => SECF[tab] || (SECF[tab] = { S: 'all', C: null, T: 'all', A: [], B: 'all', P: 'all', SQ: null }); // A — «наше действие» (Против 3-бета): список выбранных, пустой = любое; B — «тип трибет банка», P — «наша позиция», SQ — подтумблеры сквиз-пота ['r','c'] (null = оба) там же
 function secRange(tab) { if (!(tab in SEC_TYPES)) return null; const f = secF(tab); return f.S === 'custom' && f.C ? f.C : (RES_STK.find(x => x[0] === f.S) || RES_STK[0])[2]; }
 // тип действия раздела: проверка раздачи и подпись выборки для карточки.
 // «олл-ин» вашего 3-бета — эффективно: фактический пуш или рейз, покрывающий стек открывающего (в этом споте коллеров нет)
 function secType(tab) {
   const ty = (tab in SEC_TYPES && SEC_TYPES[tab]) ? secF(tab).T : 'all', c = DB.cols;
-  const aiOf = tab === '3bet' ? (i) => c.act[i] === 3 || (c.act[i] === 2 && c.ostk[i] > 0 && c.size[i] >= c.ostk[i] * 10 - 1) : (i) => c.act[i] === 3;
+  const aiOf = tab === '3bet' || tab === 'sqz' ? (i) => c.act[i] === 3 || (c.act[i] === 2 && c.ostk[i] > 0 && c.size[i] >= c.ostk[i] * 10 - 1) : (i) => c.act[i] === 3;
   return { ty, flt: ty !== 'all', pass: (i) => ty === 'all' || (ty === 'ai' ? aiOf(i) : c.act[i] === 2 && !aiOf(i)) };
 }
+// подпись числа под графиком результата (RFI 8, CC 8, 3-бет 2): «1 232 открытия»; выбранные фильтры раздела — на метке карточки (markFilters)
 function secLabel(tab, n, what) {
-  const t = secType(tab), rng = secRange(tab), tl = t.flt ? (SEC_TYPES[tab].find(x => x[0] === t.ty) || [])[1] : '';
-  return el('span', 'muted small tb-res-n', [tl, rng ? (tl ? 'ваш' : 'Ваш') + ' стек ' + rangeTxt(rng) : ''].filter(Boolean).join(', ') + (tl || rng ? ': ' : '') + (WORDS[what.split(' ')[0]] ? cnt(n, what.split(' ')[0]) + what.slice(what.split(' ')[0].length) : n.toLocaleString('ru-RU') + ' ' + what));
+  const w = what.split(' ')[0];
+  return el('span', 'muted small tb-res-n', WORDS[w] ? cnt(n, w) + what.slice(w.length) : n.toLocaleString('ru-RU') + ' ' + what);
 }
+const PQ_TIP = 'Ваша позиция относительно 3-бетящего (первого агрессора — трибетера или сквизера) на постфлопе:\nIP — вы действуете последним на флопе, терне и ривере (в позиции), OOP — первым, до агрессора (вне позиции).';
 function drawSecFilters(tab) {
   const box = $('secFilters'); if (!box) return; box.replaceChildren();
   if (!(tab in SEC_TYPES) || !DB) { box.hidden = true; return; }
   box.hidden = false; const f = secF(tab), types = SEC_TYPES[tab];
-  box.classList.toggle('sec-f-grid', tab === 'vs3bet'); // «Против 3-бета»: сетка 2×2 — слева «3-бет соперника» над «типом трибет банка», справа «наше действие» и «ваш стек» под ним; правая колонка не заезжает на левую
+  box.classList.toggle('sec-f-grid', tab === 'vs3bet' || tab === '3bet' || tab === '4bet'); box.classList.toggle('sec-f-g3', tab === '3bet' || tab === '4bet'); // «Против 3-бета»: сетка 2×2 — слева «3-бет соперника» и «тип трибет банка», справа «наша позиция» и «ваш стек»
   // группы, как фильтры над ними: подпись сверху, кнопки под ней
   const grp = (lab, ...nodes) => { const g = el('div', 'sf-g'); g.append(el('span', 'flt-k', lab)); const row = el('div', 'sf-row'); row.append(...nodes); g.append(row); return g; };
-  if (types) box.append(grp(tab === 'rfi' ? 'Открытие' : tab === 'vs3bet' ? '3-бет соперника' : '3-бет', segBtns(types, f.T, (k) => { f.T = k; renderNext(); })));
-  // «Против 3-бета»: наше действие на 3-бет — под фильтром типа 3-бета соперника; действия можно сочетать (фолд+колл, оба 4-бета…)
+  const grpL = (L, lab, ...nodes) => { const g = grp(lab, ...nodes); g.dataset.l = L; return g; }; // буква фильтра — для «умной» подсветки (sfApply)
+  if (types) box.append(grpL('T', tab === 'rfi' ? 'Открытие' : tab === 'vs3bet' ? '3-бет соперника' : tab === 'sqz' ? 'Сквиз' : tab === '4bet' ? '4-бет' : '3-бет', segBtns(types, f.T, (k) => { f.T = k; renderNext(); })));
   if (tab === 'vs3bet') {
-    const seg = el('div', 'seg bx-seg');
-    const sync = () => seg.querySelectorAll('button').forEach(b => { const on2 = b.dataset.k === 'all' ? !f.A.length : f.A.includes(b.dataset.k); b.classList.toggle('on', on2); b.setAttribute('aria-pressed', String(on2)); });
-    const mk = (k, t) => { const b = el('button', null, t); b.type = 'button'; b.dataset.k = k; b.title = k === 'all' ? 'Все ответы на 3-бет' : 'Можно выбрать несколько — повторный клик снимает'; b.onclick = () => { if (k === 'all') f.A = []; else { const j = f.A.indexOf(k); if (j >= 0) f.A.splice(j, 1); else f.A.push(k); } sync(); renderNext(); }; return b; };
-    seg.append(mk('all', 'Любое'), mk('fold', 'Фолд'), mk('call', 'Колл'), mk('r4', '4-бет'), mk('ai', '4-бет олл-ин')); sync();
-    box.append(grp('Наше действие', seg));
-    // тип 3-бет банка по чужим коллам (под «нашим действием»): 1vs1 / сквиз поверх колла открытия;
+    // тип 3-бет банка по чужим коллам (под «3-бетом соперника»): 1vs1 / сквиз поверх колла открытия;
     // у «сквиз пот» — подтумблеры asR (вы открылись, открытие заколлировали, сквиз поверх) и asC (вы заколлировали чужое открытие, сквиз за спиной)
     const bseg = segBtns([['all', 'Все'], ['hu', '3b пот 1vs1'], ['sq', 'сквиз пот']], f.B, (k) => { if (k === 'sq') f.SQ = ['r', 'c']; f.B = k; renderNext(); }); // повторный клик по «сквиз пот» возвращает asR + asC вместе
     if (f.B === 'sq') {
@@ -72,25 +69,29 @@ function drawSecFilters(tab) {
         bseg.append(chip);
       });
     }
-    box.append(grp('Тип трибет банка', bseg));
+    box.append(grpL('B', 'Тип трибет банка', bseg));
   }
   const cust = f.S === 'custom' ? f.C : null;
   // свой диапазон — под кнопками стека, с тем же левым краем
   const fr = rangeForm('secRng', cust, (v) => { if (v) { f.C = v; f.S = 'custom'; } else { f.C = null; f.S = 'all'; } render(); });
-  // «Против 3-бета»: «Наша позиция» — на одной линии с полями «от / до» фильтра стека (сетка: позиция слева, форма справа)
+  // «Против 3-бета»: порядок в сетке (по колонкам) — 3-бет соперника, тип банка | наша позиция, ваш стек (поля «от / до» — под кнопками стека)
   if (tab === 'vs3bet') {
-    box.append(grp('Ваш стек, BB', stkSeg(cust, f.S, (k) => { f.S = k; renderNext(); })));
-    const pg = grp('Наша позиция', segBtns([['all', 'Все'], ['ip', 'IP'], ['oop', 'OOP']], f.P, (k) => { f.P = k; renderNext(); }));
+    const pg = grpL('P', 'Наша позиция', segBtns([['all', 'Все'], ['ip', 'IP'], ['oop', 'OOP']], f.P, (k) => { f.P = k; renderNext(); }));
     const pq = el('span', 'flt-q', '?');
-    pq.title = 'Ваша позиция относительно 3-бетящего (первого агрессора — трибетера или сквизера) на постфлопе:\nIP — вы действуете последним на флопе, терне и ривере (в позиции), OOP — первым, до агрессора (вне позиции).';
+    pq.title = PQ_TIP;
     pq.setAttribute('aria-label', 'Что значит IP и OOP');
-    pg.append(pq);
-    box.append(pg, fr);
+    pg.querySelector('.sf-row').append(pq);
+    const g = grpL('S', 'Ваш стек, BB', stkSeg(cust, f.S, (k) => { f.S = k; renderNext(); }));
+    g.append(fr);
+    box.append(pg, g);
   } else {
-    const g = grp('Ваш стек, BB', stkSeg(cust, f.S, (k) => { f.S = k; renderNext(); }));
+    // «Сквиз»: наша позиция после флопа (как в «Против 3-бета»): из SB и BB вы ходите первым — OOP, с других мест — после открывающего и коллеров — IP
+    if (tab === 'sqz' || tab === '3bet' || tab === '4bet') { const pg = grpL('P', 'Наша позиция', segBtns([['all', 'Все'], ['ip', 'IP'], ['oop', 'OOP']], f.P, (k) => { f.P = k; renderNext(); })); const pq = el('span', 'flt-q', '?'); pq.title = tab === '4bet' ? 'Ваша позиция после флопа:\nпосле своего открытия — относительно 3-бетящего (IP — вы ходите после него),\nв холодном 4-бете — IP, если вы не на блайндах.' : tab === '3bet' ? 'Ваша позиция после флопа как 3-бетящего:\nIP — вы ходите после открывающего (3-бет не с блайндов),\nOOP — вы ходите первым (3-бет с SB или BB).' : 'Ваша позиция после флопа как сквизера:\nIP — вы ходите после открывающего и коллеров (сквиз не с блайндов),\nOOP — вы ходите первым (сквиз с SB или BB).'; pq.setAttribute('aria-label', 'Что значит IP и OOP'); pg.querySelector('.sf-row').append(pq); box.append(pg); }
+    const g = grpL('S', 'Ваш стек, BB', stkSeg(cust, f.S, (k) => { f.S = k; renderNext(); }));
     g.append(fr);
     box.append(g);
   }
+  sfApply();
 }
 // раздачи набора (ids) под фильтр: итог, матрица рук, список
 function subHands(z, pass) {
@@ -108,17 +109,19 @@ function subHands(z, pass) {
 // По ней ставится метка «без фильтров раздела» и её же проверяет tests/audit/filters-table.js (переключает каждый фильтр и смотрит, какие
 // карточки поменялись). Меняете, на что действует фильтр, — меняйте здесь, в коде карточки и в docs/filters.md.
 const CARD_FILTERS = {
-  rfi: { '#1': 'ST', '#8': 'ST', '#13': '', '#3': 'ST', '#3.4': 'ST', '#3.5': 'S', '#3.7': 'ST', '#4': 'S', '#4+': '', '#5': 'S', '#5+': 'S' },
-  cc: { '#1': 'S', '#8': 'S', '#2': 'S', '#2.1': 'S', '#3': 'S', '#5': '', '#6': 'S', '#6.1': 'S', '#7': 'S' },
-  '3bet': { '#1': 'S', '#2': 'ST', '#6': '', '#3': 'S', '#5': 'ST', '#4': 'ST', '#7': 'ST', '#9': 'S', '#9.1': 'S', '#7.1': 'ST', '#11': 'S' },
-  vs3bet: { '#1': 'STBP', '#2': 'STABP', '#5': 'STABP', '#4': '', '#18': 'STBP', '#3': 'STBP', '#16': 'STB', '#17': 'STBP', '#6': 'STBP', '#7': 'S', '#8': 'STBP', '#9': 'STBP', '#10': 'STB', '#11': 'SBP', '#12': 'STBP', '#13': 'STBP', '#14': 'STABP', '#15': 'STBP' } // #1 и частоты #5 — без «нашего действия», результат #5 — с ним
+  rfi: { '#1': 'ST', '#2': 'ST', '#3': '', '#4': 'ST', '#5': 'ST', '#6': 'S', '#7': 'ST', '#8': 'S', '#9': '', '#10': 'S', '#11': 'S' },
+  cc: { '#1': 'S', '#2': 'S', '#3': 'S', '#9': 'S', '#4': 'S', '#8': '', '#5': 'S', '#6': 'S', '#7': 'S' },
+  '3bet': { '#1': 'SP', '#2': 'STP', '#3': '', '#4': 'SP', '#5': 'STP', '#10': 'STP', '#6': 'STP', '#8': 'SP', '#9': 'SP', '#7': 'STP', '#11': 'SP' }, // P — наша позиция (IP / OOP)
+  '4bet': { '#1': 'SP', '#2': 'STP', '#3': 'SP', '#4': 'SP', '#5': 'STP', '#6': 'SP', '#7': 'SP', '#8': 'P', '#9': 'SP', '#10': 'STP', '#11': 'STP' }, // «4-бет»: 3 — руки, 8 — строки по стеку, 9 — строки по размеру, 11 — холодный 4-бет
+  sqz: { '#1': 'SP', '#2': 'STP', '#3': 'SP', '#4': 'SP', '#5': 'STP', '#6': 'SP', '#7': 'SP', '#8': 'P', '#9': 'SP', '#10': 'STP', '#11': 'STP' }, // «Сквиз»: P — наша позиция (IP / OOP) на все; 6, 7, 9 — тип сквиза и есть колонки/строки, 8 — строки по стеку
+  vs3bet: { '#1': 'STBP', '#2': '', '#3': 'STBP', '#4': 'STBP', '#5': 'STB', '#6': 'STB', '#7': 'SBP', '#8': 'STBP', '#9': 'STBP', '#10': 'STBP', '#11': 'ST', '#12': 'STBP', '#13': 'STBP' } // порядок карточек 03.11.2026; «наше действие» сейчас не действует ни на одну
 };
 const SEC_EXEMPT = Object.fromEntries(Object.entries(CARD_FILTERS).map(([t, m]) => [t, Object.keys(m).filter(k => !m[k])]));
 window.CARD_FILTERS = CARD_FILTERS;
 function secActive(tab) {
   if (!(tab in SEC_TYPES) || !SECF[tab]) return false;
   const f = SECF[tab];
-  return f.S !== 'all' || f.T !== 'all' || (f.A && f.A.length > 0) || (f.B && f.B !== 'all') || (f.P && f.P !== 'all');
+  return f.S !== 'all' || f.T !== 'all' || (f.B && f.B !== 'all') || (f.P && f.P !== 'all');
 }
 function markExempt(root, tab) {
   const list = SEC_EXEMPT[tab]; if (!list || !secActive(tab)) return;
@@ -129,3 +132,77 @@ function markExempt(root, tab) {
     host.append(m);
   });
 }
+
+// Метка выбранных фильтров раздела на карточке (справа вверху, рядом с номером): только те фильтры, что на неё действуют
+// (буквы CARD_FILTERS) и выбраны не «по умолчанию». Коротко: «стек 15–25 BB · олл-ин · IP». Метка в углу — высота карточки
+// не меняется. У подкарточек (RFI 3.4, 3.5, 3.7) — в строке заголовка.
+function secChips(tab, letters) {
+  const f = SECF[tab]; if (!f) return [];
+  const out = [], sr = secRange(tab);
+  if (letters.includes('S') && sr) { const pre = RES_STK.find(x => x[0] === f.S && x[2]); out.push('стек ' + (pre ? pre[1] + ' BB' : rangeTxt(sr))); } // «< 15 BB», свой — «12–18 BB»
+  if (letters.includes('T') && f.T && f.T !== 'all') out.push(tab === 'vs3bet' ? (f.T === 'ai' ? '3-бет олл-ин' : '3-бет не олл-ин') : f.T === 'ai' ? 'олл-ин' : 'не олл-ин');
+  if (letters.includes('B') && f.B && f.B !== 'all') { const sq = f.SQ || ['r', 'c']; out.push(f.B === 'hu' ? '1vs1' : 'сквиз' + (sq.length === 1 ? (sq[0] === 'r' ? ' (вы рейзер)' : ' (вы коллер)') : '')); }
+  if (letters.includes('P') && f.P && f.P !== 'all') out.push(f.P === 'ip' ? 'IP' : 'OOP');
+  if (letters.includes('A') && f.A && f.A.length) out.push(f.A.map(a => ({ fold: 'фолд', call: 'колл', r4: '4-бет', ai: '4-бет олл-ин' })[a]).join(' + '));
+  return out;
+}
+function markFilters(root, tab) {
+  const T = CARD_FILTERS[tab]; if (!T || !secActive(tab)) return;
+  root.querySelectorAll('.num-tag').forEach(t => {
+    const k = t.textContent.trim(), L = T[k]; if (!L) return;
+    const chips = secChips(tab, L); if (!chips.length) return;
+    const txt = chips.join(' · ');
+    if (t.classList.contains('sm-tag')) { const hh = t.parentElement; if (hh && !hh.querySelector('.sec-on')) { const m = el('span', 'sec-on sec-on-in', txt); m.title = 'Фильтры раздела на этой карточке: ' + txt; hh.append(m); } return; }
+    const host = t.closest('.insight, .block'); if (!host || host.querySelector(':scope > .sec-on')) return;
+    const m = el('span', 'sec-on', txt); m.title = 'Фильтры раздела на этой карточке: ' + txt; host.append(m);
+  });
+}
+
+
+// ---------- «Умные» фильтры раздела: наведение на карточку — фильтры шапки, которые на неё НЕ действуют, тускнеют ----------
+// Таблица действия — CARD_FILTERS. Задержки подобраны под разные привычки: колесо, тачпад, полоса прокрутки, быстрый перевод мыши к шапке.
+// ENTER — сколько мышь должна задержаться на карточке, чтобы подсветка переключилась (пролёт над карточками по пути к шапке не считается);
+// FAST — скорость (px/мс), выше которой движение считается «перелётом» и таймер переключения сбрасывается;
+// LEAVE — сколько подсветка держится после ухода с карточки в пустое место (успеть дойти до шапки); в шапке — держится, пока мышь там;
+// SCROLL_IDLE — после окончания прокрутки (колесо, тачпад, клавиши, полоса) заново смотрим, какая карточка под мышью.
+const SF = { ENTER: 260, FAST: 0.45, LEAVE: 2000, SCROLL_IDLE: 220 };
+const SF_SEL = '.sm, .r34-m, .insight, .block';
+let sfCur = null, sfPend = null, sfEnterT = 0, sfLeaveT = 0, sfScrollT = 0, sfScrolling = false, sfX = -1, sfY = -1, sfV = 0, sfLt = 0;
+function sfCardOf(node) {
+  const T = CARD_FILTERS[state.tab]; if (!T || !node || !node.closest || !node.closest('#content')) return null;
+  for (let n = node.closest(SF_SEL); n; n = n.parentElement && n.parentElement.closest(SF_SEL)) {
+    const t = [...n.querySelectorAll('.num-tag')].find(q => q.closest(SF_SEL) === n);
+    if (t) { const k = t.textContent.trim(); if (k in T) return k; }
+  }
+  return null;
+}
+function sfApply() {
+  const box = $('secFilters'); if (!box) return;
+  const T = CARD_FILTERS[state.tab], k = sfCur && sfCur.tab === state.tab ? sfCur.tag : null, L = T && k != null ? T[k] : null;
+  box.querySelectorAll('.sf-g[data-l]').forEach(g => { const dim = L != null && !L.includes(g.dataset.l); g.classList.toggle('sf-dim', dim); if (dim) g.title = 'На карточку ' + k + ' этот фильтр не действует'; else g.removeAttribute('title'); });
+}
+function sfSet(tag) { clearTimeout(sfLeaveT); sfLeaveT = 0; const nx = tag == null ? null : { tab: state.tab, tag }; if ((sfCur && sfCur.tag) === (nx && nx.tag) && (sfCur && sfCur.tab) === (nx && nx.tab)) return; sfCur = nx; sfApply(); }
+function sfLeaveSoon() { if (!sfCur || sfLeaveT) return; sfLeaveT = setTimeout(() => { sfLeaveT = 0; sfSet(null); }, SF.LEAVE); }
+function sfInBar(node) { return !!(node && node.closest && node.closest('.toolbar, header')); }
+function sfConsider(tag, delay) {
+  if (tag == null) { clearTimeout(sfEnterT); sfPend = null; sfLeaveSoon(); return; }
+  clearTimeout(sfLeaveT); sfLeaveT = 0;
+  if (sfCur && sfCur.tab === state.tab && sfCur.tag === tag) { clearTimeout(sfEnterT); sfPend = null; return; }
+  if (sfPend === tag && sfV < SF.FAST) return; // уже ждём эту карточку и мышь не «летит» — не сбрасываем
+  clearTimeout(sfEnterT); sfPend = tag;
+  sfEnterT = setTimeout(() => { sfPend = null; if (sfScrolling) return; const now = sfCardOf(document.elementFromPoint(sfX, sfY)); if (now === tag) sfSet(tag); else sfConsider(now, SF.ENTER); }, delay);
+}
+document.addEventListener('pointermove', (e) => {
+  if (e.pointerType && e.pointerType !== 'mouse') return;
+  const t = performance.now(), dt = Math.max(1, t - sfLt), d = Math.hypot(e.clientX - sfX, e.clientY - sfY);
+  sfV = sfLt ? sfV * 0.6 + Math.min(5, d / dt) * 0.4 : 0; sfLt = t; sfX = e.clientX; sfY = e.clientY;
+  if (sfScrolling) return;
+  if (sfInBar(e.target)) { clearTimeout(sfEnterT); sfPend = null; clearTimeout(sfLeaveT); sfLeaveT = 0; return; } // в шапке — держим
+  sfConsider(sfCardOf(e.target), SF.ENTER);
+}, { passive: true });
+document.addEventListener('scroll', () => {
+  sfScrolling = true; clearTimeout(sfEnterT); sfPend = null; clearTimeout(sfScrollT);
+  sfScrollT = setTimeout(() => { sfScrolling = false; if (sfX < 0) return; const n = document.elementFromPoint(sfX, sfY); if (sfInBar(n)) return; sfV = 0; sfConsider(sfCardOf(n), SF.ENTER); }, SF.SCROLL_IDLE);
+}, { capture: true, passive: true });
+document.documentElement.addEventListener('mouseleave', () => { clearTimeout(sfEnterT); sfPend = null; sfLeaveSoon(); });
+document.addEventListener('focusin', (e) => { const k = sfCardOf(e.target); if (k != null) sfSet(k); }); // с клавиатуры — сразу

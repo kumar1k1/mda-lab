@@ -2,7 +2,7 @@
 // и смотрим, какие карточки поменялись. Карточка с буквой фильтра должна поменяться, без буквы — остаться как была.
 // Плюс: в разделе нет карточек, которых нет в таблице, и метка «без фильтров раздела» стоит ровно на карточках с ''.
 const { chromium } = require('playwright');
-const FL = { S: { S: 's15' }, T: { T: 'ai' }, A: { A: ['call'] }, B: { B: 'sq', SQ: ['r', 'c'] }, P: { P: 'ip' } };
+const FL = { S: { S: 's15' }, T: { T: 'ai' }, A: { A: ['call'] }, B: { B: 'sq', SQ: ['r', 'c'] }, P: { P: 'oop' } }; // OOP: у «3-бета» #9 по умолчанию показана группа IP — фильтр IP её не меняет
 (async () => {
   const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 1400, height: 1000 } });
   await ctx.addInitScript(() => { try { localStorage.setItem('mda.welcome.later', '1'); } catch (e) {} });
@@ -10,8 +10,8 @@ const FL = { S: { S: 's15' }, T: { T: 'ai' }, A: { A: ['call'] }, B: { B: 'sq', 
   await pg.goto('http://127.0.0.1:8783/MDA-Lab-preview.html');
   await pg.waitForFunction(() => typeof DB !== 'undefined' && DB && DB.cols && DB.cols.v3, null, { timeout: 180000 });
   let bad = 0, checks = 0;
-  const snap = (tab, f) => pg.evaluate(([tab, f]) => { for (const k in SECF) delete SECF[k]; Object.assign(secF(tab), f); __go(tab, 'TOT'); const o = {}; document.querySelectorAll('#content .num-tag').forEach(t => { const c = t.closest('.sm, .r34-m, .insight, .block'); if (!c) return; const cl = c.cloneNode(true); cl.querySelectorAll('.sec-exempt').forEach(x => x.remove()); o[t.textContent.trim()] = { txt: cl.innerText.replace(/\s+/g, ' '), mark: !!(t.closest('.insight, .block') || c).querySelector(':scope > .sec-exempt') }; }); return { o, table: CARD_FILTERS[tab] }; }, [tab, f]);
-  for (const tab of ['rfi', 'cc', '3bet', 'vs3bet']) {
+  const snap = (tab, f) => pg.evaluate(([tab, f]) => { for (const k in SECF) delete SECF[k]; Object.assign(secF(tab), f); __go(tab, 'TOT'); const o = {}; document.querySelectorAll('#content .num-tag').forEach(t => { const c = t.closest('.sm, .r34-m, .insight, .block'); if (!c) return; const cl = c.cloneNode(true); cl.querySelectorAll('.sec-exempt, .sec-on').forEach(x => x.remove()); o[t.textContent.trim()] = { txt: cl.innerText.replace(/\s+/g, ' '), mark: !!(t.closest('.insight, .block') || c).querySelector(':scope > .sec-exempt') }; }); return { o, table: CARD_FILTERS[tab] }; }, [tab, f]);
+  for (const tab of ['rfi', 'cc', '3bet', 'vs3bet', 'sqz', '4bet']) {
     const base = await snap(tab, {}), T = base.table;
     const cards = Object.keys(base.o);
     const extra = cards.filter(k => !(k in T)), missing = Object.keys(T).filter(k => !cards.includes(k));

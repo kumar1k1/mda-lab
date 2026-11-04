@@ -85,6 +85,17 @@ const MIGRATIONS = [
   // 0.7.55: v3z — размер 3-бета (BB×100), v3f — ваш ответ на 5-бет после вашего 4-бета (карточка «Против размера 3-бета»)
   { id: 'v3z', col: ['v3z', 'i32'], uses: ['sit', 'act'], need: (C, i) => C.sit[i] === 0 && C.act[i] >= 2 && C.v3z[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).v3z },
   { id: 'v3f', col: ['v3f', 'i8'], uses: ['sit', 'act'], need: (C, i) => C.sit[i] === 0 && C.act[i] >= 2 && C.v3f[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).v3f },
+  // 0.7.58: fp у ваших открытий. Миграция fp (0.7.23) досчитывала позицию только в раздачах с рейзом перед вами (rz = 1),
+  // поэтому у баз, обновлённых со старых версий, у открытий fp = -1 — в «Против 3-бета» пропадали позиции (карточки 3, 4, 10, 11)
+  { id: 'fp2', col: ['fp', 'i8'], uses: ['sit'], need: (C, i) => C.sit[i] === 0 && C.fp[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).fp },
+  // 0.7.60 (вкладка «4-бет»): fp у раздач с двумя рейзами перед вами (холодный 4-бет), размер вашего 4-бета после 3-бета, ваш ход против 5-бета после холодного 4-бета
+  { id: 'fp3', col: ['fp', 'i8'], uses: ['rz'], need: (C, i) => C.rz[i] >= 2 && C.fp[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).fp },
+  { id: 'v3y', col: ['v3y', 'i32'], uses: ['sit', 'v3'], need: (C, i) => C.sit[i] === 0 && C.v3[i] >= 2 && C.v3y[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).v3y },
+  { id: 'c4f', col: ['c4f', 'i8'], uses: ['rz', 'act'], need: (C, i) => C.rz[i] === 2 && C.act[i] >= 2 && C.c4f[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).c4f },
+  // 0.7.59: sqr — ответ соперников на ваш сквиз (кто заколлировал, 4-бет от кого), карточка «Что происходит после сквиза»
+  { id: 'sqr', col: ['sqr', 'i8'], uses: ['rz', 'cl', 'act'], need: (C, i) => C.rz[i] === 1 && C.cl[i] >= 1 && C.act[i] >= 2 && C.sqr[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).sqr },
+  // 0.7.57: sqc — позиция первого коллера открытия (вкладка «Сквиз»: таблица «открывающий + коллер»)
+  { id: 'sqc', col: ['sqc', 'i8'], uses: ['rz', 'cl'], need: (C, i) => C.rz[i] === 1 && C.cl[i] >= 1 && C.sqc[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).sqc },
   { id: 'v3c3', col: ['v3c', 'i8'], uses: ['sit', 'act'], need: (C, i) => C.sit[i] === 0 && C.act[i] >= 2 && C.v3c[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).v3c },
   { id: 'v3a3', col: ['v3a', 'i8'], uses: ['sit', 'act'], need: (C, i) => C.sit[i] === 0 && C.act[i] >= 2 && C.v3a[i] < 0, calc: (rec, s) => TB.tbetOf(rec, s).v3a }
 ];
@@ -106,7 +117,7 @@ function readCol(dir, name, type, n) {
   if (a.length === n) return a; const b = new TY[type](n); b.set(a.subarray(0, Math.min(n, a.length))); return b;
 }
 function writeCol(dir, name, a) { require('./table.js').writeCol(dir, name, a); }
-const TYPES_OF = { rz: 'i8', act: 'i8', pos: 'i8', fcb: 'i8', ant: 'i16', cbs: 'i16', fp: 'i8', fop: 'i8', t3r: 'i8', t4: 'i8', sit: 'i8', v3: 'i8', v3a: 'i8', v3o: 'i8', v3c: 'i8', v3e: 'i8', v3p: 'i8', c3: 'i8', c3a: 'i8', c3e: 'i8', c3p: 'i8', v3q: 'i8', c3q: 'i8', v3s: 'i32', v3k: 'i8', v3x: 'i8', v3z: 'i32', v3f: 'i8' };
+const TYPES_OF = { v3y: 'i32', c4f: 'i8', sqr: 'i8', sqc: 'i8', cl: 'i8', rz: 'i8', act: 'i8', pos: 'i8', fcb: 'i8', ant: 'i16', cbs: 'i16', fp: 'i8', fop: 'i8', t3r: 'i8', t4: 'i8', sit: 'i8', v3: 'i8', v3a: 'i8', v3o: 'i8', v3c: 'i8', v3e: 'i8', v3p: 'i8', c3: 'i8', c3a: 'i8', c3e: 'i8', c3p: 'i8', v3q: 'i8', c3q: 'i8', v3s: 'i32', v3k: 'i8', v3x: 'i8', v3z: 'i32', v3f: 'i8' };
 
 async function doMigrate(dir, post) {
   const r1 = doRowMigrations(dir, post);

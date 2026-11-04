@@ -29,16 +29,16 @@ const { chromium } = require('playwright');
       Object.keys(C).forEach(k => { eq('CC #1/#2 ' + k + ' n', r.cc[k].n, C[k].n); eq('CC #1/#2 ' + k + ' x', r.cc[k].x, C[k].x); const h = H[k] || { n: 0, sum: 0 }; eq('CC #8 ' + k + ' n', r.hands[k].n, h.n); eq('CC #8 ' + k + ' sum', r.hands[k].sum, h.sum); const a = A[k] || { n: 0, x: 0 }; eq('CC #7 ' + k + ' n', r.ai[k].n, a.n); eq('CC #7 ' + k + ' x', r.ai[k].x, a.x); }); }
     // ---- Против 3-бета: карточки 1, 2, 3, 5 — фильтры раздела отбираются здесь заново, по смыслу колонок
     const isC = i => c.c3[i] >= 0;
-    const combos = [{}, { B: 'hu' }, { B: 'sq', SQ: ['r', 'c'] }, { B: 'sq', SQ: ['c'] }, { T: 'ai' }, { T: 'nai', P: 'ip' }, { A: ['call'] }, { A: ['r4', 'ai'], P: 'oop' }, { S: [0, 15] }];
+    const combos = [{}, { B: 'hu' }, { B: 'sq', SQ: ['r', 'c'] }, { B: 'sq', SQ: ['c'] }, { T: 'ai' }, { T: 'nai', P: 'ip' }, { P: 'oop' }, { S: [0, 15] }] // «наше действие» убрано из шапки (03.11.2026);
     for (const cb of combos) {
       // отбор так, как он описан пользователю (без кода app.js)
       const base = all.filter(i => (c.v3[i] >= 0 || isC(i)) && (!cb.S || (c.bb[i] >= cb.S[0] * 10 && c.bb[i] < cb.S[1] * 10)));
       const RA = i => isC(i) ? c.c3a[i] : c.v3a[i], RP = i => isC(i) ? c.c3p[i] : c.v3p[i], RV = i => isC(i) ? c.c3[i] : c.v3[i];
       let sel = base.filter(i => (!cb.T || RA(i) === (cb.T === 'ai' ? 1 : 0)) && (!cb.P || RP(i) === (cb.P === 'ip' ? 1 : 0)));
       sel = sel.filter(i => cb.B === 'hu' ? !isC(i) && c.v3o[i] === 0 && c.v3e[i] === 0 : cb.B === 'sq' ? ((!isC(i) && c.v3o[i] === 1 && cb.SQ.includes('r')) || (isC(i) && cb.SQ.includes('c'))) : !isC(i));
-      const selA = cb.A ? sel.filter(i => cb.A.some(a => RV(i) === { fold: 0, call: 1, r4: 2, ai: 3 }[a])) : sel;
+      const selA = sel;
       // программа: тот же путь, что renderV3B
-      const prog = (() => { for (const k in SECF) delete SECF[k]; const f = secF('vs3bet'); if (cb.T) f.T = cb.T; if (cb.P) f.P = cb.P; if (cb.B) f.B = cb.B; if (cb.SQ) f.SQ = cb.SQ.slice(); if (cb.A) f.A = cb.A.slice(); if (cb.S) f.S = cb.S[0] === 0 ? 's15' : 's25';
+      const prog = (() => { for (const k in SECF) delete SECF[k]; const f = secF('vs3bet'); if (cb.T) f.T = cb.T; if (cb.P) f.P = cb.P; if (cb.B) f.B = cb.B; if (cb.SQ) f.SQ = cb.SQ.slice(); if (cb.S) f.S = cb.S[0] === 0 ? 's15' : 's25';
         state.tab = 'vs3bet'; const idx = currentIdx(); let got = null; const o = Stats.v3b; const runs = []; Stats.v3b = function (db, ix, opt) { const r = o(db, ix, opt); runs.push(r); return r; }; try { renderV3B(idx); } finally { Stats.v3b = o; } return runs; })();
       const rA = prog[0], r = prog[1], nm = JSON.stringify(cb);
       const pos = (i) => FP[c.fp[i]];

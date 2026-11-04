@@ -4,7 +4,7 @@
   --text:#ECEFF5;--soft:#C3C9D6;--muted:#8D96A8;--faint:#5F687B;
   --amber:#F2B544;--amber-ink:#1B1406;--amber-rgb:242,181,68;
   --ice:#6EC3E8;--ice-rgb:110,195,232;
-  --mx-raise:#F2B544;--mx-push:#3B82F6;--mx-limp:#22C55E;--mx-empty:#232A38;--mx-fold:#B4566E;
+  --mx-raise:#F2B544;--mx-push:#3B82F6;--mx-limp:#22C55E;--mx-empty:#232A38;--mx-fold:#3A4150;
   --good:#7FD7A2;--bad:#FF9B8A;--good-rgb:127,215,162;--bad-rgb:255,128,110;
   --display:"Onest","Segoe UI Variable Display","Segoe UI",system-ui,sans-serif;
   --sans:"Onest","Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;
@@ -1927,7 +1927,8 @@ body.rendering{cursor:progress}
 .sec-f .mx-range .btn{height:40px;box-sizing:border-box;padding:0 14px;font-size:12.5px}
 .sec-f .mx-err{position:absolute;left:0;top:calc(100% + 2px);font-size:11px;white-space:nowrap}
 .sec-f .mx-err:empty{display:none}
-.sec-f.sec-f-grid{display:grid;grid-template-columns:max-content max-content;column-gap:44px;row-gap:10px;align-items:start}
+/* «Против 3-бета»: две колонки по левому краю — слева «3-бет соперника» над «типом трибет банка», справа «наша позиция» над «вашим стеком» */
+.sec-f.sec-f-grid{display:grid;grid-template-columns:max-content max-content;grid-template-rows:auto auto;grid-auto-flow:column;column-gap:44px;row-gap:10px;justify-items:start;align-items:start}
 .sec-f .flt-q{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border:1px dashed var(--line2);border-radius:50%;color:var(--faint);font-size:10.5px;font-weight:700;cursor:help;user-select:none}
 .sec-f .sf-note{margin-left:auto;align-self:flex-end;padding-bottom:4px;font-size:11.5px;color:var(--faint);max-width:260px;line-height:1.35}
 
@@ -1981,3 +1982,92 @@ body.noscroll #content{overflow:hidden}
 .ht.v3-grp{width:auto}
 .insight .ht.v3-sz,.insight .ht.v3-grp{width:auto}
 .insight > .ht.v3-sz,.insight > .ht.v3-grp{align-self:flex-start}
+
+/* метка выбранных фильтров раздела на карточке (markFilters) */
+.sec-on{position:absolute;top:8px;right:52px;max-width:48%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;font-weight:600;color:var(--amber);background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:1px 8px;cursor:help}
+.sec-on.sec-on-in{position:static;max-width:none;margin-left:8px;display:inline-block;vertical-align:middle}
+.resp-tile .rt-wr{font-family:var(--mono);font-size:11.5px;line-height:1.2;margin-top:2px}
+.resp-tile .rt-wr .evs{font-size:10px}
+.resp-tile span.rt-wr.up,.resp-tile .rt-wr span.up{color:var(--good)}
+.resp-tile span.rt-wr.down,.resp-tile .rt-wr span.down{color:var(--bad)}
+.ht.v3-r21 td.v3-n{font-family:var(--mono);font-size:12px;color:var(--soft);text-align:right;padding-right:10px}
+.ht.v3-r21 td.c{min-width:120px}
+.ht.v3-r21{border-spacing:4px}
+.ht.v3-r21 td.c{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 10px}
+.ht.v3-r21 thead th{text-align:left;padding:0 10px 4px}
+.ht.v3-r21 thead th:nth-child(2){text-align:right}
+.ht.v3-r21 tbody th{padding-right:14px}
+.ht.v3-r21 td.v3-tot{font-family:var(--mono);font-size:12.5px;padding:0 10px;white-space:nowrap}
+.card-fill > .ht.v3-r21,.insight .ht.v3-r21{align-self:flex-start;width:auto}
+.tab .name{white-space:normal;line-height:1.2;padding:3px 0;overflow-wrap:anywhere} /* длинное название раздела («Против 3-бета / сквиза») — в две строки, без многоточия */
+.ht.v3-r21 th.help{cursor:help;text-decoration:underline dotted;text-underline-offset:3px}
+.ht.v3-r21 td.v3-tot{cursor:help}
+.sz5-v.v3-act{display:flex;flex-direction:column;align-items:flex-end;gap:1px}
+.sz5-v.v3-act b{font-size:12.5px;font-weight:600}
+.sz5-v.v3-act .wr{font-size:10.5px;white-space:nowrap}
+.sz5-v.v3-act .wr .evs{font-size:9.5px}
+
+/* «Против 3-бета»: таблица реакций — доля + одно число (EV или факт) */
+.v3-rt-box{display:flex;flex-direction:column;gap:6px;margin-top:4px}
+.v3-rt-seg{align-self:flex-end}
+.ht.v3-rt{width:100%;border-collapse:separate;border-spacing:0 3px}
+.ht.v3-rt thead th{font-size:10px;letter-spacing:.03em;text-transform:uppercase;color:var(--faint);font-weight:600;text-align:left;padding:0 10px 2px}
+.ht.v3-rt thead th.num{text-align:right}
+.ht.v3-rt tbody tr{background:var(--bg)}
+.ht.v3-rt tbody tr.click{cursor:pointer}
+.ht.v3-rt tbody tr:hover{outline:1px solid var(--amber);outline-offset:-1px}
+.ht.v3-rt tbody th,.ht.v3-rt tbody td{padding:7px 10px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);text-align:left;font-weight:600;white-space:nowrap}
+.ht.v3-rt tbody th{border-left:1px solid var(--line);border-radius:8px 0 0 8px;font-family:var(--mono);font-size:13px;color:var(--text)}
+.ht.v3-rt tbody td:last-child{border-right:1px solid var(--line);border-radius:0 8px 8px 0}
+.ht.v3-rt tbody tr.tot th,.ht.v3-rt tbody tr.tot td{border-color:var(--line2)}
+.ht.v3-rt tbody tr.low{opacity:.6}
+.ht.v3-rt td.n b{display:block;font-family:var(--mono);font-size:12.5px;color:var(--soft)}
+.ht.v3-rt td.n small{font-size:10px;color:var(--faint);font-family:var(--mono)}
+.ht.v3-rt td.num{text-align:right;font-family:var(--mono)}
+.ht.v3-rt td.num b{display:block;font-size:13px}
+.ht.v3-rt td.num .v{display:block;font-size:11px;font-weight:500;margin-top:1px}
+.ht.v3-rt td.avg b{font-size:13.5px}
+
+/* одно число в ячейке (VAL_MODE) */
+.val-seg{align-self:flex-end}
+.ht.v3-grp td.c .v{display:block;font-family:var(--mono);font-size:11.5px;margin-top:1px}
+.pmx-w{cursor:help}
+.v3-rt-box.fit{align-self:flex-start}
+.v3-rt-box.fit > .ht.v3-grp td.c{min-width:92px}
+
+/* #12 «Против 3-бета» — группы рук в стиле #3.4, три колонки (фолд / колл / 4-бет) */
+.hg.hg3:has(.hg-c34){grid-template-columns:minmax(110px,max-content) repeat(3,minmax(min-content,1fr))}
+.hg.hg3 .hg-row:has(.hg-c34),.hg.hg3 .hg-row.hg-head{grid-template-columns:subgrid}
+.hg.hg3 .hg-row > :nth-child(3),.hg.hg3 .hg-row > :nth-child(4){padding-left:14px;padding-right:14px;border-left:1px solid var(--line)}
+.hg.hg3 .hg-row > :nth-child(2){padding-right:14px}
+.hg.hg3 .hg-head{grid-column:1 / -1}
+
+/* «умные» фильтры раздела: недействующие на карточку под мышью — тусклые (кликать можно) */
+.sec-f .sf-g{transition:opacity .2s ease}
+.sec-f .sf-g.sf-dim{opacity:.3}
+.sec-f .sf-g.sf-dim:hover{opacity:.75}
+
+/* левое меню: заголовки групп сворачивают свои вкладки; у свёрнутой группы видна только вкладка открытого раздела */
+.rgroup-title{display:flex;align-items:center;justify-content:space-between;width:100%;border:none;background:transparent;cursor:pointer;text-align:left;font-family:inherit;border-radius:7px}
+.rgroup-title:hover{color:var(--soft);background:var(--card)}
+.rgroup-title .rg-chev{width:7px;height:7px;border-right:1.6px solid currentColor;border-bottom:1.6px solid currentColor;transform:rotate(45deg) translateY(-2px);transition:transform .18s ease;margin-right:4px}
+.rgroup.closed .rg-chev{transform:rotate(-45deg)}
+.rgroup.closed .tab:not(.active){display:none}
+.rgroup.closed + .rgroup{margin-top:4px}
+/* основные фильтры (рум, тип, период, бай-ин) — по левому краю колонки статов, а не меню вкладок */
+/* в одну строку и «Столы»: промежутки меньше; на узком окне фильтры начинаются от края страницы, чтобы не переносились */
+.filters{column-gap:18px;flex-wrap:nowrap}
+.filters #fRoom{max-width:160px}
+.filters > .flt{flex-shrink:0}.flt-tbl .seg{flex-wrap:nowrap;white-space:nowrap}
+/* по центру шапки (просьба 03.11.2026) */
+.filters{justify-content:center}
+@media (max-width: 1060px){.filters{flex-wrap:wrap}}
+
+/* «Столы» (все / 6-max / 7–9 max) — в строке основных фильтров, высотой как выпадающие списки */
+.flt-tbl .seg{padding:2px}
+.flt-tbl .seg button{height:auto;min-height:0;padding:5px 10px;line-height:18px;font-size:13px}
+.ht.v3-rt tbody tr.sub th{padding-left:26px;color:var(--muted);font-weight:500}
+
+
+/* «3-бет»: слева «3-бет» над «нашей позицией», справа «ваш стек» на обе строки */
+.sec-f.sec-f-grid.sec-f-g3 > .sf-g[data-l="S"]{grid-row:1 / span 2;grid-column:2}

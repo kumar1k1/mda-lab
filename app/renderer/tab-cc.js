@@ -2,12 +2,12 @@
 /* global mda, Stats */
 // Вкладка «Колд-колл» (CC).
 // ---------- вкладка «Колд-колл» ----------
-// #6 — колд-колл против разных сайзингов открытия (без олл-инов): частоты ответа и винрейт колла
+// #5 — колд-колл против разных сайзингов открытия (без олл-инов): частоты ответа и винрейт колла
 let CC_SZPOS = 'TOT';
 
 function ccSizeBlock(r) {
   const card = el('div', 'insight cc-table');
-  card.append(numTag(6), el('b', 'pm-title', 'Против сайзинга открытия'), el('span', 'sm-s', 'как вы отвечаете на открытие разного размера и какой результат дают ваши коллы'));
+  card.append(numTag(5), el('b', 'pm-title', 'Против сайзинга открытия'), el('span', 'sm-s', 'как вы отвечаете на открытие разного размера и какой результат дают ваши коллы'));
   const posList = ['TOT'].concat(r.CC_COLS.slice(1).filter(p => r.cc[p].n >= SMALL));
   const body = el('div');
   card.append(segBtns(posList.map(p => [p, p === 'TOT' ? 'Все без BB' : p]), CC_SZPOS, (k) => { CC_SZPOS = k; draw(); }), body,
@@ -44,10 +44,10 @@ function ccSizeBlock(r) {
 
 // #7 — колд-колл против олл-ина: частота колла пуша, винрейт по позициям и по стеку пушера
 let CC_AIPOS = 'TOT';
-// #6.1 — защита BB по размеру открытия против минимальной частоты защиты (MDF)
+// #6 — защита BB по размеру открытия против минимальной частоты защиты (MDF)
 function bbDefendBlock(r) {
   const card = el('div', 'insight cc-table bbd');
-  card.append(numTag('6.1'), el('b', 'pm-title', 'Защита BB по размеру открытия'), el('span', 'sm-s', 'как часто вы защищаете BB (колл + 3-бет) против открытия каждого размера и сколько нужно по шансам банка'));
+  card.append(numTag('6'), el('b', 'pm-title', 'Защита BB по размеру открытия'), el('span', 'sm-s', 'как часто вы защищаете BB (колл + 3-бет) против открытия каждого размера и сколько нужно по шансам банка'));
   const rows = (r.sz.BB || []).map((z, k) => ({ z, k, lab: r.CC_SZ[k][0] })).filter(x => x.z.n);
   if (!rows.length) { card.append(el('p', 'muted small', 'Нет открытий против вашего BB в выборке.')); return card; }
   const W = 640, H = 230, P = { l: 38, r: 12, t: 22, b: 44 };
@@ -104,7 +104,7 @@ function ccAllinBlock(r) {
     td.addEventListener('click', (ev) => pinHandPop(it, v, ev, td));
     td.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); pinHandPop(it, v, null, td); } });
   });
-  // винрейт колла пуша по позициям — график как #8
+  // винрейт колла пуша по позициям — график как #2
   const items = cols.filter(k => k !== 'TOT').map(p => { const h = r.aiHands[p]; return { p, key: 'ccai' + p, o: { n: h.n, sum: h.sum, es: h.es }, mx: h.mx, ids: h.ids, sit: 2, act: 1, title: 'Колл олл-ина · ' + p, vlab: ' BB за колл', nlab: ' коллов' }; });
   const t = r.aiHands.TOT, avg = t.n ? t.sum / 10 / t.n : null;
   const chart = el('div', 'cc-ai-chart');
@@ -134,7 +134,7 @@ function ccAllinBlock(r) {
   return card;
 }
 
-// #5 — ответ против открытия с произвольными диапазонами: стек открывающего и мой стек (поля «от — до»)
+// #8 — ответ против открытия с произвольными диапазонами: стек открывающего и мой стек (поля «от — до»)
 function rangeForm(id, cur, onSet) {
   const f = el('form', 'mx-range');
   const mkIn = (sfx, ph, val) => { const i = el('input'); i.type = 'number'; i.id = id + sfx; i.min = '0'; i.max = '1000'; i.step = '0.5'; i.placeholder = ph; i.inputMode = 'decimal'; if (val != null) i.value = String(val); return i; };
@@ -155,7 +155,7 @@ function rangeForm(id, cur, onSet) {
 }
 const rangeTxt = (r) => (r ? (r[1] < 1e8 ? r[0] + '–' + r[1] : r[0] + '+') + ' BB' : 'любой');
 function ccOppBlock(r) {
-  const b = el('section', 'block cc-table'); b.append(numTag(5));
+  const b = el('section', 'block cc-table'); b.append(numTag(8));
   const h = el('div', 'block-head'); h.append(el('h2', null, 'Ваш ответ против стека открывающего'), el('p', null, 'колл, 3-бет, олл-ин или фолд каждой рукой, когда перед вами был один рейз; стеки задаёте сами'));
   const seg = el('div', 'seg');
   ['MP', 'CO', 'BTN', 'SB', 'BB'].filter(p => r.cc[p].n >= SMALL).forEach(p => { const bt = el('button', uiState.ccOPos === p ? 'on' : '', p); bt.type = 'button'; bt.onclick = () => { uiState.ccOPos = p; uiState.ccOOpen = []; renderNext(); }; seg.append(bt); });
@@ -203,9 +203,9 @@ function ccOppBlock(r) {
   b.append(h, body);
   return b;
 }
-// #4 — какими руками вы коллируете, 3-бетите и фолдите против открытия: по позиции и вашему стеку (как #13 во вкладке «Открытие»)
+// #9 — какими руками вы коллируете, 3-бетите и фолдите против открытия: по позиции и вашему стеку (как #3 во вкладке «Открытие»)
 function ccRangeBlock(r, o) {
-  o = o || { tag: 4, title: 'Какие руки вы коллируете', sub: 'ваш ответ каждой рукой, когда перед вами был один рейз: колл, 3-бет, олл-ин или фолд', pos: 'ccPos', stk: 'ccStk', custom: 'ccCustom', mx: r.mx, stkCap: 'Ваш стек, BB', id: 'cc' };
+  o = o || { tag: 9, title: 'Какие руки вы коллируете', sub: 'ваш ответ каждой рукой, когда перед вами был один рейз: колл, 3-бет, олл-ин или фолд', pos: 'ccPos', stk: 'ccStk', custom: 'ccCustom', mx: r.mx, stkCap: 'Ваш стек, BB', id: 'cc' };
   const b = el('section', 'block cc-table'); b.append(numTag(o.tag));
   const h = el('div', 'block-head'); h.append(el('h2', null, o.title), el('p', null, o.sub));
   const seg = el('div', 'seg');
@@ -240,10 +240,10 @@ function ccRangeBlock(r, o) {
 
 let CC_BX = 'bb';
 // таблица «позиция против позиции»: строки — ваша позиция, колонки — кто открыл
-// #2.1 — результат колд-колла по группам рук и позициям (как #3.4 во вкладке RFI): факт / EV, наведение — руки группы,
+// #9 — результат колд-колла по группам рук и позициям (как #4 во вкладке RFI): факт / EV, наведение — руки группы,
 // клик — закрепить окно с раздачами и реплеером
 function ccGroupBlock(r, o) {
-  o = o || { cols: r.CC_COLS.slice(1), tag: '2.1', title: 'Результат колд-колла по группам рук', sub: 'BB за колд-колл: всего и по группам рук, факт / EV', name: 'Колд-колл', verb: 'не коллировали', act: 1, vlab: ' BB за колд-колл', nlab: ' колд-коллов', none: 'Нет колд-коллов в выборке.', key: 'ccg', p: true };
+  o = o || { cols: r.CC_COLS.slice(1), tag: '9', title: 'Результат колд-колла по группам рук', sub: 'BB за колд-колл: всего и по группам рук, факт / EV', name: 'Колд-колл', verb: 'не коллировали', act: 1, vlab: ' BB за колд-колл', nlab: ' колд-коллов', none: 'Нет колд-коллов в выборке.', key: 'ccg', p: true };
   const pos = o.cols.filter(p => r.hands[p] && r.hands[p].n);
   const c = DB.cols, EV = EVcol(), agg = {};
   pos.forEach(p => {
@@ -258,8 +258,9 @@ function ccGroupBlock(r, o) {
   const top = el('div', 'ccg-top');
   pos.forEach(p => { const z = r.hands[p]; const b = el('div', 'ccg-big'); const big = el('b'); big.innerHTML = wrHtml(z.sum / 10 / z.n, z.es / 10 / z.n, 2); b.append(el('span', 'nm', p), big, el('span', 'cnt', z.n.toLocaleString('ru-RU'))); top.append(b); });
   card.append(top);
+  { const sg = valSeg(); sg.classList.add('v3-rt-seg'); card.append(sg); }
   // таблица: группа рук × позиция
-  const vals = []; pos.forEach(p => agg[p].g.forEach(z => { if (z.n >= 5) vals.push(Math.abs(z.sum / 10 / z.n)); }));
+  const vals = []; pos.forEach(p => agg[p].g.forEach(z => { if (z.n >= 5) vals.push(Math.abs(valPick(z.sum, z.es) / 10 / z.n)); }));
   vals.sort((a, b) => a - b); const scale = Math.max(0.5, vals[Math.floor(vals.length * 0.9)] || 0.5);
   const tbl = el('div', 'ccg-t'); tbl.style.setProperty('--ncol', pos.length);
   const hd = el('div', 'ccg-r ccg-head'); hd.append(el('span', null, 'Группа рук')); pos.forEach(p => hd.append(el('span', null, p))); tbl.append(hd);
@@ -269,10 +270,10 @@ function ccGroupBlock(r, o) {
       const z = agg[p].g[k], hands = agg[p].h, cell = el('div', 'ccg-c');
       cell.addEventListener('mouseenter', (e) => showGroupTip(p, lab, k, z, hands, e, o.verb)); cell.addEventListener('mousemove', moveGroupTip); cell.addEventListener('mouseleave', hideGroupTip);
       if (!z.n) { cell.append(el('span', 'hg-na', '—')); row.append(cell); return; }
-      const v = z.sum / 10 / z.n, t = Math.min(1, Math.abs(v) / scale);
+      const v = valPick(z.sum, z.es) / 10 / z.n, t = Math.min(1, Math.abs(v) / scale); // цвет и число — по выбранному «EV / факт»
       cell.style.background = 'rgba(' + (v >= 0 ? 'var(--good-rgb)' : 'var(--bad-rgb)') + ',' + (0.08 + 0.32 * t).toFixed(2) + ')';
-      const f = el('b', v >= 0 ? 'up' : 'down', signed(v, 2)), ev = z.es / 10 / z.n;
-      cell.append(f, el('span', 'ccg-ev ' + (ev >= 0 ? 'up' : 'down'), signed(ev, 2) + ' EV'), el('span', 'ccg-n', String(z.n)));
+      const f = el('b', v >= 0 ? 'up' : 'down', signed(v, 2) + (VAL_MODE === 'ev' ? ' EV' : ''));
+      cell.append(f, el('span', 'ccg-n', String(z.n))); cell.title = signed(z.sum / 10 / z.n, 2) + ' BB факт, ' + signed(z.es / 10 / z.n, 2) + ' BB EV · ' + z.n;
       if (z.n < 30) cell.classList.add('low');
       cell.classList.add('click'); cell.tabIndex = 0; cell.setAttribute('role', 'button'); cell.setAttribute('aria-label', p + ', ' + lab + ': ' + signed(v, 2) + ' BB, ' + z.n + nlabOf(z.n, o.nlab) + ' — показать руки и раздачи');
       const pin = (e) => { hideGroupTip(); pinHandPop({ p: o.p ? p : null, key: o.key + p + k, title: (o.nameOf ? o.nameOf(p) : o.name + ' · ' + p) + ' · ' + lab, o: z, mx: hands, ids: r.hands[p].ids, only: (q) => handGroup(q) === k, sit: 2, act: o.act, vlab: o.vlab, nlab: o.nlab }, v, e, cell); };
@@ -282,18 +283,18 @@ function ccGroupBlock(r, o) {
     tbl.append(row);
   });
   const wrap = el('div', 'ccg-wrap'); wrap.append(tbl); card.append(wrap);
-  card.append(infoNote(o.note || 'В ячейке — результат колд-колла группой рук с этой позиции в BB: сверху факт, под ним EV, справа мелко — число колд-коллов. Цвет — плюс или минус. Наведите — матрица рук группы и их итог; клик закрепит окно, клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше 30 раздач.'));
+  card.append(infoNote(o.note || 'В ячейке — результат колд-колла группой рук с этой позиции в BB (EV или факт — переключатель над таблицей; оба числа — при наведении), справа мелко — число колд-коллов. Цвет — плюс или минус. Наведите — матрица рук группы и их итог; клик закрепит окно, клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше 30 раздач.'));
   return card;
 }
 
-// #9 — квадрант «Колд-колл × Фолд на контбет флопа»: где находится каждый игрок базы и вы
+// #7 — квадрант «Колд-колл × Фолд на контбет флопа»: где находится каждый игрок базы и вы
 let CC_QUAD = null; // { db, rows } — таблица по игрокам базы (считается в программе один раз)
-let CC_QPOS = 'TOT'; // позиция в квадранте #9
+let CC_QPOS = 'TOT'; // позиция в квадранте #7
 const QPOS = { TOT: 0, UTG: 1, MP: 2, CO: 4, BTN: 5, SB: 6, BB: 7 }; // номер в таблице игроков (HJ в базе входит в MP)
 let qdTip = null;
 function ccQuadBlock(r, idx) {
   const card = el('div', 'insight cc-table qd');
-  card.append(numTag(9), el('b', 'pm-title', 'Колд-колл × Фолд на контбет флопа'), el('span', 'sm-s', 'ваша точка, равновесный ориентир и точка лучшего результата по игрокам базы'));
+  card.append(numTag(7), el('b', 'pm-title', 'Колд-колл × Фолд на контбет флопа'), el('span', 'sm-s', 'ваша точка, равновесный ориентир и точка лучшего результата по игрокам базы'));
   const posList = ['TOT', 'MP', 'CO', 'BTN', 'SB', 'BB']; // UTG бывает только за полным столом — у соперников по нему данных нет
   const seg = segBtns(posList.map(p => [p, p === 'TOT' ? 'Все без BB' : p]), CC_QPOS, (k) => { CC_QPOS = k; draw(LAST); });
   const body = el('div', 'qd-body'); body.append(window.mdaLoad('Считаю игроков базы…')); card.append(seg, body);
@@ -415,6 +416,8 @@ function ccQuadBlock(r, idx) {
   return card;
 }
 
+// окно первого типа для колд-колла: R — ответ на открытие по рукам, h — колд-коллы (итог, список раздач)
+const ccSz = (R, h) => ({ n: rangeN(R), rmx: R, vmx: h.mx, rids: h.ids, labels: ['3-бет', 'олл-ин', 'колл', 'фолд'], capAll: 'только колд-коллы', foldPaint: true });
 function ccVsTable(r) {
   const heroPos = r.CC_COLS.slice(1).filter(p => r.cc[p].n >= SMALL);
   const opCols = ['UTG', 'MP', 'CO', 'BTN', 'SB'].filter(op => heroPos.some(p => r.vs[p] && r.vs[p][op] && r.vs[p][op].n >= SMALL));
@@ -426,15 +429,12 @@ function ccVsTable(r) {
     if (!z || !z.n) return;
     const it = { p, key: 'ccvs ' + p + op, title: 'Ваш колд-колл с ' + p + (op === 'TOT' ? '' : ' против открытия с ' + op), o: { n: z.n, sum: z.sum, es: z.es }, mx: z.mx, ids: z.ids, sit: 2, act: 1, vlab: ' BB за колд-колл', nlab: ' колд-коллов' };
     const v = z.sum / 10 / z.n;
-    td.classList.add('click'); td.tabIndex = 0; td.setAttribute('role', 'button');
-    const show = (ev) => showHandPop(it, v, ev, td);
-    td.addEventListener('mouseenter', show); td.addEventListener('mousemove', show); td.addEventListener('mouseleave', hideHandPop);
-    td.addEventListener('click', (ev) => pinHandPop(it, v, ev, td));
-    td.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); pinHandPop(it, v, null, td); } });
+    const R = op === 'TOT' ? r.rx[p] : r.rxVs[p] && r.rxVs[p][op];
+    if (R) hoverRange(td, it.title, ccSz(R, z)); // окно первого типа: весь ответ на открытие, «Факт / EV» и список — колд-коллы
   });
   const card = el('div', 'insight cc-table');
-  card.append(numTag(3), el('span', 'k', 'Колд-колл: позиция против позиции'), el('span', 's', 'строки — ваша позиция, колонки — позиция открывающего; в ячейке — доля коллов'), w,
-    infoNote('Пустые ячейки (--) — ситуация невозможна: открывающий ходит раньше вас. Наведите на ячейку — матрица рук, которыми вы коллировали против этой позиции, и их итог; клик закрепит окно, клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше ' + cnt(SMALL, 'раздач', 'gen') + '.'));
+  card.append(numTag(4), el('span', 'k', 'Колд-колл: позиция против позиции'), el('span', 's', 'строки — ваша позиция, колонки — позиция открывающего; в ячейке — доля коллов'), w,
+    infoNote('Пустые ячейки (--) — ситуация невозможна: открывающий ходит раньше вас. Наведите на ячейку — диапазон: как вы ответили каждой рукой на открытие с этой позиции (колл, 3-бет, олл-ин, фолд); клик закрепит окно с вкладками «Диапазон / Факт / EV» — итог колд-коллов по рукам, клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше ' + cnt(SMALL, 'раздач', 'gen') + '.'));
   return card;
 }
 
@@ -462,34 +462,34 @@ function renderCC(idx) {
   const ccStk = uiState.ccStk === 'custom' && uiState.ccCustom ? uiState.ccCustom : (MX_STK.find(z => z[0] === uiState.ccStk) || MX_STK[0])[2];
   const ccOpt = { mxPos: uiState.ccPos, mxStk: ccStk, oPos: uiState.ccOPos, oStk: uiState.ccOStkR, oMy: uiState.ccOMyR, oOpen: uiState.ccOOpen };
   const r = Stats.cc(DB, idxS, ccOpt);
-  const r5 = sr ? Stats.cc(DB, idx, ccOpt) : r; // #5 — без стека раздела
+  const r5 = sr ? Stats.cc(DB, idx, ccOpt) : r; // #8 — без стека раздела
   const page = el('div', 'page');
   const head = el('div', 'page-head');
   const h1 = el('h1'); h1.append(document.createTextNode('Колд-колл '), el('span', null, 'CC'));
   head.append(h1, el('p', null, 'Как часто вы вступаете в игру коллом, когда до вас был один рейзер.'));
   page.append(head);
-  // #1 — общий колд-колл, по позициям и ваш ответ на открытие; #2 — таблица по позициям (в стиле вкладки RFI)
+  // #1 — общий колд-колл, по позициям и ваш ответ на открытие; #3 — таблица по позициям (в стиле вкладки RFI)
   const posRows = ['UTG', 'MP', 'CO', 'BTN', 'SB'].filter(p => r.cc[p].n >= SMALL).map(p => { const z = r.cc[p]; return [p, z.n ? z.x / z.n : null, p + ': ' + z.x + ' из ' + z.n]; });
   const c1 = card(1, 'Колд-коллите', '<em>' + pctTxt(r.cc.TOT) + '</em>', 'из ' + cnt(r.cc.TOT.n, 'открытий', 'gen') + ' перед вами, без BB',
     fillBox(posStrip('По позициям', posRows), respTiles(r.resp, 'Ваш ответ на открытие', [['фолд', 'var(--good)'], ['колл', 'var(--ice)'], ['3-бет', 'var(--bad)']])));
   const c2 = el('div', 'insight');
-  c2.append(numTag(2), el('span', 'k', 'Колд-колл по позициям'), ccTable(r));
+  c2.append(numTag(3), el('span', 'k', 'Колд-колл по позициям'), ccTable(r));
   const note = infoNote('TOT — все позиции без BB (колл из BB — защита большого блайнда, показан отдельной колонкой). В SB колл открытия считается колд-коллом. Наведите на ячейку — покажется матрица рук, которыми вы коллировали, и их итог; клик закрепит окно, клик по руке откроет раздачи и реплеер. Бледные ячейки — меньше ' + cnt(SMALL, 'раздач', 'gen') + '.');
   c2.append(note);
-  // #8 — винрейт колд-колла по позициям, как в RFI: наведение — руки, клик — закрепить, раздачи и реплеер
+  // #2 — винрейт колд-колла по позициям, как в RFI: наведение — руки, клик — закрепить, раздачи и реплеер
   const ccPos = r.CC_COLS.slice(1).filter(k => r.cc[k].n >= SMALL);
-  // #8: переключатели вашего стека и свой диапазон (как «Результат 3-бета»)
+  // #2: переключатели вашего стека и свой диапазон (как «Результат 3-бета»)
   const HH = (p) => r.hands[p]; // стек отобран в шапке раздела (idx)
-  const items = ccPos.map(p => { const h = HH(p); return { p, key: 'cc' + p, o: { n: h.n, sum: h.sum, es: h.es }, mx: h.mx, ids: h.ids, sit: 2, act: 1, title: 'Ваш колд-колл с ' + p, vlab: ' BB за колд-колл', nlab: ' колд-коллов' }; });
+  const items = ccPos.map(p => { const h = HH(p); return { p, key: 'cc' + p, o: { n: h.n, sum: h.sum, es: h.es }, mx: h.mx, ids: h.ids, sit: 2, act: 1, title: 'Ваш колд-колл с ' + p, vlab: ' BB за колд-колл', nlab: ' колд-коллов', sz: r.rx[p] ? ccSz(r.rx[p], h) : null, szTitle: 'Ответ на открытие с ' + p }; });
   const t = HH('TOT'), avg = t.n ? t.sum / 10 / t.n : null, avgE = t.n ? t.es / 10 / t.n : null;
   LAST_NET_ITEMS = items;
   const tb = r.hands.BB, nAll = t.n + tb.n, allF = nAll ? (t.sum + tb.sum) / 10 / nAll : null, allE = nAll ? (t.es + tb.es) / 10 / nAll : null;
   const box8 = el('div'); box8.append(secLabel('cc', t.n, 'колд-коллов без BB'), netChart(items, avg, 'EV колд-колла'));
-  const c8 = (card(8, 'Результат колд-колла', wrHtml(avg, avgE, 2) + ' <small>BB за колд-колл</small>', null, box8));
+  const c8 = (card(2, 'Результат колд-колла', wrHtml(avg, avgE, 2) + ' <small>BB за колд-колл</small>', null, box8));
   c8.classList.add('wide');
   const zone = el('div', 'summary'); const pair = el('div', 'sum-pair'); pair.append(c1, c8); zone.append(pair);
   c2.classList.add('cc-table');
-  zone.append(c2, ccGroupBlock(r), ccVsTable(r), ccOppBlock(r5), ccSizeBlock(r), bbDefendBlock(r), ccAllinBlock(r)); // #5 — без стека раздела; #9 «Колд-колл × Фолд на контбет» убран по просьбе (функция ccQuadBlock оставлена)
+  zone.append(c2, ccVsTable(r), ccSizeBlock(r), bbDefendBlock(r), ccAllinBlock(r), ccOppBlock(r5), ccGroupBlock(r)); // порядок 03.11.2026: позиции → сайзинг → защита BB → олл-ин → стек открывающего → группы рук // #8 — без стека раздела; #7 «Колд-колл × Фолд на контбет» убран по просьбе (функция ccQuadBlock оставлена)
   page.append(zone);
   return page;
 }

@@ -159,10 +159,15 @@ function wrNode(cls, f, e, d) {
   return s;
 }
 // ячейки 4+ / 5+: факт сверху, EV мелко под ним — всегда внутри ячейки
+// Что показывать в ячейках таблиц одним числом: EV (с поправкой на эквити в олл-инах) или факт. Общий выбор для всего проекта
+// (переключатель valSeg в карточках); оба числа — в подсказке при наведении.
+let VAL_MODE = 'ev';
+const valPick = (f, e) => (VAL_MODE === 'ev' && e != null ? e : f);
+function valSeg() { const s = segBtns([['ev', 'EV, BB'], ['net', 'Факт, BB']], VAL_MODE, (k) => { VAL_MODE = k; renderNext(); }); s.classList.add('val-seg'); s.title = 'Что показывать в ячейках: EV (с поправкой на эквити в олл-инах) или фактический результат. Оба числа — в подсказке при наведении.'; return s; }
 function pmxWr(f, e) {
-  const s = el('span', 'pmx-w');
-  s.append(el('span', 'pmx-wf ' + (f == null ? '' : f >= 0 ? 'up' : 'down'), f == null ? '—' : signed(f, 2)));
-  if (f != null && e != null) s.append(el('span', 'pmx-we ' + (e >= 0 ? 'up' : 'down'), 'EV ' + signed(e, 2)));
+  const s = el('span', 'pmx-w'), v = valPick(f, e);
+  s.append(el('span', 'pmx-wf ' + (v == null ? '' : v >= 0 ? 'up' : 'down'), v == null ? '—' : signed(v, 2) + (VAL_MODE === 'ev' && e != null ? ' EV' : '')));
+  if (f != null) s.title = signed(f, 2) + ' BB факт' + (e != null ? ', ' + signed(e, 2) + ' BB EV' : '');
   return s;
 }
 const wrHtml = (f, e, d) => f == null ? '<span class="muted">—</span>' : '<span class="' + (f >= 0 ? 'up' : 'down') + '">' + signed(f, d) + '</span>' + (f == null || e == null ? '' : '<span class="evs-big ' + (e >= 0 ? 'up' : 'down') + '"> / ' + signed(e, d) + ' <i>EV</i></span>');
@@ -232,11 +237,16 @@ function netChart(items, avg, evLab) {
     g.append(svgEl('rect', { x: P.l + i * bw, y: 0, width: bw, height: H - 2, rx: 6 }, 'fill:transparent'));
     g.setAttribute('tabindex', '0'); g.setAttribute('class', 'net-bar');
     g.setAttribute('aria-label', it.p + ': ' + signed(v, 2) + ' BB' + (e == null ? '' : ', EV ' + signed(e, 2) + ' BB') + ', ' + cnt(it.o.n, 'раз'));
+    if (it.sz) { // окно первого типа («Диапазон»): наведение — матрица ответов рукой, клик — закрепить с вкладками «Диапазон / Факт / EV»
+      g.addEventListener('mouseenter', (e) => showSzMx(it.szTitle || it.p, it.sz, g, e)); g.addEventListener('mousemove', (e) => { if (!SZMX_PIN && szMx && !szMx.hidden) placeSzMx(g, e); }); g.addEventListener('mouseleave', hideSzMx);
+      g.addEventListener('click', (e) => pinSzMx(it.szTitle || it.p, it.sz, g, e)); g.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pinSzMx(it.szTitle || it.p, it.sz, g); } });
+    } else {
     const show = (ev) => showHandPop(it, v, ev, g);
     g.addEventListener('mouseenter', show); g.addEventListener('mousemove', show); g.addEventListener('focus', show);
     g.addEventListener('mouseleave', hideHandPop); g.addEventListener('blur', hideHandPop);
     g.addEventListener('click', (ev) => pinHandPop(it, v, ev, g));
     g.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); pinHandPop(it, v, null, g); } });
+    }
     s.append(g);
   });
   if (hasR) s.append(svgText(P.l - 6, H - P.b + 44, '%', 'end', 'font-size:10px;fill:var(--faint)'));
@@ -290,7 +300,25 @@ function periodChart(wins, maxDay, avg) {
 // всплывающие окна при наведении не открываются, пока мышь не сдвинется хотя бы на 24 px от места клика
 let HMUTE = null;
 document.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('button') && !e.target.closest('.hand-pop, .szmx')) { HMUTE = { x: e.clientX, y: e.clientY }; [typeof hideHandPop === 'function' && hideHandPop, typeof hideSzMx === 'function' && hideSzMx, typeof hideGroupTip === 'function' && hideGroupTip, typeof hideMxTip === 'function' && hideMxTip].forEach(f => { if (f) try { f(); } catch (x) { /* окна ещё нет */ } }); } }, true);
-function hoverMuted(e) { if (!HMUTE || !e || e.clientX == null) return false; if (Math.hypot(e.clientX - HMUTE.x, e.clientY - HMUTE.y) < 24) return true; HMUTE = null; return false; }
+// Прокрутка: пока страница едет, всплывающие окна не открываются (мышь «проезжает» по ячейкам — было мерцание), открытые незакреплённые прячутся.
+// После остановки окна снова открываются только когда мышь реально сдвинулась (≥ 4 px) — синтетическое «движение» браузера после прокрутки не считается.
+// (События мыши у карточек не выключаем: клик сразу после прокрутки должен попадать в ячейку.)
+const SCR = { IDLE: 200, MOVE: 4 }; let SCR_ON = false, SCR_GATE = null, SCR_T = 0, SCR_X = -1, SCR_Y = -1;
+function scrHideAll() { [typeof hideHandPop === 'function' && hideHandPop, typeof hideSzMx === 'function' && hideSzMx, typeof hideMxTip === 'function' && hideMxTip, typeof hideGroupTip === 'function' && hideGroupTip, typeof hidePushTip === 'function' && hidePushTip].forEach(f => { if (f) try { f(); } catch (er) {} }); try { if (typeof qdTip !== 'undefined' && qdTip) qdTip.hidden = true; } catch (er) {} }
+document.addEventListener('scroll', (e) => {
+  const t = e.target; if (t && t.closest && t.closest('.hand-pop, .szmx, .il-bg, .rp-bg, .player-menu')) return; // прокрутка внутри окна или списка — окна не трогаем
+  if (!SCR_ON) { SCR_ON = true; scrHideAll(); }
+  clearTimeout(SCR_T); SCR_T = setTimeout(() => { SCR_ON = false; SCR_GATE = { x: SCR_X, y: SCR_Y }; }, SCR.IDLE);
+}, { capture: true, passive: true });
+document.addEventListener('pointermove', (e) => {
+  SCR_X = e.clientX; SCR_Y = e.clientY;
+  if (SCR_GATE && !SCR_ON && Math.hypot(e.clientX - SCR_GATE.x, e.clientY - SCR_GATE.y) >= SCR.MOVE) {
+    SCR_GATE = null; // мышь сдвинулась — открываем окно элемента под ней, как при обычном наведении
+    const content = document.getElementById('content'); let n = document.elementFromPoint(e.clientX, e.clientY);
+    while (n && n !== content && n !== document.body) { n.dispatchEvent(new MouseEvent('mouseenter', { clientX: e.clientX, clientY: e.clientY })); n = n.parentElement; }
+  }
+}, { passive: true, capture: true });
+function hoverMuted(e) { if (SCR_ON || SCR_GATE) return true; if (!HMUTE || !e || e.clientX == null) return false; if (Math.hypot(e.clientX - HMUTE.x, e.clientY - HMUTE.y) < 24) return true; HMUTE = null; return false; }
 window.hoverMuted = hoverMuted;
 let mxTip = null;
 function showMxTip(info, e) {
